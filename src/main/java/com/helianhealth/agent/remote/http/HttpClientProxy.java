@@ -118,8 +118,15 @@ public class HttpClientProxy extends AbstractClientProxy {
                         sourceValue != null) {
             processArrayNodeTypeWhenSourceTypeIsArray(config, allNodes, sourceValue, rootBusinessData, node);
         } else {
-            // 其他情况创建空数组
-            node.setChildren(new ArrayList<>());
+            // 其他情况下可能是基础数据类型/字符串直接映射成数组,单个元素
+            Map<String, Object> itemMap = new HashMap<>();
+            itemMap.put(config.getTargetParamKey(), sourceValue);
+            List<ParamTreeNode> nestedArrayChildren = buildParamTree(allNodes,
+                    config.getConfigId(),
+                    JsonUtils.toMap(itemMap),
+                    rootBusinessData);
+
+            node.setChildren(nestedArrayChildren);
         }
     }
 
