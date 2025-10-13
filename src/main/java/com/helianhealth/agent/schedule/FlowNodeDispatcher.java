@@ -57,7 +57,8 @@ public class FlowNodeDispatcher {
         String message = (String) flowNodeResponse.get("message");
         Object rsp = flowNodeResponse.get("rsp");
 
-        if ("200".equals(code)) {
+        // 200或者空(没有数据而已)都表示调用成功
+        if ("200".equals(code) || code == null) {
             return ResponseRenderUtils.render(rsp);
         } else {
             return ResponseRenderUtils.error(message);

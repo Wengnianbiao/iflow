@@ -60,7 +60,6 @@ public class WorkFlowEngineScheduler {
             return new HashMap<>();
         }
         //  todo 单节点可能需要拆分为多节点调用,e.g.入参为列表但是接口只支持对象
-
         // 2、执行节点
         Map<String, Object> nodeResponse = flowNodeService.executeFlowNode(flowNode, businessDataAfterPost);
 
