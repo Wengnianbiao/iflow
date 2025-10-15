@@ -25,9 +25,6 @@ public class FlowNodeLogAspect {
     @Autowired
     private InterfaceInvokeLogService interfaceInvokeLogService;
 
-    @Autowired
-    private ObjectMapper objectMapper;
-
     private static final ThreadLocal<LogContext> logContext = new ThreadLocal<>();
     /**
      * 环绕整个executeFlowNode流程，在最后阶段统一保存日志

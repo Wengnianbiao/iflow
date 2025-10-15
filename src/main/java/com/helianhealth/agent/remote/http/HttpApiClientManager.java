@@ -7,16 +7,24 @@ import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
+import org.apache.hc.client5.http.socket.ConnectionSocketFactory;
+import org.apache.hc.client5.http.socket.PlainConnectionSocketFactory;
+import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory;
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.ParseException;
+import org.apache.hc.core5.http.config.Registry;
+import org.apache.hc.core5.http.config.RegistryBuilder;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.io.entity.StringEntity;
+import org.apache.hc.core5.ssl.SSLContexts;
+import org.apache.hc.core5.util.TimeValue;
 import org.apache.hc.core5.util.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.TimeUnit;
 
 public class HttpApiClientManager {
 
@@ -30,16 +38,31 @@ public class HttpApiClientManager {
     // 默认请求超时时间，单位毫秒
     private static final int DEFAULT_REQUEST_TIMEOUT = 20000;
     // 从连接池获取连接的超时时间，单位毫秒
-    private static final int DEFAULT_CONNECTION_REQUEST_TIMEOUT = 10000;
+    private static final int DEFAULT_CONNECTION_REQUEST_TIMEOUT = 1000;
+
+    private static final int CLIENT_CONN_MAX_IDLE_MILLISECONDS = 30000;
+
+    // 默认验证空闲连接时间1秒
+    private static final int DEFAULT_VALIDATE_AFTER_INACTIVITY_MILLISECONDS = 1000;
 
     // 私有构造函数，防止外部实例化
     HttpApiClientManager() {
+        Registry<ConnectionSocketFactory> socketFactoryRegistry = RegistryBuilder.<ConnectionSocketFactory>create()
+                .register("http", PlainConnectionSocketFactory.getSocketFactory())
+                .register("https", new SSLConnectionSocketFactory(SSLContexts.createSystemDefault()))
+                .build();
         // 创建连接池管理器
-        connectionManager = new PoolingHttpClientConnectionManager();
+        connectionManager = new PoolingHttpClientConnectionManager(
+                socketFactoryRegistry,
+                null, //  poolConcurrencyPolicy 可传null使用默认
+                null, //  poolReusePolicy 可传null使用默认
+                TimeValue.of(CLIENT_CONN_MAX_IDLE_MILLISECONDS, TimeUnit.MILLISECONDS) // 连接最大存活时间
+        );
 
         // 设置连接池参数
         connectionManager.setMaxTotal(200); // 最大连接数
         connectionManager.setDefaultMaxPerRoute(20); // 每个路由默认最大连接数
+        connectionManager.setValidateAfterInactivity(Timeout.ofMilliseconds(DEFAULT_VALIDATE_AFTER_INACTIVITY_MILLISECONDS));
 
         // 创建请求配置
         RequestConfig requestConfig = RequestConfig.custom()
