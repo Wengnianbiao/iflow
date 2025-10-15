@@ -5,6 +5,7 @@ import com.helianhealth.agent.exception.WorkflowBusinessException;
 import com.helianhealth.agent.model.domain.InterfaceWorkflowNodeDO;
 import com.helianhealth.agent.service.InterfaceWorkflowNodeService;
 import com.helianhealth.agent.utils.ExpressionMapperUtils;
+import com.helianhealth.agent.utils.UrlWrapper;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -59,6 +60,10 @@ public class WorkFlowEngineScheduler {
             // 经过过滤后如果为null就不进行处理
             return new HashMap<>();
         }
+        //构造url路由，后续需要添加remote节点
+        flowNode.initUrl()
+                .node(flowNode.getNodeType().name().toLowerCase())
+                .proxy(flowNode.getNodeType().name().toLowerCase());
         //  todo 单节点可能需要拆分为多节点调用,e.g.入参为列表但是接口只支持对象
         // 2、执行节点
         Map<String, Object> nodeResponse = flowNodeService.executeFlowNode(flowNode, businessDataAfterPost);

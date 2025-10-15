@@ -11,32 +11,40 @@ import com.helianhealth.agent.mapper.agent.InterfaceFlowNodeMapper;
 import com.helianhealth.agent.model.domain.InterfaceWorkflowNodeDO;
 import com.helianhealth.agent.model.domain.NodeParamConfigDO;
 import com.helianhealth.agent.remote.InterfaceClientProxy;
+import com.helianhealth.agent.remote.InterfaceRemoteInvoker;
 import com.helianhealth.agent.service.InterfaceWorkflowNodeService;
 import com.helianhealth.agent.service.NodeParamConfigService;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.dubbo.common.URL;
+import org.apache.dubbo.common.extension.ExtensionFactory;
+import org.apache.dubbo.common.extension.ExtensionLoader;
+import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.annotation.PostConstruct;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Component
 @Slf4j
 public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeService {
 
     private final InterfaceFlowNodeMapper flowNodeMapper;
-    private final InterfaceClientProxy interfaceClientProxy;
+    private final InterfaceRemoteInvoker interfaceRemoteInvoker = ExtensionLoader.getExtensionLoader(InterfaceRemoteInvoker.class).getAdaptiveExtension();
     private final NodeParamConfigService nodeParamConfigService;
 
     @Autowired
     public InterfaceWorkflowNodeServiceImpl(
             InterfaceFlowNodeMapper flowNodeMapper,
-            @Qualifier("interfaceClientProxyDelegate") InterfaceClientProxy interfaceClientProxy,
             NodeParamConfigService nodeParamConfigService) {
         this.flowNodeMapper = flowNodeMapper;
-        this.interfaceClientProxy = interfaceClientProxy;
         this.nodeParamConfigService = nodeParamConfigService;
     }
 
@@ -75,7 +83,7 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
     @Override
     public Map<String, Object> executeFlowNode(InterfaceWorkflowNodeDO flowNode, Map<String, Object> businessData) {
         // 节点处理就是一个远程调用
-        return interfaceClientProxy.remoteInvoke(flowNode, businessData);
+        return interfaceRemoteInvoker.remoteInvoke(flowNode, businessData);
     }
 
     @Override
@@ -199,4 +207,7 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
 
         return dto;
     }
+
+
+
 }

@@ -13,11 +13,10 @@ import org.springframework.util.StringUtils;
 import java.util.List;
 import java.util.Map;
 
-@Component
 @Slf4j
 public class ProxyConvertHelper {
 
-    public Map<String, Object> convertResponse(InterfaceWorkflowNodeDO flowNode, List<ParamTreeNode> paramTree) {
+    public static Map<String, Object> convertResponse(InterfaceWorkflowNodeDO flowNode, List<ParamTreeNode> paramTree) {
         // 获取节点的元信息
         String metaInfo = flowNode.getMetaInfo();
         if (StringUtils.isEmpty(metaInfo)) {
@@ -45,12 +44,12 @@ public class ProxyConvertHelper {
         }
     }
 
-    private Map<String, Object> convertToJsonFormatMap(List<ParamTreeNode> paramTree) {
+    private static Map<String, Object> convertToJsonFormatMap(List<ParamTreeNode> paramTree) {
         return ParamNodeUtils.convertToJsonFormatMap(paramTree);
     }
 
     @SuppressWarnings("unchecked")
-    public Object convertSourceValue(NodeParamConfigDO config, Map<String, Object> businessData, Map<String, Object> rootBusinessData) {
+    public static Object convertSourceValue(NodeParamConfigDO config, Map<String, Object> businessData, Map<String, Object> rootBusinessData) {
         MappingSource mappingSource = config.getMappingSource();
         Map<String, Object> tagertMap = mappingSource == MappingSource.INPUT ? rootBusinessData : businessData;
         String sourceParamKey = config.getSourceParamKey();

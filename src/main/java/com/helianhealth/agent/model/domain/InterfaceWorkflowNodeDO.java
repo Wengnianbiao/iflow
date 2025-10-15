@@ -2,10 +2,12 @@ package com.helianhealth.agent.model.domain;
 
 import com.helianhealth.agent.enums.NodeType;
 import com.helianhealth.agent.enums.ScheduleParamSourceType;
+import com.helianhealth.agent.utils.UrlWrapper;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.apache.dubbo.common.URL;
 
 import javax.persistence.Column;
 import javax.persistence.EnumType;
@@ -24,7 +26,7 @@ import javax.persistence.Table;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "interface_workflow_node")
-public class InterfaceWorkflowNodeDO {
+public class InterfaceWorkflowNodeDO extends UrlWrapper {
 
     @Id
     @Column(name = "node_id", nullable = false, updatable = false)

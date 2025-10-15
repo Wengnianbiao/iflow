@@ -9,6 +9,7 @@ import com.helianhealth.agent.utils.JsonUtils;
 import com.helianhealth.agent.utils.ResponseRenderUtils;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.dubbo.common.URL;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;

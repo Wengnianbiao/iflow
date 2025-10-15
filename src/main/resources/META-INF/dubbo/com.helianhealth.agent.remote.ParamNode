@@ -1,0 +1,3 @@
+default=com.helianhealth.agent.remote.DefaultApiParamNode
+webservice=com.helianhealth.agent.remote.webService.WebServiceParamNode
+http=com.helianhealth.agent.remote.http.HttpParamNode

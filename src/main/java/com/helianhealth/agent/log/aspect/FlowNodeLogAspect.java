@@ -32,7 +32,7 @@ public class FlowNodeLogAspect {
     /**
      * 环绕AbstractClientProxy的remoteInvoke方法，收集完整的调用信息
      */
-    @Around("execution(* com.helianhealth.agent.remote.AbstractClientProxy.remoteInvoke(..))")
+    @Around("execution(* com.helianhealth.agent.remote.NodeParamRemoteProcessor.remoteInvoke(..))")
     public Object aroundRemoteInvoke(ProceedingJoinPoint joinPoint) throws Throwable {
 
         // 获取方法参数
@@ -127,7 +127,7 @@ public class FlowNodeLogAspect {
     /**
      * 环绕doInvoke方法，记录响应结果和计算其执行耗时
      */
-    @Around("execution(public java.util.Map com.helianhealth.agent.remote.AbstractClientProxy+.doInvoke(..))")
+    @Around("execution(public java.util.Map com.helianhealth.agent.remote.NodeParamRemoteProcessor+.doInvoke(..))")
     public Object aroundDoInvoke(ProceedingJoinPoint joinPoint) throws Throwable {
         LogContext context = logContext.get();
         if (context == null) {
