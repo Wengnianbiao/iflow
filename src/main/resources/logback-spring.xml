@@ -6,7 +6,7 @@
     <!-- 日志保存路径前缀 -->
     <property name="fileNamePrefix" value="./${appName}"/>
     <!-- 日志输出格式 -->
-    <property name="patternLayout" value="%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %X{method} => %msg%n"/>
+    <property name="patternLayout" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %X{method} => %msg%n"/>
 
     <!-- console: 控制台输出配置 -->
     <appender name="Console" class="ch.qos.logback.core.ConsoleAppender">
