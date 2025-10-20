@@ -84,4 +84,11 @@ public class InterfaceWorkflowNodeDO {
     @Column(name = "schedule_param_source_type")
     @Enumerated(EnumType.STRING)
     private ScheduleParamSourceType scheduleParamSourceType;
+
+    /**
+     * 业务关键字字段名配置
+     * 用于指定从businessData中提取哪个字段作为关键字
+     */
+    @Column(name = "keyword_field")
+    private String keywordField;
 }

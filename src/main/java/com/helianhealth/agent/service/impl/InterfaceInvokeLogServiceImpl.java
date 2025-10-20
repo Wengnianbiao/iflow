@@ -23,6 +23,7 @@ public class InterfaceInvokeLogServiceImpl implements InterfaceInvokeLogService 
 
     @Override
     public void saveInvokeLog(Integer nodeId,
+                              String keyword,
                               String businessData,
                               String paramBeforeInvoke,
                               String remoteInvokeResponse,
@@ -31,6 +32,7 @@ public class InterfaceInvokeLogServiceImpl implements InterfaceInvokeLogService 
         try {
             InterfaceInvokeLogDO logDO = InterfaceInvokeLogDO.builder()
                     .nodeId(nodeId)
+                    .keyword(keyword)
                     .businessData(businessData)
                     .paramBeforeInvoke(paramBeforeInvoke)
                     .remoteInvokeResponse(remoteInvokeResponse)
@@ -46,11 +48,11 @@ public class InterfaceInvokeLogServiceImpl implements InterfaceInvokeLogService 
     }
 
     @Override
-    public PageList<InterfaceInvokeLogDO> findAllInvokeLogs(Integer nodeId, int pageNum, int pageSize) {
+    public PageList<InterfaceInvokeLogDO> findAllInvokeLogs(Integer nodeId, String keyword, int pageNum, int pageSize) {
         try {
             PageHelper.startPage(pageNum, pageSize);
             // 将查询结果转换为 PageInfo 对象
-            List<InterfaceInvokeLogDO> invokeLogs = interfaceInvokeLogMapper.selectAllInvokeLogs(nodeId);
+            List<InterfaceInvokeLogDO> invokeLogs = interfaceInvokeLogMapper.selectAllInvokeLogs(nodeId, keyword);
             PageInfo<InterfaceInvokeLogDO> pageInfo = new PageInfo<>(invokeLogs);
 
             // 构建 PageList 对象

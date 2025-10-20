@@ -9,5 +9,5 @@ import java.util.List;
 public interface InterfaceInvokeLogMapper extends Mapper<InterfaceInvokeLogDO> {
     void insertLog(InterfaceInvokeLogDO logDO);
 
-    List<InterfaceInvokeLogDO> selectAllInvokeLogs(@Param("nodeId") Integer nodeId);
+    List<InterfaceInvokeLogDO> selectAllInvokeLogs(@Param("nodeId") Integer nodeId, @Param("keyword") String keyword);
 }

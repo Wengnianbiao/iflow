@@ -12,6 +12,7 @@
         <result property="metaInfo" column="meta_info"/>
         <result property="scheduleExpr" column="schedule_expr"/>
         <result property="scheduleParamSourceType" column="schedule_param_source_type"/>
+        <result property="keywordField" column="keyword_field"/>
     </resultMap>
 
     <insert id="createNode" parameterType="com.helianhealth.agent.model.domain.InterfaceWorkflowNodeDO">
@@ -38,6 +39,9 @@
             <if test="scheduleParamSourceType != null">
                 schedule_param_source_type,
             </if>
+            <if test="keywordField != null">
+                keyword_field,
+            </if>
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="nodeName != null">
@@ -60,6 +64,9 @@
             </if>
             <if test="scheduleParamSourceType != null">
                 #{scheduleParamSourceType,jdbcType=VARCHAR},
+            </if>
+            <if test="keywordField != null">
+                #{keywordField,jdbcType=VARCHAR},
             </if>
         </trim>
     </insert>
@@ -89,7 +96,8 @@
             node_type = #{nodeType,jdbcType=VARCHAR},
             meta_info = #{metaInfo,jdbcType=VARCHAR},
             schedule_expr = #{scheduleExpr,jdbcType=VARCHAR},
-            schedule_param_source_type = #{scheduleParamSourceType,jdbcType=VARCHAR}
+            schedule_param_source_type = #{scheduleParamSourceType,jdbcType=VARCHAR},
+            keyword_field = #{keywordField,jdbcType=VARCHAR}
         WHERE node_id = #{nodeId}
     </update>
 </mapper>

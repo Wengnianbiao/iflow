@@ -37,6 +37,12 @@ public class InterfaceInvokeLogDO {
     private Integer nodeId;
 
     /**
+     * 业务关键字,通常为业务数据中的唯一标识, 如 patientCode
+     */
+    @Column(name = "keyword")
+    private String keyword;
+
+    /**
      * 业务数据
      */
     @Column(name = "business_data")

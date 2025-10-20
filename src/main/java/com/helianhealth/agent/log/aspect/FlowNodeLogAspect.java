@@ -43,6 +43,13 @@ public class FlowNodeLogAspect {
 
         LogContext context = new LogContext();
         context.setNodeId(flowNode.getNodeId());
+        // 提取关键字
+        if (businessData != null && flowNode.getKeywordField() != null) {
+            Object keywordObj = getNestedValue(businessData, flowNode.getKeywordField());
+            if (keywordObj != null) {
+                context.setKeyword(String.valueOf(keywordObj));
+            }
+        }
         context.setBusinessData(JsonUtils.toJsonString(businessData));
         logContext.set(context);
 
@@ -58,7 +65,6 @@ public class FlowNodeLogAspect {
             return result;
         } catch (Exception e) {
             log.error("工作流节点执行异常", e);
-            context.setErrorMsg(e.getMessage());
             throw e;
         } finally {
             try {
@@ -71,6 +77,36 @@ public class FlowNodeLogAspect {
                 logContext.remove();
             }
         }
+    }
+
+    /**
+     * 从嵌套的Map结构中递归获取值
+     * 支持通过点号(.)分隔的嵌套路径，例如: "patient.info.code"
+     *
+     * @param data 数据Map
+     * @param path 嵌套路径
+     * @return 提取到的值，如果未找到则返回null
+     */
+    private Object getNestedValue(Map<String, Object> data, String path) {
+        if (data == null || path == null || path.isEmpty()) {
+            return null;
+        }
+
+        String[] keys = path.split("\\.");
+        Object current = data;
+
+        for (String key : keys) {
+            if (current instanceof Map) {
+                current = ((Map<String, Object>) current).get(key);
+                if (current == null) {
+                    return null;
+                }
+            } else {
+                return null;
+            }
+        }
+
+        return current;
     }
 
     /**
@@ -122,6 +158,7 @@ public class FlowNodeLogAspect {
         try {
             interfaceInvokeLogService.saveInvokeLog(
                     context.getNodeId(),
+                    context.getKeyword(),
                     context.getBusinessData(),
                     context.getParamBeforeInvoke(),
                     context.getRemoteInvokeResponse(),
@@ -140,11 +177,11 @@ public class FlowNodeLogAspect {
     private static class LogContext {
         private Integer nodeId;
         private String businessData = "{}";
+        private String keyword;
         private String paramBeforeInvoke = "{}";
         private String remoteInvokeResponse = "{}";
         private String paramAfterInvoke = "{}";
-        private String invokeTime = "0";
-        private String errorMsg;
+        private String invokeTime;
     }
 }
 

@@ -78,6 +78,8 @@ CREATE TABLE interface_invoke_log
     log_id BIGSERIAL PRIMARY KEY,
     -- 节点id
     node_id INTEGER NOT NULL,
+    -- 关键字匹配,默认都用的patientCode
+    keyword_field VARCHAR(30) NULL,
     -- 业务数据
     business_data TEXT,
     -- 请求参数
