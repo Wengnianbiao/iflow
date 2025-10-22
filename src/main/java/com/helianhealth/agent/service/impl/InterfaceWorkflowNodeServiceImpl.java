@@ -86,6 +86,7 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
                 .paramFilterExpr(nodeCreateReq.getParamFilterExpr())
                 .nodeType(NodeType.valueOf(nodeCreateReq.getNodeType()))
                 .metaInfo(nodeCreateReq.getMetaInfo())
+                .keywordField(nodeCreateReq.getKeywordField())
                 .scheduleExpr(nodeCreateReq.getScheduleExpr())
                 .scheduleParamSourceType(scheduleParamSourceType == null || scheduleParamSourceType.isEmpty() ?
                         null : ScheduleParamSourceType.valueOf(scheduleParamSourceType)).build();

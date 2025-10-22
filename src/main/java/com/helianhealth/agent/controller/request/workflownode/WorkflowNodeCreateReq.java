@@ -44,4 +44,9 @@ public class WorkflowNodeCreateReq {
      * 调度参数来源类型
      */
     private String scheduleParamSourceType;
+
+    /**
+     * 关键字
+     */
+    private String keywordField;
 }
