@@ -35,7 +35,9 @@ CREATE TABLE interface_workflow_node
     -- 调度表达式
     schedule_expr VARCHAR(255) NULL,
     -- 调度参数来源
-    schedule_param_source_type VARCHAR(25) NULL
+    schedule_param_source_type VARCHAR(25) NULL,
+    -- 关键字匹配,默认都用的patientCode
+    keyword_field VARCHAR(50) NULL,
 );
 
 -- 工作流节点参数配置表
@@ -87,7 +89,7 @@ CREATE TABLE interface_invoke_log (
     -- 节点id
     node_id int NOT NULL,
     -- 关键字匹配,默认都用的patientCode
-    keyword_field VARCHAR(30) NULL,
+    keyword VARCHAR(50) NULL,
     -- 业务数据
     business_data nvarchar(max),
     -- 请求参数
