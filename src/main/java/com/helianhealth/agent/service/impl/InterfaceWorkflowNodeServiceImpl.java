@@ -17,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
@@ -112,6 +113,15 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
             log.error("删除节点失败", e);
             throw new RuntimeException("删除节点失败: " + e.getMessage());
         }
+    }
+
+    @Override
+    @Transactional("agentTransactionManager")
+    public void deleteAllConfigByNodeId(Integer nodeId) {
+        InterfaceWorkflowNodeDO interfaceWorkflowNodeDO = flowNodeMapper.selectByNodeId(nodeId);
+        List<NodeParamConfigDO> allNodeParamConfigsUnpaged = nodeParamConfigService.findAllNodeParamConfigsUnpaged(nodeId, null);
+        allNodeParamConfigsUnpaged.forEach(nodeParamConfigDO -> nodeParamConfigService.deleteById(nodeParamConfigDO.getConfigId()));
+        log.info("删除节点参数配置成功，节点名称：{}，共删除{}条配置项.", interfaceWorkflowNodeDO.getNodeName(), allNodeParamConfigsUnpaged.size());
     }
 
     @Override

@@ -7,7 +7,7 @@ spring:
     agent:
       type: com.alibaba.druid.pool.DruidDataSource
       driver-class-name: org.opengauss.Driver
-      url: jdbc:opengauss://10.20.4.98:5433/mydb?currentSchema=interface_agent
+      url: jdbc:opengauss://10.20.4.98:5433/mydb?currentSchema=interface_agent2
       username: myuser
       password: Helian!123
       initial-size: 10

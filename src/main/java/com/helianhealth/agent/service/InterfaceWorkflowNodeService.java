@@ -30,6 +30,8 @@ public interface InterfaceWorkflowNodeService {
 
     void deleteByNodeId(Integer nodeId);
 
+    void deleteAllConfigByNodeId(Integer nodeId);
+
     NodeParamConfigExportResponse exportNodeParamConfig(Integer nodeId);
 
 }

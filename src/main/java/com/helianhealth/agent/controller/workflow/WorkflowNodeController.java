@@ -122,6 +122,17 @@ public class WorkflowNodeController {
         }
     }
 
+    @DeleteMapping("/{nodeId}/delete-all-config")
+    public ResultData<String> deleteAllConfig(@PathVariable Integer nodeId) {
+        try {
+            interfaceFlowNodeService.deleteAllConfigByNodeId(nodeId);
+            return ResponseRenderUtils.render("工作流节点配置删除成功");
+        } catch (Exception e) {
+            log.error("删除工作流节点配置失败", e);
+            return ResponseRenderUtils.error("删除工作流节点配置失败: " + e.getMessage());
+        }
+    }
+
     @GetMapping("/export/{nodeId}")
     public ResultData<NodeParamConfigExportResponse> exportNodeParamConfig(@PathVariable Integer nodeId) {
         try {
