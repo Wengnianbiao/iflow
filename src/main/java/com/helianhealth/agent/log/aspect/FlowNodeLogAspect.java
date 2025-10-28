@@ -3,6 +3,7 @@ package com.helianhealth.agent.log.aspect;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.helianhealth.agent.model.domain.InterfaceWorkflowNodeDO;
+import com.helianhealth.agent.model.dto.LogContext;
 import com.helianhealth.agent.service.InterfaceInvokeLogService;
 import com.helianhealth.agent.utils.JsonUtils;
 import lombok.Data;
@@ -22,92 +23,14 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class FlowNodeLogAspect {
 
-    @Autowired
-    private InterfaceInvokeLogService interfaceInvokeLogService;
-
     private static final ThreadLocal<LogContext> logContext = new ThreadLocal<>();
+
     /**
      * 环绕整个executeFlowNode流程，在最后阶段统一保存日志
      */
     /**
      * 环绕AbstractClientProxy的remoteInvoke方法，收集完整的调用信息
      */
-    @Around("execution(* com.helianhealth.agent.remote.NodeParamRemoteProcessor.remoteInvoke(..))")
-    public Object aroundRemoteInvoke(ProceedingJoinPoint joinPoint) throws Throwable {
-
-        // 获取方法参数
-        long startTime = System.currentTimeMillis();
-        Object[] args = joinPoint.getArgs();
-        InterfaceWorkflowNodeDO flowNode = (InterfaceWorkflowNodeDO) args[0];
-        Map<String, Object> businessData = (Map<String, Object>) args[1];
-
-        LogContext context = new LogContext();
-        context.setNodeId(flowNode.getNodeId());
-        // 提取关键字
-        if (businessData != null && flowNode.getKeywordField() != null) {
-            Object keywordObj = getNestedValue(businessData, flowNode.getKeywordField());
-            if (keywordObj != null) {
-                context.setKeyword(String.valueOf(keywordObj));
-            }
-        }
-        context.setBusinessData(JsonUtils.toJsonString(businessData));
-        logContext.set(context);
-
-        try {
-            log.info("开始执行工作流节点: [{}]", flowNode.getNodeName());
-
-            // 执行原方法
-            Object result = joinPoint.proceed();
-
-            // 记录调用结果
-            context.setParamAfterInvoke(JsonUtils.toJsonString(result));
-
-            return result;
-        } catch (Exception e) {
-            log.error("工作流节点执行异常", e);
-            throw e;
-        } finally {
-            try {
-                saveAllCollectedLogs(context);
-                log.info("工作流节点: [{}] 执行结束, 耗时: [{}]ms", flowNode.getNodeName(), System.currentTimeMillis() - startTime);
-            } catch (Exception e) {
-                log.error("日志保存失败", e);
-            } finally {
-                // 清除ThreadLocal数据，防止内存泄漏
-                logContext.remove();
-            }
-        }
-    }
-
-    /**
-     * 从嵌套的Map结构中递归获取值
-     * 支持通过点号(.)分隔的嵌套路径，例如: "patient.info.code"
-     *
-     * @param data 数据Map
-     * @param path 嵌套路径
-     * @return 提取到的值，如果未找到则返回null
-     */
-    private Object getNestedValue(Map<String, Object> data, String path) {
-        if (data == null || path == null || path.isEmpty()) {
-            return null;
-        }
-
-        String[] keys = path.split("\\.");
-        Object current = data;
-
-        for (String key : keys) {
-            if (current instanceof Map) {
-                current = ((Map<String, Object>) current).get(key);
-                if (current == null) {
-                    return null;
-                }
-            } else {
-                return null;
-            }
-        }
-
-        return current;
-    }
 
     /**
      * 收集参数预处理结果
@@ -124,64 +47,5 @@ public class FlowNodeLogAspect {
         }
     }
 
-    /**
-     * 环绕doInvoke方法，记录响应结果和计算其执行耗时
-     */
-    @Around("execution(public java.util.Map com.helianhealth.agent.remote.NodeParamRemoteProcessor+.doInvoke(..))")
-    public Object aroundDoInvoke(ProceedingJoinPoint joinPoint) throws Throwable {
-        LogContext context = logContext.get();
-        if (context == null) {
-            // 如果上下文不存在，直接执行方法
-            return joinPoint.proceed();
-        }
-
-        // 记录doInvoke方法开始时间
-        long doInvokeStartTime = System.currentTimeMillis();
-        try {
-            // 执行doInvoke方法
-            Object result = joinPoint.proceed();
-            // 记录响应结果
-            context.setRemoteInvokeResponse(JsonUtils.toJsonString(result));
-            return result;
-        } finally {
-            // 计算doInvoke方法执行耗时
-            long doInvokeTime = System.currentTimeMillis() - doInvokeStartTime;
-            context.setInvokeTime(Long.toString(doInvokeTime));
-        }
-    }
-
-
-    /**
-     * 统一保存所有收集到的日志数据
-     */
-    private void saveAllCollectedLogs(LogContext context) {
-        try {
-            interfaceInvokeLogService.saveInvokeLog(
-                    context.getNodeId(),
-                    context.getKeyword(),
-                    context.getBusinessData(),
-                    context.getParamBeforeInvoke(),
-                    context.getRemoteInvokeResponse(),
-                    context.getParamAfterInvoke(),
-                    context.getInvokeTime()
-            );
-        } catch (Exception e) {
-            log.error("保存接口调用日志失败", e);
-        }
-    }
-
-    /**
-     * 日志上下文封装类
-     */
-    @Data
-    private static class LogContext {
-        private Integer nodeId;
-        private String businessData = "{}";
-        private String keyword;
-        private String paramBeforeInvoke = "{}";
-        private String remoteInvokeResponse = "{}";
-        private String paramAfterInvoke = "{}";
-        private String invokeTime;
-    }
 }
 
