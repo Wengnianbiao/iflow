@@ -1,4 +1,4 @@
+com.helianhealth.agent.remote.wrapper.InterfaceClientProxyLogWrapper
 default=com.helianhealth.agent.remote.DefaultApiClientProxy
 http=com.helianhealth.agent.remote.http.HttpClientProxy
 webservice=com.helianhealth.agent.remote.webService.WebServiceClientProxy
-logwrapper=com.helianhealth.agent.remote.wrapper.InterfaceClientProxyWrapper
