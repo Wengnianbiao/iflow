@@ -16,6 +16,6 @@ public interface InterfaceClientProxy {
 
 
     @Adaptive("proxy")
-    public  Map<String, Object> doInvoke(InterfaceWorkflowNodeDO flowNode,
-                                                 List<ParamTreeNode> params);
+    Map<String, Object> doInvoke(InterfaceWorkflowNodeDO flowNode,
+                                 List<ParamTreeNode> params);
 }

@@ -11,5 +11,5 @@ public interface InterfaceRemoteInvoker {
 
 
     @Adaptive("remote")
-    public Map<String, Object> remoteInvoke(InterfaceWorkflowNodeDO flowNode, Map<String, Object> businessData);
+    Map<String, Object> remoteInvoke(InterfaceWorkflowNodeDO flowNode, Map<String, Object> businessData);
 }

@@ -13,9 +13,9 @@ import java.util.Map;
 public interface ParamNode {
 
     @Adaptive("node")
-    public List<ParamTreeNode> buildParamTree(URL url,
-                                              List<NodeParamConfigDO> configs,
-                                              Integer parentId,
-                                              Map<String, Object> businessData,
-                                              Map<String, Object> sourceBusinessData);
+    List<ParamTreeNode> buildParamTree(URL url,
+                                       List<NodeParamConfigDO> configs,
+                                       Integer parentId,
+                                       Map<String, Object> businessData,
+                                       Map<String, Object> sourceBusinessData);
 }

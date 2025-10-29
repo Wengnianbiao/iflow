@@ -21,14 +21,14 @@ public class ValueResolversWrapper {
 
     public Object resolveValue(NodeParamConfigDO config, Map<String, Object> businessData, Map<String, Object> sourceBusinessData) {
         try {
-            valueResolvers.stream()
+            return valueResolvers.stream()
                     .filter(resolver -> resolver.supports(config.getMappingType()))
                     .findFirst()
                     .map(resolver -> resolver.resolveValue(config, businessData, sourceBusinessData))
                     .orElse(null);
         } catch (Exception e) {
             log.error("目标入参[{}] resolve value error:", config.getTargetParamKey(), e);
+            return null;
         }
-        return null;
     }
 }

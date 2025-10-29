@@ -1,5 +1,6 @@
 package com.helianhealth.agent.remote.wrapper;
 
+import com.helianhealth.agent.log.context.LogContextHolder;
 import com.helianhealth.agent.model.domain.InterfaceWorkflowNodeDO;
 import com.helianhealth.agent.model.dto.LogContext;
 import com.helianhealth.agent.model.dto.ParamTreeNode;
@@ -17,11 +18,10 @@ public class InterfaceClientProxyLogWrapper implements InterfaceClientProxy {
         this.interfaceClientProxy = interfaceClientProxy;
     }
 
-    private static final ThreadLocal<LogContext> logContext = new ThreadLocal<>();
-
     @Override
     public Map<String, Object> doInvoke(InterfaceWorkflowNodeDO flowNode, List<ParamTreeNode> params) {
-        LogContext context = logContext.get();
+        LogContext context = LogContextHolder.getContext();
+
         if (context == null) {
             // 如果上下文不存在，直接执行方法
             return interfaceClientProxy.doInvoke(flowNode, params);

@@ -1,6 +1,7 @@
 package com.helianhealth.agent.remote.wrapper;
 
 
+import com.helianhealth.agent.log.context.LogContextHolder;
 import com.helianhealth.agent.model.domain.InterfaceWorkflowNodeDO;
 import com.helianhealth.agent.model.dto.LogContext;
 import com.helianhealth.agent.remote.InterfaceRemoteInvoker;
@@ -20,12 +21,9 @@ public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker 
 
     private final InterfaceRemoteInvoker interfaceRemoteInvoker;
 
-    private static final ThreadLocal<LogContext> logContext = new ThreadLocal<>();
-
     public InterfaceRemoteInvokerLogWrapper(InterfaceRemoteInvoker interfaceRemoteInvoker){
         this.interfaceRemoteInvoker = interfaceRemoteInvoker;
     }
-
 
     @Override
     public Map<String, Object> remoteInvoke(InterfaceWorkflowNodeDO flowNode, Map<String, Object> businessData) {
@@ -33,6 +31,8 @@ public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker 
         long startTime = System.currentTimeMillis();
 
         LogContext context = new LogContext();
+        LogContextHolder.setContext(context);
+
         context.setNodeId(flowNode.getNodeId());
         // 提取关键字
         if (businessData != null && flowNode.getKeywordField() != null) {
@@ -42,7 +42,6 @@ public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker 
             }
         }
         context.setBusinessData(JsonUtils.toJsonString(businessData));
-        logContext.set(context);
 
         try {
             log.info("开始执行工作流节点: [{}]", flowNode.getNodeName());
@@ -65,7 +64,7 @@ public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker 
                 log.error("日志保存失败", e);
             } finally {
                 // 清除ThreadLocal数据，防止内存泄漏
-                logContext.remove();
+                LogContextHolder.clearContext();
             }
         }
     }
