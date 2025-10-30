@@ -10,7 +10,7 @@ import java.util.List;
 
 public interface NodeParamConfigService {
 
-    PageList<NodeParamConfigDO> findAllNodeParamConfigs(Integer nodeId, ProcessType processType, int pageNum, int pageSize);
+    PageList<NodeParamConfigDO> findAllNodeParamConfigs(Integer nodeId, ProcessType processType,String targetParam, int pageNum, int pageSize);
 
     List<NodeParamConfigDO> findAllNodeParamConfigsUnpaged(Integer nodeId, ProcessType processType);
 

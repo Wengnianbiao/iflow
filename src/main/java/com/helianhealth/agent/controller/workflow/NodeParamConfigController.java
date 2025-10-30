@@ -38,10 +38,11 @@ public class NodeParamConfigController {
     public ResultData<PageList<NodeParamConfigDO>> getAllNodeParamConfigs(
             @RequestParam(value = "nodeId", required = false) Integer nodeId,
             @RequestParam(value = "processType", required = false) ProcessType processType,
+            @RequestParam(value = "targetParam", required = false) String targetParam,
             @RequestParam(value = "pageNum", defaultValue = "1") int pageNum,
             @RequestParam(value = "pageSize", defaultValue = "10") int pageSize) {
         try {
-            PageList<NodeParamConfigDO> pageList = nodeParamConfigService.findAllNodeParamConfigs(nodeId, processType, pageNum, pageSize);
+            PageList<NodeParamConfigDO> pageList = nodeParamConfigService.findAllNodeParamConfigs(nodeId, processType, targetParam, pageNum, pageSize);
             return ResponseRenderUtils.render(pageList);
         } catch (Exception e) {
             log.error("获取节点参数配置列表失败", e);
@@ -127,7 +128,7 @@ public class NodeParamConfigController {
     @DeleteMapping("{configId}")
     public ResultData<String> deleteNodeParamConfig(@PathVariable Integer configId) {
         try {
-             nodeParamConfigService.deleteById(configId);
+            nodeParamConfigService.deleteById(configId);
             return ResponseRenderUtils.render("节点参数配置删除成功");
         } catch (Exception e) {
             log.error("删除节点参数配置失败", e);

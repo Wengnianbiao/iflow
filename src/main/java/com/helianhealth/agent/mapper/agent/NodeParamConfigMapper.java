@@ -14,7 +14,8 @@ public interface NodeParamConfigMapper extends Mapper<NodeParamConfigDO>{
     List<NodeParamConfigDO> selectPostProcessConfigByNodeId(Integer nodeId);
 
     List<NodeParamConfigDO> selectAllParamConfig(@Param("nodeId") Integer nodeId,
-                                                 @Param("processType") String processType);
+                                                 @Param("processType") String processType,
+                                                 @Param("targetParam") String targetParam);
 
     /**
      * 插入节点参数配置（不包含自增主键）

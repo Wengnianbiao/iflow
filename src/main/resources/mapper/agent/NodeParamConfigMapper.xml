@@ -126,6 +126,9 @@
             <if test="processType != null">
                 AND process_type = #{processType}
             </if>
+            <if test="targetParam != null and targetParam.trim() != '' ">
+                AND target_param_key = #{targetParam}
+            </if>
         </where>
     </select>
 

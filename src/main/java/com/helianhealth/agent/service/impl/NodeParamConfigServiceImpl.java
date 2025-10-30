@@ -27,14 +27,14 @@ public class NodeParamConfigServiceImpl implements NodeParamConfigService {
     private final NodeParamConfigMapper nodeParamConfigMapper;
 
     @Override
-    public PageList<NodeParamConfigDO> findAllNodeParamConfigs(Integer nodeId, ProcessType processType, int pageNum, int pageSize) {
+    public PageList<NodeParamConfigDO> findAllNodeParamConfigs(Integer nodeId, ProcessType processType, String targetParam, int pageNum, int pageSize) {
         try {
             // 开启分页
             PageHelper.startPage(pageNum, pageSize);
 
             // 查询数据
             String processTypeName = processType != null ? processType.name() : null;
-            List<NodeParamConfigDO> configs = nodeParamConfigMapper.selectAllParamConfig(nodeId, processTypeName);
+            List<NodeParamConfigDO> configs = nodeParamConfigMapper.selectAllParamConfig(nodeId, processTypeName,targetParam);
 
             // 将查询结果转换为 PageInfo 对象
             PageInfo<NodeParamConfigDO> pageInfo = new PageInfo<>(configs);
@@ -58,7 +58,7 @@ public class NodeParamConfigServiceImpl implements NodeParamConfigService {
         // 查询数据
         String processTypeName = processType != null ? processType.name() : null;
 
-        return nodeParamConfigMapper.selectAllParamConfig(nodeId, processTypeName);
+        return nodeParamConfigMapper.selectAllParamConfig(nodeId, processTypeName, null);
     }
 
     @Override
@@ -196,9 +196,10 @@ public class NodeParamConfigServiceImpl implements NodeParamConfigService {
 
     /**
      * 递归处理参数配置及其子参数
+     *
      * @param paramConfigDTO 导出的参数配置DTO
-     * @param nodeId 节点ID
-     * @param parentId 父参数配置ID
+     * @param nodeId         节点ID
+     * @param parentId       父参数配置ID
      * @return 处理的参数配置数量
      */
     private int processConfigRecursive(
@@ -225,9 +226,10 @@ public class NodeParamConfigServiceImpl implements NodeParamConfigService {
 
     /**
      * 将NodeParamConfigExportDTO转换为NodeParamConfigDO
+     *
      * @param paramConfigDTO NodeParamConfigExportDTO对象
-     * @param nodeId 节点ID
-     * @param parentId 父参数配置ID
+     * @param nodeId         节点ID
+     * @param parentId       父参数配置ID
      * @return NodeParamConfigDO对象
      */
     private NodeParamConfigDO convertToDO(
