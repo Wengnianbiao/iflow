@@ -1,4 +1,4 @@
-package com.helianhealth.agent.controller.request;
+package com.helianhealth.agent.controller.api.request;
 
 import com.alibaba.fastjson2.JSONObject;
 import com.fasterxml.jackson.annotation.JsonProperty;

@@ -21,7 +21,6 @@ import java.util.Map;
 public class WorkflowJob implements Job {
 
     private final InterfaceWorkflowService workflowService;
-    private final WorkFlowEngineScheduler workFlowEngineScheduler;
 
     @Override
     public void execute(JobExecutionContext context) {
@@ -35,6 +34,5 @@ public class WorkflowJob implements Job {
         log.info("workflowId: {}, params: {}", workflowId, params);
         InterfaceWorkflowDO workflow = workflowService.selectByFlowId(workflowId);
         log.info("WorkflowJob execute and start schedule workflow!!");
-        workFlowEngineScheduler.schedule(workflow.getFirstFlowNodes(), businessData);
     }
 }

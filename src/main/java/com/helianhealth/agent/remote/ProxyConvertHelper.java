@@ -1,13 +1,12 @@
 package com.helianhealth.agent.remote;
 
 import com.helianhealth.agent.enums.MappingSource;
-import com.helianhealth.agent.model.domain.InterfaceWorkflowNodeDO;
+import com.helianhealth.agent.model.domain.InterfaceWorkflowNode;
 import com.helianhealth.agent.model.domain.NodeParamConfigDO;
 import com.helianhealth.agent.model.dto.ParamTreeNode;
 import com.helianhealth.agent.utils.JsonUtils;
 import com.helianhealth.agent.utils.ParamNodeUtils;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
@@ -16,7 +15,7 @@ import java.util.Map;
 @Slf4j
 public class ProxyConvertHelper {
 
-    public static Map<String, Object> convertResponse(InterfaceWorkflowNodeDO flowNode, List<ParamTreeNode> paramTree) {
+    public static Map<String, Object> convertResponse(InterfaceWorkflowNode flowNode, List<ParamTreeNode> paramTree) {
         // 获取节点的元信息
         String metaInfo = flowNode.getMetaInfo();
         if (StringUtils.isEmpty(metaInfo)) {

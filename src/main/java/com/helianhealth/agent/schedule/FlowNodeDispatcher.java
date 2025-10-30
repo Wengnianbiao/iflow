@@ -1,17 +1,19 @@
 package com.helianhealth.agent.schedule;
 
 import com.helianhealth.agent.common.ResultData;
-import com.helianhealth.agent.controller.request.JarvisRequest;
+import com.helianhealth.agent.controller.api.request.JarvisRequest;
 import com.helianhealth.agent.exception.WorkflowBusinessException;
 import com.helianhealth.agent.model.domain.InterfaceWorkflowDO;
+import com.helianhealth.agent.model.domain.InterfaceWorkflowNode;
+import com.helianhealth.agent.schedule.build.WorkFlowNodeBuilder;
 import com.helianhealth.agent.service.InterfaceWorkflowService;
 import com.helianhealth.agent.utils.JsonUtils;
 import com.helianhealth.agent.utils.ResponseRenderUtils;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.dubbo.common.URL;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -26,6 +28,7 @@ public class FlowNodeDispatcher {
 
     private final InterfaceWorkflowService workflowService;
     private final WorkFlowEngineScheduler workFlowEngineScheduler;
+    private final WorkFlowNodeBuilder workFlowNodeBuilder;
     private final ContentParser contentParser;
 
     /**
@@ -38,8 +41,9 @@ public class FlowNodeDispatcher {
                 // 兼容jarvis的API调用入参,理论上jarvis应当统一入参格式
                 Map<String, Object> businessData = request.getBusinessMethod().equals("GetItemResult") ?
                         JsonUtils.toMap(request) : JsonUtils.toMap(request.getData());
-
-                Map<String, Object> scheduleRsp = workFlowEngineScheduler.schedule(workflowOptional.get().getFirstFlowNodes(),
+                List<InterfaceWorkflowNode> workflowNodes = workFlowNodeBuilder.build(workflowOptional.get()
+                        .getFirstFlowNodes());
+                Map<String, Object> scheduleRsp = workFlowEngineScheduler.schedule(workflowNodes,
                         businessData);
                 return processJarvisRsp(scheduleRsp);
             } else {
@@ -77,9 +81,10 @@ public class FlowNodeDispatcher {
                 InterfaceWorkflowDO workflow = workflowOptional.get();
                 // 2、参数预处理,根据contentType转化为Map
                 Map<String, Object> businessData = contentParser.parseRequest(workflow, request);
-
+                List<InterfaceWorkflowNode> workflowNodes = workFlowNodeBuilder.build(workflowOptional.get()
+                        .getFirstFlowNodes());
                 // 3、调度工作流
-                Map<String, Object> scheduleRsp = workFlowEngineScheduler.schedule(workflow.getFirstFlowNodes(),
+                Map<String, Object> scheduleRsp = workFlowEngineScheduler.schedule(workflowNodes,
                         businessData);
 
                 // 4、根据工作流contentType构建响应

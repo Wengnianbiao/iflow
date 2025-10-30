@@ -1,20 +1,11 @@
 package com.helianhealth.agent.remote.webService;
 
-import com.helianhealth.agent.enums.ParamType;
-import com.helianhealth.agent.model.domain.InterfaceWorkflowNodeDO;
-import com.helianhealth.agent.model.domain.NodeParamConfigDO;
+import com.helianhealth.agent.model.domain.InterfaceWorkflowNode;
 import com.helianhealth.agent.model.dto.ParamTreeNode;
 import com.helianhealth.agent.remote.InterfaceClientProxy;
-import com.helianhealth.agent.remote.ParamNodeHandler;
-import com.helianhealth.agent.remote.ProxyConvertHelper;
-import com.helianhealth.agent.utils.JsonUtils;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -25,7 +16,7 @@ public class WebServiceClientProxy implements InterfaceClientProxy {
     private SoapRequestHandler soapRequestHandler_findBySpring;
 
     @Override
-    public Map<String, Object> doInvoke(InterfaceWorkflowNodeDO flowNode, List<ParamTreeNode> params) {
+    public Map<String, Object> doInvoke(InterfaceWorkflowNode flowNode, List<ParamTreeNode> params) {
         try {
             String soapMessage = soapRequestHandler_findBySpring.resolveParamNodes(flowNode, params);
             String soapResponse = soapRequestHandler_findBySpring.sendSoapRequest(flowNode, soapMessage);
@@ -35,6 +26,4 @@ public class WebServiceClientProxy implements InterfaceClientProxy {
             throw new RuntimeException("WebService调用失败: " + e.getMessage(), e);
         }
     }
-
-
 }

@@ -2,7 +2,7 @@ package com.helianhealth.agent.remote.webService;
 
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
-import com.helianhealth.agent.model.domain.InterfaceWorkflowNodeDO;
+import com.helianhealth.agent.model.domain.InterfaceWorkflowNode;
 import com.helianhealth.agent.model.dto.ParamTreeNode;
 import com.helianhealth.agent.remote.ParamResolver;
 import com.helianhealth.agent.utils.ParamNodeUtils;
@@ -38,7 +38,7 @@ public class SoapRequestHandler implements ParamResolver {
      * @param paramNode 参数节点列表
      * @return 完整的SOAP XML字符串
      */
-    public String resolveParamNodes(InterfaceWorkflowNodeDO flowNode, List<ParamTreeNode> paramNode) {
+    public String resolveParamNodes(InterfaceWorkflowNode flowNode, List<ParamTreeNode> paramNode) {
         try {
             // 解析metaInfo配置
             JSONObject metaInfo = parseMetaInfo(flowNode.getMetaInfo());
@@ -57,7 +57,7 @@ public class SoapRequestHandler implements ParamResolver {
     /**
      * 发送SOAP请求并获取响应
      */
-    public String sendSoapRequest(InterfaceWorkflowNodeDO flowNode, String soapMessage) {
+    public String sendSoapRequest(InterfaceWorkflowNode flowNode, String soapMessage) {
         try {
             // 解析metaInfo获取请求地址
             JSONObject metaInfo = parseMetaInfo(flowNode.getMetaInfo());
@@ -136,7 +136,7 @@ public class SoapRequestHandler implements ParamResolver {
     /**
      * 解析SOAP响应
      */
-    public Map<String, Object> parseSoapResponse(InterfaceWorkflowNodeDO flowNode, String response) {
+    public Map<String, Object> parseSoapResponse(InterfaceWorkflowNode flowNode, String response) {
         try {
             return XmlUtils.parseResponseXml(response, flowNode.getMetaInfo());
         } catch (Exception e) {

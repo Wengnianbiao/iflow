@@ -1,4 +1,4 @@
-package com.helianhealth.agent.controller.request.workflownode;
+package com.helianhealth.agent.controller.workflow.request;
 
 import lombok.Data;
 
@@ -49,4 +49,9 @@ public class WorkflowNodeCreateReq {
      * 关键字
      */
     private String keywordField;
+
+    /**
+     * SPI拓展字段
+     */
+    private String remoteExtension;
 }

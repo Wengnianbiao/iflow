@@ -2,7 +2,7 @@ package com.helianhealth.agent.remote.database;
 
 import com.helianhealth.agent.enums.ParamType;
 import com.helianhealth.agent.exception.DatabaseRemoteBusinessException;
-import com.helianhealth.agent.model.domain.InterfaceWorkflowNodeDO;
+import com.helianhealth.agent.model.domain.InterfaceWorkflowNode;
 import com.helianhealth.agent.model.dto.ParamTreeNode;
 import com.helianhealth.agent.remote.ParamResolver;
 import com.helianhealth.agent.utils.JsonUtils;
@@ -20,7 +20,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Component
 @AllArgsConstructor
@@ -30,7 +29,7 @@ public class DatabaseSqlHandler implements ParamResolver {
     private final DatabaseApiClientManager clientManager;
 
     @Override
-    public String resolveParamNodes(InterfaceWorkflowNodeDO flowNode, List<ParamTreeNode> params) {
+    public String resolveParamNodes(InterfaceWorkflowNode flowNode, List<ParamTreeNode> params) {
 
         Map<String, Object> metaInfo = JsonUtils.toMap(flowNode.getMetaInfo());
         String sqlTemplate = (String) metaInfo.get("sqlTemplate");
@@ -222,7 +221,7 @@ public class DatabaseSqlHandler implements ParamResolver {
                 .replace("\"", "'");
     }
 
-    public Map<String, Object> invokeSqlAndConvertResult(InterfaceWorkflowNodeDO flowNode, String sql) {
+    public Map<String, Object> invokeSqlAndConvertResult(InterfaceWorkflowNode flowNode, String sql) {
         Connection connection = null;
         PreparedStatement ps = null;
         ResultSet rs = null;

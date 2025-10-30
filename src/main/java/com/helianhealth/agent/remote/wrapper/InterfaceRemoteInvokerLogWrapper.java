@@ -2,12 +2,11 @@ package com.helianhealth.agent.remote.wrapper;
 
 
 import com.helianhealth.agent.log.context.LogContextHolder;
-import com.helianhealth.agent.model.domain.InterfaceWorkflowNodeDO;
+import com.helianhealth.agent.model.domain.InterfaceWorkflowNode;
 import com.helianhealth.agent.model.dto.LogContext;
 import com.helianhealth.agent.remote.InterfaceRemoteInvoker;
 import com.helianhealth.agent.service.InterfaceInvokeLogService;
 import com.helianhealth.agent.utils.JsonUtils;
-import lombok.Data;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -26,7 +25,7 @@ public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker 
     }
 
     @Override
-    public Map<String, Object> remoteInvoke(InterfaceWorkflowNodeDO flowNode, Map<String, Object> businessData) {
+    public Map<String, Object> remoteInvoke(InterfaceWorkflowNode flowNode, Map<String, Object> businessData) {
         // 获取方法参数
         long startTime = System.currentTimeMillis();
 

@@ -3,7 +3,7 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.helianhealth.agent.mapper.agent.InterfaceFlowNodeMapper">
 
-    <resultMap id="InterfaceFlowNodeResultMap" type="com.helianhealth.agent.model.domain.InterfaceWorkflowNodeDO">
+    <resultMap id="InterfaceFlowNodeResultMap" type="com.helianhealth.agent.model.po.InterfaceWorkflowNodePO">
         <id property="nodeId" column="node_id"/>
         <result property="nodeName" column="node_name"/>
         <result property="flowId" column="flow_id"/>
@@ -13,9 +13,10 @@
         <result property="scheduleExpr" column="schedule_expr"/>
         <result property="scheduleParamSourceType" column="schedule_param_source_type"/>
         <result property="keywordField" column="keyword_field"/>
+        <result property="remoteExtension" column="remote_extension"/>
     </resultMap>
 
-    <insert id="createNode" parameterType="com.helianhealth.agent.model.domain.InterfaceWorkflowNodeDO">
+    <insert id="createNode" parameterType="com.helianhealth.agent.model.po.InterfaceWorkflowNodePO">
         INSERT INTO interface_workflow_node
         <trim prefix="(" suffix=")" suffixOverrides=",">
             <if test="nodeName != null">
@@ -41,6 +42,9 @@
             </if>
             <if test="keywordField != null">
                 keyword_field,
+            </if>
+            <if test="remoteExtension != null">
+                remote_extension,
             </if>
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
@@ -68,6 +72,9 @@
             <if test="keywordField != null">
                 #{keywordField,jdbcType=VARCHAR},
             </if>
+            <if test="remoteExtension != null">
+                #{remoteExtension,jdbcType=VARCHAR},
+            </if>
         </trim>
     </insert>
 
@@ -87,7 +94,7 @@
         </where>
     </select>
 
-    <update id="updateNode" parameterType="com.helianhealth.agent.model.domain.InterfaceWorkflowNodeDO">
+    <update id="updateNode" parameterType="com.helianhealth.agent.model.po.InterfaceWorkflowNodePO">
         UPDATE interface_workflow_node
         SET
             node_name = #{nodeName,jdbcType=VARCHAR},
@@ -97,7 +104,8 @@
             meta_info = #{metaInfo,jdbcType=VARCHAR},
             schedule_expr = #{scheduleExpr,jdbcType=VARCHAR},
             schedule_param_source_type = #{scheduleParamSourceType,jdbcType=VARCHAR},
-            keyword_field = #{keywordField,jdbcType=VARCHAR}
+            keyword_field = #{keywordField,jdbcType=VARCHAR},
+            remote_extension = #{remoteExtension,jdbcType=VARCHAR}
         WHERE node_id = #{nodeId}
     </update>
 </mapper>

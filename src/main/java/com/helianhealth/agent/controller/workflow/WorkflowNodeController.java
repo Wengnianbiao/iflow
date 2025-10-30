@@ -2,9 +2,11 @@ package com.helianhealth.agent.controller.workflow;
 
 import com.helianhealth.agent.common.PageList;
 import com.helianhealth.agent.common.ResultData;
-import com.helianhealth.agent.controller.request.workflownode.WorkflowNodeCreateReq;
+import com.helianhealth.agent.controller.workflow.reponse.InterfaceWorkflowNodeView;
+import com.helianhealth.agent.controller.workflow.request.WorkflowNodeCreateReq;
 import com.helianhealth.agent.controller.workflow.reponse.NodeParamConfigExportResponse;
-import com.helianhealth.agent.model.domain.InterfaceWorkflowNodeDO;
+import com.helianhealth.agent.controller.workflow.request.WorkflowNodeUpdateReq;
+import com.helianhealth.agent.model.domain.InterfaceWorkflowNode;
 import com.helianhealth.agent.service.InterfaceWorkflowNodeService;
 import com.helianhealth.agent.service.NodeParamConfigService;
 import com.helianhealth.agent.utils.ResponseRenderUtils;
@@ -35,12 +37,12 @@ public class WorkflowNodeController {
     private final NodeParamConfigService nodeParamConfigService;
 
     @GetMapping("/all")
-    public ResultData<PageList<InterfaceWorkflowNodeDO>> getAllNodes(
+    public ResultData<PageList<InterfaceWorkflowNodeView>> getAllNodes(
             @RequestParam(value = "flowId", required = false) Integer flowId,
             @RequestParam(value = "pageNum", defaultValue = "1") int pageNum,
             @RequestParam(value = "pageSize", defaultValue = "10") int pageSize) {
         try {
-            PageList<InterfaceWorkflowNodeDO> nodes = interfaceFlowNodeService.getAllNodes(flowId, pageNum, pageSize);
+            PageList<InterfaceWorkflowNodeView> nodes = interfaceFlowNodeService.getAllNodes(flowId, pageNum, pageSize);
 
             return ResponseRenderUtils.render(nodes);
         } catch (Exception e) {
@@ -50,9 +52,9 @@ public class WorkflowNodeController {
     }
 
     @GetMapping("/all-unpaged")
-    public ResultData<List<InterfaceWorkflowNodeDO>> getAllNodesWithoutPaged() {
+    public ResultData<List<InterfaceWorkflowNodeView>> getAllNodesWithoutPaged() {
         try {
-            List<InterfaceWorkflowNodeDO> nodes = interfaceFlowNodeService.getAllNodesWithoutPaged();
+            List<InterfaceWorkflowNodeView> nodes = interfaceFlowNodeService.getAllNodesWithoutPaged();
 
             return ResponseRenderUtils.render(nodes);
         } catch (Exception e) {
@@ -67,9 +69,9 @@ public class WorkflowNodeController {
      * 创建工作流节点
      */
     @PostMapping("/create")
-    public ResultData<Integer> createNode(@RequestBody WorkflowNodeCreateReq node) {
+    public ResultData<Integer> createNode(@RequestBody WorkflowNodeCreateReq nodeRequest) {
         try {
-            int savedNode = interfaceFlowNodeService.save(node);
+            int savedNode = interfaceFlowNodeService.save(nodeRequest);
             return ResponseRenderUtils.render(savedNode);
         } catch (Exception e) {
             log.error("创建工作流节点失败", e);
@@ -81,9 +83,9 @@ public class WorkflowNodeController {
      * 根据节点ID获取工作流节点
      */
     @GetMapping("/{nodeId}")
-    public ResultData<InterfaceWorkflowNodeDO> getNodeById(@PathVariable Integer nodeId) {
+    public ResultData<InterfaceWorkflowNodeView> getNodeById(@PathVariable Integer nodeId) {
         try {
-            InterfaceWorkflowNodeDO node = interfaceFlowNodeService.selectByNodeId(nodeId);
+            InterfaceWorkflowNodeView node = interfaceFlowNodeService.selectByNodeId(nodeId);
             if (node == null) {
                 return ResponseRenderUtils.error("工作流节点不存在");
             }
@@ -98,9 +100,9 @@ public class WorkflowNodeController {
      * 更新工作流节点
      */
     @PostMapping("/update")
-    public ResultData<Integer> updateNode(@RequestBody InterfaceWorkflowNodeDO node) {
+    public ResultData<Integer> updateNode(@RequestBody WorkflowNodeUpdateReq updateRequest) {
         try {
-            int result = interfaceFlowNodeService.update(node);
+            int result = interfaceFlowNodeService.update(updateRequest);
             return ResponseRenderUtils.render(result);
         } catch (Exception e) {
             log.error("更新工作流节点失败", e);

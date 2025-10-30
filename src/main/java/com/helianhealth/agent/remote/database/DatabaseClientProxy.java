@@ -1,21 +1,11 @@
 package com.helianhealth.agent.remote.database;
 
-import com.helianhealth.agent.enums.MappingType;
-import com.helianhealth.agent.enums.ParamType;
-import com.helianhealth.agent.model.domain.InterfaceWorkflowNodeDO;
-import com.helianhealth.agent.model.domain.NodeParamConfigDO;
+import com.helianhealth.agent.model.domain.InterfaceWorkflowNode;
 import com.helianhealth.agent.model.dto.ParamTreeNode;
 import com.helianhealth.agent.remote.InterfaceClientProxy;
-import com.helianhealth.agent.remote.ParamNodeHandler;
-import com.helianhealth.agent.remote.ProxyConvertHelper;
-import com.helianhealth.agent.utils.JsonUtils;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -27,7 +17,7 @@ public class DatabaseClientProxy implements InterfaceClientProxy {
     private DatabaseSqlHandler databaseSqlHandler_findBySpring;
 
     @Override
-    public Map<String, Object> doInvoke(InterfaceWorkflowNodeDO flowNode, List<ParamTreeNode> params) {
+    public Map<String, Object> doInvoke(InterfaceWorkflowNode flowNode, List<ParamTreeNode> params) {
         try {
             // 构建SQL语句
             String sql = databaseSqlHandler_findBySpring.resolveParamNodes(flowNode, params);

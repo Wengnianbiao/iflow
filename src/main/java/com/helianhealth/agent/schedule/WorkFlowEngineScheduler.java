@@ -2,10 +2,10 @@ package com.helianhealth.agent.schedule;
 
 import com.helianhealth.agent.enums.ScheduleParamSourceType;
 import com.helianhealth.agent.exception.WorkflowBusinessException;
-import com.helianhealth.agent.model.domain.InterfaceWorkflowNodeDO;
+import com.helianhealth.agent.model.domain.InterfaceWorkflowNode;
+import com.helianhealth.agent.schedule.build.WorkFlowNodeBuilder;
 import com.helianhealth.agent.service.InterfaceWorkflowNodeService;
 import com.helianhealth.agent.utils.ExpressionMapperUtils;
-import com.helianhealth.agent.utils.UrlWrapper;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -28,6 +28,7 @@ import java.util.Objects;
 public class WorkFlowEngineScheduler {
 
     private final InterfaceWorkflowNodeService flowNodeService;
+    private final WorkFlowNodeBuilder workFlowNodeBuilder;
     private final BusinessDataPostProcessor businessDataPostProcessor;
 
     /**
@@ -36,12 +37,11 @@ public class WorkFlowEngineScheduler {
      * @param businessData 业务数据,业务数据一定是Map<String, Object>结构,而且这个Object得是JSON格式
      * @return 统一出参，出参怎么适配是工作流节点自己的事情，你只需要帮我处理好返回统一出参即可
      */
-    public Map<String, Object> schedule(List<Integer> flowNodes, Map<String, Object> businessData) {
+    public Map<String, Object> schedule(List<InterfaceWorkflowNode> flowNodes, Map<String, Object> businessData) {
         Map<String, Object> flowNodeResponse;
         if (flowNodes != null && flowNodes.size() == 1) {
-            InterfaceWorkflowNodeDO flowNode = flowNodeService.selectByNodeId(flowNodes.get(0));
             // 单节点处理
-            flowNodeResponse = processSingleNode(flowNode, businessData);
+            flowNodeResponse = processSingleNode(flowNodes.get(0), businessData);
         } else if (flowNodes != null && flowNodes.size() > 1) {
             // 多个节点,则说明这是个并行业务,譬如申请单,节点工作完成后需要有个聚合操作
             flowNodeResponse = processParallelNode(flowNodes, businessData);
@@ -52,7 +52,7 @@ public class WorkFlowEngineScheduler {
         return flowNodeResponse;
     }
 
-    private Map<String, Object> processSingleNode(InterfaceWorkflowNodeDO flowNode, Map<String, Object> businessData) {
+    private Map<String, Object> processSingleNode(InterfaceWorkflowNode flowNode, Map<String, Object> businessData) {
         // 1、根据规则表达式对入参进行预处理
         Map<String, Object> businessDataAfterPost = businessDataPostProcessor.postParamProcessor(
                 flowNode.getParamFilterExpr(), businessData);
@@ -60,26 +60,23 @@ public class WorkFlowEngineScheduler {
             // 经过过滤后如果为null就不进行处理
             return new HashMap<>();
         }
-        //构造url路由，后续需要添加remote节点
-        flowNode.initUrl()
-                .node(flowNode.getNodeType().name().toLowerCase())
-                .proxy(flowNode.getNodeType().name().toLowerCase());
         //  todo 单节点可能需要拆分为多节点调用,e.g.入参为列表但是接口只支持对象
         // 2、执行节点
         Map<String, Object> nodeResponse = flowNodeService.executeFlowNode(flowNode, businessDataAfterPost);
 
         // 3、根据表达式调度下一个节点
         List<Integer> nextNodes = determineNextNode(flowNode.getScheduleExpr(), nodeResponse);
-
         if (nextNodes == null || nextNodes.isEmpty()) {
             return nodeResponse;
         }
+        // 非首节点的调度不支持remote自定义
+        List<InterfaceWorkflowNode> workflowNodes = workFlowNodeBuilder.build(nextNodes);
 
         // 4、调度节点的入参来源
         Map<String, Object> nextNodeParam = determineNextNodeParam(flowNode.getScheduleParamSourceType(),
                 businessData, nodeResponse);
 
-        return schedule(nextNodes, nextNodeParam);
+        return schedule(workflowNodes, nextNodeParam);
     }
 
     private Map<String, Object> determineNextNodeParam(ScheduleParamSourceType paramSourceType,
@@ -120,12 +117,11 @@ public class WorkFlowEngineScheduler {
         return (List<Integer>) parser;
     }
 
-    private Map<String, Object> processParallelNode(List<Integer> nodeIds, Map<String, Object> businessData) {
+    private Map<String, Object> processParallelNode(List<InterfaceWorkflowNode> nodes, Map<String, Object> businessData) {
         // 1. 收集所有并行节点的处理结果
         List<Map<String, Object>> nodeResultList = new ArrayList<>();
-        nodeIds.forEach(nodeId -> {
-            InterfaceWorkflowNodeDO flowNode = flowNodeService.selectByNodeId(nodeId);
-            Map<String, Object> nodeResult = processSingleNode(flowNode, businessData);
+        nodes.forEach(workFlowNode -> {
+            Map<String, Object> nodeResult = processSingleNode(workFlowNode, businessData);
             if (nodeResult == null || nodeResult.isEmpty()) {
                 return;
             }

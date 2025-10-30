@@ -1,2 +1,2 @@
 com.helianhealth.agent.remote.wrapper.InterfaceRemoteInvokerLogWrapper
-default=com.helianhealth.agent.remote.InterfaceRemoteProcess
+default=com.helianhealth.agent.remote.DefaultInterfaceRemoteInvoker

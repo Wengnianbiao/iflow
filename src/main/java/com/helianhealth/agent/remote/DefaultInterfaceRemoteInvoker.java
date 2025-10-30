@@ -1,6 +1,6 @@
 package com.helianhealth.agent.remote;
 
-import com.helianhealth.agent.model.domain.InterfaceWorkflowNodeDO;
+import com.helianhealth.agent.model.domain.InterfaceWorkflowNode;
 import com.helianhealth.agent.model.domain.NodeParamConfigDO;
 import com.helianhealth.agent.model.dto.ParamTreeNode;
 import com.helianhealth.agent.service.NodeParamConfigService;
@@ -13,7 +13,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class InterfaceRemoteProcess implements InterfaceRemoteInvoker {
+public class DefaultInterfaceRemoteInvoker implements InterfaceRemoteInvoker {
 
     @Setter
     private NodeParamConfigService nodeParamConfigServiceImpl_findBySpring;
@@ -24,7 +24,7 @@ public class InterfaceRemoteProcess implements InterfaceRemoteInvoker {
 
 
     @Override
-    public Map<String, Object> remoteInvoke(InterfaceWorkflowNodeDO flowNode, Map<String, Object> businessData) {
+    public Map<String, Object> remoteInvoke(InterfaceWorkflowNode flowNode, Map<String, Object> businessData) {
         // 1. 参数前处理
         List<ParamTreeNode> paramBeforeInvoke = preProcess(flowNode, businessData);
 
@@ -44,7 +44,7 @@ public class InterfaceRemoteProcess implements InterfaceRemoteInvoker {
      * @param businessData 业务数据
      * @return 处理后的参数
      */
-    protected List<ParamTreeNode> preProcess(InterfaceWorkflowNodeDO flowNode, Map<String, Object> businessData) {
+    protected List<ParamTreeNode> preProcess(InterfaceWorkflowNode flowNode, Map<String, Object> businessData) {
         // 获取的是前置参数配置
         List<NodeParamConfigDO> nodeConfigs = nodeParamConfigServiceImpl_findBySpring.selectPreProcessConfigByNodeId(flowNode.getNodeId());
         if (CollectionUtils.isEmpty(nodeConfigs)) {
@@ -60,7 +60,7 @@ public class InterfaceRemoteProcess implements InterfaceRemoteInvoker {
      * @param businessData 原始业务数据
      * @return 处理后的结果
      */
-    public Map<String, Object> postProcess(InterfaceWorkflowNodeDO flowNode, Map<String, Object> response, Map<String, Object> businessData) {
+    public Map<String, Object> postProcess(InterfaceWorkflowNode flowNode, Map<String, Object> response, Map<String, Object> businessData) {
         // 获取的是后置参数配置
         List<NodeParamConfigDO> nodeConfigs = nodeParamConfigServiceImpl_findBySpring.selectPostProcessConfigByNodeId(flowNode.getNodeId());
         if (CollectionUtils.isEmpty(nodeConfigs)) {

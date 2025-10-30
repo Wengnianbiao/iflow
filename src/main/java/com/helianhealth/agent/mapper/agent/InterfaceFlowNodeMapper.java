@@ -1,26 +1,26 @@
 package com.helianhealth.agent.mapper.agent;
 
-import com.helianhealth.agent.model.domain.InterfaceWorkflowNodeDO;
+import com.helianhealth.agent.model.po.InterfaceWorkflowNodePO;
 import org.apache.ibatis.annotations.Param;
 import tk.mybatis.mapper.common.Mapper;
 
 import java.util.List;
 
-public interface InterfaceFlowNodeMapper extends Mapper<InterfaceWorkflowNodeDO> {
+public interface InterfaceFlowNodeMapper extends Mapper<InterfaceWorkflowNodePO> {
 
-    InterfaceWorkflowNodeDO selectByNodeId(@Param("nodeId") Integer nodeId);
-    List<InterfaceWorkflowNodeDO> selectAllNodes(@Param("flowId") Integer flowId);
+    InterfaceWorkflowNodePO selectByNodeId(@Param("nodeId") Integer nodeId);
+    List<InterfaceWorkflowNodePO> selectAllNodes(@Param("flowId") Integer flowId);
 
     /**
      * 创建工作流节点
      * @param node 工作流节点对象
      * @return 插入记录数
      */
-    int createNode(InterfaceWorkflowNodeDO node);
+    int createNode(InterfaceWorkflowNodePO node);
 
     /**
      * 更新工作流节点
      * @param node 工作流节点对象
      */
-    int updateNode(InterfaceWorkflowNodeDO node);
+    int updateNode(InterfaceWorkflowNodePO node);
 }

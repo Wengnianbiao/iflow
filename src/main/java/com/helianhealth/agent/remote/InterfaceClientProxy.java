@@ -1,6 +1,6 @@
 package com.helianhealth.agent.remote;
 
-import com.helianhealth.agent.model.domain.InterfaceWorkflowNodeDO;
+import com.helianhealth.agent.model.domain.InterfaceWorkflowNode;
 import com.helianhealth.agent.model.dto.ParamTreeNode;
 import org.apache.dubbo.common.extension.Adaptive;
 import org.apache.dubbo.common.extension.SPI;
@@ -14,8 +14,7 @@ import java.util.Map;
 @SPI("default")
 public interface InterfaceClientProxy {
 
-
     @Adaptive("proxy")
-    Map<String, Object> doInvoke(InterfaceWorkflowNodeDO flowNode,
+    Map<String, Object> doInvoke(InterfaceWorkflowNode flowNode,
                                  List<ParamTreeNode> params);
 }
