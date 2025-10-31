@@ -1,6 +1,6 @@
 spring:
   profiles:
-    active: dev-gauss
+    active: ${profiles.active}
   application:
     name: interface-agent
 
