@@ -18,7 +18,7 @@ public class DefaultInterfaceRemoteInvoker implements InterfaceRemoteInvoker {
     @Setter
     private NodeParamConfigService nodeParamConfigService;
 
-    private final ParamNode paramNode = ExtensionLoader.getExtensionLoader(ParamNode.class).getAdaptiveExtension();
+    private final ParamTree paramNode = ExtensionLoader.getExtensionLoader(ParamTree.class).getAdaptiveExtension();
 
     private final InterfaceClientProxy proxy = ExtensionLoader.getExtensionLoader(InterfaceClientProxy.class).getAdaptiveExtension();
 
@@ -29,10 +29,10 @@ public class DefaultInterfaceRemoteInvoker implements InterfaceRemoteInvoker {
         List<ParamTreeNode> paramBeforeInvoke = preProcess(flowNode, businessData);
 
         // 2. 执行协议的调用,由子类实现
-        Map<String, Object> remoteInvokeResponse = proxy.doInvoke(flowNode, paramBeforeInvoke);
+        Map<String, Object> response = proxy.doInvoke(flowNode, paramBeforeInvoke);
 
         // 3. 参数后处理
-        return postProcess(flowNode, remoteInvokeResponse, businessData);
+        return postProcess(flowNode, response, businessData);
     }
 
 
@@ -50,7 +50,7 @@ public class DefaultInterfaceRemoteInvoker implements InterfaceRemoteInvoker {
         if (CollectionUtils.isEmpty(nodeConfigs)) {
             return new ArrayList<>();
         }
-        return paramNode.buildParamTree(flowNode.getUrl(), nodeConfigs, null, businessData, businessData);
+        return paramNode.buildParamTree(flowNode.getUrl(), nodeConfigs, null, businessData, businessData, businessData);
     }
 
     /**
@@ -67,7 +67,7 @@ public class DefaultInterfaceRemoteInvoker implements InterfaceRemoteInvoker {
             return new HashMap<>();
         }
 
-        List<ParamTreeNode> rootNodes = paramNode.buildParamTree(flowNode.getUrl(), nodeConfigs, null, response, businessData);
+        List<ParamTreeNode> rootNodes = paramNode.buildParamTree(flowNode.getUrl(), nodeConfigs, null, response, response, businessData);
 
         return ProxyConvertHelper.convertResponse(flowNode, rootNodes);
     }

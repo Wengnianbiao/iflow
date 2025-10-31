@@ -8,8 +8,9 @@ import java.util.Map;
 
 @Component
 public class NameValueResolver implements ValueResolver {
+
     @Override
-    public Object resolveValue(NodeParamConfigDO config, Map<String, Object> businessData, Map<String, Object> sourceBusinessData) {
+    public Object resolveValue(NodeParamConfigDO config, Map<String, Object> businessData, Map<String, Object> parentBusinessData, Map<String, Object> sourceBusinessData) {
         return businessData.get(config.getSourceParamKey());
     }
 

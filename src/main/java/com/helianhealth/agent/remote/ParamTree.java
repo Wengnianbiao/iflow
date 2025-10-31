@@ -10,12 +10,13 @@ import java.util.List;
 import java.util.Map;
 
 @SPI("default")
-public interface ParamNode {
+public interface ParamTree {
 
     @Adaptive("node")
     List<ParamTreeNode> buildParamTree(URL url,
                                        List<NodeParamConfigDO> configs,
                                        Integer parentId,
                                        Map<String, Object> businessData,
+                                       Map<String, Object> parentBusinessData,
                                        Map<String, Object> sourceBusinessData);
 }

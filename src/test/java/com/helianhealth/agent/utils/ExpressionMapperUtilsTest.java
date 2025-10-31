@@ -32,11 +32,11 @@ public class ExpressionMapperUtilsTest {
         businessData.put("age", 25);
 
         // 基本属性访问
-        Object result1 = ExpressionMapperUtils.parser("#data[name]", businessData,  null);
+        Object result1 = ExpressionMapperUtils.parser("#data[name]", businessData, null, null);
         assertEquals("张三", result1);
 
         // 数值比较
-        Object result2 = ExpressionMapperUtils.parser("#data[age] > 18", businessData, null);
+        Object result2 = ExpressionMapperUtils.parser("#data[age] > 18", businessData, null, null);
         assertEquals(true, result2);
     }
 
@@ -110,7 +110,7 @@ public class ExpressionMapperUtilsTest {
         businessData.put("cardType", "1");
 
         // 基本属性访问
-        Object result1 = ExpressionMapperUtils.parser("(#data[cardType] == null || #data[cardType] == '') ? #data[cardType] : (#data[cardType] == '2' ? '7' : (#data[cardType] == '3' ? '4' : (#data[cardType] == '4' ? '6' : (#data[cardType] == '5' ? '3' : #data[cardType]))))", businessData,  null);
+        Object result1 = ExpressionMapperUtils.parser("(#data[cardType] == null || #data[cardType] == '') ? #data[cardType] : (#data[cardType] == '2' ? '7' : (#data[cardType] == '3' ? '4' : (#data[cardType] == '4' ? '6' : (#data[cardType] == '5' ? '3' : #data[cardType]))))", businessData, null,  null);
         System.out.println(result1);
     }
 
@@ -121,7 +121,7 @@ public class ExpressionMapperUtilsTest {
         businessData.put("code", "-1");
 
         // 基本属性访问
-        Object result1 = ExpressionMapperUtils.parser("#data['code'] == \"-1\" ? T(java.util.Arrays).asList(1L) : null", businessData, null);
+        Object result1 = ExpressionMapperUtils.parser("#data['code'] == \"-1\" ? T(java.util.Arrays).asList(1L) : null", businessData, null, null);
         System.out.println(result1);
     }
 
@@ -140,7 +140,7 @@ public class ExpressionMapperUtilsTest {
         System.out.println(JSON.toJSONString(businessData));
 
         // 基本属性访问
-        Object result1 = ExpressionMapperUtils.parser("#source[chagPatientSheet][idPatientSheet]", businessData, businessData);
+        Object result1 = ExpressionMapperUtils.parser("#source[chagPatientSheet][idPatientSheet]", businessData, null, businessData);
         System.out.println(result1);
     }
 
@@ -159,7 +159,7 @@ public class ExpressionMapperUtilsTest {
 
         // 基本属性访问
         String expression = "#data[data][0].patientId";
-        Object result1 = ExpressionMapperUtils.parser(expression, businessData, null);
+        Object result1 = ExpressionMapperUtils.parser(expression, businessData, null, null);
         System.out.println(result1);
 //        assertEquals("张三", result1);
 //
@@ -791,7 +791,7 @@ public class ExpressionMapperUtilsTest {
     @Test
     public void testCurrentTimeFormatting() {
         String express = "T(java.time.LocalDateTime).now().format(T(java.time.format.DateTimeFormatter).ofPattern('yyyy-MM-dd HH:mm:ss'))";
-        Object result = ExpressionMapperUtils.parser(express, null, null);
+        Object result = ExpressionMapperUtils.parser(express, null, null, null);
         // 验证结果不为null
         assertNotNull(result);
 
@@ -813,7 +813,7 @@ public class ExpressionMapperUtilsTest {
     public void testTimeFormatting() {
         String expression = "T(java.time.LocalDateTime).parse('20250807110054', T(java.time.format.DateTimeFormatter).ofPattern('yyyyMMddHHmmss')).format(T(java.time.format.DateTimeFormatter).ofPattern('yyyy-MM-dd HH:mm:ss'))";
 
-        Object result = ExpressionMapperUtils.parser(expression, null, null);
+        Object result = ExpressionMapperUtils.parser(expression, null, null, null);
         System.out.println( result);
     }
 

@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @SpringBootTest
-public class ParamNodeUtilsTest {
+public class ParamTreeUtilsTest {
 
     @Test
     public void testParamNodeDTO2Xml() {

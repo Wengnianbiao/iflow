@@ -18,12 +18,15 @@ public class ValueResolverSelector {
     }
 
 
-    public Object resolveValue(NodeParamConfigDO config, Map<String, Object> businessData, Map<String, Object> sourceBusinessData) {
+    public Object resolveValue(NodeParamConfigDO config,
+                               Map<String, Object> businessData,
+                               Map<String, Object> parentBusinessData,
+                               Map<String, Object> sourceBusinessData) {
         try {
             return valueResolvers.stream()
                     .filter(resolver -> resolver.supports(config.getMappingType()))
                     .findFirst()
-                    .map(resolver -> resolver.resolveValue(config, businessData, sourceBusinessData))
+                    .map(resolver -> resolver.resolveValue(config, businessData, parentBusinessData, sourceBusinessData))
                     .orElse(null);
         } catch (Exception e) {
             log.error("目标入参[{}] resolve value error:", config.getTargetParamKey(), e);

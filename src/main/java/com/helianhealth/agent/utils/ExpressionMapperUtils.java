@@ -35,11 +35,15 @@ public class ExpressionMapperUtils implements ApplicationContextAware {
      * @param businessData 业务数据Map（键为字段名，值为字段值）
      * @return 表达式执行结果
      */
-    public static Object parser(String expression, Object businessData, Map<String, Object> sourceBusinessData) {
+    public static Object parser(String expression, Object businessData, Object parentBusinessData, Map<String, Object> sourceBusinessData) {
         try {
-            // 创建表达式上下文，将业务数据放入上下文（变量名为"data"）
+            // 表达式业务数据上下文
+            // data为当前层级
+            // parent为上一层级
+            // source为根层级
             StandardEvaluationContext context = new StandardEvaluationContext();
             context.setVariable("data", businessData);
+            context.setVariable("parent", parentBusinessData);
             context.setVariable("source", sourceBusinessData);
 
             // 解析并执行表达式
@@ -81,11 +85,12 @@ public class ExpressionMapperUtils implements ApplicationContextAware {
      * @param businessData 业务数据Map（键为字段名，值为字段值）
      * @return 表达式执行结果
      */
-    public static Object parserWithBeanAccess(String expression, Object businessData, Map<String, Object> sourceBusinessData) {
+    public static Object parserWithBeanAccess(String expression, Object businessData, Object parentBusinessData, Map<String, Object> sourceBusinessData) {
         try {
             // 创建表达式上下文，将业务数据放入上下文
             StandardEvaluationContext context = new StandardEvaluationContext();
             context.setVariable("data", businessData);
+            context.setVariable("parent", parentBusinessData);
             context.setVariable("source", sourceBusinessData);
 
             // 默认将HemsMapper注入context

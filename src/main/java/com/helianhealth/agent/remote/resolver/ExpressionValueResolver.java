@@ -12,10 +12,12 @@ import java.util.Map;
  */
 @Component
 public class ExpressionValueResolver implements ValueResolver {
+
     @Override
-    public Object resolveValue(NodeParamConfigDO config, Map<String, Object> businessData, Map<String, Object> sourceBusinessData) {
+    public Object resolveValue(NodeParamConfigDO config, Map<String, Object> businessData, Map<String, Object> parentBusinessData, Map<String, Object> sourceBusinessData) {
         return ExpressionMapperUtils.parser(config.getMappingRule(),
                 config.getSourceParamKey() == null ? businessData : businessData.get(config.getSourceParamKey()),
+                parentBusinessData,
                 sourceBusinessData);
     }
 

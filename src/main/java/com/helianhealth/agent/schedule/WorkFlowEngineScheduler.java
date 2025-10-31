@@ -97,7 +97,7 @@ public class WorkFlowEngineScheduler {
         // 根据表达式获取下个流转节点,一定是根据上个节点的调用结果去处理的
         // 并且规定流转的结果是List<Integer>或者为null
         // 这里会在页面后台进行配置不会涉及到人工导致的错误
-        Object parser = ExpressionMapperUtils.parser(scheduleExpr, preFlowNodeResponse, null);
+        Object parser = ExpressionMapperUtils.parser(scheduleExpr, preFlowNodeResponse, null, null);
 
         if (parser != null && !(parser instanceof List)) {
             log.error("表达式解析结果类型错误，期望List<Integer>，实际类型: {}", parser.getClass().getSimpleName());

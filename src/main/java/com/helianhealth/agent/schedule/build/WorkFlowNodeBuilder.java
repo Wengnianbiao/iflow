@@ -34,8 +34,8 @@ public class WorkFlowNodeBuilder {
                 .build();
 
         // URL初始化参数配置
+        // 节点树node的构建当前默认都走一个统一处理
         workflowNode.initUrl()
-                .node(view.getNodeType().name().toLowerCase())
                 .proxy(view.getNodeType().name().toLowerCase())
                 .remote(view.getRemoteExtension());
 

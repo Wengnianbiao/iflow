@@ -10,7 +10,10 @@ import java.util.Map;
  */
 public interface ValueResolver {
 
-    Object resolveValue(NodeParamConfigDO config, Map<String, Object> businessData, Map<String, Object> sourceBusinessData);
+    Object resolveValue(NodeParamConfigDO config,
+                        Map<String, Object> businessData,
+                        Map<String, Object> parentBusinessData,
+                        Map<String, Object> sourceBusinessData);
 
     boolean supports(MappingType mappingType);
 }
