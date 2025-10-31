@@ -14,15 +14,15 @@ import java.util.Map;
 public class DatabaseClientProxy implements InterfaceClientProxy {
 
     @Setter
-    private DatabaseSqlHandler databaseSqlHandler_findBySpring;
+    private DatabaseSqlHandler databaseSqlHandler;
 
     @Override
     public Map<String, Object> doInvoke(InterfaceWorkflowNode flowNode, List<ParamTreeNode> params) {
         try {
             // 构建SQL语句
-            String sql = databaseSqlHandler_findBySpring.resolveParamNodes(flowNode, params);
+            String sql = databaseSqlHandler.resolveParamNodes(flowNode, params);
             // 执行SQL并转化为Map
-            return databaseSqlHandler_findBySpring.invokeSqlAndConvertResult(flowNode, sql);
+            return databaseSqlHandler.invokeSqlAndConvertResult(flowNode, sql);
         } catch (Exception e) {
             log.error("数据库调用失败", e);
             throw new RuntimeException("数据库调用失败: " + e.getMessage(), e);

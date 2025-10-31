@@ -16,7 +16,7 @@ import java.util.Map;
 public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker {
 
     @Setter
-    private InterfaceInvokeLogService interfaceInvokeLogService_findBySpring;
+    private InterfaceInvokeLogService interfaceInvokeLogService;
 
     private final InterfaceRemoteInvoker interfaceRemoteInvoker;
 
@@ -105,7 +105,7 @@ public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker 
      */
     private void saveAllCollectedLogs(LogContext context) {
         try {
-            interfaceInvokeLogService_findBySpring.saveInvokeLog(
+            interfaceInvokeLogService.saveInvokeLog(
                     context.getNodeId(),
                     context.getKeyword(),
                     context.getBusinessData(),

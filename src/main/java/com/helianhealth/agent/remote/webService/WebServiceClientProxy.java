@@ -13,14 +13,14 @@ import java.util.Map;
 public class WebServiceClientProxy implements InterfaceClientProxy {
 
     @Setter
-    private SoapRequestHandler soapRequestHandler_findBySpring;
+    private SoapRequestHandler soapRequestHandler;
 
     @Override
     public Map<String, Object> doInvoke(InterfaceWorkflowNode flowNode, List<ParamTreeNode> params) {
         try {
-            String soapMessage = soapRequestHandler_findBySpring.resolveParamNodes(flowNode, params);
-            String soapResponse = soapRequestHandler_findBySpring.sendSoapRequest(flowNode, soapMessage);
-            return soapRequestHandler_findBySpring.parseSoapResponse(flowNode, soapResponse);
+            String soapMessage = soapRequestHandler.resolveParamNodes(flowNode, params);
+            String soapResponse = soapRequestHandler.sendSoapRequest(flowNode, soapMessage);
+            return soapRequestHandler.parseSoapResponse(flowNode, soapResponse);
         } catch (Exception e) {
             log.error("WebService调用失败", e);
             throw new RuntimeException("WebService调用失败: " + e.getMessage(), e);

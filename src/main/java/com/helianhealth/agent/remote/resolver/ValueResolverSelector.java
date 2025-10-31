@@ -2,7 +2,6 @@ package com.helianhealth.agent.remote.resolver;
 
 import com.helianhealth.agent.model.domain.NodeParamConfigDO;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -10,11 +9,11 @@ import java.util.Map;
 
 @Component
 @Slf4j
-public class ValueResolversWrapper {
+public class ValueResolverSelector {
 
     private final List<ValueResolver> valueResolvers;
 
-    public ValueResolversWrapper(List<ValueResolver> valueResolvers){
+    public ValueResolverSelector(List<ValueResolver> valueResolvers){
         this.valueResolvers = valueResolvers;
     }
 

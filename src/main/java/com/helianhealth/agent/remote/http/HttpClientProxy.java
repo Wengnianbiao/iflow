@@ -14,7 +14,7 @@ import java.util.Map;
 public class HttpClientProxy implements InterfaceClientProxy {
 
     @Setter
-    private HttpRequestHandler httpRequestHandler_findBySpring;
+    private HttpRequestHandler httpRequestHandler;
 
     @Override
     @SuppressWarnings("unchecked")
@@ -34,8 +34,8 @@ public class HttpClientProxy implements InterfaceClientProxy {
             String method = (String) metaInfo.getOrDefault("method", "GET");
             Map<String, String> headers = (Map<String, String>) metaInfo.getOrDefault("headers", new HashMap<>());
 
-            String requestBody = httpRequestHandler_findBySpring.resolveParamNodes(flowNode, params);
-            String responseBody = httpRequestHandler_findBySpring.executeHttpRequest(url, method, headers, requestBody);
+            String requestBody = httpRequestHandler.resolveParamNodes(flowNode, params);
+            String responseBody = httpRequestHandler.executeHttpRequest(url, method, headers, requestBody);
 
             return JsonUtils.toMap(responseBody);
         } catch (Exception e) {

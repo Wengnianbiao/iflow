@@ -16,7 +16,7 @@ import java.util.Map;
 public class DefaultInterfaceRemoteInvoker implements InterfaceRemoteInvoker {
 
     @Setter
-    private NodeParamConfigService nodeParamConfigServiceImpl_findBySpring;
+    private NodeParamConfigService nodeParamConfigService;
 
     private final ParamNode paramNode = ExtensionLoader.getExtensionLoader(ParamNode.class).getAdaptiveExtension();
 
@@ -46,7 +46,7 @@ public class DefaultInterfaceRemoteInvoker implements InterfaceRemoteInvoker {
      */
     protected List<ParamTreeNode> preProcess(InterfaceWorkflowNode flowNode, Map<String, Object> businessData) {
         // 获取的是前置参数配置
-        List<NodeParamConfigDO> nodeConfigs = nodeParamConfigServiceImpl_findBySpring.selectPreProcessConfigByNodeId(flowNode.getNodeId());
+        List<NodeParamConfigDO> nodeConfigs = nodeParamConfigService.selectPreProcessConfigByNodeId(flowNode.getNodeId());
         if (CollectionUtils.isEmpty(nodeConfigs)) {
             return new ArrayList<>();
         }
@@ -62,7 +62,7 @@ public class DefaultInterfaceRemoteInvoker implements InterfaceRemoteInvoker {
      */
     public Map<String, Object> postProcess(InterfaceWorkflowNode flowNode, Map<String, Object> response, Map<String, Object> businessData) {
         // 获取的是后置参数配置
-        List<NodeParamConfigDO> nodeConfigs = nodeParamConfigServiceImpl_findBySpring.selectPostProcessConfigByNodeId(flowNode.getNodeId());
+        List<NodeParamConfigDO> nodeConfigs = nodeParamConfigService.selectPostProcessConfigByNodeId(flowNode.getNodeId());
         if (CollectionUtils.isEmpty(nodeConfigs)) {
             return new HashMap<>();
         }

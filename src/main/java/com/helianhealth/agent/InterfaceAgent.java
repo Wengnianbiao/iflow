@@ -1,6 +1,5 @@
 package com.helianhealth.agent;
 
-import tk.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication(scanBasePackages = "com.helianhealth.agent")

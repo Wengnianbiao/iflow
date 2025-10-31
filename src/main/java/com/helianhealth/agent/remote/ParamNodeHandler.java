@@ -3,14 +3,11 @@ package com.helianhealth.agent.remote;
 import com.helianhealth.agent.enums.ParamType;
 import com.helianhealth.agent.model.domain.NodeParamConfigDO;
 import com.helianhealth.agent.model.dto.ParamTreeNode;
-import com.helianhealth.agent.remote.resolver.ValueResolver;
-import com.helianhealth.agent.remote.resolver.ValueResolversWrapper;
+import com.helianhealth.agent.remote.resolver.ValueResolverSelector;
 import com.helianhealth.agent.utils.JsonUtils;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.dubbo.common.URL;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -23,7 +20,7 @@ public abstract class ParamNodeHandler implements ParamNode{
 
 
     @Setter
-    private ValueResolversWrapper valueResolversWrapper_findBySpring;
+    private ValueResolverSelector valueResolverSelector;
 
     @Override
     public List<ParamTreeNode> buildParamTree(URL url,List<NodeParamConfigDO> configs,
@@ -94,7 +91,7 @@ public abstract class ParamNodeHandler implements ParamNode{
     }
 
     public Object resolveValue(NodeParamConfigDO config, Map<String, Object> businessData, Map<String, Object> sourceBusinessData) {
-        return valueResolversWrapper_findBySpring.resolveValue(config, businessData, sourceBusinessData);
+        return valueResolverSelector.resolveValue(config, businessData, sourceBusinessData);
     }
 
     protected Map<String, Object> processSourceParamWhenTargetIsObject(NodeParamConfigDO config, Map<String, Object> businessData) {
