@@ -20,7 +20,7 @@ public class DefaultParamTreeBuilder extends AbstractParamTreeBuilder {
         node.setChildren(buildParamTree(allNodes,
                 config.getConfigId(),
                 processSourceParamWhenTargetIsObject(config, businessData),
-                businessData,
+                parentBusinessData,
                 rootBusinessData));
     }
 
@@ -90,7 +90,7 @@ public class DefaultParamTreeBuilder extends AbstractParamTreeBuilder {
             node.setChildren(arrayChildren);
         } else if (config.getSourceParamType() == ParamType.ARRAY && sourceValue != null) {
             // 目标参数是数组,原参数可能是数组也可能是单个对象
-            processArrayNodeTypeWhenSourceTypeIsArray(config, allNodes, sourceValue, parentBusinessData, rootBusinessData, node);
+            processArrayNodeTypeWhenSourceTypeIsArray(config, allNodes, sourceValue, businessData, rootBusinessData, node);
         }
     }
 
