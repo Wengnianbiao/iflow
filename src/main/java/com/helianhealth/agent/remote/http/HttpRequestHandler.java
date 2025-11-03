@@ -92,10 +92,18 @@ public class HttpRequestHandler implements ParamResolver {
                     List<ParamTreeNode> actualNodes = virtualNode.getChildren();
 
                     if (actualNodes.size() == 1) {
-                        // 只有一个子节点说明是基础数据类型的节点，直接提取值加入数组
+                        // 只有一个子节点说明是单元素节点,默认只保留元素值
                         ParamTreeNode actualNode = actualNodes.get(0);
                         Object value = extractValueFromNode(actualNode);
-                        jsonArray.add(value);
+                        // 根据配置项中是否保留单元素节点的key
+                        Boolean keepSingleElementKey = virtualNode.getKeepSingleElementKey();
+                        if (keepSingleElementKey != null && keepSingleElementKey) {
+                            JSONObject obj = new JSONObject();
+                            obj.put(actualNode.getParamKey(), value);
+                            jsonArray.add(obj);
+                        } else {
+                            jsonArray.add(value);
+                        }
                     } else {
                         // 多个子节点，封装成对象后加入数组
                         JSONObject obj = new JSONObject();

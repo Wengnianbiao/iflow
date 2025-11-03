@@ -16,18 +16,26 @@ import java.util.Map;
 public class DefaultParamTreeBuilder extends AbstractParamTreeBuilder {
 
     @Override
-    protected void processObjectNodeType(NodeParamConfigDO config, List<NodeParamConfigDO> allNodes, Map<String, Object> businessData, Map<String, Object> parentBusinessData, Map<String, Object> rootBusinessData, ParamTreeNode node) {
+    protected void processObjectNodeType(NodeParamConfigDO config,
+                                         List<NodeParamConfigDO> allNodes,
+                                         Map<String, Object> businessData,
+                                         Map<String, Object> parentBusinessData,
+                                         Map<String, Object> rootBusinessData,
+                                         ParamTreeNode node) {
+        // 配置项:当对象元素为单个是否保留key
+        Boolean keepSingleElementKey = config.getKeepSingleElementKey();
+        node.setKeepSingleElementKey(keepSingleElementKey);
+        // 递归构建子节点,businessData会按照配置递归获取,parentBusinessData父参数取当前的businessData,rootBusinessData是根节点的businessData
         node.setChildren(buildParamTree(allNodes,
                 config.getConfigId(),
                 processSourceParamWhenTargetIsObject(config, businessData),
-                parentBusinessData,
+                businessData,
                 rootBusinessData));
     }
 
     private Map<String, Object> processSourceParamWhenTargetIsObject(NodeParamConfigDO config, Map<String, Object> businessData) {
         ParamType sourceParamType = config.getSourceParamType();
-        // todo 对象的处理是否需要支持递归获取
-        Object sourceValue = businessData.get(config.getSourceParamKey());
+        Object sourceValue = ProxyConvertHelper.convertSourceValueForObjectNode(config, businessData);
         switch(sourceParamType) {
             // 不需要原始参数
             case NONE:

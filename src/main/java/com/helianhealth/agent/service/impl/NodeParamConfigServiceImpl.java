@@ -246,6 +246,7 @@ public class NodeParamConfigServiceImpl implements NodeParamConfigService {
                 .paramDesc(paramConfigDTO.getParamDesc())
                 .targetParamKey(paramConfigDTO.getTargetParamKey())
                 .targetParamType(paramConfigDTO.getTargetParamType())
+                .keepSingleElementKey(paramConfigDTO.getKeepSingleElementKey())
                 .sort(paramConfigDTO.getSort())
                 .mappingType(paramConfigDTO.getMappingType())
                 .mappingSource(paramConfigDTO.getMappingSource())

@@ -28,6 +28,11 @@ public class ParamTreeNode {
     private ParamType paramType;
 
     /**
+     * 是否保留单个元素key(当且仅当兼容对象场景)
+     */
+    private Boolean keepSingleElementKey;
+
+    /**
      * xml的属性节点
      */
     private List<ParamTreeNode> attributeNodes;

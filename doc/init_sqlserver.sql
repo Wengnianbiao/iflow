@@ -63,6 +63,9 @@ CREATE TABLE node_param_config
     -- 三方接口需要的参数名称
     target_param_key VARCHAR(100) NULL,
 
+    -- 是否保留单元素键名
+    keep_single_element_key BIT NULL,
+
     -- 父节点ID（顶级节点为NULL）
     parent_id INT NULL,
 

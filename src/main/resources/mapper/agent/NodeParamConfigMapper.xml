@@ -12,6 +12,7 @@
         <result property="paramDesc" column="param_desc"/>
         <result property="targetParamKey" column="target_param_key"/>
         <result property="targetParamType" column="target_param_type"/>
+        <result property="keepSingleElementKey" column="keep_single_element_key"/>
         <result property="parentId" column="parent_id"/>
         <result property="sort" column="sort"/>
         <result property="mappingSource" column="mapping_source"/>
@@ -46,6 +47,9 @@
             </if>
             <if test="targetParamType != null">
                 target_param_type,
+            </if>
+            <if test="keepSingleElementKey != null">
+                keep_single_element_key,
             </if>
             <if test="sort != null">
                 sort,
@@ -84,6 +88,9 @@
             </if>
             <if test="targetParamType != null">
                 #{targetParamType,jdbcType=VARCHAR},
+            </if>
+            <if test="keepSingleElementKey != null">
+                #{keepSingleElementKey,jdbcType=BOOLEAN},
             </if>
             <if test="sort != null">
                 #{sort,jdbcType=INTEGER},
@@ -143,6 +150,7 @@
             param_desc = #{paramDesc,jdbcType=VARCHAR},
             target_param_key = #{targetParamKey,jdbcType=VARCHAR},
             target_param_type = #{targetParamType,jdbcType=VARCHAR},
+            keep_single_element_key = #{keepSingleElementKey,jdbcType=BOOLEAN},
             sort = #{sort,jdbcType=INTEGER},
             mapping_source = #{mappingSource,jdbcType=VARCHAR},
             mapping_type = #{mappingType,jdbcType=VARCHAR},

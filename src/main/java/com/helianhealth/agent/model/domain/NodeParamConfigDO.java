@@ -87,6 +87,12 @@ public class NodeParamConfigDO {
     private ParamType targetParamType;
 
     /**
+     * 当对象为单个元素是否保留单个元素key
+     */
+    @Column(name = "keep_single_element_key")
+    private Boolean keepSingleElementKey;
+
+    /**
      * 排序号（控制参数顺序）
      */
     @Column(name = "sort")
