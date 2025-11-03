@@ -2,13 +2,12 @@ package com.helianhealth.agent.utils;
 
 import com.helianhealth.agent.enums.ParamType;
 import com.helianhealth.agent.model.dto.ParamTreeNode;
-import org.junit.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.ArrayList;
 import java.util.List;
 
-@SpringBootTest
+import org.junit.jupiter.api.Test;
+
 public class ParamTreeUtilsTest {
 
     @Test

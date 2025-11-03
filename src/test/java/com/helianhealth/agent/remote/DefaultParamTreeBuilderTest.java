@@ -1,12 +1,8 @@
 package com.helianhealth.agent.remote;
 
-import org.junit.Test;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.junit.jupiter.api.Test;
 
-/**
- * 参数树单元测试
- */
-@SpringBootTest
+
 public class DefaultParamTreeBuilderTest {
 
     @Test

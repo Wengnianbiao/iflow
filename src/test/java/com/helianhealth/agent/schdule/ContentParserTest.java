@@ -3,30 +3,26 @@ package com.helianhealth.agent.schdule;
 import com.helianhealth.agent.enums.WorkflowContentType;
 import com.helianhealth.agent.model.domain.InterfaceWorkflowDO;
 import com.helianhealth.agent.schedule.ContentParser;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
+
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@RunWith(SpringRunner.class)
-@SpringBootTest(
-        properties = {
-                "spring.profiles.active=local"
-        }
-)
 public class ContentParserTest {
 
-    @Autowired
-    private ContentParser contentParser;
+    private static ContentParser contentParser;
+
+    @BeforeAll
+    public static void setUp() {
+        contentParser = new ContentParser();
+    }
 
     /**
      * 测试通用XML格式数据解析:标签体

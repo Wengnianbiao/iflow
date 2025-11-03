@@ -1,14 +1,12 @@
 package com.helianhealth.agent.utils;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@SpringBootTest
 public class XmlUtilsTest {
 
     @Test
@@ -29,32 +27,27 @@ public class XmlUtilsTest {
         // 执行转换
         Map<String, Object> result = XmlUtils.xmlToMap(xml);
 
-        System.out.println(JsonUtils.toJsonString(result));
-        // 验证结果
-//        assertNotNull(result);
-//        assertEquals("张三", ((Map<String, Object>) result.get("name")).get("#text"));
-//        assertEquals("30", ((Map<String, Object>) result.get("age")).get("#text"));
-//
-//        // 验证嵌套元素
-//        Map<String, Object> address = (Map<String, Object>) result.get("address");
-//        assertEquals("home", address.get("@type"));
-//        Map<String, Object> street = (Map<String, Object>) address.get("street");
-//        assertEquals("长安街1号", street.get("#text"));
-//
-//        // 验证重复元素处理
-//        Object phones = result.get("phone");
-//        assertTrue(phones instanceof List);
-//        assertEquals(2, ((List<?>) phones).size());
+        assertNotNull(result);
+        assertEquals("张三", result.get("name"));
+        assertEquals("30", result.get("age"));
+
+        // 验证嵌套元素
+        Map<String, Object> address = (Map<String, Object>) result.get("address");
+        assertEquals("home", address.get("type"));
+        assertEquals("长安街1号", address.get("street"));
+
+        // 验证重复元素处理
+        Object phones = result.get("phone");
+        assertTrue(phones instanceof List);
+        assertEquals(2, ((List<?>) phones).size());
     }
 
     @Test
     public void testSimpleElementToMap() {
         String xml = "<root><name>test</name></root>";
         Map<String, Object> result = XmlUtils.xmlToMap(xml);
-
         assertNotNull(result);
-        Map<String, Object> nameMap = (Map<String, Object>) result.get("name");
-        assertEquals("test", nameMap.get("#text"));
+        assertEquals("test", result.get("name"));
     }
 
     @Test
@@ -63,10 +56,9 @@ public class XmlUtilsTest {
         Map<String, Object> result = XmlUtils.xmlToMap(xml);
 
         assertNotNull(result);
-        assertEquals("123", result.get("@id"));
-        assertEquals("test", result.get("@type"));
-        Map<String, Object> nameMap = (Map<String, Object>) result.get("name");
-        assertEquals("test", nameMap.get("#text"));
+        assertEquals("123", result.get("id"));
+        assertEquals("test", result.get("type"));
+        assertEquals("test", result.get("name"));
     }
 
     @Test
