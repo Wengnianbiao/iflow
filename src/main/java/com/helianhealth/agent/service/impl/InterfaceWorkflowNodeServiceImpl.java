@@ -220,6 +220,7 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
         dto.setParamDesc(config.getParamDesc());
         dto.setTargetParamKey(config.getTargetParamKey());
         dto.setTargetParamType(config.getTargetParamType());
+        dto.setKeepSingleElementKey(config.getKeepSingleElementKey());
         dto.setSort(config.getSort());
         dto.setMappingType(config.getMappingType());
         dto.setMappingSource(config.getMappingSource());

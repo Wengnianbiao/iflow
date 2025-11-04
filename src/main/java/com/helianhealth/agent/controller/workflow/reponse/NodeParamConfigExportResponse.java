@@ -34,6 +34,7 @@ public class NodeParamConfigExportResponse {
         private String paramDesc;
         private String targetParamKey;
         private ParamType targetParamType;
+        private Boolean keepSingleElementKey;
         private Integer sort;
         private MappingType mappingType;
         private MappingSource mappingSource;
