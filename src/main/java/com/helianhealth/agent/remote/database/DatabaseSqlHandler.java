@@ -1,5 +1,6 @@
 package com.helianhealth.agent.remote.database;
 
+import com.alibaba.fastjson2.JSONArray;
 import com.helianhealth.agent.enums.ParamType;
 import com.helianhealth.agent.exception.DatabaseRemoteBusinessException;
 import com.helianhealth.agent.model.domain.InterfaceWorkflowNode;
@@ -30,7 +31,6 @@ public class DatabaseSqlHandler implements ParamResolver {
 
     @Override
     public String resolveParamNodes(InterfaceWorkflowNode flowNode, List<ParamTreeNode> params) {
-
         Map<String, Object> metaInfo = JsonUtils.toMap(flowNode.getMetaInfo());
         String sqlTemplate = (String) metaInfo.get("sqlTemplate");
         String operation = (String) metaInfo.get("operation");
@@ -56,13 +56,14 @@ public class DatabaseSqlHandler implements ParamResolver {
         }
     }
 
-    private String buildUpdateSql(String tableName, ParamTreeNode paramTreeNode) {
+    private String buildUpdateSql(String sqlTemplate, ParamTreeNode paramTreeNode) {
+        String finalSql = sqlTemplate;
+
         return null;
     }
 
     private String buildDeleteSql(String sqlTemplate, List<ParamTreeNode> params) {
         String finalSql = sqlTemplate;
-
         // 遍历所有参数节点
         for (ParamTreeNode param : params) {
             // 只处理有参数值的节点
@@ -76,6 +77,7 @@ public class DatabaseSqlHandler implements ParamResolver {
         if (finalSql.contains("{") && finalSql.contains("}")) {
             throw DatabaseRemoteBusinessException.DATABASE_PLACE_HOLDER_ERROR.toException();
         }
+
         return finalSql;
     }
 
@@ -171,7 +173,7 @@ public class DatabaseSqlHandler implements ParamResolver {
             String formattedValue;
             // 处理数组类型参数，用于IN语句
             if (param.getParamType() == ParamType.ARRAY || param.getParamType() == ParamType.PURE_ARRAY) {
-                formattedValue = formatArrayValue(param.getParamValue());
+                formattedValue = processArrayNode(param);
             } else {
                 // 处理普通类型参数
                 formattedValue = formatValue(param.getParamValue());
@@ -185,6 +187,28 @@ public class DatabaseSqlHandler implements ParamResolver {
         }
 
         return finalSql;
+    }
+
+    private String processArrayNode(ParamTreeNode node) {
+        JSONArray jsonArray = new JSONArray();
+
+        if (node.getChildren() != null && !node.getChildren().isEmpty()) {
+            // 遍历所有虚拟节点
+            for (ParamTreeNode virtualNode : node.getChildren()) {
+                // 虚拟节点的子节点才是真正的元素
+                if (virtualNode.getChildren() != null && !virtualNode.getChildren().isEmpty()) {
+                    List<ParamTreeNode> actualNodes = virtualNode.getChildren();
+                    // 对于查询语句的数组场景，只处理单元素节点
+                    if (actualNodes.size() > 1) {
+                        throw DatabaseRemoteBusinessException.DATABASE_ARRAY_CHILD_SIZE_ERROR.toException();
+                    }
+                    Object value = actualNodes.get(0).getParamValue();
+                    // 根据配置项中是否保留单元素节点的key
+                    jsonArray.add(value);
+                }
+            }
+        }
+        return formatArrayValue(JsonUtils.toJsonString(jsonArray));
     }
 
     /**
