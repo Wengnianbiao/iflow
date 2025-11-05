@@ -5,6 +5,7 @@ import com.alibaba.fastjson2.JSONObject;
 import com.helianhealth.agent.model.domain.InterfaceWorkflowNode;
 import com.helianhealth.agent.model.dto.ParamTreeNode;
 import com.helianhealth.agent.remote.ParamResolver;
+import com.helianhealth.agent.utils.JsonUtils;
 import com.helianhealth.agent.utils.ParamNodeUtils;
 import com.helianhealth.agent.utils.XmlUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -138,7 +139,14 @@ public class SoapRequestHandler implements ParamResolver {
      */
     public Map<String, Object> parseSoapResponse(InterfaceWorkflowNode flowNode, String response) {
         try {
-            return XmlUtils.parseResponseXml(response, flowNode.getMetaInfo());
+            // 解析metaInfo获取配置
+            String metaInfo = flowNode.getMetaInfo();
+            Map<String, Object> metaMap = new HashMap<>();
+            if (metaInfo != null && !metaInfo.isEmpty()) {
+                metaMap = JsonUtils.parseMetaInfo(metaInfo);
+            }
+
+            return XmlUtils.parseResponseXml(response, metaMap);
         } catch (Exception e) {
             log.error("解析SOAP响应失败", e);
             throw new RuntimeException("解析SOAP响应失败: " + e.getMessage());

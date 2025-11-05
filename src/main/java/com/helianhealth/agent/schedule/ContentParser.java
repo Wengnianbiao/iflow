@@ -47,7 +47,13 @@ public class ContentParser {
      * 处理SOAP信封，提取CDATA中的实际业务数据
      */
     private Map<String, Object> parseSoapXmlToMap(String xml, String contentMetaInfo) {
-        return XmlUtils.parseRequestXml(xml, contentMetaInfo);
+        // 解析metaInfo获取配置
+        Map<String, Object> metaMap = new HashMap<>();
+        if (contentMetaInfo != null && !contentMetaInfo.isEmpty()) {
+            metaMap = JsonUtils.parseMetaInfo(contentMetaInfo);
+        }
+
+        return XmlUtils.parseRequestXml(xml, metaMap);
     }
 
     public String responseBuilder(InterfaceWorkflowDO workflow, Map<String, Object> response) {

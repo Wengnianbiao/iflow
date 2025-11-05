@@ -3,14 +3,16 @@ package com.helianhealth.agent.schdule;
 import com.helianhealth.agent.enums.WorkflowContentType;
 import com.helianhealth.agent.model.domain.InterfaceWorkflowDO;
 import com.helianhealth.agent.schedule.ContentParser;
-
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.helianhealth.agent.utils.XmlUtils.parseRequestXml;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -24,14 +26,183 @@ public class ContentParserTest {
         contentParser = new ContentParser();
     }
 
+    // 测试通过标签名定位业务数据&JSON格式参数
+    @Test
+    void testLocationXmlBizDataWithRequestElementName() {
+        // 1. 准备SOAP XML数据（JDK 8兼容的字符串拼接）
+        String soapXml = "<soapenv:Envelope\n" +
+                "    xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"\n" +
+                "    xmlns:api=\"http://api.physicalv.ws.manager.cdxt.com/\">\n" +
+                "    <soapenv:Header/>\n" +
+                "    <soapenv:Body>\n" +
+                "        <api:saveItem>\n" +
+                "            <arg0>\n" +
+                "                <request>\n" +
+                "                    <![CDATA[{\n" +
+                "  \"OrderDeptId\": \"ef70856500768081165f\",\n" +
+                "  \"OrderDoctId\": \"f4d8bfd1026480812da6\",\n" +
+                "  \"PatientInfo\": {\n" +
+                "    \"Birthday\": \"2003-09-08\",\n" +
+                "    \"IDCardNo\": \"340602200309086130\",\n" +
+                "    \"IsGroup\": \"2\",\n" +
+                "    \"IsUnitInvoice\": \"2\",\n" +
+                "    \"Name\": \"测试10271\",\n" +
+                "    \"Nation\": \"汉\",\n" +
+                "    \"Phone\": \"15365472603\",\n" +
+                "    \"Sex\": \"男\",\n" +
+                "    \"payerPartyCode\": \"\",\n" +
+                "    \"payerPartyName\": \"\"\n" +
+                "  }\n" +
+                "}]]>\n" +
+                "                </request>\n" +
+                "            </arg0>\n" +
+                "        </api:saveItem>\n" +
+                "    </soapenv:Body>\n" +
+                "</soapenv:Envelope>";
+
+        // 2. 准备metaMap参数
+        Map<String, Object> metaMap = new HashMap<>();
+        metaMap.put("elementName", "request"); // 第一种定位方式：通过标签名
+        metaMap.put("dataType", "json"); // 业务数据为JSON格式
+
+        // 3. 执行解析方法
+        Map<String, Object> resultMap = parseRequestXml(soapXml, metaMap);
+
+        // 4. 验证解析结果
+        assertNotNull(resultMap, "解析结果不能为null");
+        assertFalse(resultMap.isEmpty(), "解析结果不能为空");
+
+        // 验证顶层字段
+        assertEquals("ef70856500768081165f", resultMap.get("OrderDeptId"), "OrderDeptId解析错误");
+        assertEquals("f4d8bfd1026480812da6", resultMap.get("OrderDoctId"), "OrderDoctId解析错误");
+
+        // 验证嵌套对象PatientInfo
+        @SuppressWarnings("unchecked")
+        Map<String, Object> patientInfo = (Map<String, Object>) resultMap.get("PatientInfo");
+        assertNotNull(patientInfo, "PatientInfo未解析");
+        assertEquals("测试10271", patientInfo.get("Name"), "姓名解析错误");
+        assertEquals("340602200309086130", patientInfo.get("IDCardNo"), "身份证号解析错误");
+        assertEquals("男", patientInfo.get("Sex"), "性别解析错误");
+        assertEquals("2003-09-08", patientInfo.get("Birthday"), "生日解析错误");
+    }
+
+    /**
+     * 测试通过命名空间定位目标业务数据
+     */
+    @Test
+    void testLocationXmlBizDataWithNamespace() {
+        // 1. 准备带命名空间的SOAP XML（业务数据在api命名空间下的request标签中）
+        String soapXml = "<soapenv:Envelope\n" +
+                "    xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"\n" +
+                "    xmlns:api=\"http://api.physicalv.ws.manager.cdxt.com/\">\n" +
+                "    <soapenv:Header/>\n" +
+                "    <soapenv:Body>\n" +
+                "        <api:saveItem>\n" +
+                "            <param>\n" +  // 外层元素
+                "                <request>\n" +  // 业务数据容器
+                "                    <![CDATA[{\n" +
+                "  \"OrderDeptId\": \"ef70856500768081165f\",\n" +
+                "  \"OrderDoctId\": \"f4d8bfd1026480812da6\",\n" +
+                "  \"PatientInfo\": {\n" +
+                "    \"Birthday\": \"2003-09-08\",\n" +
+                "    \"IDCardNo\": \"340602200309086130\",\n" +
+                "    \"Name\": \"测试10271\",\n" +
+                "    \"Sex\": \"男\"\n" +
+                "  }\n" +
+                "}]]>\n" +
+                "                </request>\n" +
+                "            </param>\n" +
+                "        </api:saveItem>\n" +
+                "    </soapenv:Body>\n" +
+                "</soapenv:Envelope>";
+
+        // 2. 准备metaMap，配置命名空间相关参数
+        Map<String, Object> metaMap = new HashMap<>();
+        metaMap.put("namespace", "http://api.physicalv.ws.manager.cdxt.com/");
+        metaMap.put("namespaceElementName", "saveItem");
+        // 通过.递归获取业务数据
+        metaMap.put("namespaceDataElementName", "param.request");
+        metaMap.put("dataType", "json"); // 业务数据为JSON格式
+
+        // 3. 执行解析方法
+        Map<String, Object> resultMap = parseRequestXml(soapXml, metaMap);
+
+        // 4. 验证解析结果
+        assertNotNull(resultMap, "解析结果不能为null");
+        assertFalse(resultMap.isEmpty(), "解析结果不能为空");
+
+        // 验证顶层字段
+        assertEquals("ef70856500768081165f", resultMap.get("OrderDeptId"), "OrderDeptId解析错误");
+        assertEquals("f4d8bfd1026480812da6", resultMap.get("OrderDoctId"), "OrderDoctId解析错误");
+
+        // 验证嵌套对象
+        @SuppressWarnings("unchecked")
+        Map<String, Object> patientInfo = (Map<String, Object>) resultMap.get("PatientInfo");
+        assertNotNull(patientInfo, "PatientInfo未解析");
+        assertEquals("测试10271", patientInfo.get("Name"), "姓名解析错误");
+        assertEquals("男", patientInfo.get("Sex"), "性别解析错误");
+    }
+
+    /**
+     * 测试通过命名空间定位目标xml业务数据,不需要.递归
+     */
+    @Test
+    void testLocationXmlBizDataWithNamespace2() {
+        // 1. 准备带命名空间的SOAP XML（业务数据为XML格式，在request标签中）
+        String soapXml = "<soapenv:Envelope\n" +
+                "    xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"\n" +
+                "    xmlns:api=\"http://api.physicalv.ws.manager.cdxt.com/\">\n" +
+                "    <soapenv:Header/>\n" +
+                "    <soapenv:Body>\n" +
+                "        <api:saveItem>\n" +
+                "            <request\n>" +  // 业务数据容器
+                "                  <OrderDeptId>ef70856500768081165f</OrderDeptId>\n" +
+                "                  <OrderDoctId>f4d8bfd1026480812da6</OrderDoctId>\n" +
+                "                  <PatientInfo>\n" +
+                "                       <Birthday>2003-09-08</Birthday>\n" +
+                "                       <IDCardNo>340602200309086130</IDCardNo>\n" +
+                "                       <Name>测试10271</Name>\n" +
+                "                       <Sex>男</Sex>\n" +
+                "                   </PatientInfo>\n" +
+                "             </request\n>" +
+                "        </api:saveItem>\n" +
+                "    </soapenv:Body>\n" +
+                "</soapenv:Envelope>";
+
+        // 2. 准备metaMap，配置命名空间相关参数
+        Map<String, Object> metaMap = new HashMap<>();
+        metaMap.put("namespace", "http://api.physicalv.ws.manager.cdxt.com/");
+        metaMap.put("namespaceElementName", "saveItem");
+        // 获取业务数据
+        metaMap.put("namespaceDataElementName", "request");
+        metaMap.put("isCDATA", "false");
+
+        // 3. 执行解析方法
+        Map<String, Object> resultMap = parseRequestXml(soapXml, metaMap);
+
+        // 4. 验证解析结果
+        assertNotNull(resultMap, "解析结果不能为null");
+        assertFalse(resultMap.isEmpty(), "解析结果不能为空");
+
+        // 验证顶层字段
+        assertEquals("ef70856500768081165f", resultMap.get("OrderDeptId"), "OrderDeptId解析错误");
+        assertEquals("f4d8bfd1026480812da6", resultMap.get("OrderDoctId"), "OrderDoctId解析错误");
+
+        // 验证嵌套对象
+        @SuppressWarnings("unchecked")
+        Map<String, Object> patientInfo = (Map<String, Object>) resultMap.get("PatientInfo");
+        assertNotNull(patientInfo, "PatientInfo未解析");
+        assertEquals("测试10271", patientInfo.get("Name"), "姓名解析错误");
+        assertEquals("男", patientInfo.get("Sex"), "性别解析错误");
+    }
+
+
+
     /**
      * 测试通用XML格式数据解析:标签体
      */
     @Test
     public void testParseXmlFormatWithObjectAndArray() {
-        // 准备数据
-        InterfaceWorkflowDO workflow = new InterfaceWorkflowDO();
-        workflow.setContentType(WorkflowContentType.XML);
 
         String xmlString = "<HrRequest>\n" +
                 "    <Head>\n" +
@@ -62,7 +233,7 @@ public class ContentParserTest {
                 "    </Body>\n" +
                 "</HrRequest>";
 
-        Map<String, Object> result = contentParser.parseRequest(workflow, xmlString);
+        Map<String, Object> result = parseRequestXml(xmlString,  new HashMap<>());
 
         // 验证结果
         assertNotNull(result);
