@@ -4,18 +4,25 @@ import com.helianhealth.agent.enums.ScheduleParamSourceType;
 import com.helianhealth.agent.exception.WorkflowBusinessException;
 import com.helianhealth.agent.model.domain.InterfaceWorkflowNode;
 import com.helianhealth.agent.schedule.build.WorkFlowNodeBuilder;
+import com.helianhealth.agent.schedule.processor.BusinessDataPostProcessor;
+import com.helianhealth.agent.schedule.processor.BusinessDataSplitPostProcessor;
 import com.helianhealth.agent.service.InterfaceWorkflowNodeService;
 import com.helianhealth.agent.utils.ExpressionMapperUtils;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 /**
  * 工作流引擎调度器
@@ -30,6 +37,10 @@ public class WorkFlowEngineScheduler {
     private final InterfaceWorkflowNodeService flowNodeService;
     private final WorkFlowNodeBuilder workFlowNodeBuilder;
     private final BusinessDataPostProcessor businessDataPostProcessor;
+    private final BusinessDataSplitPostProcessor splitBusinessDataPostProcessor;
+
+    @Qualifier("WorkFlowNodeExecutor")
+    private final ThreadPoolTaskExecutor taskExecutor;
 
     /**
      * 工作流调度
@@ -61,16 +72,22 @@ public class WorkFlowEngineScheduler {
                 && (businessDataAfterPost == null || businessDataAfterPost.isEmpty())) {
             return new HashMap<>();
         }
-        //  todo 单节点可能需要拆分为多节点调用,e.g.入参为列表但是接口只支持对象
         // 2、执行节点
-        Map<String, Object> nodeResponse = flowNodeService.executeFlowNode(flowNode, businessDataAfterPost);
+        Map<String, Object> nodeResponse;
+        String splitRule = flowNode.getSplitRule();
+        if (splitRule != null && !splitRule.isEmpty()) {
+            // 按照字段拆分并行处理节点
+            nodeResponse = processSplitParallelNode(flowNode, businessDataAfterPost);
+        } else {
+            // 单节点处理
+            nodeResponse = flowNodeService.executeFlowNode(flowNode, businessDataAfterPost);
+        }
 
         // 3、根据表达式调度下一个节点
         List<Integer> nextNodes = determineNextNode(flowNode.getScheduleExpr(), nodeResponse);
         if (nextNodes == null || nextNodes.isEmpty()) {
             return nodeResponse;
         }
-        // 非首节点的调度不支持remote自定义
         List<InterfaceWorkflowNode> workflowNodes = workFlowNodeBuilder.build(nextNodes);
 
         // 4、调度节点的入参来源
@@ -80,13 +97,40 @@ public class WorkFlowEngineScheduler {
         return schedule(workflowNodes, nextNodeParam);
     }
 
+    private Map<String, Object> processSplitParallelNode(InterfaceWorkflowNode flowNode, Map<String, Object> businessData) {
+// 1. 拆分业务数据
+        List<Map<String, Object>> listBusinessData = splitBusinessDataPostProcessor.splitPostProcessor(flowNode.getSplitRule(), businessData);
+        if (listBusinessData.isEmpty()) {
+            return mergeResults(Collections.emptyList());
+        }
+
+        // 2. 并行执行任务并收集Future
+        List<CompletableFuture<Map<String, Object>>> futures = listBusinessData.stream()
+                .map(map -> CompletableFuture.supplyAsync(
+                        () -> flowNodeService.executeFlowNode(flowNode, map),
+                        taskExecutor
+                ))
+                .collect(Collectors.toList());
+
+        // 3. 等待所有任务完成，并收集结果
+        CompletableFuture<Void> allFutures = CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
+        List<Map<String, Object>> nodeResultList = allFutures.thenApply(v ->
+                futures.stream()
+                        .map(CompletableFuture::join)
+                        .collect(Collectors.toList())
+        ).join();
+
+        // 4. 合并结果并返回
+        return mergeResults(nodeResultList);
+    }
+
     private Map<String, Object> determineNextNodeParam(ScheduleParamSourceType paramSourceType,
                                                        Map<String, Object> businessData,
                                                        Map<String, Object> preFlowNodeResponse) {
-
         if (Objects.requireNonNull(paramSourceType) == ScheduleParamSourceType.ORIGINAL) {
             return businessData;
         }
+
         return preFlowNodeResponse;
     }
 
@@ -119,17 +163,23 @@ public class WorkFlowEngineScheduler {
     }
 
     private Map<String, Object> processParallelNode(List<InterfaceWorkflowNode> nodes, Map<String, Object> businessData) {
-        // 1. 收集所有并行节点的处理结果
-        List<Map<String, Object>> nodeResultList = new ArrayList<>();
-        nodes.forEach(workFlowNode -> {
-            Map<String, Object> nodeResult = processSingleNode(workFlowNode, businessData);
-            if (nodeResult == null || nodeResult.isEmpty()) {
-                return;
-            }
-            nodeResultList.add(nodeResult);
-        });
+        // 1. 并行执行任务并收集Future
+        List<CompletableFuture<Map<String, Object>>> futures = nodes.stream()
+                .map(map -> CompletableFuture.supplyAsync(
+                        () -> processSingleNode(map, businessData),
+                        taskExecutor
+                ))
+                .collect(Collectors.toList());
 
-        // 2. 合并所有结果：相同key的值合并（支持List合并，非List类型转为List）
+        // 2. 等待所有任务完成，并收集结果
+        CompletableFuture<Void> allFutures = CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
+        List<Map<String, Object>> nodeResultList = allFutures.thenApply(v ->
+                futures.stream()
+                        .map(CompletableFuture::join)
+                        .collect(Collectors.toList())
+        ).join();
+
+        // 3. 合并所有结果：相同key的值合并（支持List合并，非List类型转为List）
         return mergeResults(nodeResultList);
     }
 

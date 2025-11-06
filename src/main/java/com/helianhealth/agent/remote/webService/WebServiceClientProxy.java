@@ -18,6 +18,7 @@ public class WebServiceClientProxy implements InterfaceClientProxy {
     @Override
     public Map<String, Object> doInvoke(InterfaceWorkflowNode flowNode, List<ParamTreeNode> params) {
         try {
+            log.info("开始调用WebService: {}", flowNode.getNodeName());
             String soapMessage = soapRequestHandler.resolveParamNodes(flowNode, params);
             String soapResponse = soapRequestHandler.sendSoapRequest(flowNode, soapMessage);
             return soapRequestHandler.parseSoapResponse(flowNode, soapResponse);

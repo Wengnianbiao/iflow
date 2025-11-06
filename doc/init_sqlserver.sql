@@ -38,6 +38,8 @@ CREATE TABLE interface_workflow_node
     schedule_param_source_type VARCHAR(25) NULL,
     -- 关键字匹配,默认都用的patientCode
     keyword_field VARCHAR(50) NULL,
+    -- 拆分规则
+    split_rule VARCHAR(50) NULL,
     -- SPI拓展字段
     remote_extension VARCHAR(25) NULL
 );

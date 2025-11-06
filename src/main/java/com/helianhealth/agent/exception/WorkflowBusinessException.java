@@ -7,7 +7,8 @@ public enum WorkflowBusinessException implements BusinessCode, BusinessException
 
     METHOD_NOT_SUPPORT("API-001", "Unsupported method calls!"),
     FLOW_NOT_FOUND("API-002", "Flow not found!"),
-    EXPRESSION_PARSING_ERROR("API-003", "Expression parsing error!");
+    EXPRESSION_PARSING_ERROR("API-003", "Expression parsing error!"),
+    BUSINESS_DATA_SPLIT_ERROR("API-004", "业务数据拆分异常!");
 
     private final String code;
     private final String defaultMessage;
