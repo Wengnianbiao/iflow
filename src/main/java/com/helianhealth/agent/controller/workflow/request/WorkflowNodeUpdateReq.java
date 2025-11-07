@@ -1,20 +1,6 @@
 package com.helianhealth.agent.controller.workflow.request;
 
-import com.helianhealth.agent.enums.NodeType;
-import com.helianhealth.agent.enums.ScheduleParamSourceType;
-import com.helianhealth.agent.utils.UrlWrapper;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import javax.persistence.Column;
-import javax.persistence.EnumType;
-import javax.persistence.Enumerated;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.Table;
 
 /**
  * 工作流节点更新请求
@@ -56,7 +42,7 @@ public class WorkflowNodeUpdateReq {
      * 当前业务场景只根据列表拆分为单个对象或基础数据类型
      * e.g. ids:["12","32"] -> {"id":"12","id":"32"}
      */
-    private String splitRule;
+    private String splitField;
 
     /**
      * 调度规则表达式

@@ -65,7 +65,7 @@ public class WorkFlowEngineScheduler {
 
     private Map<String, Object> processSingleNode(InterfaceWorkflowNode flowNode, Map<String, Object> businessData) {
         // 1、根据规则表达式对入参进行预处理
-        Map<String, Object> businessDataAfterPost = businessDataPostProcessor.postParamProcessor(
+        Map<String, Object> businessDataAfterPost = businessDataPostProcessor.paramFilterPostProcess(
                 flowNode.getParamFilterExpr(), businessData);
         // 有过滤配置&&过滤后的数据为空则直接返回空map
         if ((flowNode.getParamFilterExpr() != null && !flowNode.getParamFilterExpr().isEmpty())
@@ -74,10 +74,10 @@ public class WorkFlowEngineScheduler {
         }
         // 2、执行节点
         Map<String, Object> nodeResponse;
-        String splitRule = flowNode.getSplitRule();
-        if (splitRule != null && !splitRule.isEmpty()) {
+        String splitField = flowNode.getSplitField();
+        if (splitField != null && !splitField.isEmpty()) {
             // 按照字段拆分并行处理节点
-            nodeResponse = processSplitParallelNode(flowNode, businessDataAfterPost);
+            nodeResponse = parallelSplitNodeProcess(flowNode, businessDataAfterPost);
         } else {
             // 单节点处理
             nodeResponse = flowNodeService.executeFlowNode(flowNode, businessDataAfterPost);
@@ -97,9 +97,9 @@ public class WorkFlowEngineScheduler {
         return schedule(workflowNodes, nextNodeParam);
     }
 
-    private Map<String, Object> processSplitParallelNode(InterfaceWorkflowNode flowNode, Map<String, Object> businessData) {
-// 1. 拆分业务数据
-        List<Map<String, Object>> listBusinessData = splitBusinessDataPostProcessor.splitPostProcessor(flowNode.getSplitRule(), businessData);
+    private Map<String, Object> parallelSplitNodeProcess(InterfaceWorkflowNode flowNode, Map<String, Object> businessData) {
+        // 1. 拆分业务数据
+        List<Map<String, Object>> listBusinessData = splitBusinessDataPostProcessor.splitPostProcess(flowNode.getSplitField(), businessData);
         if (listBusinessData.isEmpty()) {
             return mergeResults(Collections.emptyList());
         }

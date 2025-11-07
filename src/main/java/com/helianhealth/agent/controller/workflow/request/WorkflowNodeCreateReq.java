@@ -51,6 +51,11 @@ public class WorkflowNodeCreateReq {
     private String keywordField;
 
     /**
+     * 分割字段
+     */
+    private String splitField;
+
+    /**
      * SPI拓展字段
      */
     private String remoteExtension;

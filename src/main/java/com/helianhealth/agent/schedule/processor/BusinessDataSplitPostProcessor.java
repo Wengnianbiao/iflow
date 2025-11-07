@@ -13,15 +13,15 @@ import java.util.Map;
 @Slf4j
 public class BusinessDataSplitPostProcessor {
 
-    public List<Map<String, Object>> splitPostProcessor(String splitRule, Map<String, Object> businessData) {
+    public List<Map<String, Object>> splitPostProcess(String splitField, Map<String, Object> businessData) {
         // 获取待分割字段业务数据
-        Object splitBusinessData = businessData.get(splitRule);
+        Object splitBusinessData = businessData.get(splitField);
         if (splitBusinessData == null) {
-            log.error("分割业务数据异常,【{}】参数不存在", splitRule);
+            log.error("分割业务数据异常,【{}】参数不存在", splitField);
             throw WorkflowBusinessException.BUSINESS_DATA_SPLIT_ERROR.toException("参数不存在");
         }
         if (!(splitBusinessData instanceof List)) {
-            log.error("分割业务数据异常,【{}】拆分规则字段必须为数组", splitRule);
+            log.error("分割业务数据异常,【{}】拆分规则字段必须为数组", splitField);
             throw WorkflowBusinessException.BUSINESS_DATA_SPLIT_ERROR.toException("拆分规则字段必须为数组");
         }
 
@@ -31,8 +31,8 @@ public class BusinessDataSplitPostProcessor {
         // 拆分业务数据字段
         for (Object item : splitDataList) {
             Map<String, Object> newData = new HashMap<>(businessData);
-            newData.remove(splitRule);
-            newData.put(splitRule, item);
+            newData.remove(splitField);
+            newData.put(splitField, item);
             result.add(newData);
         }
 

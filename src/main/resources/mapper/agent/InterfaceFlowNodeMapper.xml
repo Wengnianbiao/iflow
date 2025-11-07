@@ -14,7 +14,7 @@
         <result property="scheduleParamSourceType" column="schedule_param_source_type"/>
         <result property="keywordField" column="keyword_field"/>
         <result property="remoteExtension" column="remote_extension"/>
-        <result property="splitRule" column="split_rule"/>
+        <result property="splitField" column="split_field"/>
     </resultMap>
 
     <insert id="createNode" parameterType="com.helianhealth.agent.model.po.InterfaceWorkflowNodePO">
@@ -47,8 +47,8 @@
             <if test="remoteExtension != null">
                 remote_extension,
             </if>
-            <if test="splitRule != null">
-                split_rule,
+            <if test="splitField != null">
+                split_field,
             </if>
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
@@ -79,8 +79,8 @@
             <if test="remoteExtension != null">
                 #{remoteExtension,jdbcType=VARCHAR},
             </if>
-            <if test="splitRule != null">
-                #{splitRule,jdbcType=VARCHAR},
+            <if test="splitField != null">
+                #{splitField,jdbcType=VARCHAR},
             </if>
         </trim>
     </insert>
@@ -113,7 +113,7 @@
             schedule_param_source_type = #{scheduleParamSourceType,jdbcType=VARCHAR},
             keyword_field = #{keywordField,jdbcType=VARCHAR},
             remote_extension = #{remoteExtension,jdbcType=VARCHAR},
-            split_rule = #{splitRule,jdbcType=VARCHAR}
+            split_field = #{splitField,jdbcType=VARCHAR}
         WHERE node_id = #{nodeId}
     </update>
 </mapper>

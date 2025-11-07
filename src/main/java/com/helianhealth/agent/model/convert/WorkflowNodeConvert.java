@@ -19,7 +19,7 @@ public class WorkflowNodeConvert {
         view.setParamFilterExpr(po.getParamFilterExpr());
         view.setNodeType(po.getNodeType());
         view.setMetaInfo(po.getMetaInfo());
-        view.setSplitRule(po.getSplitRule());
+        view.setSplitField(po.getSplitField());
         view.setScheduleExpr(po.getScheduleExpr());
         view.setScheduleParamSourceType(po.getScheduleParamSourceType());
         view.setKeywordField(po.getKeywordField());

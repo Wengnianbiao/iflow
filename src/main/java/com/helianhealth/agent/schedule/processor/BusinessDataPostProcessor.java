@@ -11,7 +11,7 @@ import java.util.Map;
 @Slf4j
 public class BusinessDataPostProcessor {
 
-    public Map<String, Object> postParamProcessor(String paramFilterExpr, Map<String, Object> businessData) {
+    public Map<String, Object> paramFilterPostProcess(String paramFilterExpr, Map<String, Object> businessData) {
         if (StringUtils.isEmpty(paramFilterExpr)) {
             return businessData;
         }

@@ -26,7 +26,7 @@ public class WorkFlowNodeBuilder {
                 .paramFilterExpr(view.getParamFilterExpr())
                 .nodeType(view.getNodeType())
                 .metaInfo(view.getMetaInfo())
-                .splitRule(view.getSplitRule())
+                .splitField(view.getSplitField())
                 .scheduleExpr(view.getScheduleExpr())
                 .scheduleParamSourceType(view.getScheduleParamSourceType())
                 .keywordField(view.getKeywordField())

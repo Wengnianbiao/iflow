@@ -103,6 +103,7 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
                 .metaInfo(nodeCreateReq.getMetaInfo())
                 .keywordField(nodeCreateReq.getKeywordField())
                 .scheduleExpr(nodeCreateReq.getScheduleExpr())
+                .splitField(nodeCreateReq.getSplitField())
                 .remoteExtension(nodeCreateReq.getRemoteExtension())
                 .scheduleParamSourceType(scheduleParamSourceType == null || scheduleParamSourceType.isEmpty() ?
                         null : ScheduleParamSourceType.valueOf(scheduleParamSourceType)).build();
@@ -121,6 +122,7 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
                 .nodeType(NodeType.valueOf(nodeUpdateReq.getNodeType()))
                 .metaInfo(nodeUpdateReq.getMetaInfo())
                 .keywordField(nodeUpdateReq.getKeywordField())
+                .splitField(nodeUpdateReq.getSplitField())
                 .remoteExtension(nodeUpdateReq.getRemoteExtension())
                 .scheduleExpr(nodeUpdateReq.getScheduleExpr())
                 .scheduleParamSourceType(scheduleParamSourceType == null || scheduleParamSourceType.isEmpty() ?

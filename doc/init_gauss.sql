@@ -34,6 +34,8 @@ CREATE TABLE interface_workflow_node
     meta_info TEXT NULL,
     -- 调度表达式
     schedule_expr VARCHAR(255) NULL,
+    -- 拆分字段配置
+    split_field VARCHAR(50) NULL,
     -- 调度参数来源
     schedule_param_source_type VARCHAR(25) NULL,
     -- 关键字匹配,默认都用的patientCode

@@ -45,7 +45,7 @@ public class InterfaceWorkflowNodeView {
      * 当前业务场景只根据列表拆分为单个对象或基础数据类型
      * e.g. ids:["12","32"] -> {"id":"12","id":"32"}
      */
-    private String splitRule;
+    private String splitField;
 
     /**
      * 调度规则表达式
