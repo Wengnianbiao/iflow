@@ -2,6 +2,7 @@ package com.helianhealth.agent.remote.webService;
 
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
+import com.helianhealth.agent.common.XmlConstants;
 import com.helianhealth.agent.model.domain.InterfaceWorkflowNode;
 import com.helianhealth.agent.model.dto.ParamTreeNode;
 import com.helianhealth.agent.remote.ParamResolver;
@@ -41,14 +42,20 @@ public class SoapRequestHandler implements ParamResolver {
      */
     public String resolveParamNodes(InterfaceWorkflowNode flowNode, List<ParamTreeNode> paramNode) {
         try {
-            // 解析metaInfo配置
-            JSONObject metaInfo = parseMetaInfo(flowNode.getMetaInfo());
+            JSONObject metaInfo = JsonUtils.parseMetaInfo2JsonObject(flowNode.getMetaInfo());
+            String dataType = (String) metaInfo.get(XmlConstants.DATA_TYPE_KEY);
+            if (XmlConstants.JSON_KEY.equalsIgnoreCase(dataType)) {
+                // 业务数据为JSON
+                String paramJson = ParamNodeUtils.paramNode2Json(paramNode);
 
-            // 将参数节点转换为XML字符串
-            String paramXml = ParamNodeUtils.paramNodeDTO2Xml(paramNode.get(0));
+                return buildSoapFromConfig(metaInfo, paramJson);
+            } else {
+                // 业务数据为XML格式
+                String paramXml = ParamNodeUtils.paramNode2Xml(paramNode.get(0));
 
-            // 根据配置构建SOAP消息
-            return buildSoapFromConfig(metaInfo, paramXml);
+                return buildSoapFromConfig(metaInfo, paramXml);
+            }
+
         } catch (Exception e) {
             log.error("构建SOAP消息失败", e);
             throw new RuntimeException("构建SOAP消息失败: " + e.getMessage());
@@ -177,7 +184,7 @@ public class SoapRequestHandler implements ParamResolver {
         StringBuilder soapMessage = new StringBuilder();
 
         // 获取envelope配置
-        JSONObject envelope = metaInfo.getJSONObject("envelope");
+        JSONObject envelope = (JSONObject) metaInfo.get("envelope");
         if (envelope == null) {
             throw new IllegalArgumentException("metaInfo中缺少envelope配置");
         }

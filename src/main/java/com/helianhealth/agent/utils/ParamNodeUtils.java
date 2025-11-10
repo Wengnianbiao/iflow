@@ -1,10 +1,11 @@
 package com.helianhealth.agent.utils;
 
 import com.alibaba.fastjson2.JSONArray;
+import com.alibaba.fastjson2.JSONObject;
 import com.helianhealth.agent.enums.ParamType;
 import com.helianhealth.agent.model.dto.ParamTreeNode;
 
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,14 +57,107 @@ public class ParamNodeUtils {
      * @param node 根节点
      * @return XML字符串
      */
-    public static String paramNodeDTO2Xml(ParamTreeNode node) {
+    public static String paramNode2Xml(ParamTreeNode node) {
         if (node == null) {
             return "";
         }
 
         StringBuilder xml = new StringBuilder();
-        paramNodeDTO2Xml(node, xml, 0);
+        paramNode2Xml(node, xml, 0);
         return xml.toString();
+    }
+
+    /**
+     * 将ParamNodeDTO转换为XML字符串
+     * @param node 根节点
+     * @return XML字符串
+     */
+    public static String paramNode2Json(List<ParamTreeNode> node) {
+        if (node == null || node.isEmpty()) {
+            return "";
+        }
+        // 兼容调用方的请求体是纯数组的场景,e.g. [1,2,3] or [{"name":"John"},{"name":"Mike"}]
+        if (node.size() == 1 && node.get(0).getParamType() == ParamType.PURE_ARRAY) {
+            return JsonUtils.toJsonString(processArrayNodeType(node.get(0)));
+        }
+        Map<String, Object> queryParams = new HashMap<>();
+
+        node.forEach(param -> queryParams.put(param.getParamKey(), extractValueFromNode(param)));
+
+        return JsonUtils.toJsonString(queryParams);
+    }
+
+    private static Object extractValueFromNode(ParamTreeNode node) {
+        if (node == null) {
+            return null;
+        }
+
+        switch (node.getParamType()) {
+            case STRING:
+            case INTEGER:
+            case LONG:
+            case BOOLEAN:
+                return node.getParamValue();
+            case ARRAY:
+                return processArrayNodeType(node);
+
+            case OBJECT:
+                if (node.getChildren() != null && !node.getChildren().isEmpty()) {
+                    Map<String, Object> objectMap = new HashMap<>();
+                    for (ParamTreeNode child : node.getChildren()) {
+                        if (child.getParamKey() != null) {
+                            objectMap.put(child.getParamKey(), extractValueFromNode(child));
+                        }
+                    }
+                    return objectMap;
+                } else {
+                    return node.getParamValue() != null ?
+                            JsonUtils.toJsonString(node.getParamValue()) : null;
+                }
+            default:
+                return node.getParamValue() != null ? node.getParamValue().toString() : null;
+        }
+    }
+
+    private static Object processArrayNodeType(ParamTreeNode node) {
+        JSONArray jsonArray = new JSONArray();
+
+        if (node.getChildren() != null && !node.getChildren().isEmpty()) {
+            // 遍历所有虚拟节点
+            for (ParamTreeNode virtualNode : node.getChildren()) {
+                // 虚拟节点的子节点才是真正的元素
+                if (virtualNode.getChildren() != null && !virtualNode.getChildren().isEmpty()) {
+                    List<ParamTreeNode> actualNodes = virtualNode.getChildren();
+
+                    if (actualNodes.size() == 1) {
+                        // 只有一个子节点说明是单元素节点,默认只保留元素值
+                        ParamTreeNode actualNode = actualNodes.get(0);
+                        Object value = extractValueFromNode(actualNode);
+                        // 根据配置项中是否保留单元素节点的key
+                        Boolean keepSingleElementKey = virtualNode.getKeepSingleElementKey();
+                        if (keepSingleElementKey != null && keepSingleElementKey) {
+                            JSONObject obj = new JSONObject();
+                            obj.put(actualNode.getParamKey(), value);
+                            jsonArray.add(obj);
+                        } else {
+                            jsonArray.add(value);
+                        }
+                    } else {
+                        // 多个子节点，封装成对象后加入数组
+                        JSONObject obj = new JSONObject();
+                        for (ParamTreeNode actualNode : actualNodes) {
+                            if (actualNode.getParamKey() != null) {
+                                Object value = extractValueFromNode(actualNode);
+                                obj.put(actualNode.getParamKey(), value);
+                            }
+                        }
+                        jsonArray.add(obj);
+                    }
+                }
+            }
+        }
+
+        return jsonArray;
     }
 
     /**
@@ -72,7 +166,7 @@ public class ParamNodeUtils {
      * @param xml StringBuilder对象
      * @param indent 缩进级别
      */
-    private static void paramNodeDTO2Xml(ParamTreeNode node, StringBuilder xml, int indent) {
+    private static void paramNode2Xml(ParamTreeNode node, StringBuilder xml, int indent) {
         if (node == null) {
             return;
         }
@@ -111,7 +205,7 @@ public class ParamNodeUtils {
             if (children != null && !children.isEmpty()) {
                 xml.append("\n");
                 for (ParamTreeNode child : children) {
-                    paramNodeDTO2Xml(child, xml, indent + 1);
+                    paramNode2Xml(child, xml, indent + 1);
                 }
                 addIndent(xml, indent);
             }
@@ -125,7 +219,7 @@ public class ParamNodeUtils {
             if (children != null && !children.isEmpty()) {
                 xml.append("\n");
                 for (ParamTreeNode child : children) {
-                    paramNodeDTO2Xml(child, xml, indent + 1);
+                    paramNode2Xml(child, xml, indent + 1);
                 }
                 addIndent(xml, indent);
             }

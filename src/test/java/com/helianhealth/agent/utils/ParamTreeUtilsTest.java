@@ -98,7 +98,7 @@ public class ParamTreeUtilsTest {
                 .children(specimenFatherChildList)
                 .build();
 
-        String s = ParamNodeUtils.paramNodeDTO2Xml(specimenFatherElement);
+        String s = ParamNodeUtils.paramNode2Xml(specimenFatherElement);
         System.out.println(s);
     }
 }

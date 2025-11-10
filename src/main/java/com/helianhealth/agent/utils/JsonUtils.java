@@ -1,9 +1,11 @@
 package com.helianhealth.agent.utils;
 
+import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.helianhealth.agent.exception.JsonUtilsException;
+import org.springframework.util.StringUtils;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -105,6 +107,24 @@ public class JsonUtils {
 
         try {
             return objectMapper.readValue(metaInfo, new TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            throw new RuntimeException("Error parsing metaInfo: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 解析metaInfo JSON字符串为JSONObject
+     *
+     * @param metaInfo 包含元信息的JSON字符串
+     * @return 解析后的JSONObject
+     */
+    public static JSONObject parseMetaInfo2JsonObject(String metaInfo) {
+        if (!StringUtils.hasText(metaInfo)) {
+            return new JSONObject();
+        }
+
+        try {
+            return JSON.parseObject(metaInfo);
         } catch (Exception e) {
             throw new RuntimeException("Error parsing metaInfo: " + e.getMessage(), e);
         }

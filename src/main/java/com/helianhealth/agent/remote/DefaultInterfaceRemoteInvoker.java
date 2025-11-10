@@ -36,7 +36,6 @@ public class DefaultInterfaceRemoteInvoker implements InterfaceRemoteInvoker {
     }
 
 
-
     /**
      * 参数前置处理转化成参数树
      * 子类可以根据需要重写此方法
