@@ -9,6 +9,7 @@ import com.helianhealth.agent.service.InterfaceInvokeLogService;
 import com.helianhealth.agent.utils.JsonUtils;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.StringUtils;
 
 import java.util.Map;
 
@@ -20,7 +21,7 @@ public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker 
 
     private final InterfaceRemoteInvoker interfaceRemoteInvoker;
 
-    public InterfaceRemoteInvokerLogWrapper(InterfaceRemoteInvoker interfaceRemoteInvoker){
+    public InterfaceRemoteInvokerLogWrapper(InterfaceRemoteInvoker interfaceRemoteInvoker) {
         this.interfaceRemoteInvoker = interfaceRemoteInvoker;
     }
 
@@ -57,8 +58,13 @@ public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker 
             throw e;
         } finally {
             try {
+                long invokeTime = System.currentTimeMillis() - startTime;
+                if (StringUtils.isEmpty(context.getInvokeTime())) {
+                    // 如果为空，说明是自定义调用逻辑，统一保存耗时
+                    context.setInvokeTime(String.valueOf(invokeTime));
+                }
                 saveAllCollectedLogs(context);
-                log.info("工作流节点: [{}] 执行结束, 耗时: [{}]ms", flowNode.getNodeName(), System.currentTimeMillis() - startTime);
+                log.info("工作流节点: [{}] 执行结束, 耗时: [{}]ms", flowNode.getNodeName(), invokeTime);
             } catch (Exception e) {
                 log.error("日志保存失败", e);
             } finally {

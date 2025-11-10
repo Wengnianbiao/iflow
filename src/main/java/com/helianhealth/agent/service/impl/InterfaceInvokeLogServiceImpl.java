@@ -41,6 +41,11 @@ public class InterfaceInvokeLogServiceImpl implements InterfaceInvokeLogService 
     }
 
     @Override
+    public void saveInvokeLog(String nodeName, String keyword, String paramBeforeInvoke, String remoteInvokeResponse, String invokeTime) {
+        this.saveInvokeLog(nodeName, keyword, null, paramBeforeInvoke, remoteInvokeResponse, null, invokeTime);
+    }
+
+    @Override
     public PageList<InterfaceInvokeLogDO> findAllInvokeLogs(String nodeName, String keyword, int pageNum, int pageSize) {
         try {
             PageHelper.startPage(pageNum, pageSize);
