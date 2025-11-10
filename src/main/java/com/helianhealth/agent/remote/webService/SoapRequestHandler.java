@@ -199,15 +199,10 @@ public class SoapRequestHandler implements ParamResolver {
         soapMessage.append(">\n");
 
         // 处理header
-        JSONObject headerConfig = metaInfo.getJSONObject("header");
+        String headerConfig = (String) metaInfo.get("header");
         soapMessage.append("  <soapenv:Header");
         soapMessage.append(">");
-        if (headerConfig != null && !headerConfig.isEmpty()) {
-            // 如果有header内容，添加进去
-            soapMessage.append("\n");
-            buildHeaderContent(soapMessage, headerConfig, 4);
-            soapMessage.append("  ");
-        }
+        soapMessage.append(headerConfig);
         soapMessage.append("</soapenv:Header>\n");
 
         // 处理body
@@ -230,67 +225,9 @@ public class SoapRequestHandler implements ParamResolver {
     }
 
     /**
-     * 构建Header内容
-     */
-    private void buildHeaderContent(StringBuilder soapMessage, JSONObject headerConfig, int indent) {
-        // 遍历Header中的所有元素
-        for (String key : headerConfig.keySet()) {
-            Object value = headerConfig.get(key);
-            if (value instanceof JSONObject) {
-                buildElement(soapMessage, (JSONObject) value, indent);
-            }
-        }
-    }
-
-    /**
-     * 构建单个元素
-     */
-    private void buildElement(StringBuilder soapMessage, JSONObject elementConfig, int indent) {
-        String elementName = elementConfig.getString("element");
-        String elementValue = elementConfig.getString("value");
-
-        if (elementName == null) {
-            return;
-        }
-
-        // 添加缩进
-        addIndent(soapMessage, indent);
-
-        soapMessage.append("<").append(elementName).append(">");
-
-        if (elementValue != null) {
-            soapMessage.append(escapeXml(elementValue));
-        } else {
-            // 处理子元素
-            JSONObject children = elementConfig.getJSONObject("children");
-            if (children != null && !children.isEmpty()) {
-                soapMessage.append("\n");
-                for (String childKey : children.keySet()) {
-                    Object childValue = children.get(childKey);
-                    if (childValue instanceof JSONObject) {
-                        buildElement(soapMessage, (JSONObject) childValue, indent + 2);
-                    }
-                }
-                addIndent(soapMessage, indent);
-            }
-        }
-
-        soapMessage.append("</").append(elementName).append(">\n");
-    }
-
-    /**
      * XML转义
      */
     private String escapeXml(String value) {
         return value;
-    }
-
-    /**
-     * 添加缩进
-     */
-    private void addIndent(StringBuilder sb, int indent) {
-        for (int i = 0; i < indent; i++) {
-            sb.append(" ");
-        }
     }
 }
