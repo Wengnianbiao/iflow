@@ -32,7 +32,7 @@ public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker 
         LogContext context = new LogContext();
         LogContextHolder.setContext(context);
 
-        context.setNodeId(flowNode.getNodeId());
+        context.setNodeName(flowNode.getNodeName());
         // 提取关键字
         if (businessData != null && flowNode.getKeywordField() != null) {
             Object keywordObj = getNestedValue(businessData, flowNode.getKeywordField());
@@ -106,7 +106,7 @@ public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker 
     private void saveAllCollectedLogs(LogContext context) {
         try {
             interfaceInvokeLogService.saveInvokeLog(
-                    context.getNodeId(),
+                    context.getNodeName(),
                     context.getKeyword(),
                     context.getBusinessData(),
                     context.getParamBeforeInvoke(),

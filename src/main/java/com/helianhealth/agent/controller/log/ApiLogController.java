@@ -25,12 +25,12 @@ public class ApiLogController {
      */
     @GetMapping("/all")
     public ResultData<PageList<InterfaceInvokeLogDO>> findAllInvokeLogs(
-            @RequestParam(value = "nodeId", required = false) Integer nodeId,
+            @RequestParam(value = "nodeName", required = false) String nodeName,
             @RequestParam(value = "keyword", required = false) String keyword,
             @RequestParam(value = "pageNum", defaultValue = "1") int pageNum,
             @RequestParam(value = "pageSize", defaultValue = "10") int pageSize) {
         try {
-            PageList<InterfaceInvokeLogDO> pageList = interfaceInvokeLogService.findAllInvokeLogs(nodeId, keyword, pageNum, pageSize);
+            PageList<InterfaceInvokeLogDO> pageList = interfaceInvokeLogService.findAllInvokeLogs(nodeName, keyword, pageNum, pageSize);
             return ResponseRenderUtils.render(pageList);
         } catch (Exception e) {
             log.error("获取节点参数配置列表失败", e);

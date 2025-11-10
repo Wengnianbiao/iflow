@@ -272,24 +272,6 @@ public class SoapRequestHandler implements ParamResolver {
     }
 
     /**
-     * 解析响应XML
-     */
-    private Map<String, Object> parseResponseXml(String responseXml, JSONObject responseConfig) {
-        // 实际项目中应使用XML解析器解析响应
-        // 这里简化处理，返回原始响应和一些示例字段
-        Map<String, Object> result = new HashMap<>();
-        result.put("rawResponse", responseXml);
-
-        // 根据配置提取需要的字段
-        String rootElement = responseConfig.getString("rootElement");
-        if (rootElement != null) {
-            result.put("rootElement", rootElement);
-        }
-
-        return result;
-    }
-
-    /**
      * XML转义
      */
     private String escapeXml(String value) {

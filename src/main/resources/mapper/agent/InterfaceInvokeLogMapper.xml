@@ -5,8 +5,8 @@
 
     <resultMap id="InterfaceInvokeLogResultMap" type="com.helianhealth.agent.model.domain.InterfaceInvokeLogDO">
         <id property="logId" column="log_id"/>
-        <result property="nodeId" column="node_id"/>
         <result property="keyword" column="keyword"/>
+        <result property="nodeName" column="node_name"/>
         <result property="businessData" column="business_data"/>
         <result property="paramBeforeInvoke" column="param_before_invoke"/>
         <result property="remoteInvokeResponse" column="remote_invoke_response"/>
@@ -18,8 +18,8 @@
     <insert id="insertLog" parameterType="com.helianhealth.agent.model.domain.InterfaceInvokeLogDO">
         INSERT INTO interface_invoke_log
         <trim prefix="(" suffix=")" suffixOverrides=",">
-            <if test="nodeId != null">
-                node_id,
+            <if test="nodeName != null">
+                node_name,
             </if>
             <if test="keyword != null">
                 keyword,
@@ -44,8 +44,8 @@
             </if>
         </trim>
         <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
-            <if test="nodeId != null">
-                #{nodeId,jdbcType=INTEGER},
+            <if test="nodeName != null">
+                #{nodeName,jdbcType=VARCHAR},
             </if>
             <if test="keyword != null">
                 #{keyword,jdbcType=VARCHAR},
@@ -75,8 +75,8 @@
         select *
         from interface_invoke_log
         <where>
-            <if test="nodeId != null">
-                node_id = #{nodeId}
+            <if test="nodeName != null">
+                node_name = #{nodeName}
             </if>
             <if test="keyword != null">
                 and keyword = #{keyword}

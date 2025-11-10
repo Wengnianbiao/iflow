@@ -4,7 +4,7 @@ import lombok.Data;
 
 @Data
 public class LogContext {
-    private Integer nodeId;
+    private String nodeName;
     private String businessData = "{}";
     private String keyword;
     private String paramBeforeInvoke = "{}";

@@ -31,10 +31,10 @@ public class InterfaceInvokeLogDO {
     private Long logId;
 
     /**
-     * 工作流节点ID
+     * 工作流节点名称
      */
-    @Column(name = "node_id")
-    private Integer nodeId;
+    @Column(name = "node_name")
+    private String nodeName;
 
     /**
      * 业务关键字,通常为业务数据中的唯一标识, 如 patientCode

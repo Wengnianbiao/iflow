@@ -6,7 +6,6 @@ import com.helianhealth.agent.common.PageList;
 import com.helianhealth.agent.mapper.agent.InterfaceInvokeLogMapper;
 import com.helianhealth.agent.model.domain.InterfaceInvokeLogDO;
 import com.helianhealth.agent.service.InterfaceInvokeLogService;
-import com.helianhealth.agent.utils.JsonUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -22,16 +21,10 @@ public class InterfaceInvokeLogServiceImpl implements InterfaceInvokeLogService 
     private final InterfaceInvokeLogMapper interfaceInvokeLogMapper;
 
     @Override
-    public void saveInvokeLog(Integer nodeId,
-                              String keyword,
-                              String businessData,
-                              String paramBeforeInvoke,
-                              String remoteInvokeResponse,
-                              String paramAfterInvoke,
-                              String invokeTime) {
+    public void saveInvokeLog(String nodeName, String keyword, String businessData, String paramBeforeInvoke, String remoteInvokeResponse, String paramAfterInvoke, String invokeTime) {
         try {
             InterfaceInvokeLogDO logDO = InterfaceInvokeLogDO.builder()
-                    .nodeId(nodeId)
+                    .nodeName(nodeName)
                     .keyword(keyword)
                     .businessData(businessData)
                     .paramBeforeInvoke(paramBeforeInvoke)
@@ -48,11 +41,11 @@ public class InterfaceInvokeLogServiceImpl implements InterfaceInvokeLogService 
     }
 
     @Override
-    public PageList<InterfaceInvokeLogDO> findAllInvokeLogs(Integer nodeId, String keyword, int pageNum, int pageSize) {
+    public PageList<InterfaceInvokeLogDO> findAllInvokeLogs(String nodeName, String keyword, int pageNum, int pageSize) {
         try {
             PageHelper.startPage(pageNum, pageSize);
             // 将查询结果转换为 PageInfo 对象
-            List<InterfaceInvokeLogDO> invokeLogs = interfaceInvokeLogMapper.selectAllInvokeLogs(nodeId, keyword);
+            List<InterfaceInvokeLogDO> invokeLogs = interfaceInvokeLogMapper.selectAllInvokeLogs(nodeName, keyword);
             PageInfo<InterfaceInvokeLogDO> pageInfo = new PageInfo<>(invokeLogs);
 
             // 构建 PageList 对象

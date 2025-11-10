@@ -93,8 +93,8 @@ CREATE TABLE node_param_config
 CREATE TABLE interface_invoke_log (
     -- 主键ID，自增，不允许为空和更新
     log_id bigint IDENTITY(1,1)  NOT NULL PRIMARY KEY,
-    -- 节点id
-    node_id int NOT NULL,
+    -- 节点名称
+    node_name VARCHAR(50) not NULL,
     -- 关键字匹配,默认都用的patientCode
     keyword VARCHAR(50) NULL,
     -- 业务数据
