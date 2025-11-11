@@ -25,11 +25,10 @@ public class DefaultParamTreeBuilder extends AbstractParamTreeBuilder {
         // 配置项:当对象元素为单个是否保留key
         Boolean keepSingleElementKey = config.getKeepSingleElementKey();
         node.setKeepSingleElementKey(keepSingleElementKey);
-        // 递归构建子节点,businessData会按照配置递归获取,parentBusinessData父参数取当前的businessData,rootBusinessData是根节点的businessData
         node.setChildren(buildParamTree(allNodes,
                 config.getConfigId(),
                 processSourceParamWhenTargetIsObject(config, businessData),
-                businessData,
+                parentBusinessData,
                 rootBusinessData));
     }
 
