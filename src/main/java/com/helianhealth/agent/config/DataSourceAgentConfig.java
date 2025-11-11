@@ -16,7 +16,7 @@ import tk.mybatis.spring.annotation.MapperScan;
 import javax.sql.DataSource;
 
 @Configuration
-@MapperScan(basePackages = {"com.helianhealth.agent.mapper.agent", "com.helianhealth.agent.quartz.mapper"}, sqlSessionFactoryRef = "agentSqlSessionFactory",sqlSessionTemplateRef = "agentSqlSessionTemplate")
+@MapperScan(basePackages = {"com.helianhealth.agent.mapper.agent"}, sqlSessionFactoryRef = "agentSqlSessionFactory",sqlSessionTemplateRef = "agentSqlSessionTemplate")
 public class DataSourceAgentConfig {
 
     @Bean(name = "agentDataSource")

@@ -32,7 +32,7 @@ public class DataSourceHemsConfig {
     public SqlSessionFactory sqlSessionFactory(@Qualifier("hemsDataSource") DataSource dataSource) throws Exception {
         SqlSessionFactoryBean bean = new SqlSessionFactoryBean();
         bean.setDataSource(dataSource);
-        bean.setMapperLocations(new PathMatchingResourcePatternResolver().getResources("classpath*:mapper/agent/**/*.xml"));
+        bean.setMapperLocations(new PathMatchingResourcePatternResolver().getResources("classpath*:mapper/hems/**/*.xml"));
         // 开启驼峰映射
         org.apache.ibatis.session.Configuration configuration = new org.apache.ibatis.session.Configuration();
         configuration.setMapUnderscoreToCamelCase(true);
@@ -48,10 +48,5 @@ public class DataSourceHemsConfig {
     @Bean(name = "hemsTransactionManager")
     public DataSourceTransactionManager transactionManager(@Qualifier("hemsDataSource") DataSource ds){
         return new DataSourceTransactionManager(ds);
-    }
-
-    @Bean
-    public ConfigurationCustomizer mybatisConfigurationCustomizer() {
-        return configuration -> configuration.getTypeHandlerRegistry().register(ListIntegerTypeHandler.class);
     }
 }
