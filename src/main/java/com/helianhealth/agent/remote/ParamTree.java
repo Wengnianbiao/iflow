@@ -13,10 +13,19 @@ import java.util.Map;
 public interface ParamTree {
 
     @Adaptive("node")
-    List<ParamTreeNode> buildParamTree(URL url,
-                                       List<NodeParamConfigDO> configs,
-                                       Integer parentId,
-                                       Map<String, Object> businessData,
-                                       Map<String, Object> parentBusinessData,
-                                       Map<String, Object> sourceBusinessData);
+    List<ParamTreeNode> buildPreParamTree(URL url,
+                                          List<NodeParamConfigDO> configs,
+                                          Integer parentId,
+                                          Map<String, Object> businessData,
+                                          Map<String, Object> parentBusinessData,
+                                          Map<String, Object> sourceBusinessData);
+
+    @Adaptive("node")
+    List<ParamTreeNode> buildPostParamTree(URL url,
+                                          List<NodeParamConfigDO> configs,
+                                          Integer parentId,
+                                          Map<String, Object> inputBusinessData,
+                                          Map<String, Object> responseBusinessData,
+                                          Map<String, Object> sourceInputBusinessData,
+                                          Map<String, Object> sourceResponseBusinessData);
 }

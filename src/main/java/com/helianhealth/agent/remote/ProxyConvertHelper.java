@@ -48,17 +48,14 @@ public class ProxyConvertHelper {
     }
 
     @SuppressWarnings("unchecked")
-    public static Object convertSourceValue(NodeParamConfigDO config, Map<String, Object> businessData, Map<String, Object> rootBusinessData) {
-        MappingSource mappingSource = config.getMappingSource();
-        // 入参中的rootBusinessData是节点的入参,businessData是响应数据
-        Map<String, Object> tagertMap = mappingSource == MappingSource.INPUT ? rootBusinessData : businessData;
+    public static Object convertSourceValue(NodeParamConfigDO config, Map<String, Object> businessData) {
         String sourceParamKey = config.getSourceParamKey();
         // 如果源参数key为空，则说明不需要进行转化
         if (StringUtils.isEmpty(sourceParamKey)) {
             return businessData;
         }
         String[] keys = sourceParamKey.split("\\.");
-        Object current = tagertMap;
+        Object current = businessData;
 
         for (String key : keys) {
             if (!(current instanceof Map)) {

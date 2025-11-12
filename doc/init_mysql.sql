@@ -61,7 +61,7 @@ CREATE TABLE `node_param_config` (
     -- 排序号（控制参数顺序）
     `sort` INT NULL DEFAULT 0,
     -- 映射数据源
-    `mapping_source` VARCHAR(50) NOT NULL DEFAULT 'RESPONSE',
+    `mapping_source` VARCHAR(50) NULL,
     -- 映射规则类型（对应MappingType枚举）
     `mapping_type` VARCHAR(50) NULL,
     -- 映射规则内容（固定值、表达式等）
@@ -69,7 +69,7 @@ CREATE TABLE `node_param_config` (
     -- 参数描述
     `param_desc` VARCHAR(100) NULL,
     -- 参数处理类型：前置PRE_PROCESS 或 后置POST_PROCESS
-    `process_type` VARCHAR(20) NULL
+    `process_type` VARCHAR(20) NOT NULL
 );
 
 -- 接口调用日志表

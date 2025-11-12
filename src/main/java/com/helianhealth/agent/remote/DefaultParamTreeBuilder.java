@@ -1,5 +1,6 @@
 package com.helianhealth.agent.remote;
 
+import com.helianhealth.agent.enums.MappingSource;
 import com.helianhealth.agent.enums.ParamType;
 import com.helianhealth.agent.model.domain.NodeParamConfigDO;
 import com.helianhealth.agent.model.dto.ParamTreeNode;
@@ -16,16 +17,16 @@ import java.util.Map;
 public class DefaultParamTreeBuilder extends AbstractParamTreeBuilder {
 
     @Override
-    protected void processObjectNodeType(NodeParamConfigDO config,
-                                         List<NodeParamConfigDO> allNodes,
-                                         Map<String, Object> businessData,
-                                         Map<String, Object> parentBusinessData,
-                                         Map<String, Object> rootBusinessData,
-                                         ParamTreeNode node) {
+    protected void processPreObjectNodeType(NodeParamConfigDO config,
+                                            List<NodeParamConfigDO> allNodes,
+                                            Map<String, Object> businessData,
+                                            Map<String, Object> parentBusinessData,
+                                            Map<String, Object> rootBusinessData,
+                                            ParamTreeNode node) {
         // 配置项:当对象元素为单个是否保留key
         Boolean keepSingleElementKey = config.getKeepSingleElementKey();
         node.setKeepSingleElementKey(keepSingleElementKey);
-        node.setChildren(buildParamTree(allNodes,
+        node.setChildren(buildPreParamTree(allNodes,
                 config.getConfigId(),
                 processSourceParamWhenTargetIsObject(config, businessData),
                 parentBusinessData,
@@ -69,44 +70,86 @@ public class DefaultParamTreeBuilder extends AbstractParamTreeBuilder {
 
 
     @Override
-    protected void processArrayNodeType(NodeParamConfigDO config, List<NodeParamConfigDO> allNodes, Map<String, Object> businessData, Map<String, Object> parentBusinessData, Map<String, Object> rootBusinessData, ParamTreeNode node) {
-        doProcessArrayNodeType(config, allNodes, businessData, parentBusinessData, rootBusinessData, node);
+    protected void processPreArrayNodeType(NodeParamConfigDO config, List<NodeParamConfigDO> allNodes, Map<String, Object> businessData, Map<String, Object> parentBusinessData, Map<String, Object> rootBusinessData, ParamTreeNode node) {
+        doProcessPreArrayNodeType(config, allNodes, businessData, parentBusinessData, rootBusinessData, node);
     }
 
-    private void doProcessArrayNodeType(NodeParamConfigDO config,
-                                        List<NodeParamConfigDO> allNodes,
-                                        Map<String, Object> businessData,
-                                        Map<String, Object> parentBusinessData,
-                                        Map<String, Object> rootBusinessData,
-                                        ParamTreeNode node) {
-        Object sourceValue = ProxyConvertHelper.convertSourceValue(config, businessData, rootBusinessData);
-        if (config.getSourceParamType() == ParamType.NONE) {
-            node.setChildren(buildParamTree(allNodes,
+    @Override
+    protected void processPostObjectNodeType(NodeParamConfigDO config, List<NodeParamConfigDO> allNodes,
+                                             Map<String, Object> inputBusinessData,
+                                             Map<String, Object> responseBusinessData,
+                                             Map<String, Object> sourceInputBusinessData,
+                                             Map<String, Object> sourceResponseBusinessData,
+                                             ParamTreeNode node) {
+        // 配置项:当对象元素为单个是否保留key
+        Boolean keepSingleElementKey = config.getKeepSingleElementKey();
+        node.setKeepSingleElementKey(keepSingleElementKey);
+        MappingSource mappingSource = config.getMappingSource();
+        if (mappingSource == null) {
+            node.setChildren(buildPostParamTree(allNodes,
                     config.getConfigId(),
-                    businessData,
-                    parentBusinessData,
-                    rootBusinessData));
-
-        } else if (config.getSourceParamType() == ParamType.OBJECT && sourceValue != null) {
-            // 源参数是Object，包装成大小为1的数组
-            List<ParamTreeNode> arrayChildren = buildParamTree(allNodes,
+                    inputBusinessData,
+                    responseBusinessData,
+                    sourceInputBusinessData,
+                    sourceResponseBusinessData));
+        } else {
+            // 只要在确定了需要映射源数据源的时候才会进行处理
+            Map<String, Object> targetBusinessData = processSourceParamWhenTargetIsObject(config,
+                    mappingSource == MappingSource.INPUT ? inputBusinessData : responseBusinessData);
+            node.setChildren(buildPostParamTree(allNodes,
                     config.getConfigId(),
-                    JsonUtils.toMap(sourceValue),
-                    businessData,
-                    rootBusinessData);
-            node.setChildren(arrayChildren);
-        } else if (config.getSourceParamType() == ParamType.ARRAY && sourceValue != null) {
-            // 目标参数是数组,原参数可能是数组也可能是单个对象
-            processArrayNodeTypeWhenSourceTypeIsArray(config, allNodes, sourceValue, businessData, rootBusinessData, node);
+                    targetBusinessData,
+                    targetBusinessData,
+                    sourceInputBusinessData,
+                    sourceResponseBusinessData));
         }
     }
 
-    private void processArrayNodeTypeWhenSourceTypeIsArray(NodeParamConfigDO config,
-                                                             List<NodeParamConfigDO> allNodes,
-                                                             Object sourceValue,
-                                                             Map<String, Object> parentBusinessData,
-                                                             Map<String, Object> rootBusinessData,
-                                                             ParamTreeNode node) {
+    @Override
+    protected void processPostArrayNodeType(NodeParamConfigDO config, List<NodeParamConfigDO> allNodes,
+                                            Map<String, Object> inputBusinessData,
+                                            Map<String, Object> responseBusinessData,
+                                            Map<String, Object> sourceInputBusinessData,
+                                            Map<String, Object> sourceResponseBusinessData,
+                                            ParamTreeNode node) {
+        doProcessPostArrayNodeType(config, allNodes, inputBusinessData, responseBusinessData, sourceInputBusinessData, sourceResponseBusinessData, node);
+    }
+
+    private void doProcessPostArrayNodeType(NodeParamConfigDO config, List<NodeParamConfigDO> allNodes,
+                                            Map<String, Object> inputBusinessData,
+                                            Map<String, Object> responseBusinessData,
+                                            Map<String, Object> sourceInputBusinessData,
+                                            Map<String, Object> sourceResponseBusinessData,
+                                            ParamTreeNode node) {
+        MappingSource mappingSource = config.getMappingSource();
+        if (mappingSource == null || config.getSourceParamType() == ParamType.NONE) {
+            node.setChildren(buildPostParamTree(allNodes,
+                    config.getConfigId(),
+                    inputBusinessData,
+                    responseBusinessData,
+                    sourceInputBusinessData,
+                    sourceResponseBusinessData));
+        } else {
+            Map<String, Object> targetBusinessData = mappingSource == MappingSource.INPUT ?
+                    inputBusinessData : responseBusinessData;
+            Object sourceValue = ProxyConvertHelper.convertSourceValue(config, targetBusinessData);
+            if (config.getSourceParamType() == ParamType.OBJECT && sourceValue != null) {
+                // 源参数是Object，包装成大小为1的数组
+                List<ParamTreeNode> arrayChildren = buildPostParamTree(allNodes,
+                        config.getConfigId(),
+                        JsonUtils.toMap(sourceValue),
+                        JsonUtils.toMap(sourceValue),
+                        sourceInputBusinessData,
+                        sourceResponseBusinessData);
+                node.setChildren(arrayChildren);
+            } else if (config.getSourceParamType() == ParamType.ARRAY && sourceValue != null) {
+                // 目标参数是数组,原参数可能是数组也可能是单个对象
+                processPostArrayNodeTypeWhenSourceTypeIsArray(config, allNodes, sourceValue, sourceInputBusinessData, sourceResponseBusinessData, node);
+            }
+        }
+    }
+
+    private void processPostArrayNodeTypeWhenSourceTypeIsArray(NodeParamConfigDO config, List<NodeParamConfigDO> allNodes, Object sourceValue, Map<String, Object> sourceInputBusinessData, Map<String, Object> sourceResponseBusinessData, ParamTreeNode node) {
         // 目标参数是数组,原参数可能是数组也可能是单个对象
         List<ParamTreeNode> allArrayChildren = new ArrayList<>();
         if (sourceValue instanceof List) {
@@ -115,7 +158,87 @@ public class DefaultParamTreeBuilder extends AbstractParamTreeBuilder {
             // 数组可以是基础数据类型和对象
             if (o instanceof Map) {
                 for (Object item : sourceList) {
-                    List<ParamTreeNode> nestedArrayChildren = buildParamTree(allNodes,
+                    List<ParamTreeNode> nestedArrayChildren = buildPostParamTree(allNodes,
+                            config.getConfigId(),
+                            JsonUtils.toMap(item),
+                            JsonUtils.toMap(item),
+                            sourceInputBusinessData,
+                            sourceResponseBusinessData);
+                    allArrayChildren.addAll(nestedArrayChildren);
+                }
+            } else {
+                // 对于基础数据类型item是一个值,将目标映射key作为Map的key,item作为Map的value
+                for (Object item : sourceList) {
+                    Map<String, Object> itemMap = new HashMap<>();
+                    itemMap.put(config.getTargetParamKey(), item);
+                    List<ParamTreeNode> nestedArrayChildren = buildPostParamTree(allNodes,
+                            config.getConfigId(),
+                            JsonUtils.toMap(itemMap),
+                            JsonUtils.toMap(itemMap),
+                            sourceInputBusinessData,
+                            sourceResponseBusinessData);
+                    allArrayChildren.addAll(nestedArrayChildren);
+                }
+            }
+        } else {
+            // 其他情况下就是数组为一维的单个基础数据类型
+            Map<String, Object> itemMap = new HashMap<>();
+            itemMap.put(config.getTargetParamKey(), sourceValue);
+            List<ParamTreeNode> nestedArrayChildren = buildPostParamTree(allNodes,
+                    config.getConfigId(),
+                    JsonUtils.toMap(itemMap),
+                    JsonUtils.toMap(itemMap),
+                    sourceInputBusinessData,
+                    sourceResponseBusinessData);
+            allArrayChildren.addAll(nestedArrayChildren);
+        }
+
+        node.setChildren(allArrayChildren);
+    }
+
+    private void doProcessPreArrayNodeType(NodeParamConfigDO config,
+                                           List<NodeParamConfigDO> allNodes,
+                                           Map<String, Object> businessData,
+                                           Map<String, Object> parentBusinessData,
+                                           Map<String, Object> rootBusinessData,
+                                           ParamTreeNode node) {
+        Object sourceValue = ProxyConvertHelper.convertSourceValue(config, businessData);
+        if (config.getSourceParamType() == ParamType.NONE) {
+            node.setChildren(buildPreParamTree(allNodes,
+                    config.getConfigId(),
+                    businessData,
+                    parentBusinessData,
+                    rootBusinessData));
+
+        } else if (config.getSourceParamType() == ParamType.OBJECT && sourceValue != null) {
+            // 源参数是Object，包装成大小为1的数组
+            List<ParamTreeNode> arrayChildren = buildPreParamTree(allNodes,
+                    config.getConfigId(),
+                    JsonUtils.toMap(sourceValue),
+                    businessData,
+                    rootBusinessData);
+            node.setChildren(arrayChildren);
+        } else if (config.getSourceParamType() == ParamType.ARRAY && sourceValue != null) {
+            // 目标参数是数组,原参数可能是数组也可能是单个对象
+            processPreArrayNodeTypeWhenSourceTypeIsArray(config, allNodes, sourceValue, businessData, rootBusinessData, node);
+        }
+    }
+
+    private void processPreArrayNodeTypeWhenSourceTypeIsArray(NodeParamConfigDO config,
+                                                              List<NodeParamConfigDO> allNodes,
+                                                              Object sourceValue,
+                                                              Map<String, Object> parentBusinessData,
+                                                              Map<String, Object> rootBusinessData,
+                                                              ParamTreeNode node) {
+        // 目标参数是数组,原参数可能是数组也可能是单个对象
+        List<ParamTreeNode> allArrayChildren = new ArrayList<>();
+        if (sourceValue instanceof List) {
+            List<?> sourceList = (List<?>) sourceValue;
+            Object o = sourceList.get(0);
+            // 数组可以是基础数据类型和对象
+            if (o instanceof Map) {
+                for (Object item : sourceList) {
+                    List<ParamTreeNode> nestedArrayChildren = buildPreParamTree(allNodes,
                             config.getConfigId(),
                             JsonUtils.toMap(item),
                             parentBusinessData,
@@ -127,7 +250,7 @@ public class DefaultParamTreeBuilder extends AbstractParamTreeBuilder {
                 for (Object item : sourceList) {
                     Map<String, Object> itemMap = new HashMap<>();
                     itemMap.put(config.getTargetParamKey(), item);
-                    List<ParamTreeNode> nestedArrayChildren = buildParamTree(allNodes,
+                    List<ParamTreeNode> nestedArrayChildren = buildPreParamTree(allNodes,
                             config.getConfigId(),
                             JsonUtils.toMap(itemMap),
                             parentBusinessData,
@@ -139,7 +262,7 @@ public class DefaultParamTreeBuilder extends AbstractParamTreeBuilder {
             // 其他情况下就是数组为一维的单个基础数据类型
             Map<String, Object> itemMap = new HashMap<>();
             itemMap.put(config.getTargetParamKey(), sourceValue);
-            List<ParamTreeNode> nestedArrayChildren = buildParamTree(allNodes,
+            List<ParamTreeNode> nestedArrayChildren = buildPreParamTree(allNodes,
                     config.getConfigId(),
                     JsonUtils.toMap(itemMap),
                     parentBusinessData,

@@ -49,7 +49,7 @@ public class DefaultInterfaceRemoteInvoker implements InterfaceRemoteInvoker {
         if (CollectionUtils.isEmpty(nodeConfigs)) {
             return new ArrayList<>();
         }
-        return paramNode.buildParamTree(flowNode.getUrl(), nodeConfigs, null, businessData, businessData, businessData);
+        return paramNode.buildPreParamTree(flowNode.getUrl(), nodeConfigs, null, businessData, businessData, businessData);
     }
 
     /**
@@ -66,7 +66,8 @@ public class DefaultInterfaceRemoteInvoker implements InterfaceRemoteInvoker {
             return new HashMap<>();
         }
 
-        List<ParamTreeNode> rootNodes = paramNode.buildParamTree(flowNode.getUrl(), nodeConfigs, null, response, response, businessData);
+        List<ParamTreeNode> rootNodes = paramNode.buildPostParamTree(flowNode.getUrl(),
+                nodeConfigs, null, businessData, response, businessData, response);
 
         return ProxyConvertHelper.convertResponse(flowNode, rootNodes);
     }

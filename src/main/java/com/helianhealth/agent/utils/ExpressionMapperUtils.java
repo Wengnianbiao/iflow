@@ -55,6 +55,31 @@ public class ExpressionMapperUtils implements ApplicationContextAware {
     }
 
     /**
+     * 解析表达式并返回结果
+     * @param expression SpEL表达式（如："#data.idCard == null ? #data.phone + 'hl' : #data.idCard"）
+     * @param businessData 业务数据Map（键为字段名，值为字段值）
+     * @return 表达式执行结果
+     */
+    public static Object parserPostNode(String expression, Object businessData, Map<String, Object> inputBusinessData, Map<String, Object> responseBusinessData) {
+        try {
+            // 表达式业务数据上下文
+            // data为当前层级
+            // input为输入参数
+            // response为输出参数
+            StandardEvaluationContext context = new StandardEvaluationContext();
+            context.setVariable("data", businessData);
+            context.setVariable("input", inputBusinessData);
+            context.setVariable("response", responseBusinessData);
+
+            // 解析并执行表达式
+            return PARSER.parseExpression(expression).getValue(context);
+        } catch (Exception e) {
+            logger.error("后置处理表达式[{}]解析异常：", expression, e);
+            return null;
+        }
+    }
+
+    /**
      * 业务数据过滤处理
      * @param expression 过滤表达式
      * @param businessData 业务数据
