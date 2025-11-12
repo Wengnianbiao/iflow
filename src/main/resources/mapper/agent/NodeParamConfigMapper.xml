@@ -134,7 +134,7 @@
                 AND process_type = #{processType}
             </if>
             <if test="targetParam != null and targetParam.trim() != '' ">
-                AND target_param_key = #{targetParam}
+                AND target_param_key LIKE CONCAT(#{targetParam}, '%')
             </if>
         </where>
     </select>
