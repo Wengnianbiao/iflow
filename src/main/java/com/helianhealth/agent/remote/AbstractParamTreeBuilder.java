@@ -4,6 +4,8 @@ import com.helianhealth.agent.enums.MappingSource;
 import com.helianhealth.agent.model.domain.NodeParamConfigDO;
 import com.helianhealth.agent.model.dto.ParamTreeNode;
 import com.helianhealth.agent.remote.resolver.ValueResolverSelector;
+import com.helianhealth.agent.remote.support.BasicTypeConversionHandler;
+import com.helianhealth.agent.remote.support.TypeHandler;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.dubbo.common.URL;
@@ -24,6 +26,8 @@ public abstract class AbstractParamTreeBuilder implements ParamTree {
 
     @Setter
     private ValueResolverSelector valueResolverSelector;
+
+    private final TypeHandler typeHandler = new BasicTypeConversionHandler();
 
     @Override
     public List<ParamTreeNode> buildPreParamTree(URL url, List<NodeParamConfigDO> configs,
@@ -89,8 +93,10 @@ public abstract class AbstractParamTreeBuilder implements ParamTree {
                 processPreArrayNodeType(config, allNodes, businessData, parentBusinessData, sourceBusinessData, node);
                 break;
             default:
-                // 基本类型：从业务数据中取值（根据mappingRule映射）
-                node.setParamValue(resolveValue(config, businessData, parentBusinessData, sourceBusinessData));
+                // 基本类型：从业务数据中取值（根据mappingRule映射）并转化类型
+                Object rawValue = resolveValue(config, businessData, parentBusinessData, sourceBusinessData);
+                Object convertedValue = typeHandler.convert(rawValue, config.getTargetParamType());
+                node.setParamValue(convertedValue);
         }
 
         return node;
