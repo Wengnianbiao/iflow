@@ -1,7 +1,6 @@
 package com.helianhealth.agent.mapper.hems;
 
 import org.apache.ibatis.annotations.Select;
-import tk.mybatis.mapper.common.Mapper;
 
 /**
  * 体软通用查询方法

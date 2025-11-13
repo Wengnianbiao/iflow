@@ -81,7 +81,7 @@ public class XmlUtils {
                 NodeList bizDataNodes = doc.getElementsByTagName(elementName);
                 if (bizDataNodes.getLength() == 1) {
                     boolean isCDATA = metaMap.get(XmlConstants.IS_CDATA_KEY) == null ||
-                            (Boolean) metaMap.get(XmlConstants.IS_CDATA_KEY);
+                            Boolean.parseBoolean((String) metaMap.get(XmlConstants.IS_CDATA_KEY));
                     if (isCDATA) {
                         String dataContent = bizDataNodes.item(0).getTextContent();
                         String dataType = (String) metaMap.get(XmlConstants.DATA_TYPE_KEY);
