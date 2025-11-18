@@ -24,11 +24,13 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 public class HttpApiClientManager {
 
-
+    private static volatile HttpApiClientManager instance;
     private final PoolingHttpClientConnectionManager connectionManager;
     private final CloseableHttpClient httpClient;
     private static final Logger logger = LoggerFactory.getLogger(HttpApiClientManager.class);
@@ -44,6 +46,11 @@ public class HttpApiClientManager {
 
     // 默认验证空闲连接时间1秒
     private static final int DEFAULT_VALIDATE_AFTER_INACTIVITY_MILLISECONDS = 1000;
+
+    private static final Map<String, String> DEFAULT_HEADERS = new HashMap<>();
+    static {
+        DEFAULT_HEADERS.put("Content-Type", "application/json");
+    }
 
     // 私有构造函数，防止外部实例化
     HttpApiClientManager() {
@@ -78,6 +85,17 @@ public class HttpApiClientManager {
                 .build();
     }
 
+    public static HttpApiClientManager getInstance() {
+        if (instance == null) {
+            synchronized (HttpApiClientManager.class) {
+                if (instance == null) {
+                    instance = new HttpApiClientManager();
+                }
+            }
+        }
+        return instance;
+    }
+
     /**
      * 执行HTTP POST请求
      * @param url 请求URL
@@ -85,9 +103,15 @@ public class HttpApiClientManager {
      * @return 响应内容
      * @throws IOException IO异常
      */
-    public String executePost(String url, String requestBody) throws IOException, ParseException {
-        logger.info("执行 POST 请求，URL: [{}]，请求体: [{}]", url, requestBody);
+    public String executePost(String url,  Map<String, String> headers, String requestBody) throws IOException, ParseException {        logger.info("执行 POST 请求，URL: [{}]，请求体: [{}]", url, requestBody);
         HttpPost httpPost = new HttpPost(url);
+        // 设置请求头
+        if (headers != null && !headers.isEmpty()) {
+            headers.forEach(httpPost::setHeader);
+        } else {
+            headers = DEFAULT_HEADERS;
+            headers.forEach(httpPost::setHeader);
+        }
         if (requestBody != null && !requestBody.isEmpty()) {
             httpPost.setEntity(new StringEntity(requestBody, ContentType.APPLICATION_JSON.withCharset(StandardCharsets.UTF_8)));
         }
@@ -107,9 +131,17 @@ public class HttpApiClientManager {
      * @return 响应内容
      * @throws IOException IO异常
      */
-    public String executeGet(String url) throws IOException, ParseException {
+    public String executeGet(String url,  Map<String, String> headers) throws IOException, ParseException {
         logger.info("执行 GET 请求，URL: [{}]", url);
         HttpGet httpGet = new HttpGet(url);
+        // 设置请求头
+        if (headers != null && !headers.isEmpty()) {
+            headers.forEach(httpGet::setHeader);
+        } else {
+            headers = DEFAULT_HEADERS;
+            headers.forEach(httpGet::setHeader);
+        }
+
         try (CloseableHttpResponse response = httpClient.execute(httpGet)) {
             int statusCode = response.getCode();
             logger.info("GET 请求响应状态码: [{}]", statusCode);

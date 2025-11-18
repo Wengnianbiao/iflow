@@ -9,7 +9,6 @@ import com.helianhealth.agent.remote.ParamResolver;
 import com.helianhealth.agent.utils.JsonUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.core5.http.ParseException;
-import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -123,19 +122,13 @@ public class HttpRequestHandler implements ParamResolver {
     }
 
     public String executeHttpRequest(String url, String method, Map<String, String> headers, String requestBody) throws IOException, ParseException {
-        HttpHeaders httpHeaders = new HttpHeaders();
-        headers.forEach(httpHeaders::set);
-        if (httpHeaders.getContentType() == null) {
-            httpHeaders.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
-        }
-
         switch (method.toUpperCase()) {
             case "GET":
                 // GET 请求拼接查询参数到 URL
-                return httpApiClientManager.executeGet(url);
+                return httpApiClientManager.executeGet(url, headers);
             case "POST":
                 // 设置 POST 请求体
-                return httpApiClientManager.executePost(url, requestBody);
+                return httpApiClientManager.executePost(url, headers, requestBody);
             default:
                 throw new IllegalArgumentException("不支持的HTTP方法: " + method);
         }
