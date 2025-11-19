@@ -59,10 +59,12 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
             PageHelper.startPage(pageNum, pageSize);
             // 将查询结果转换为 PageInfo 对象
             List<InterfaceWorkflowNodePO> flowNodes = flowNodeMapper.selectAllNodes(flowId);
+
+            PageInfo<InterfaceWorkflowNodePO> pageInfo = new PageInfo<>(flowNodes);
+
             List<InterfaceWorkflowNodeView> workflowNodeViews = flowNodes.stream().
                     map(nodeConvert::poConvertToView).
                     collect(Collectors.toList());
-            PageInfo<InterfaceWorkflowNodeView> pageInfo = new PageInfo<>(workflowNodeViews);
 
             // 构建 PageList 对象
             PageList<InterfaceWorkflowNodeView> pageList = new PageList<>();
