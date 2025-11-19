@@ -6,8 +6,8 @@ import com.helianhealth.agent.exception.DatabaseRemoteBusinessException;
 import com.helianhealth.agent.model.domain.InterfaceWorkflowNode;
 import com.helianhealth.agent.model.dto.ParamTreeNode;
 import com.helianhealth.agent.remote.ParamResolver;
+import com.helianhealth.agent.remote.manager.DatabaseApiClientManager;
 import com.helianhealth.agent.utils.JsonUtils;
-import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -23,11 +23,14 @@ import java.util.List;
 import java.util.Map;
 
 @Component
-@AllArgsConstructor
 @Slf4j
 public class DatabaseSqlHandler implements ParamResolver {
 
     private final DatabaseApiClientManager clientManager;
+
+    public DatabaseSqlHandler() {
+        this.clientManager = DatabaseApiClientManager.getInstance();
+    }
 
     @Override
     public String resolveParamNodes(InterfaceWorkflowNode flowNode, List<ParamTreeNode> params) {
@@ -251,7 +254,8 @@ public class DatabaseSqlHandler implements ParamResolver {
         ResultSet rs = null;
 
         try {
-            connection = clientManager.getConnection(flowNode.getMetaInfo());
+            Map<String, Object> metaInfo = JsonUtils.parseMetaInfo(flowNode.getMetaInfo());
+            connection = clientManager.getConnection(metaInfo);
             ps = connection.prepareStatement(sql);
             // 根据SQL类型选择执行方法
             String sqlType = sql.trim().toUpperCase();

@@ -6,7 +6,7 @@ import com.helianhealth.agent.common.XmlConstants;
 import com.helianhealth.agent.model.domain.InterfaceWorkflowNode;
 import com.helianhealth.agent.model.dto.ParamTreeNode;
 import com.helianhealth.agent.remote.ParamResolver;
-import com.helianhealth.agent.remote.http.HttpApiClientManager;
+import com.helianhealth.agent.remote.manager.HttpApiClientManager;
 import com.helianhealth.agent.utils.JsonUtils;
 import com.helianhealth.agent.utils.ParamNodeUtils;
 import com.helianhealth.agent.utils.XmlUtils;

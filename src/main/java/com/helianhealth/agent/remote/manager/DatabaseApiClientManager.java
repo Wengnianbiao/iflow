@@ -1,8 +1,6 @@
-package com.helianhealth.agent.remote.database;
+package com.helianhealth.agent.remote.manager;
 
 import com.alibaba.druid.pool.DruidDataSource;
-import com.helianhealth.agent.utils.JsonUtils;
-import org.springframework.stereotype.Component;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -10,43 +8,50 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 数据库连接管理器
+ * 数据库连接管理器（线程安全单例）
  */
-@Component
 public class DatabaseApiClientManager {
 
-    // 连接池缓存（key=数据库URL，value=连接池）
+    private DatabaseApiClientManager() {
+    }
+
+    private static volatile DatabaseApiClientManager INSTANCE;
+
+    /**
+     * 获取单例实例
+     */
+    public static DatabaseApiClientManager getInstance() {
+        if (INSTANCE == null) {
+            synchronized (DatabaseApiClientManager.class) {
+                if (INSTANCE == null) {
+                    INSTANCE = new DatabaseApiClientManager();
+                }
+            }
+        }
+        return INSTANCE;
+    }
+
     private final Map<String, DruidDataSource> dataSourceCache = new HashMap<>();
 
     /**
      * 根据元信息获取数据库连接
      */
-    public Connection getConnection(String metaInfo) throws SQLException {
-        // 解析 metaInfo 为数据库配置
-        Map<String, String> metaMap = parseMetaInfo(metaInfo);
-
+    public Connection getConnection(Map<String, Object> metaInfo) throws SQLException {
         // 获取或创建连接池
-        DruidDataSource dataSource = getOrCreateDataSource(metaMap);
+        DruidDataSource dataSource = getOrCreateDataSource(metaInfo);
 
         // 从连接池获取连接
         return dataSource.getConnection();
     }
 
     /**
-     * 解析元信息为Map
+     * 获取或创建数据库连接池
      */
-    private Map<String, String> parseMetaInfo(String metaInfo) {
-        return JsonUtils.fromJsonStringToMap(metaInfo);
-    }
-
-    /**
-     * 获取或创建数据库连接池（线程安全）
-     */
-    private synchronized DruidDataSource getOrCreateDataSource(Map<String, String> metaMap) {
-        String jdbcUrl = metaMap.get("url");
-        String username = metaMap.get("username");
-        String password = metaMap.get("password");
-        String driverClassName = metaMap.get("driverClassName");
+    private synchronized DruidDataSource getOrCreateDataSource(Map<String, Object> metaMap) {
+        String jdbcUrl = (String)metaMap.get("url");
+        String username = (String)metaMap.get("username");
+        String password = (String)metaMap.get("password");
+        String driverClassName = (String)metaMap.get("driverClassName");
 
         return dataSourceCache.computeIfAbsent(jdbcUrl, url -> {
             DruidDataSource dataSource = new DruidDataSource();
@@ -55,7 +60,7 @@ public class DatabaseApiClientManager {
             dataSource.setPassword(password);
             dataSource.setDriverClassName(driverClassName);
 
-            // Druid 连接池配置（可根据实际情况调整）
+            // Druid 连接池默认配置
             dataSource.setInitialSize(5);         // 初始化连接数
             dataSource.setMaxActive(20);          // 最大连接数
             dataSource.setMinIdle(5);             // 最小空闲连接数

@@ -1,6 +1,6 @@
 package com.helianhealth.agent.utils;
 
-import com.helianhealth.agent.remote.http.HttpApiClientManager;
+import com.helianhealth.agent.remote.manager.HttpApiClientManager;
 import org.apache.hc.core5.http.ParseException;
 
 import java.io.IOException;

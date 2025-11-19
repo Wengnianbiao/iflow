@@ -1,4 +1,4 @@
-package com.helianhealth.agent.remote.http;
+package com.helianhealth.agent.remote.manager;
 
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.classic.methods.HttpPost;

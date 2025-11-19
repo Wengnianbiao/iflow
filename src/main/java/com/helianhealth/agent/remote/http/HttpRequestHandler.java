@@ -6,6 +6,7 @@ import com.helianhealth.agent.enums.ParamType;
 import com.helianhealth.agent.model.domain.InterfaceWorkflowNode;
 import com.helianhealth.agent.model.dto.ParamTreeNode;
 import com.helianhealth.agent.remote.ParamResolver;
+import com.helianhealth.agent.remote.manager.HttpApiClientManager;
 import com.helianhealth.agent.utils.JsonUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.core5.http.ParseException;
