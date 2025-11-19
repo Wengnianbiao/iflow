@@ -27,7 +27,7 @@ public class HttpRequestHandler implements ParamResolver {
     private final HttpApiClientManager httpApiClientManager;
 
     public HttpRequestHandler() {
-        this.httpApiClientManager = new HttpApiClientManager();
+        this.httpApiClientManager = HttpApiClientManager.getInstance();
     }
 
     /**
@@ -124,10 +124,8 @@ public class HttpRequestHandler implements ParamResolver {
     public String executeHttpRequest(String url, String method, Map<String, String> headers, String requestBody) throws IOException, ParseException {
         switch (method.toUpperCase()) {
             case "GET":
-                // GET 请求拼接查询参数到 URL
                 return httpApiClientManager.executeGet(url, headers);
             case "POST":
-                // 设置 POST 请求体
                 return httpApiClientManager.executePost(url, headers, requestBody);
             default:
                 throw new IllegalArgumentException("不支持的HTTP方法: " + method);

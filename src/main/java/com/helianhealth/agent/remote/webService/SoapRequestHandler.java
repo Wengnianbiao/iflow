@@ -6,6 +6,7 @@ import com.helianhealth.agent.common.XmlConstants;
 import com.helianhealth.agent.model.domain.InterfaceWorkflowNode;
 import com.helianhealth.agent.model.dto.ParamTreeNode;
 import com.helianhealth.agent.remote.ParamResolver;
+import com.helianhealth.agent.remote.http.HttpApiClientManager;
 import com.helianhealth.agent.utils.JsonUtils;
 import com.helianhealth.agent.utils.ParamNodeUtils;
 import com.helianhealth.agent.utils.XmlUtils;
@@ -13,14 +14,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +25,12 @@ import java.util.Map;
 @Slf4j
 @Component
 public class SoapRequestHandler implements ParamResolver {
+
+    private final HttpApiClientManager httpApiClientManager;
+
+    public SoapRequestHandler() {
+        this.httpApiClientManager = HttpApiClientManager.getInstance();
+    }
 
     /**
      * 根据metaInfo配置构建完整的SOAP XML消息
@@ -67,78 +66,31 @@ public class SoapRequestHandler implements ParamResolver {
      */
     public String sendSoapRequest(InterfaceWorkflowNode flowNode, String soapMessage) {
         try {
-            // 解析metaInfo获取请求地址
+            // 解析metaInfo
             JSONObject metaInfo = parseMetaInfo(flowNode.getMetaInfo());
             String endpointUrl = metaInfo.getString("url");
-
             if (StringUtils.isEmpty(endpointUrl)) {
                 throw new IllegalArgumentException("metaInfo中未配置url");
             }
 
-            // 创建HTTP连接
-            URL url = new URL(endpointUrl);
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-
-            // 设置请求头
-            connection.setRequestMethod(metaInfo.getString("method"));
-            connection.setDoOutput(true);
-
             // 设置自定义请求头
-            JSONObject headers = metaInfo.getJSONObject("headers");
-            if (headers != null) {
-                for (String key : headers.keySet()) {
-                    connection.setRequestProperty(key, headers.getString(key));
+            Map<String, String> headers = new HashMap<>();
+            JSONObject headerConfig = metaInfo.getJSONObject("headers");
+            if (headerConfig != null) {
+                for (String key : headerConfig.keySet()) {
+                    headers.put(key, headerConfig.getString(key));
                 }
             }
-
             // 如果没有设置Content-Type，使用默认值
-            if (headers == null || !headers.containsKey("Content-Type")) {
-                connection.setRequestProperty("Content-Type", "text/xml;charset=UTF-8");
+            if (!headers.containsKey("Content-Type")) {
+                headers.put("Content-Type", "text/xml;charset=UTF-8");
             }
 
-            // 发送SOAP消息
-            try (OutputStream os = connection.getOutputStream()) {
-                byte[] input = soapMessage.getBytes(StandardCharsets.UTF_8);
-                os.write(input, 0, input.length);
-            }
-
-            // 读取响应
-            StringBuilder response = getStringBuilder(connection);
-
-            // 处理错误响应
-            if (connection.getResponseCode() < 200 || connection.getResponseCode() >= 300) {
-                throw new RuntimeException("SOAP请求失败，响应码: " + connection.getResponseCode() +
-                        ", 响应信息: " + response);
-            }
-
-            return response.toString();
+            return httpApiClientManager.executePost(endpointUrl, headers, soapMessage);
         } catch (Exception e) {
             log.error("发送SOAP请求失败", e);
             throw new RuntimeException("发送SOAP请求失败: " + e.getMessage());
         }
-    }
-
-    private static StringBuilder getStringBuilder(HttpURLConnection connection) throws IOException {
-        StringBuilder response = new StringBuilder();
-        try (InputStream is = connection.getInputStream();
-             BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                response.append(line);
-            }
-        } catch (Exception e) {
-            try (InputStream es = connection.getErrorStream()) {
-                if (es != null) {
-                    try (BufferedReader errorReader = new BufferedReader(new InputStreamReader(es, StandardCharsets.UTF_8))) {
-                        String line;
-                        while ((line = errorReader.readLine()) != null) {
-                            response.append(line);
-                        }
-                    }
-                }
-            }
-        }
-        return response;
     }
 
     /**
