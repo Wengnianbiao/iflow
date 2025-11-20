@@ -133,6 +133,7 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
     }
 
     @Override
+    @Transactional("agentTransactionManager")
     public void deleteByNodeId(Integer nodeId) {
         try {
             // 验证参数
@@ -141,6 +142,8 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
             }
             // 执行删除操作
             flowNodeMapper.deleteByPrimaryKey(nodeId);
+            List<NodeParamConfigDO> nodeParamConfigs = nodeParamConfigService.findAllNodeParamConfigsUnpaged(nodeId, null);
+            nodeParamConfigs.forEach(nodeParamConfigDO -> nodeParamConfigService.deleteById(nodeParamConfigDO.getConfigId()));
         } catch (Exception e) {
             log.error("删除节点失败", e);
             throw new RuntimeException("删除节点失败: " + e.getMessage());
