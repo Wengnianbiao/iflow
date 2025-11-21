@@ -1,6 +1,5 @@
 package com.helianhealth.agent.remote;
 
-import com.helianhealth.agent.enums.MappingSource;
 import com.helianhealth.agent.model.domain.InterfaceWorkflowNode;
 import com.helianhealth.agent.model.domain.NodeParamConfigDO;
 import com.helianhealth.agent.model.dto.ParamTreeNode;
@@ -15,6 +14,8 @@ import java.util.Map;
 @Slf4j
 public class ProxyConvertHelper {
 
+    private static final String RESPONSE_TYPE_KEY = "responseType";
+
     public static Map<String, Object> convertResponse(InterfaceWorkflowNode flowNode, List<ParamTreeNode> paramTree) {
         // 获取节点的元信息
         String metaInfo = flowNode.getMetaInfo();
@@ -26,7 +27,7 @@ public class ProxyConvertHelper {
         try {
             Map<String, Object> metaJson = JsonUtils.fromJsonStringToObjectMap(metaInfo);
             // 获取响应类型，默认为JSON
-            String responseType = (String) metaJson.get("responseType");
+            String responseType = (String) metaJson.get(RESPONSE_TYPE_KEY);
             if (StringUtils.isEmpty(responseType)) {
                 responseType = "json";
             }

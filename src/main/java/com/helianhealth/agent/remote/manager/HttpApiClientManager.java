@@ -53,7 +53,7 @@ public class HttpApiClientManager {
     }
 
     // 私有构造函数，防止外部实例化
-    HttpApiClientManager() {
+    private HttpApiClientManager() {
         Registry<ConnectionSocketFactory> socketFactoryRegistry = RegistryBuilder.<ConnectionSocketFactory>create()
                 .register("http", PlainConnectionSocketFactory.getSocketFactory())
                 .register("https", new SSLConnectionSocketFactory(SSLContexts.createSystemDefault()))

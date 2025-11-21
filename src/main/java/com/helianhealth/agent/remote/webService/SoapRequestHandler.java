@@ -1,6 +1,5 @@
 package com.helianhealth.agent.remote.webService;
 
-import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.helianhealth.agent.common.XmlConstants;
 import com.helianhealth.agent.model.domain.InterfaceWorkflowNode;
@@ -28,6 +27,12 @@ public class SoapRequestHandler implements ParamResolver {
 
     private final HttpApiClientManager httpApiClientManager;
 
+    private static final String INPUT_PARAM_PLACEHOLDER_KEY = "${inputParam}";
+    private static final String URL_KEY = "url";
+    private static final String HEADERS_KEY = "headers";
+
+    private static final String SOAP_TEMPLATE_KEY = "soupTemplate";
+
     public SoapRequestHandler() {
         this.httpApiClientManager = HttpApiClientManager.getInstance();
     }
@@ -42,7 +47,7 @@ public class SoapRequestHandler implements ParamResolver {
     public String resolveParamNodes(InterfaceWorkflowNode flowNode, List<ParamTreeNode> paramNode) {
         try {
             JSONObject metaInfo = JsonUtils.parseMetaInfo2JsonObject(flowNode.getMetaInfo());
-            String dataType = (String) metaInfo.get(XmlConstants.DATA_TYPE_KEY);
+            String dataType = metaInfo.getString(XmlConstants.DATA_TYPE_KEY);
             if (XmlConstants.JSON_KEY.equalsIgnoreCase(dataType)) {
                 // 业务数据为JSON
                 String paramJson = ParamNodeUtils.paramNode2Json(paramNode);
@@ -67,15 +72,15 @@ public class SoapRequestHandler implements ParamResolver {
     public String sendSoapRequest(InterfaceWorkflowNode flowNode, String soapMessage) {
         try {
             // 解析metaInfo
-            JSONObject metaInfo = parseMetaInfo(flowNode.getMetaInfo());
-            String endpointUrl = metaInfo.getString("url");
+            JSONObject metaInfo = JsonUtils.parseMetaInfo2JsonObject(flowNode.getMetaInfo());
+            String endpointUrl = metaInfo.getString(URL_KEY);
             if (StringUtils.isEmpty(endpointUrl)) {
                 throw new IllegalArgumentException("metaInfo中未配置url");
             }
 
             // 设置自定义请求头
             Map<String, String> headers = new HashMap<>();
-            JSONObject headerConfig = metaInfo.getJSONObject("headers");
+            JSONObject headerConfig = metaInfo.getJSONObject(HEADERS_KEY);
             if (headerConfig != null) {
                 for (String key : headerConfig.keySet()) {
                     headers.put(key, headerConfig.getString(key));
@@ -113,73 +118,16 @@ public class SoapRequestHandler implements ParamResolver {
     }
 
     /**
-     * 解析metaInfo JSON配置
-     */
-    private JSONObject parseMetaInfo(String metaInfoJson) {
-        if (!StringUtils.hasText(metaInfoJson)) {
-            return new JSONObject();
-        }
-
-        try {
-            return JSON.parseObject(metaInfoJson);
-        } catch (Exception e) {
-            log.warn("解析metaInfo JSON失败，使用空对象: {}", e.getMessage());
-            return new JSONObject();
-        }
-    }
-
-    /**
      * 根据配置构建SOAP消息
      */
     private String buildSoapFromConfig(JSONObject metaInfo, String paramXml) {
-        // 构建完整的SOAP信封
-        StringBuilder soapMessage = new StringBuilder();
-
-        // 获取envelope配置
-        JSONObject envelope = (JSONObject) metaInfo.get("envelope");
-        if (envelope == null) {
-            throw new IllegalArgumentException("metaInfo中缺少envelope配置");
-        }
-
-        // 开始envelope标签
-        soapMessage.append("<soapenv:Envelope");
-
-        // 添加命名空间
-        for (String key : envelope.keySet()) {
-            soapMessage.append(" ").append(key).append("=\"").append(envelope.getString(key)).append("\"");
-        }
-        soapMessage.append(">\n");
-
-        // 处理header
-        String headerConfig = (String) metaInfo.get("header");
-        soapMessage.append("  <soapenv:Header");
-        soapMessage.append(">");
-        soapMessage.append(headerConfig);
-        soapMessage.append("</soapenv:Header>\n");
-
-        // 处理body
-        String bodyContent = metaInfo.getString("body");
-        if (bodyContent == null) {
-            throw new IllegalArgumentException("metaInfo中缺少body配置");
+        String soupTemplate = metaInfo.getString(SOAP_TEMPLATE_KEY);
+        // 没有模板说明不需要嵌套SOAP信封
+        if (soupTemplate == null || soupTemplate.isEmpty()) {
+            return paramXml;
         }
 
         // 替换占位符${inputParam}为实际参数XML
-        bodyContent = bodyContent.replace("${inputParam}", escapeXml(paramXml));
-
-        soapMessage.append("  <soapenv:Body>\n");
-        soapMessage.append(bodyContent).append("\n");
-        soapMessage.append("  </soapenv:Body>\n");
-
-        // 结束envelope标签
-        soapMessage.append("</soapenv:Envelope>");
-
-        return soapMessage.toString();
-    }
-
-    /**
-     * XML转义
-     */
-    private String escapeXml(String value) {
-        return value;
+        return soupTemplate.replace(INPUT_PARAM_PLACEHOLDER_KEY, paramXml);
     }
 }
