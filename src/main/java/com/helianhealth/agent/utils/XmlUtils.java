@@ -70,7 +70,7 @@ public class XmlUtils {
 
         try {
             // 获取xml中业务数据元素
-            InputSource is = new InputSource(new StringReader(xml));
+            InputSource is = new InputSource(new StringReader(cleanXmlString(xml)));
             Document doc = builder.parse(is);
             Element bizDataElement;
 
@@ -139,6 +139,22 @@ public class XmlUtils {
         } finally {
             parserFactory.clearThreadLocal();
         }
+    }
+
+    /**
+     * 清洗XML字符串：移除换行、制表符、标签间的多余空格
+     * 保留标签内的有效文本（如CDATA、业务值）
+     */
+    private static String cleanXmlString(String xml) {
+        if (xml == null || xml.isEmpty()) {
+            return xml;
+        }
+        // 1. 移除所有换行符(\n)、回车符(\r)、制表符(\t)
+        xml = xml.replaceAll("\\r|\\n|\\t", "");
+        // 2. 移除标签之间的多余空格（保留标签内的空格）
+        // 正则说明：匹配 "><" 之间的任意空格，替换为 "><"
+        xml = xml.replaceAll(">\\s+<", "><");
+        return xml;
     }
 
     /**
@@ -409,7 +425,7 @@ public class XmlUtils {
             return parseTextValue(element);
         }
 
-        // 处理复杂节点（返回Map）
+        // 处理复杂节点
         Map<String, Object> resultMap = new LinkedHashMap<>();
         String tagName = element.getNodeName();
 
@@ -434,13 +450,18 @@ public class XmlUtils {
      * 判断是否为纯文本节点（无子元素、无属性）
      */
     private static boolean isPlainTextNode(Element element) {
-        // 场景1：普通纯文本节点（含文本）
-        boolean hasTextNode = element.getChildNodes().getLength() == 1
-                && element.getChildNodes().item(0).getNodeType() == Node.TEXT_NODE;
+        // 场景1：普通纯文本节点或CDATA节节点（含文本/CDATA内容）
+        boolean hasTextOrCDataNode = false;
+        if (element.getChildNodes().getLength() == 1) {
+            Node childNode = element.getChildNodes().item(0);
+            // 同时判断普通文本节点(3)和CDATA节节点(4)
+            hasTextOrCDataNode = childNode.getNodeType() == Node.TEXT_NODE
+                    || childNode.getNodeType() == Node.CDATA_SECTION_NODE;
+        }
         // 场景2：自闭合标签（无子节点）
         boolean isEmptyTag = element.getChildNodes().getLength() == 0;
 
-        return (hasTextNode || isEmptyTag) && element.getAttributes().getLength() == 0;
+        return (hasTextOrCDataNode || isEmptyTag) && element.getAttributes().getLength() == 0;
     }
 
     /**
@@ -452,8 +473,8 @@ public class XmlUtils {
 
         for (int i = 0; i < childNodes.getLength(); i++) {
             Node node = childNodes.item(i);
-            if (node.getNodeType() == Node.TEXT_NODE) {
-                String text = node.getNodeValue().trim();
+            if (node.getNodeType() == Node.TEXT_NODE || node.getNodeType() == Node.CDATA_SECTION_NODE) {
+                String text = node.getTextContent().trim();
                 if (!text.isEmpty()) {
                     textBuilder.append(text);
                 }
@@ -499,7 +520,7 @@ public class XmlUtils {
     }
 
     /**
-     * 解析子元素并添加到Map（处理数组和对象）
+     * 解析子元素并添加到Map
      */
     private static void addChildElementsToMap(Map<String, List<Element>> childElements, Map<String, Object> map) {
         for (Map.Entry<String, List<Element>> entry : childElements.entrySet()) {
