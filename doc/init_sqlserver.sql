@@ -75,7 +75,7 @@ CREATE TABLE node_param_config
     sort INT NULL DEFAULT 0,
 
     -- 映射数据源
-    mapping_source VARCHAR(50) NOT NULL DEFAULT 'RESPONSE',
+    mapping_source VARCHAR(50)  NULL,
 
     -- 映射规则类型（对应MappingType枚举）
     mapping_type VARCHAR(50) NULL,
