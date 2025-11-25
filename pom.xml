@@ -19,7 +19,7 @@
         <tk.mybatis.start.version>2.1.5</tk.mybatis.start.version>
         <com.alibaba.fastjson2.version>2.0.32</com.alibaba.fastjson2.version>
         <druid.version>1.2.18</druid.version>
-        <sqlserver.version>12.4.2.jre8</sqlserver.version>
+        <sqlserver.version>4.0</sqlserver.version>
         <mockito.version>4.11.0</mockito.version>
         <junit.version>5.8.2</junit.version>
     </properties>
@@ -127,7 +127,7 @@
 
         <dependency>
             <groupId>com.microsoft.sqlserver</groupId>
-            <artifactId>mssql-jdbc</artifactId>
+            <artifactId>sqljdbc4</artifactId>
             <version>${sqlserver.version}</version>
         </dependency>
 
