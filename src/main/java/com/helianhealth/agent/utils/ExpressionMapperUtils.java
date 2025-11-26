@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
+import org.springframework.expression.spel.SpelParseException;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.springframework.stereotype.Component;
@@ -129,6 +130,17 @@ public class ExpressionMapperUtils implements ApplicationContextAware {
         } catch (Exception e) {
             logger.error("表达式[{}]解析异常：", expression, e);
             return null;
+        }
+    }
+
+    public static boolean validateExpressionSyntax(String expression) {
+        try {
+            // 仅解析表达式（不执行、不依赖上下文）
+            PARSER.parseExpression(expression);
+            return true; // 语法无错误
+        } catch (Exception e) {
+            // 捕获语法错误（比如中文符号、括号不匹配等）
+            return false;
         }
     }
 }

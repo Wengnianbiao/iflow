@@ -1,9 +1,9 @@
 package com.helianhealth.agent.service;
 
 import com.helianhealth.agent.common.PageList;
-import com.helianhealth.agent.controller.workflow.reponse.NodeParamConfigExportResponse;
 import com.helianhealth.agent.enums.ProcessType;
 import com.helianhealth.agent.model.domain.NodeParamConfigDO;
+import com.helianhealth.agent.model.dto.NodeParamConfigImportDTO;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -21,6 +21,8 @@ public interface NodeParamConfigService {
     void deleteById(Integer configId);
 
     void importNodeParamConfig(Integer nodeId, MultipartFile file);
+
+    void importNodeParamConfig(Integer nodeId, List<NodeParamConfigImportDTO.NodeParamConfigDTO> paramsConfig);
 
     List<NodeParamConfigDO> selectPreProcessConfigByNodeId(Integer nodeId);
 

@@ -2,10 +2,12 @@ package com.helianhealth.agent.service;
 
 import com.helianhealth.agent.common.PageList;
 import com.helianhealth.agent.controller.workflow.reponse.InterfaceWorkflowNodeView;
-import com.helianhealth.agent.controller.workflow.reponse.NodeParamConfigExportResponse;
+import com.helianhealth.agent.controller.workflow.reponse.NodeConfigExportRsp;
+import com.helianhealth.agent.controller.workflow.reponse.NodeParamConfigExportRsp;
 import com.helianhealth.agent.controller.workflow.request.WorkflowNodeCreateReq;
 import com.helianhealth.agent.controller.workflow.request.WorkflowNodeUpdateReq;
 import com.helianhealth.agent.model.domain.InterfaceWorkflowNode;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -34,5 +36,9 @@ public interface InterfaceWorkflowNodeService {
 
     void deleteAllConfigByNodeId(Integer nodeId);
 
-    NodeParamConfigExportResponse exportNodeParamConfig(Integer nodeId);
+    NodeParamConfigExportRsp exportNodeParamConfig(Integer nodeId);
+
+    NodeConfigExportRsp exportNodeConfig(Integer nodeId);
+
+    void importNodeConfig(MultipartFile file);
 }

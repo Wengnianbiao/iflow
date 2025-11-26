@@ -1,4 +1,4 @@
-package com.helianhealth.agent.controller.workflow.reponse;
+package com.helianhealth.agent.model.dto;
 
 import com.helianhealth.agent.enums.MappingSource;
 import com.helianhealth.agent.enums.MappingType;
@@ -8,25 +8,30 @@ import lombok.Data;
 
 import java.util.List;
 
-/**
- * 节点参数导出DTO
- */
 @Data
-public class NodeParamConfigExportResponse {
-
+public class NodeConfigImportDTO {
     private NodeInfo nodeInfo;
+    private List<NodeParamConfigDTO> paramsConfig;
 
-    private List<NodeParamConfigExportDTO> paramsConfig;
-
+    /**
+     * 导入节点支持的节点信息，可按需拓展
+     */
     @Data
     public static class NodeInfo {
+
         private String nodeName;
 
         private String nodeType;
+
+        private String metaInfo;
+
+        private String paramFilterExpr;
+
+        private String keywordField;
     }
 
     @Data
-    public static class NodeParamConfigExportDTO {
+    public static class NodeParamConfigDTO {
 
         private ProcessType processType;
         private String sourceParamKey;
@@ -41,6 +46,6 @@ public class NodeParamConfigExportResponse {
         private String mappingRule;
 
         // 子参数列表
-        private List<NodeParamConfigExportDTO> childParam;
+        private List<NodeParamConfigDTO> childParam;
     }
 }

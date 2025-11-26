@@ -3,10 +3,10 @@ package com.helianhealth.agent.controller.workflow;
 import com.helianhealth.agent.common.PageList;
 import com.helianhealth.agent.common.ResultData;
 import com.helianhealth.agent.controller.workflow.reponse.InterfaceWorkflowNodeView;
+import com.helianhealth.agent.controller.workflow.reponse.NodeConfigExportRsp;
 import com.helianhealth.agent.controller.workflow.request.WorkflowNodeCreateReq;
-import com.helianhealth.agent.controller.workflow.reponse.NodeParamConfigExportResponse;
+import com.helianhealth.agent.controller.workflow.reponse.NodeParamConfigExportRsp;
 import com.helianhealth.agent.controller.workflow.request.WorkflowNodeUpdateReq;
-import com.helianhealth.agent.model.domain.InterfaceWorkflowNode;
 import com.helianhealth.agent.service.InterfaceWorkflowNodeService;
 import com.helianhealth.agent.service.NodeParamConfigService;
 import com.helianhealth.agent.utils.ResponseRenderUtils;
@@ -136,9 +136,9 @@ public class WorkflowNodeController {
     }
 
     @GetMapping("/export/{nodeId}")
-    public ResultData<NodeParamConfigExportResponse> exportNodeParamConfig(@PathVariable Integer nodeId) {
+    public ResultData<NodeParamConfigExportRsp> exportNodeParamConfig(@PathVariable Integer nodeId) {
         try {
-            NodeParamConfigExportResponse nodeParamConfigExportResponse = interfaceFlowNodeService.exportNodeParamConfig(nodeId);
+            NodeParamConfigExportRsp nodeParamConfigExportResponse = interfaceFlowNodeService.exportNodeParamConfig(nodeId);
 
             return ResponseRenderUtils.render(nodeParamConfigExportResponse);
         } catch (Exception e) {
@@ -168,6 +168,40 @@ public class WorkflowNodeController {
         } catch (Exception e) {
             log.error("导入节点参数配置失败", e);
             return ResponseRenderUtils.error("导入节点参数配置失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 导入节点配置
+     */
+    @PostMapping("/import-node")
+    public ResultData<Void> importNodeConfig(
+            @RequestParam("file") MultipartFile file) {
+        try {
+            if (file == null || file.isEmpty()) {
+                return ResponseRenderUtils.error("文件不能为空");
+            }
+
+            interfaceFlowNodeService.importNodeConfig(file);
+            return ResponseRenderUtils.success();
+        } catch (Exception e) {
+            log.error("导入节点参数配置失败", e);
+            return ResponseRenderUtils.error("导入节点参数配置失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 导出节点配置
+     */
+    @GetMapping("/export-node/{nodeId}")
+    public ResultData<NodeConfigExportRsp> exportNodeConfig(@PathVariable Integer nodeId) {
+        try {
+            NodeConfigExportRsp nodeConfigExportRsp = interfaceFlowNodeService.exportNodeConfig(nodeId);
+
+            return ResponseRenderUtils.render(nodeConfigExportRsp);
+        } catch (Exception e) {
+            log.error("获取工作流节点失败", e);
+            return ResponseRenderUtils.error("获取工作流节点失败: " + e.getMessage());
         }
     }
 }

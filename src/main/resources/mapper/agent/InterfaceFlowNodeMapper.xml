@@ -17,7 +17,11 @@
         <result property="splitField" column="split_field"/>
     </resultMap>
 
-    <insert id="createNode" parameterType="com.helianhealth.agent.model.po.InterfaceWorkflowNodePO">
+    <insert id="createNode"
+            parameterType="com.helianhealth.agent.model.po.InterfaceWorkflowNodePO"
+            useGeneratedKeys="true"
+            keyProperty="nodeId"
+            keyColumn="node_id">
         INSERT INTO interface_workflow_node
         <trim prefix="(" suffix=")" suffixOverrides=",">
             <if test="nodeName != null">

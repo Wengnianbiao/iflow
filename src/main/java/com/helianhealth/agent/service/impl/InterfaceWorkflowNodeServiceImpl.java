@@ -1,10 +1,12 @@
 package com.helianhealth.agent.service.impl;
 
+import com.alibaba.fastjson2.JSON;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.helianhealth.agent.common.PageList;
 import com.helianhealth.agent.controller.workflow.reponse.InterfaceWorkflowNodeView;
-import com.helianhealth.agent.controller.workflow.reponse.NodeParamConfigExportResponse;
+import com.helianhealth.agent.controller.workflow.reponse.NodeConfigExportRsp;
+import com.helianhealth.agent.controller.workflow.reponse.NodeParamConfigExportRsp;
 import com.helianhealth.agent.controller.workflow.request.WorkflowNodeCreateReq;
 import com.helianhealth.agent.controller.workflow.request.WorkflowNodeUpdateReq;
 import com.helianhealth.agent.enums.NodeType;
@@ -13,6 +15,8 @@ import com.helianhealth.agent.mapper.agent.InterfaceFlowNodeMapper;
 import com.helianhealth.agent.model.convert.WorkflowNodeConvert;
 import com.helianhealth.agent.model.domain.InterfaceWorkflowNode;
 import com.helianhealth.agent.model.domain.NodeParamConfigDO;
+import com.helianhealth.agent.model.dto.NodeConfigImportDTO;
+import com.helianhealth.agent.model.dto.NodeParamConfigImportDTO;
 import com.helianhealth.agent.model.po.InterfaceWorkflowNodePO;
 import com.helianhealth.agent.remote.InterfaceRemoteInvoker;
 import com.helianhealth.agent.service.InterfaceWorkflowNodeService;
@@ -22,7 +26,10 @@ import org.apache.dubbo.common.extension.ExtensionLoader;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -160,16 +167,16 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
     }
 
     @Override
-    public NodeParamConfigExportResponse exportNodeParamConfig(Integer nodeId) {
+    public NodeParamConfigExportRsp exportNodeParamConfig(Integer nodeId) {
         try {
             // 1. 查询节点的所有参数配置（包括所有处理类型）
             List<NodeParamConfigDO> paramConfigs = nodeParamConfigService.findAllNodeParamConfigsUnpaged(nodeId, null);
 
             // 2. 构建导出响应对象
-            NodeParamConfigExportResponse response = new NodeParamConfigExportResponse();
+            NodeParamConfigExportRsp response = new NodeParamConfigExportRsp();
 
             // 3. 设置节点信息
-            NodeParamConfigExportResponse.NodeInfo nodeInfo = new NodeParamConfigExportResponse.NodeInfo();
+            NodeParamConfigExportRsp.NodeInfo nodeInfo = new NodeParamConfigExportRsp.NodeInfo();
             InterfaceWorkflowNodePO workflowNodePO = flowNodeMapper.selectByNodeId(nodeId);
             nodeInfo.setNodeName(workflowNodePO.getNodeName());
             nodeInfo.setNodeType(workflowNodePO.getNodeType().name());
@@ -177,8 +184,38 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
             response.setNodeInfo(nodeInfo);
 
             // 4. 构建树形结构
-            List<NodeParamConfigExportResponse.NodeParamConfigExportDTO> rootParams =
+            List<NodeParamConfigExportRsp.NodeParamConfigExportDTO> rootParams =
                     buildParamTree(paramConfigs, null);
+
+            response.setParamsConfig(rootParams);
+
+            return response;
+        } catch (Exception e) {
+            log.error("导出节点参数配置失败，nodeId={}", nodeId, e);
+            throw new RuntimeException("导出节点参数配置失败: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public NodeConfigExportRsp exportNodeConfig(Integer nodeId) {
+        try {
+            // 1. 查询节点的所有参数配置（包括所有处理类型）
+            List<NodeParamConfigDO> paramConfigs = nodeParamConfigService.findAllNodeParamConfigsUnpaged(nodeId, null);
+
+            // 2. 构建导出响应对象
+            NodeConfigExportRsp response = new NodeConfigExportRsp();
+
+            NodeConfigExportRsp.NodeInfo nodeInfo = new NodeConfigExportRsp.NodeInfo();
+            InterfaceWorkflowNodePO workflowNodePO = flowNodeMapper.selectByNodeId(nodeId);
+            nodeInfo.setNodeName(workflowNodePO.getNodeName());
+            nodeInfo.setNodeType(workflowNodePO.getNodeType().name());
+            nodeInfo.setMetaInfo(workflowNodePO.getMetaInfo());
+            nodeInfo.setParamFilterExpr(workflowNodePO.getParamFilterExpr());
+            nodeInfo.setKeywordField(workflowNodePO.getKeywordField());
+            response.setNodeInfo(nodeInfo);
+
+            List<NodeConfigExportRsp.NodeParamConfigDTO> rootParams =
+                    buildNodeParamTree(paramConfigs, null);
 
             response.setParamsConfig(rootParams);
 
@@ -195,16 +232,72 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
      * @param parentId 父节点ID，null表示根节点
      * @return 树形结构的参数配置列表
      */
-    private List<NodeParamConfigExportResponse.NodeParamConfigExportDTO> buildParamTree(
+    private List<NodeConfigExportRsp.NodeParamConfigDTO> buildNodeParamTree(
             List<NodeParamConfigDO> paramConfigs, Integer parentId) {
 
         return paramConfigs.stream()
                 .filter(config -> (parentId == null && config.getParentId() == null) ||
                         (parentId != null && parentId.equals(config.getParentId())))
                 .map(config -> {
-                    NodeParamConfigExportResponse.NodeParamConfigExportDTO dto = convertToExportDTO(config);
+                    NodeConfigExportRsp.NodeParamConfigDTO dto = convertToNodeExportDTO(config);
                     // 递归构建子节点
-                    List<NodeParamConfigExportResponse.NodeParamConfigExportDTO> childParams =
+                    List<NodeConfigExportRsp.NodeParamConfigDTO> childParams =
+                            buildNodeParamTree(paramConfigs, config.getConfigId());
+                    dto.setChildParam(childParams.isEmpty() ? null : childParams);
+                    return dto;
+                })
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    @Override
+    public void importNodeConfig(MultipartFile file) {
+        try {
+            // 1. 校验文件格式
+            if (file == null || file.isEmpty()) {
+                throw new IllegalArgumentException("文件不能为空");
+            }
+
+            String fileName = file.getOriginalFilename();
+            if (!StringUtils.hasText(fileName) || !fileName.toLowerCase().endsWith(".json")) {
+                throw new IllegalArgumentException("文件格式不正确，仅支持JSON格式文件");
+            }
+
+            // 2. 解析JSON文件
+            String content = new String(file.getBytes());
+            NodeConfigImportDTO importNodeDTO = JSON.parseObject(content, NodeConfigImportDTO.class);
+
+            // 3.1 先创建节点
+            NodeConfigImportDTO.NodeInfo nodeInfo = importNodeDTO.getNodeInfo();
+            InterfaceWorkflowNodePO workflowNodePO = nodeConvert.importNodeToPo(nodeInfo);
+            flowNodeMapper.createNode(workflowNodePO);
+            Integer nodeId = workflowNodePO.getNodeId();
+
+            List<NodeConfigImportDTO.NodeParamConfigDTO> sourceParams = importNodeDTO.getParamsConfig();
+            List<NodeParamConfigImportDTO.NodeParamConfigDTO> targetParams = sourceParams.stream()
+                    .map(nodeConvert::convertNodeParamConfig)
+                    .collect(Collectors.toList());
+            nodeParamConfigService.importNodeParamConfig(nodeId, targetParams);
+        } catch (IOException e) {
+            log.error("导入节点配置失败：", e);
+        }
+    }
+
+    /**
+     * 构建参数配置的树形结构
+     * @param paramConfigs 所有参数配置
+     * @param parentId 父节点ID，null表示根节点
+     * @return 树形结构的参数配置列表
+     */
+    private List<NodeParamConfigExportRsp.NodeParamConfigExportDTO> buildParamTree(
+            List<NodeParamConfigDO> paramConfigs, Integer parentId) {
+
+        return paramConfigs.stream()
+                .filter(config -> (parentId == null && config.getParentId() == null) ||
+                        (parentId != null && parentId.equals(config.getParentId())))
+                .map(config -> {
+                    NodeParamConfigExportRsp.NodeParamConfigExportDTO dto = convertToExportDTO(config);
+                    // 递归构建子节点
+                    List<NodeParamConfigExportRsp.NodeParamConfigExportDTO> childParams =
                             buildParamTree(paramConfigs, config.getConfigId());
                     dto.setChildParam(childParams.isEmpty() ? null : childParams);
                     return dto;
@@ -217,9 +310,33 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
      * @param config NodeParamConfigDO对象
      * @return NodeParamConfigExportDTO对象
      */
-    private NodeParamConfigExportResponse.NodeParamConfigExportDTO convertToExportDTO(NodeParamConfigDO config) {
-        NodeParamConfigExportResponse.NodeParamConfigExportDTO dto =
-                new NodeParamConfigExportResponse.NodeParamConfigExportDTO();
+    private NodeParamConfigExportRsp.NodeParamConfigExportDTO convertToExportDTO(NodeParamConfigDO config) {
+        NodeParamConfigExportRsp.NodeParamConfigExportDTO dto =
+                new NodeParamConfigExportRsp.NodeParamConfigExportDTO();
+
+        dto.setProcessType(config.getProcessType());
+        dto.setSourceParamKey(config.getSourceParamKey());
+        dto.setSourceParamType(config.getSourceParamType());
+        dto.setParamDesc(config.getParamDesc());
+        dto.setTargetParamKey(config.getTargetParamKey());
+        dto.setTargetParamType(config.getTargetParamType());
+        dto.setKeepSingleElementKey(config.getKeepSingleElementKey());
+        dto.setSort(config.getSort());
+        dto.setMappingType(config.getMappingType());
+        dto.setMappingSource(config.getMappingSource());
+        dto.setMappingRule(config.getMappingRule());
+
+        return dto;
+    }
+
+    /**
+     * 将NodeParamConfigDO转换为NodeParamConfigExportDTO（不包含层级关系）
+     * @param config NodeParamConfigDO对象
+     * @return NodeParamConfigExportDTO对象
+     */
+    private NodeConfigExportRsp.NodeParamConfigDTO convertToNodeExportDTO(NodeParamConfigDO config) {
+        NodeConfigExportRsp.NodeParamConfigDTO dto =
+                new NodeConfigExportRsp.NodeParamConfigDTO();
 
         dto.setProcessType(config.getProcessType());
         dto.setSourceParamKey(config.getSourceParamKey());

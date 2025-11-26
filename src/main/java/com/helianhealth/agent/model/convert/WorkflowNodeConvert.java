@@ -1,8 +1,14 @@
 package com.helianhealth.agent.model.convert;
 
 import com.helianhealth.agent.controller.workflow.reponse.InterfaceWorkflowNodeView;
+import com.helianhealth.agent.enums.NodeType;
+import com.helianhealth.agent.model.dto.NodeConfigImportDTO;
+import com.helianhealth.agent.model.dto.NodeParamConfigImportDTO;
 import com.helianhealth.agent.model.po.InterfaceWorkflowNodePO;
 import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Repository
 public class WorkflowNodeConvert {
@@ -26,5 +32,42 @@ public class WorkflowNodeConvert {
         view.setRemoteExtension(po.getRemoteExtension());
 
         return view;
+    }
+
+    public InterfaceWorkflowNodePO importNodeToPo(NodeConfigImportDTO.NodeInfo nodeInfo) {
+        InterfaceWorkflowNodePO po = new InterfaceWorkflowNodePO();
+        po.setNodeName(nodeInfo.getNodeName());
+        po.setNodeType(NodeType.valueOf(nodeInfo.getNodeType()));
+        po.setMetaInfo(nodeInfo.getMetaInfo());
+        po.setParamFilterExpr(nodeInfo.getParamFilterExpr());
+        po.setKeywordField(nodeInfo.getKeywordField());
+        return po;
+    }
+
+    public NodeParamConfigImportDTO.NodeParamConfigDTO convertNodeParamConfig(NodeConfigImportDTO.NodeParamConfigDTO source) {
+        NodeParamConfigImportDTO.NodeParamConfigDTO target = new NodeParamConfigImportDTO.NodeParamConfigDTO();
+
+        // 基本字段映射
+        target.setProcessType(source.getProcessType());
+        target.setSourceParamKey(source.getSourceParamKey());
+        target.setSourceParamType(source.getSourceParamType());
+        target.setParamDesc(source.getParamDesc());
+        target.setTargetParamKey(source.getTargetParamKey());
+        target.setTargetParamType(source.getTargetParamType());
+        target.setKeepSingleElementKey(source.getKeepSingleElementKey());
+        target.setSort(source.getSort());
+        target.setMappingType(source.getMappingType());
+        target.setMappingSource(source.getMappingSource());
+        target.setMappingRule(source.getMappingRule());
+
+        // 递归处理子参数
+        if (source.getChildParam() != null) {
+            List<NodeParamConfigImportDTO.NodeParamConfigDTO> childParams = source.getChildParam().stream()
+                    .map(this::convertNodeParamConfig)
+                    .collect(Collectors.toList());
+            target.setChildParam(childParams);
+        }
+
+        return target;
     }
 }

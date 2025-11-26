@@ -185,6 +185,27 @@ public class NodeParamConfigServiceImpl implements NodeParamConfigService {
     }
 
     @Override
+    public void importNodeParamConfig(Integer nodeId, List<NodeParamConfigImportDTO.NodeParamConfigDTO> paramsConfig) {
+        try {
+            int successCount = 0;
+
+            if (paramsConfig == null || paramsConfig.isEmpty()) {
+                return;
+            }
+
+            // 递归处理参数配置
+            for (NodeParamConfigImportDTO.NodeParamConfigDTO config : paramsConfig) {
+                successCount += processConfigRecursive(config, nodeId, null);
+            }
+
+            log.info("成功导入{}条参数配置", successCount);
+        } catch (Exception e) {
+            log.error("导入节点参数配置失败", e);
+            throw new RuntimeException("导入节点参数配置失败: " + e.getMessage());
+        }
+    }
+
+    @Override
     public List<NodeParamConfigDO> selectPreProcessConfigByNodeId(Integer nodeId) {
         return nodeParamConfigMapper.selectPreProcessConfigByNodeId(nodeId);
     }
