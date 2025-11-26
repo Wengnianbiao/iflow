@@ -30,6 +30,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -263,7 +264,7 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
             }
 
             // 2. 解析JSON文件
-            String content = new String(file.getBytes());
+            String content = new String(file.getBytes(), StandardCharsets.UTF_8);
             NodeConfigImportDTO importNodeDTO = JSON.parseObject(content, NodeConfigImportDTO.class);
 
             // 3.1 先创建节点
