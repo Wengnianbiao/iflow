@@ -31,7 +31,7 @@ public class HttpClientProxy implements InterfaceClientProxy {
                 throw new IllegalArgumentException("HTTP请求信息中缺少URL");
             }
             String url = (String) metaInfo.get("url");
-            String method = (String) metaInfo.getOrDefault("method", "GET");
+            String method = (String) metaInfo.getOrDefault("method", "POST");
             Map<String, String> headers = (Map<String, String>) metaInfo.getOrDefault("headers", new HashMap<>());
 
             String requestBody = httpRequestHandler.resolveParamNodes(flowNode, params);

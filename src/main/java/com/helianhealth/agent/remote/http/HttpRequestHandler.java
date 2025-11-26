@@ -123,14 +123,10 @@ public class HttpRequestHandler implements ParamResolver {
     }
 
     public String executeHttpRequest(String url, String method, Map<String, String> headers, String requestBody) throws IOException, ParseException {
-        switch (method.toUpperCase()) {
-            case "GET":
-                return httpApiClientManager.executeGet(url, headers);
-            case "POST":
-                return httpApiClientManager.executePost(url, headers, requestBody);
-            default:
-                throw new IllegalArgumentException("不支持的HTTP方法: " + method);
+        if ("GET".equalsIgnoreCase(method)) {
+            return httpApiClientManager.executeGet(url, headers);
         }
+        return httpApiClientManager.executePost(url, headers, requestBody);
     }
 }
 
