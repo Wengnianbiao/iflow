@@ -67,6 +67,11 @@ public class XmlUtils {
     private static Map<String, Object> parseXmlForConfig(String xml, Map<String, Object> metaMap) {
         XmlParserFactory parserFactory = XmlParserFactory.getInstance();
         DocumentBuilder builder = parserFactory.getDocumentBuilder();
+        // 转义字符全量处理配置
+        boolean useEscape = Boolean.parseBoolean((String) metaMap.get(XmlConstants.USE_ESCAPE_KEY));
+        if (useEscape) {
+            xml = unescapeXml(xml);
+        }
 
         try {
             // 获取xml中业务数据元素
@@ -90,7 +95,7 @@ public class XmlUtils {
                         }
                         bizDataElement = builder.parse(new InputSource(new StringReader(dataContent))).getDocumentElement();
                     } else {
-                        bizDataElement = (Element) bizDataNodes.item(0);
+                        bizDataElement = (Element) bizDataNodes.item(0).getChildNodes().item(0);
                     }
                 } else {
                     log.error("标签名[{}]对应的节点数量不为1，无法确定唯一业务数据元素", elementName);
@@ -132,13 +137,30 @@ public class XmlUtils {
                 bizDataElement = doc.getDocumentElement();
             }
 
-            return (Map<String, Object>) parseElement(bizDataElement);
+            return (Map<String, Object>) parseElement(metaMap, bizDataElement);
         } catch (Exception e) {
             log.error("解析SOAP响应失败:", e);
             throw new RuntimeException("解析SOAP响应失败: " + e.getMessage(), e);
         } finally {
             parserFactory.clearThreadLocal();
         }
+    }
+
+    /**
+     * 还原XML转义字符为原始字符
+     * @param content 包含转义字符的文本内容
+     * @return 处理后的原始内容
+     */
+    private static String unescapeXml(String content) {
+        if (StringUtils.isEmpty(content)) {
+            return content;
+        }
+        // &amp;必须放在最前面，避免破坏其他转义符结构
+        return content.replace("&amp;", "&")
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .replace("&quot;", "\"")
+                .replace("&apos;", "'");
     }
 
     /**
@@ -419,7 +441,7 @@ public class XmlUtils {
      * 2. 无属性：直接用标签名存文本，空文本设为 null
      * 3. 同标签名子元素自动转为 List
      */
-    private static Object parseElement(Element element) {
+    private static Object parseElement(Map<String, Object> metaContext, Element element) {
         // 处理纯文本节点（无子元素、无属性）
         if (isPlainTextNode(element)) {
             return parseTextValue(element);
@@ -440,7 +462,7 @@ public class XmlUtils {
 
         // 3. 子元素解析
         Map<String, List<Element>> childElements = groupChildElementsByTagName(element);
-        addChildElementsToMap(childElements, resultMap);
+        addChildElementsToMap(metaContext, element, childElements, resultMap);
 
         // 4. 简化纯容器节点（仅含一个子元素且无属性）
         return simplifyContainerNode(element, resultMap, childElements);
@@ -509,7 +531,7 @@ public class XmlUtils {
 
         for (int i = 0; i < childNodes.getLength(); i++) {
             Node node = childNodes.item(i);
-            if (node.getNodeType() == Node.ELEMENT_NODE) {
+            if (node.getNodeType() == Node.ELEMENT_NODE || node.getNodeType() == Node.CDATA_SECTION_NODE) {
                 Element child = (Element) node;
                 String childTagName = child.getNodeName();
                 childElements.computeIfAbsent(childTagName, k -> new ArrayList<>()).add(child);
@@ -522,31 +544,50 @@ public class XmlUtils {
     /**
      * 解析子元素并添加到Map
      */
-    private static void addChildElementsToMap(Map<String, List<Element>> childElements, Map<String, Object> map) {
+
+    private static void addChildElementsToMap(Map<String, Object> metaContext,
+                                              Element element,
+                                              Map<String, List<Element>> childElements,
+                                              Map<String, Object> map) {
+        String tagName = element.getNodeName();
         for (Map.Entry<String, List<Element>> entry : childElements.entrySet()) {
             String childTagName = entry.getKey();
             List<Element> elements = entry.getValue();
-            // 数组的场景:同名子节点数量大于1或者节点名称相同
-            Object value = parseChildElementValue(elements, childElements.size() == 1);
+            Object value = parseChildElementValue(metaContext, elements, isArrayTag(metaContext, childElements, tagName));
             map.put(childTagName, value);
+        }
+    }
+
+    /**
+     * 数组的场景:同名子节点数量大于1且未明确配置为对象
+     */
+    @SuppressWarnings("unchecked")
+    private static Boolean isArrayTag(Map<String, Object> metaContext,
+                                      Map<String, List<Element>> childElements,
+                                      String tagName) {
+        List<String> objectTagName = (List<String>) metaContext.get(XmlConstants.OBJECT_TAG_KEY);
+        if (objectTagName == null || objectTagName.isEmpty()) {
+            return childElements.size() == 1;
+        } else {
+            return childElements.size() == 1 && !objectTagName.contains(tagName);
         }
     }
 
     /**
      * 解析子元素的值（数组或单个对象）
      */
-    private static Object parseChildElementValue(List<Element> elements, boolean isSingleType) {
-        // 数组场景（多个元素或单类型子元素）
-        if (elements.size() > 1 || isSingleType) {
+    private static Object parseChildElementValue(Map<String, Object> metaContext, List<Element> elements, boolean arrayTag) {
+        // 数组场景;同名节点数大于1必然就是数组 || 子元素大小为1且未明确配置为对象
+        if (elements.size() > 1 || arrayTag) {
             List<Object> list = new ArrayList<>();
             for (Element e : elements) {
-                list.add(parseElement(e)); // 递归解析
+                list.add(parseElement(metaContext, e));
             }
             return list;
         }
 
         // 单个对象场景
-        return parseElement(elements.get(0));
+        return parseElement(metaContext, elements.get(0));
     }
 
     /**
