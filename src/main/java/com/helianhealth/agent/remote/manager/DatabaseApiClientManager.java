@@ -67,7 +67,8 @@ public class DatabaseApiClientManager {
             dataSource.setMaxWait(60000);         // 最大等待时间（毫秒）
             dataSource.setTimeBetweenEvictionRunsMillis(60000);
             dataSource.setMinEvictableIdleTimeMillis(300000);
-            dataSource.setValidationQuery("SELECT 1");
+            String validationQuery = url.contains("oracle") ? "SELECT 1 FROM DUAL" : "SELECT 1";
+            dataSource.setValidationQuery(validationQuery);
             dataSource.setTestWhileIdle(true);
             dataSource.setTestOnBorrow(false);
             dataSource.setTestOnReturn(false);
