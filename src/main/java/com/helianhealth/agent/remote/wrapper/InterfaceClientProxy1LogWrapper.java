@@ -10,11 +10,11 @@ import com.helianhealth.agent.utils.JsonUtils;
 import java.util.List;
 import java.util.Map;
 
-public class InterfaceClientProxyLogWrapper implements InterfaceClientProxy {
+public class InterfaceClientProxy1LogWrapper implements InterfaceClientProxy {
 
     private final InterfaceClientProxy interfaceClientProxy;
 
-    public InterfaceClientProxyLogWrapper(InterfaceClientProxy interfaceClientProxy){
+    public InterfaceClientProxy1LogWrapper(InterfaceClientProxy interfaceClientProxy){
         this.interfaceClientProxy = interfaceClientProxy;
     }
 

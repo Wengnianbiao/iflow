@@ -102,3 +102,23 @@ CREATE TABLE interface_invoke_log
     create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Mock配置表
+CREATE TABLE mock_config
+(
+    -- 主键ID，自增
+    mock_id SERIAL PRIMARY KEY,
+    -- 节点ID（关联到interface_workflow_node表的node_id）
+    node_id INTEGER NOT NULL,
+    -- Mock场景名称（用于区分不同的mock case）
+    case_name VARCHAR(100) NOT NULL,
+    -- Mock场景描述
+    case_desc VARCHAR(255) NULL,
+    -- Mock响应数据（JSON格式）
+    mock_response TEXT NOT NULL,
+    -- 是否启用（1-启用，0-禁用）
+    enabled INTEGER NOT NULL DEFAULT 1,
+    -- 创建时间
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+

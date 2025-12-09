@@ -23,11 +23,6 @@ public enum NodeType {
     HTTP,
 
     /**
-     * Mock,mock模式
-     */
-    MOCK,
-
-    /**
      * 无三方接口调用
      */
     NONE

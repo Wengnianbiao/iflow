@@ -93,3 +93,22 @@ CREATE TABLE `interface_invoke_log` (
     -- 创建时间
     `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Mock配置表
+CREATE TABLE mock_config
+(
+    -- 主键ID，自增
+    mock_id         INT           NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    -- 节点ID
+    node_id         INT           NOT NULL,
+    -- Mock场景名称
+    case_name       VARCHAR(100)  NOT NULL,
+    -- Mock场景描述
+    case_desc       VARCHAR(255)  NULL,
+    -- Mock响应数据（JSON格式）
+    mock_response   TEXT      NOT NULL,
+    -- 是否启用
+    enabled         INT           NOT NULL DEFAULT 1,
+    -- 创建时间（MySQL用NOW()替代GETDATE()）
+    create_time     DATETIME      NOT NULL DEFAULT NOW()
+);

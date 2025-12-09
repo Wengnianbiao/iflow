@@ -3,6 +3,8 @@ package com.helianhealth.agent.remote;
 import com.helianhealth.agent.model.domain.InterfaceWorkflowNode;
 import com.helianhealth.agent.model.domain.NodeParamConfigDO;
 import com.helianhealth.agent.model.dto.ParamTreeNode;
+import com.helianhealth.agent.model.dto.PostBuildContext;
+import com.helianhealth.agent.model.dto.PreBuildContext;
 import com.helianhealth.agent.service.NodeParamConfigService;
 import lombok.Setter;
 import org.apache.dubbo.common.extension.ExtensionLoader;
@@ -28,7 +30,7 @@ public class DefaultInterfaceRemoteInvoker implements InterfaceRemoteInvoker {
         // 1. 参数前处理
         List<ParamTreeNode> paramBeforeInvoke = preProcess(flowNode, businessData);
 
-        // 2. 执行协议的调用,由子类实现
+        // 2. 执行协议的调用
         Map<String, Object> response = proxy.doInvoke(flowNode, paramBeforeInvoke);
 
         // 3. 参数后处理
@@ -49,7 +51,13 @@ public class DefaultInterfaceRemoteInvoker implements InterfaceRemoteInvoker {
         if (CollectionUtils.isEmpty(nodeConfigs)) {
             return new ArrayList<>();
         }
-        return paramNode.buildPreParamTree(flowNode.getUrl(), nodeConfigs, null, businessData, businessData, businessData);
+
+        PreBuildContext context = PreBuildContext.builder()
+                .currentData(businessData)
+                .parentData(businessData)
+                .rootData(businessData)
+                .build();
+        return paramNode.buildPreParamTree(flowNode.getUrl(), nodeConfigs, null, context);
     }
 
     /**
@@ -66,8 +74,14 @@ public class DefaultInterfaceRemoteInvoker implements InterfaceRemoteInvoker {
             return new HashMap<>();
         }
 
+        PostBuildContext context = PostBuildContext.builder()
+                .currentInputData(businessData)
+                .currentResponseData(response)
+                .rootInputData(businessData)
+                .rootResponseData(response)
+                .build();
         List<ParamTreeNode> rootNodes = paramNode.buildPostParamTree(flowNode.getUrl(),
-                nodeConfigs, null, businessData, response, businessData, response);
+                nodeConfigs, null, context);
 
         return ProxyConvertHelper.convertResponse(flowNode, rootNodes);
     }

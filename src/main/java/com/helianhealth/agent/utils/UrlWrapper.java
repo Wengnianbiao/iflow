@@ -36,4 +36,9 @@ public class UrlWrapper {
         url = url.addParameter("proxy", proxy);
         return this;
     }
+
+    public UrlWrapper mock(Integer mockId){
+        url = url.addParameter("mock", mockId);
+        return this;
+    }
 }

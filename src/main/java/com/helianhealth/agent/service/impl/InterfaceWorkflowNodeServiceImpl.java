@@ -280,6 +280,36 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
             nodeParamConfigService.importNodeParamConfig(nodeId, targetParams);
         } catch (IOException e) {
             log.error("导入节点配置失败：", e);
+        }{
+            try {
+                // 1. 校验文件格式
+                if (file == null || file.isEmpty()) {
+                    throw new IllegalArgumentException("文件不能为空");
+                }
+
+                String fileName = file.getOriginalFilename();
+                if (!StringUtils.hasText(fileName) || !fileName.toLowerCase().endsWith(".json")) {
+                    throw new IllegalArgumentException("文件格式不正确，仅支持JSON格式文件");
+                }
+
+                // 2. 解析JSON文件
+                String content = new String(file.getBytes(), StandardCharsets.UTF_8);
+                NodeConfigImportDTO importNodeDTO = JSON.parseObject(content, NodeConfigImportDTO.class);
+
+                // 3.1 先创建节点
+                NodeConfigImportDTO.NodeInfo nodeInfo = importNodeDTO.getNodeInfo();
+                InterfaceWorkflowNodePO workflowNodePO = nodeConvert.importNodeToPo(nodeInfo);
+                flowNodeMapper.createNode(workflowNodePO);
+                Integer nodeId = workflowNodePO.getNodeId();
+
+                List<NodeConfigImportDTO.NodeParamConfigDTO> sourceParams = importNodeDTO.getParamsConfig();
+                List<NodeParamConfigImportDTO.NodeParamConfigDTO> targetParams = sourceParams.stream()
+                        .map(nodeConvert::convertNodeParamConfig)
+                        .collect(Collectors.toList());
+                nodeParamConfigService.importNodeParamConfig(nodeId, targetParams);
+            } catch (IOException e) {
+                log.error("导入节点配置失败：", e);
+            }
         }
     }
 

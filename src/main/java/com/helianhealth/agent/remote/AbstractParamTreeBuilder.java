@@ -3,6 +3,8 @@ package com.helianhealth.agent.remote;
 import com.helianhealth.agent.enums.MappingSource;
 import com.helianhealth.agent.model.domain.NodeParamConfigDO;
 import com.helianhealth.agent.model.dto.ParamTreeNode;
+import com.helianhealth.agent.model.dto.PostBuildContext;
+import com.helianhealth.agent.model.dto.PreBuildContext;
 import com.helianhealth.agent.remote.resolver.ValueResolverSelector;
 import com.helianhealth.agent.remote.support.BasicTypeConversionHandler;
 import com.helianhealth.agent.remote.support.TypeHandler;
@@ -30,27 +32,32 @@ public abstract class AbstractParamTreeBuilder implements ParamTree {
     private final TypeHandler typeHandler = new BasicTypeConversionHandler();
 
     @Override
-    public List<ParamTreeNode> buildPreParamTree(URL url, List<NodeParamConfigDO> configs,
+    public List<ParamTreeNode> buildPreParamTree(URL url, 
+                                                 List<NodeParamConfigDO> configs,
                                                  Integer parentId,
-                                                 Map<String, Object> businessData,
-                                                 Map<String, Object> parentBusinessData,
-                                                 Map<String, Object> sourceBusinessData) {
-        return doBuildPreParamTree(configs, parentId, businessData, parentBusinessData, sourceBusinessData);
+                                                 PreBuildContext context) {
+        return doBuildPreParamTree(configs, parentId, context);
     }
 
+    /**
+     * 兼容旧接口的重载方法
+     */
     public List<ParamTreeNode> buildPreParamTree(List<NodeParamConfigDO> configs,
                                                    Integer parentId,
                                                    Map<String, Object> businessData,
                                                    Map<String, Object> parentBusinessData,
                                                    Map<String, Object> sourceBusinessData){
-        return doBuildPreParamTree(configs, parentId, businessData, parentBusinessData, sourceBusinessData);
+        PreBuildContext context = PreBuildContext.builder()
+                .currentData(businessData)
+                .parentData(parentBusinessData)
+                .rootData(sourceBusinessData)
+                .build();
+        return doBuildPreParamTree(configs, parentId, context);
     }
 
-    public List<ParamTreeNode> doBuildPreParamTree(List<NodeParamConfigDO> configs,
-                                                   Integer parentId,
-                                                   Map<String, Object> businessData,
-                                                   Map<String, Object> parentBusinessData,
-                                                   Map<String, Object> sourceBusinessData) {
+    private List<ParamTreeNode> doBuildPreParamTree(List<NodeParamConfigDO> configs,
+                                                    Integer parentId,
+                                                    PreBuildContext context) {
         List<ParamTreeNode> children = new ArrayList<>();
 
         try {
@@ -62,7 +69,7 @@ public abstract class AbstractParamTreeBuilder implements ParamTree {
 
             // 2、组装每个节点的参数值
             for (NodeParamConfigDO config : currentNodes) {
-                children.add(processPreParamNode(config, configs, businessData, parentBusinessData, sourceBusinessData));
+                children.add(processPreParamNode(config, configs, context));
             }
         } catch (Exception e) {
             log.error("Building param tree ERROR:", e);
@@ -73,9 +80,7 @@ public abstract class AbstractParamTreeBuilder implements ParamTree {
 
     private ParamTreeNode processPreParamNode(NodeParamConfigDO config,
                                               List<NodeParamConfigDO> allNodes,
-                                              Map<String, Object> businessData,
-                                              Map<String, Object> parentBusinessData,
-                                              Map<String, Object> sourceBusinessData) {
+                                              PreBuildContext context) {
         ParamTreeNode node = ParamTreeNode.builder()
                 .paramKey(config.getTargetParamKey())
                 .paramType(config.getTargetParamType())
@@ -85,16 +90,17 @@ public abstract class AbstractParamTreeBuilder implements ParamTree {
         switch (config.getTargetParamType()) {
             case OBJECT:
                 // 对象类型处理
-                processPreObjectNodeType(config, allNodes, businessData, parentBusinessData, sourceBusinessData, node);
+                processPreObjectNodeType(config, allNodes, context, node);
                 break;
             case ARRAY:
             case PURE_ARRAY:
                 // 数组类型处理
-                processPreArrayNodeType(config, allNodes, businessData, parentBusinessData, sourceBusinessData, node);
+                processPreArrayNodeType(config, allNodes, context, node);
                 break;
             default:
                 // 基本类型：从业务数据中取值（根据mappingRule映射）并转化类型
-                Object rawValue = resolveValue(config, businessData, parentBusinessData, sourceBusinessData);
+                Object rawValue = resolveValue(config, context.getCurrentData(), 
+                        context.getParentData(), context.getRootData());
                 Object convertedValue = typeHandler.convert(rawValue, config.getTargetParamType());
                 node.setParamValue(convertedValue);
         }
@@ -111,46 +117,43 @@ public abstract class AbstractParamTreeBuilder implements ParamTree {
 
     protected abstract void processPreObjectNodeType(NodeParamConfigDO config,
                                                      List<NodeParamConfigDO> allNodes,
-                                                     Map<String, Object> businessData,
-                                                     Map<String, Object> parentBusinessData,
-                                                     Map<String, Object> rootBusinessData,
+                                                     PreBuildContext context,
                                                      ParamTreeNode node);
 
     protected abstract void processPreArrayNodeType(NodeParamConfigDO config,
                                                     List<NodeParamConfigDO> allNodes,
-                                                    Map<String, Object> businessData,
-                                                    Map<String, Object> parentBusinessData,
-                                                    Map<String, Object> rootBusinessData,
+                                                    PreBuildContext context,
                                                     ParamTreeNode node);
 
     @Override
     public List<ParamTreeNode> buildPostParamTree(URL url,
                                                   List<NodeParamConfigDO> configs,
                                                   Integer parentId,
-                                                  Map<String, Object> inputBusinessData,
-                                                  Map<String, Object> responseBusinessData,
-                                                  Map<String, Object> sourceInputBusinessData,
-                                                  Map<String, Object> sourceResponseBusinessData){
-        return buildPostParamTree(configs, parentId, inputBusinessData,
-                responseBusinessData, sourceInputBusinessData, sourceResponseBusinessData);
+                                                  PostBuildContext context){
+        return doBuildPostParamTree(configs, parentId, context);
     }
 
+    /**
+     * 兼容旧接口的重载方法
+     */
     public List<ParamTreeNode> buildPostParamTree(List<NodeParamConfigDO> configs,
                                                    Integer parentId,
                                                    Map<String, Object> inputBusinessData,
                                                    Map<String, Object> responseBusinessData,
                                                    Map<String, Object> sourceInputBusinessData,
                                                    Map<String, Object> sourceResponseBusinessData) {
-        return doBuildPostParamTree(configs, parentId,
-                inputBusinessData, responseBusinessData, sourceInputBusinessData, sourceResponseBusinessData);
+        PostBuildContext context = PostBuildContext.builder()
+                .currentInputData(inputBusinessData)
+                .currentResponseData(responseBusinessData)
+                .rootInputData(sourceInputBusinessData)
+                .rootResponseData(sourceResponseBusinessData)
+                .build();
+        return doBuildPostParamTree(configs, parentId, context);
     }
 
     private List<ParamTreeNode> doBuildPostParamTree(List<NodeParamConfigDO> configs,
                                                      Integer parentId,
-                                                     Map<String, Object> inputBusinessData,
-                                                     Map<String, Object> responseBusinessData,
-                                                     Map<String, Object> sourceInputBusinessData,
-                                                     Map<String, Object> sourceResponseBusinessData) {
+                                                     PostBuildContext context) {
         List<ParamTreeNode> children = new ArrayList<>();
 
         try {
@@ -163,11 +166,7 @@ public abstract class AbstractParamTreeBuilder implements ParamTree {
             // 2、组装每个节点的参数值
             for (NodeParamConfigDO config : currentNodes) {
                 // 后置节点处理时会同时持有入参和响应的业务数据
-                children.add(processPostParamNode(config, configs,
-                        inputBusinessData,
-                        responseBusinessData,
-                        sourceInputBusinessData,
-                        sourceResponseBusinessData));
+                children.add(processPostParamNode(config, configs, context));
             }
         } catch (Exception e) {
             log.error("Building param tree ERROR:", e);
@@ -178,10 +177,7 @@ public abstract class AbstractParamTreeBuilder implements ParamTree {
 
     private ParamTreeNode processPostParamNode(NodeParamConfigDO config,
                                                List<NodeParamConfigDO> allNodes,
-                                               Map<String, Object> inputBusinessData,
-                                               Map<String, Object> responseBusinessData,
-                                               Map<String, Object> sourceInputBusinessData,
-                                               Map<String, Object> sourceResponseBusinessData) {
+                                               PostBuildContext context) {
         ParamTreeNode node = ParamTreeNode.builder()
                 .paramKey(config.getTargetParamKey())
                 .paramType(config.getTargetParamType())
@@ -191,20 +187,19 @@ public abstract class AbstractParamTreeBuilder implements ParamTree {
         switch (config.getTargetParamType()) {
             case OBJECT:
                 // 对象类型处理
-                processPostObjectNodeType(config, allNodes, inputBusinessData, responseBusinessData,
-                        sourceInputBusinessData, sourceResponseBusinessData, node);
+                processPostObjectNodeType(config, allNodes, context, node);
                 break;
             case ARRAY:
             case PURE_ARRAY:
                 // 数组类型处理
-                processPostArrayNodeType(config, allNodes, inputBusinessData,
-                        responseBusinessData, sourceInputBusinessData, sourceResponseBusinessData, node);
+                processPostArrayNodeType(config, allNodes, context, node);
                 break;
             default:
                 // 基本类型：从业务数据中取值（根据mappingRule映射）
-                node.setParamValue(resolveValue(config,
-                        config.getMappingSource() == MappingSource.INPUT ? inputBusinessData : responseBusinessData
-                        , sourceInputBusinessData, sourceResponseBusinessData));
+                Map<String, Object> dataSource = config.getMappingSource() == MappingSource.INPUT ? 
+                        context.getCurrentInputData() : context.getCurrentResponseData();
+                node.setParamValue(resolveValue(config, dataSource,
+                        context.getRootInputData(), context.getRootResponseData()));
         }
 
         return node;
@@ -212,17 +207,11 @@ public abstract class AbstractParamTreeBuilder implements ParamTree {
 
     protected abstract void processPostObjectNodeType(NodeParamConfigDO config,
                                                   List<NodeParamConfigDO> allNodes,
-                                                  Map<String, Object> inputBusinessData,
-                                                  Map<String, Object> responseBusinessData,
-                                                  Map<String, Object> sourceInputBusinessData,
-                                                  Map<String, Object> sourceResponseBusinessData,
+                                                  PostBuildContext context,
                                                   ParamTreeNode node);
 
     protected abstract void processPostArrayNodeType(NodeParamConfigDO config,
                                                  List<NodeParamConfigDO> allNodes,
-                                                 Map<String, Object> inputBusinessData,
-                                                 Map<String, Object> responseBusinessData,
-                                                 Map<String, Object> sourceInputBusinessData,
-                                                 Map<String, Object> sourceResponseBusinessData,
+                                                 PostBuildContext context,
                                                  ParamTreeNode node);
 }
