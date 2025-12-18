@@ -1,0 +1,99 @@
+package com.helianhealth.agent.workflow.model.po;
+
+import com.helianhealth.agent.workflow.enums.NodeType;
+import com.helianhealth.agent.workflow.enums.ScheduleParamSourceType;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import javax.persistence.Column;
+import javax.persistence.EnumType;
+import javax.persistence.Enumerated;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+/**
+ * 工作流节点PO
+ */
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Table(name = "interface_workflow_node")
+public class InterfaceWorkflowNodePO {
+
+    @Id
+    @Column(name = "node_id", nullable = false, updatable = false)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer nodeId;
+
+    /**
+     * 节点描述
+     */
+    @Column(name = "node_name")
+    private String nodeName;
+
+    /**
+     * 工作流id
+     */
+    @Column(name = "flow_id")
+    private Integer flowId;
+
+    /**
+     * 参数过滤表达式
+     */
+    @Column(name = "param_filter_expr")
+    private String paramFilterExpr;
+
+    /**
+     * 节点厂商类型
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "node_type")
+    private NodeType nodeType;
+
+    /**
+     * api实例元数据,以key-value封装的Json数据
+     * e.g. 模式为Http下则包含请求的url、请求头、请求方式等
+     * e.g. 模式为Database下则包含数据库连接信息、数据库表名、数据库字段名等
+     */
+    @Column(name = "meta_info")
+    private String metaInfo;
+
+    /**
+     * 参数拆分规则表达式
+     * 当前业务场景只根据列表拆分为单个对象或基础数据类型
+     * e.g. ids:["12","32"] -> {"id":"12","id":"32"}
+     */
+    @Column(name = "split_field")
+    private String splitField;
+
+    /**
+     * 调度规则表达式
+     */
+    @Column(name = "schedule_expr")
+    private String scheduleExpr;
+
+    /**
+     * 调度参数来源类型
+     */
+    @Column(name = "schedule_param_source_type")
+    @Enumerated(EnumType.STRING)
+    private ScheduleParamSourceType scheduleParamSourceType;
+
+    /**
+     * 业务关键字字段名配置
+     * 用于指定从businessData中提取哪个字段作为关键字
+     */
+    @Column(name = "keyword_field")
+    private String keywordField;
+
+    /**
+     * SPI扩展点映射配置
+     */
+    @Column(name = "remote_extension")
+    private String remoteExtension;
+}

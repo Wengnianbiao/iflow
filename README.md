@@ -1,125 +1,283 @@
-# interface-agent
+# Interface Agent - 工作流引擎
 
-一个可配置的接口代理服务，用于处理工作流节点的创建、管理、执行以及参数配置等功能，支持多种节点类型（如 HTTP、WEBSERVICE、DATABASE、MOCK 等）的集成与调度。
+一个基于Spring Boot的可插拔工作流引擎，支持HTTP、数据库、WebService等多种调用方式，提供可视化配置界面。
 
-## 功能特点
+> **两种使用方式**：既可以直接运行本项目的 `agent-web` 模块作为独立应用，也可以将 `agent-spring-boot-starter` 作为 Starter 引入其他 Spring Boot 项目使用。
 
-- **工作流节点管理**：支持节点的创建、查询、更新、删除等操作，可按工作流 ID 分页获取节点列表
-- **节点参数配置**：提供节点参数的导入、导出功能，支持参数的树形结构配置与管理
-- **多类型节点支持**：内置对 SOAP 等协议的支持，可扩展至 HTTP、数据库等其他类型节点
-- **动态配置管理**：支持系统配置的动态更新、查询、添加、删除，无需重启应用即可部分生效
-- **开放 API 接口**：提供统一的开放 API 入口，支持多种数据格式（JSON、XML 等）的输入输出
+## 项目特点
+
+- 🔌 **可插拔设计**：既可独立部署运行，也可作为 Spring Boot Starter 集成到任何 Spring Boot 项目
+- 🎨 **可视化配置**：提供前端配置页面，无需编码即可配置工作流
+- 🔄 **多种调用方式**：支持HTTP、数据库、WebService等多种远程调用
+- 📊 **动态参数映射**：灵活的参数映射和转换机制
+- 🧪 **Mock支持**：内置Mock功能，方便测试
+- 🔧 **动态扩展**：支持动态SPI机制，运行时加载扩展
+
+## 模块结构
+
+```
+interface-agent/
+├── agent-common              # 通用工具和基础组件
+├── agent-workflow            # 工作流配置管理
+├── agent-invocation          # 远程调用实现
+├── agent-schedule            # 调度引擎
+├── agent-api                 # 开放API接口
+├── agent-log                 # 日志管理
+├── agent-mock                # Mock数据管理
+├── agent-config              # 公共配置（CORS、异常处理、静态资源等）
+├── agent-spring-boot-starter # Spring Boot 自动配置 Starter
+└── agent-web                 # Web 应用与前端页面（可执行入口）
+```
+
+## 快速开始（以 Starter 集成方式为例）
+
+如果你希望在自己的 Spring Boot 项目中集成工作流引擎，可以按以下步骤引入 `agent-spring-boot-starter`：
+
+### 1. 添加依赖
+
+在你的Spring Boot项目的 \`pom.xml\` 中添加：
+
+\`\`\`xml
+<dependency>
+    <groupId>com.helianhealth</groupId>
+    <artifactId>agent-spring-boot-starter</artifactId>
+    <version>1.0.0</version>
+</dependency>
+\`\`\`
+
+### 2. 配置数据源
+
+在你的 \`application.yml\` 中配置数据源：
+
+\`\`\`yaml
+spring:
+  datasource:
+    # agent元数据数据源（必须）
+    agent:
+      type: com.alibaba.druid.pool.DruidDataSource
+      driver-class-name: com.mysql.cj.jdbc.Driver
+      url: jdbc:mysql://localhost:3306/interface_agent
+      username: root
+      password: your_password
+      
+    # 业务数据源（可选）
+    hems:
+      type: com.alibaba.druid.pool.DruidDataSource
+      driver-class-name: com.mysql.cj.jdbc.Driver
+      url: jdbc:mysql://localhost:3306/your_business_db
+      username: root
+      password: your_password
+
+pagehelper:
+  helper-dialect: mysql  # 根据agent数据源类型选择
+\`\`\`
+
+### 3. 初始化数据库
+
+执行数据库初始化脚本（根据你使用的数据库选择）：
+
+\`\`\`bash
+doc/init_mysql.sql        # MySQL
+doc/init_sqlserver.sql    # SQL Server
+doc/init_gauss.sql        # OpenGauss
+\`\`\`
+
+### 4. 启动应用
+
+启动你的Spring Boot应用，工作流引擎会自动初始化：
+
+\`\`\`java
+@SpringBootApplication
+public class YourApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(YourApplication.class, args);
+    }
+}
+\`\`\`
+
+启动日志会显示：
+\`\`\`
+Interface Agent Auto Configuration initialized!
+工作流引擎已启动，可以使用前端配置页面和API调用
+\`\`\`
+
+### 5. 访问配置页面
+
+启动后访问：\`http://localhost:8080\`（端口根据你的应用配置）
+
+## 使用方式
+
+### 方式一：前端配置
+
+1. 访问前端配置页面
+2. 创建工作流
+3. 配置节点和参数映射
+4. 启用工作流
+
+### 方式二：API调用
+
+在你的代码中注入调度器并调用：
+
+\`\`\`java
+@RestController
+public class YourController {
+    
+    @Autowired
+    private WorkFlowEngineScheduler scheduler;
+    
+    @PostMapping("/execute")
+    public Map<String, Object> execute(@RequestBody Map<String, Object> businessData) {
+        // 执行工作流
+        return scheduler.execute(workflowId, businessData);
+    }
+}
+\`\`\`
+
+## 配置说明
+
+### 启用/禁用
+
+默认启用，可通过配置禁用：
+
+\`\`\`yaml
+interface-agent:
+  enabled: false  # 禁用工作流引擎
+\`\`\`
+
+### 数据库支持
+
+- MySQL 5.7+
+- SQL Server 2012+
+- Oracle 12c+
+- OpenGauss 3.0+
+
+### 节点类型
+
+- **HTTP节点**：调用HTTP/HTTPS接口
+- **数据库节点**：执行SQL查询
+- **WebService节点**：调用SOAP服务
+
+## 核心API接口
+
+### 工作流管理
+
+\`\`\`
+GET  /v1/console/workflow/all           # 获取工作流列表
+POST /v1/console/workflow/create        # 创建工作流
+POST /v1/console/workflow/update        # 更新工作流
+DELETE /v1/console/workflow/{id}        # 删除工作流
+\`\`\`
+
+### 节点管理
+
+\`\`\`
+GET  /v1/console/node/all               # 获取节点列表
+POST /v1/console/node/create            # 创建节点
+GET  /v1/console/node/{nodeId}          # 获取节点详情
+POST /v1/console/node/update            # 更新节点
+DELETE /v1/console/node/{nodeId}        # 删除节点
+\`\`\`
+
+### 调度执行
+
+\`\`\`
+POST /api/schedule/execute              # 执行工作流
+\`\`\`
+
+## 开发指南
+
+### 本地开发
+
+\`\`\`bash
+# 克隆项目
+git clone <repository-url>
+cd interface-agent-dev
+
+# 编译安装到本地Maven仓库
+mvn clean install -DskipTests
+
+# 在你的项目中引用
+\`\`\`
+
+### 模块化架构说明
+
+#### 模块结构
+
+```
+interface-agent/
+├── agent-common/              # 共享基础设施（异常、工具类、公共常量与枚举、注解）
+├── agent-workflow/            # 工作流配置与管理
+├── agent-invocation/          # 远程调用模块（HTTP、WebService、数据库等）
+├── agent-schedule/            # 调度模块（工作流调度、节点分发）
+├── agent-api/                 # 对外API封装
+├── agent-log/                 # 调用日志记录与查询
+├── agent-mock/                # Mock配置与数据管理
+├── agent-config/              # 跨模块通用配置（CORS、异常处理、静态资源等）
+├── agent-spring-boot-starter/ # Spring Boot 启动器与自动配置
+└── agent-web/                 # Web应用模块（前端页面、应用入口）
+```
+
+#### 模块依赖关系
+
+```
+agent-common (基础层)
+    ↑
+    ├── agent-workflow
+    ├── agent-invocation
+    ├── agent-api
+    ├── agent-log
+    └── agent-mock
+            ↑
+            └── agent-schedule
+                    ↑
+                    └── agent-config
+                            ↑
+                            └── agent-spring-boot-starter
+                                    ↑
+                                    └── agent-web (应用层)
+```
+
+#### 核心特性
+
+- 模块化分层：基础层（agent-common）→ 核心层（workflow、invocation、schedule）→ 功能层（api、log、mock）→ 启动层（agent-spring-boot-starter）→ 应用层（agent-web）。
+- SPI扩展机制：使用 Dubbo SPI 实现可插拔的远程调用客户端，支持 HTTP、WebService、JDBC 等多种协议，可通过配置或代码动态扩展。
+- 配置化设计：工作流节点配置存储在数据库，支持动态修改流程无需重启，参数映射支持 SpEL 表达式。
+
+#### 构建与运行
+
+```bash
+mvn clean package -Dmaven.test.skip=true
+
+java -jar agent-web/target/interface-agent.jar
+```
+
+#### 命名规范与模块职责
+
+- 模块命名统一为 `agent-xxx`，其中 `agent-spring-boot-starter` 符合 Spring Boot Starter 规范。
+- 删除冗余的 `agent-service`、`agent-model` 等历史模块，仅保留职责清晰的功能模块。
+- 打包后的可执行 Jar 统一命名为 `interface-agent.jar`（位于 `agent-web` 模块）。
+- `agent-spring-boot-starter`：提供自动配置能力，对外作为 Starter 暴露。
+- `agent-web`：作为应用层入口，主要承载前端静态资源和运行配置，包含 Spring Boot 启动类。
+
+- 最后更新：2025-12-16
+- 架构版本：2.0（模块化重构）
 
 ## 技术栈
 
-- **后端框架**：Spring Boot
-- **数据访问**：MyBatis（通过 Mapper 接口操作数据库）
-- **前端技术**：Vue.js（静态资源打包）
-- **通信协议**：HTTP、SOAP
-- **数据格式**：JSON、XML
-- **构建工具**：Maven
+- Spring Boot 2.3.2.RELEASE
+- MyBatis + PageHelper
+- Druid连接池
+- Dubbo SPI机制
+- Quartz调度
+- SpEL 表达式引擎
+- Swagger API 文档
+- FastJSON 2.0
+- Vue.js（前端）
 
-## 目录结构
-src/
-├── main/
-│   ├── java/com/helilianhealth/agent/
-│   │   ├── controller/           # 控制器层
-│   │   │   ├── workflow/         # 工作流节点相关接口
-│   │   │   ├── api/              # 开放API接口
-│   │   │   ├── property/         # 配置管理接口
-│   │   │   └── ...
-│   │   ├── service/              # 服务层
-│   │   │   ├── impl/             # 服务实现类
-│   │   │   └── ...
-│   │   ├── model/                # 数据模型
-│   │   ├── domain/               # 领域对象
-│   │   │   ├── dto/              # 数据传输对象
-│   │   │   └── ...
-│   │   ├── remote/               # 远程调用相关
-│   │   ├── webService/           # SOAP协议处理
-│   │   ├── config/               # 配置类
-│   │   ├── utils/                # 工具类
-│   │   └── ...
-│   └── resources/
-│       ├── static/               # 静态资源（前端包文件）
-│       └── ...
-└── ...
-## 快速开始
+## 文档
 
-### 环境要求
-
-- JDK 1.8+
-- SQLSERVER 12.4.2
-- Maven 3.6+
-
-### 部署步骤
-
-1. **克隆代码**
-   git clone https://github.com/your-username/interface-agent.git
-   cd interface-agent
-2. **配置数据库**
-
-修改 `application.properties` 或 `application.yml` 中的数据库配置：
-spring.datasource.url=jdbc:mysql://localhost:3306/interface_agent?useUnicode=true&characterEncoding=utf8
-spring.datasource.username=root
-spring.datasource.password=123456
-3. **构建项目**
-   mvn clean package -Dmaven.test.skip=true
-4. **启动服务**
-   java -jar target/interface-agent-1.0.0.jar
-5. **访问服务**
-
-- 前端页面：http://localhost:8080
-- API 接口根路径：http://localhost:8080/v1/console
-- 开放 API 入口：http://localhost:8080/agent-open-api/**
-
-## 核心接口说明
-
-### 工作流节点管理
-
-| 接口地址                | 方法   | 描述               | 请求参数                     |
-|-------------------------|--------|--------------------|------------------------------|
-| /v1/console/node/all    | GET    | 分页获取节点列表   | flowId（可选）、pageNum、pageSize |
-| /v1/console/node/create | POST   | 创建节点           | WorkflowNodeCreateReq 实体   |
-| /v1/console/node/{nodeId} | GET  | 获取节点详情       | nodeId（路径参数）           |
-| /v1/console/node/update | POST   | 更新节点           | InterfaceWorkflowNodeDO 实体 |
-| /v1/console/node/{nodeId} | DELETE | 删除节点           | nodeId（路径参数）           |
-
-### 参数配置管理
-
-| 接口地址                          | 方法   | 描述               | 请求参数                 |
-|-----------------------------------|--------|--------------------|--------------------------|
-| /v1/console/node/export/{nodeId}  | GET    | 导出节点参数配置   | nodeId（路径参数）       |
-| /v1/console/node/import           | POST   | 导入节点参数配置   | nodeId、MultipartFile 文件 |
-
-### 系统配置管理
-
-| 接口地址                          | 方法   | 描述               | 请求参数                 |
-|-----------------------------------|--------|--------------------|--------------------------|
-| /v1/console/property/properties   | GET    | 获取所有配置       | -                        |
-| /v1/console/property/property     | GET    | 获取指定配置       | key                      |
-| /v1/console/property/property     | POST   | 更新配置           | key、value               |
-| /v1/console/property/refresh      | POST   | 刷新配置           | -                        |
-
-## 扩展指南
-
-### 新增节点类型
-
-1. 定义节点类型枚举（如 `NodeType` 中添加新类型）
-2. 实现对应的参数解析器（参考 `SoapRequestHandler`）
-3. 在 `interfaceClientProxy` 中添加新类型节点的调用逻辑
-
-### 自定义参数映射规则
-
-1. 在 `NodeParamConfigDO` 中扩展映射相关字段
-2. 在参数解析过程中（如 `buildParamTree` 方法）添加自定义映射逻辑
-3. 前端页面同步支持新的映射规则配置项
-
-## 注意事项
-
-- 导入参数配置时，仅支持 JSON 格式文件，且需符合 `NodeParamConfigImportDTO` 结构
-- 动态配置刷新后，部分配置可能需要重启应用才能生效（具体见接口返回提示）
-- SOAP 协议节点需正确配置 `metaInfo` 中的信封（envelope）、头（header）、体（body）信息
+- [模块化架构说明](模块化架构说明.md)
 
 ## 许可证
-AI生成的MD
+
+Copyright © 2025

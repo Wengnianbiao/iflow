@@ -1,0 +1,43 @@
+package com.helianhealth.agent.invocation.remote.wrapper;
+
+import com.helianhealth.agent.invocation.context.InvocationLogContextHolder;
+import com.helianhealth.agent.invocation.remote.InterfaceClientProxy;
+import com.helianhealth.agent.utils.JsonUtils;
+import com.helianhealth.agent.workflow.model.domain.InterfaceWorkflowNode;
+import com.helianhealth.agent.workflow.model.dto.LogContext;
+import com.helianhealth.agent.workflow.model.dto.ParamTreeNode;
+
+import java.util.List;
+import java.util.Map;
+
+public class InterfaceClientProxy1LogWrapper implements InterfaceClientProxy {
+
+    private final InterfaceClientProxy interfaceClientProxy;
+
+    public InterfaceClientProxy1LogWrapper(InterfaceClientProxy interfaceClientProxy) {
+        this.interfaceClientProxy = interfaceClientProxy;
+    }
+
+    @Override
+    public Map<String, Object> doInvoke(InterfaceWorkflowNode flowNode, List<ParamTreeNode> params) {
+        LogContext context = InvocationLogContextHolder.getContext();
+        if (context == null) {
+            // 如果上下文不存在，直接执行方法
+            return interfaceClientProxy.doInvoke(flowNode, params);
+        }
+
+        // 记录doInvoke方法开始时间
+        long doInvokeStartTime = System.currentTimeMillis();
+        try {
+            // 执行doInvoke方法
+            Map<String, Object> stringObjectMap = interfaceClientProxy.doInvoke(flowNode, params);
+            // 记录响应结果
+            context.setRemoteInvokeResponse(JsonUtils.toJsonString(stringObjectMap));
+            return stringObjectMap;
+        } finally {
+            // 计算doInvoke方法执行耗时
+            long doInvokeTime = System.currentTimeMillis() - doInvokeStartTime;
+            context.setInvokeTime(Long.toString(doInvokeTime));
+        }
+    }
+}

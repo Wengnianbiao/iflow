@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.helianhealth.agent.mock.mapper.MockConfigMapper">
+
+    <resultMap id="MockConfigResultMap" type="com.helianhealth.agent.mock.model.MockConfigDO">
+        <id column="mock_id" property="mockId"/>
+        <result column="node_id" property="nodeId"/>
+        <result column="case_name" property="caseName"/>
+        <result column="case_desc" property="caseDesc"/>
+        <result column="mock_response" property="mockResponse"/>
+        <result column="enabled" property="enabled"/>
+    </resultMap>
+
+    <!-- 根据节点ID查询启用的Mock配置列表 -->
+    <select id="selectEnabledByNodeId" resultMap="MockConfigResultMap">
+        SELECT mock_id, node_id, case_name, case_desc,
+               mock_response, enabled
+        FROM mock_config
+        WHERE node_id = #{nodeId} AND enabled = 1
+        ORDER BY mock_id ASC
+    </select>
+
+    <!-- 根据节点ID查询所有Mock配置列表 -->
+    <select id="selectByNodeId" resultMap="MockConfigResultMap">
+        SELECT mock_id, node_id, case_name, case_desc,
+               mock_response, enabled
+        FROM mock_config
+        WHERE node_id = #{nodeId}
+        ORDER BY mock_id ASC
+    </select>
+
+    <!-- 根据mockId查询Mock配置 -->
+    <select id="selectById" resultMap="MockConfigResultMap">
+        SELECT mock_id, node_id, case_name, case_desc,
+               mock_response, enabled
+        FROM mock_config
+        WHERE mock_id = #{mockId}
+    </select>
+
+    <!-- 分页查询Mock配置 -->
+    <select id="selectByPage" resultMap="MockConfigResultMap">
+        SELECT mock_id, node_id, case_name, case_desc,
+               mock_response, enabled
+        FROM mock_config
+        <where>
+            <if test="nodeId != null">
+                AND node_id = #{nodeId}
+            </if>
+        </where>
+        ORDER BY mock_id ASC
+    </select>
+
+    <!-- 查询总数 -->
+    <select id="countByCondition" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM mock_config
+        <where>
+            <if test="nodeId != null">
+                AND node_id = #{nodeId}
+            </if>
+        </where>
+    </select>
+
+    <!-- 插入Mock配置 -->
+    <insert id="insert" parameterType="com.helianhealth.agent.mock.model.MockConfigDO" 
+            useGeneratedKeys="true" keyProperty="mockId">
+        INSERT INTO mock_config (node_id, case_name, case_desc, mock_response, enabled)
+        VALUES (#{nodeId}, #{caseName}, #{caseDesc}, #{mockResponse}, #{enabled})
+    </insert>
+
+    <!-- 更新Mock配置 -->
+    <update id="update" parameterType="com.helianhealth.agent.mock.model.MockConfigDO">
+        UPDATE mock_config
+        <set>
+            <if test="nodeId != null">node_id = #{nodeId},</if>
+            <if test="caseName != null">case_name = #{caseName},</if>
+            <if test="caseDesc != null">case_desc = #{caseDesc},</if>
+            <if test="mockResponse != null">mock_response = #{mockResponse},</if>
+            <if test="enabled != null">enabled = #{enabled},</if>
+        </set>
+        WHERE mock_id = #{mockId}
+    </update>
+
+    <!-- 删除Mock配置 -->
+    <delete id="deleteById">
+        DELETE FROM mock_config WHERE mock_id = #{mockId}
+    </delete>
+
+    <!-- 根据节点ID删除所有Mock配置 -->
+    <delete id="deleteByNodeId">
+        DELETE FROM mock_config WHERE node_id = #{nodeId}
+    </delete>
+
+</mapper>

@@ -112,3 +112,26 @@ CREATE TABLE mock_config
     -- 创建时间（MySQL用NOW()替代GETDATE()）
     create_time     DATETIME      NOT NULL DEFAULT NOW()
 );
+
+-- 节点扩展配置表（SPI动态扩展）
+CREATE TABLE `node_extension_config`
+(
+    -- 主键ID，自增
+    `code_id`         INT           NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    -- 关联的节点ID（可选，用于自动配置节点的remote_extension字段）
+    `node_id`         INT           NULL,
+    -- SPI接口（全限定名），例如: com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker
+    `spi_interface`   VARCHAR(255)  NOT NULL,
+    -- 扩展名称（用于SPI配置的key），例如: custom-http
+    `extension_name`  VARCHAR(100)  NOT NULL,
+    -- 实现类全限定名，例如: com.helianhealth.agent.custom.CustomRemoteInvoker
+    `class_name`      VARCHAR(255)  NOT NULL,
+    -- Java源代码
+    `source_code`     TEXT          NOT NULL,
+    -- 代码描述
+    `description`     VARCHAR(500)  NULL,
+    -- 是否启用 1-启用 0-禁用
+    `enabled`         INT           NOT NULL DEFAULT 1,
+    -- 唯一约束：同一SPI接口下扩展名称不能重复
+    UNIQUE KEY `uk_spi_extension` (`spi_interface`, `extension_name`)
+);
