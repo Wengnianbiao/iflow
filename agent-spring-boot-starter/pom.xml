@@ -13,7 +13,7 @@
     <description>Spring Boot Starter模块：应用启动入口、自动配置、切面</description>
 
     <dependencies>
-        <!-- 依赖配置模块，间接包含所有功能模块 -->
+        <!-- 依赖配置模块和对外 API 模块，由 agent-api 组合各业务功能模块 -->
         <dependency>
             <groupId>com.helianhealth</groupId>
             <artifactId>agent-config</artifactId>

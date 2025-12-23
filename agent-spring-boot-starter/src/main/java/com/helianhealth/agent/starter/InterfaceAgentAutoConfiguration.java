@@ -34,7 +34,6 @@ public class InterfaceAgentAutoConfiguration {
     public InterfaceAgentAutoConfiguration() {
         logger.info("========================================");
         logger.info("Interface Agent Auto Configuration initialized!");
-        logger.info("工作流引擎已启动，可以使用前端配置页面和API调用");
         logger.info("========================================");
     }
 }

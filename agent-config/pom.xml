@@ -13,71 +13,16 @@
     <description>配置模块：数据源配置、切面配置、全局异常处理等</description>
 
     <dependencies>
-        <!-- 依赖各功能模块 -->
-        <dependency>
-            <groupId>com.helianhealth</groupId>
-            <artifactId>agent-workflow</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.helianhealth</groupId>
-            <artifactId>agent-invocation</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.helianhealth</groupId>
-            <artifactId>agent-schedule</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.helianhealth</groupId>
-            <artifactId>agent-log</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.helianhealth</groupId>
-            <artifactId>agent-mock</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <!-- Spring Boot Web -->
+        <!-- Spring Web，仅用于 CORS 和全局异常处理 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
-        <!-- AOP -->
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-aop</artifactId>
-        </dependency>
-
-        <!-- 数据库连接池 -->
-        <dependency>
-            <groupId>com.alibaba</groupId>
-            <artifactId>druid-spring-boot-starter</artifactId>
-        </dependency>
-
-        <!-- MyBatis -->
-        <dependency>
-            <groupId>tk.mybatis</groupId>
-            <artifactId>mapper-spring-boot-starter</artifactId>
-        </dependency>
-
-        <!-- 修复spring-tx版本冲突 -->
-        <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-tx</artifactId>
-        </dependency>
-
-        <!-- lombok -->
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
+            <groupId>com.helianhealth</groupId>
+            <artifactId>agent-common</artifactId>
+            <version>${project.version}</version>
         </dependency>
     </dependencies>
 

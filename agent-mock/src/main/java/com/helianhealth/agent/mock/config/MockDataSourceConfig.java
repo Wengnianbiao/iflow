@@ -20,7 +20,6 @@ import javax.sql.DataSource;
 @Configuration
 @MapperScan(
     basePackages = {"com.helianhealth.agent.mock.mapper"}, 
-    sqlSessionFactoryRef = "mockAgentSqlSessionFactory",
     sqlSessionTemplateRef = "mockAgentSqlSessionTemplate"
 )
 public class MockDataSourceConfig {

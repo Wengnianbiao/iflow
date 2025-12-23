@@ -149,8 +149,6 @@ CREATE TABLE node_extension_config
     -- 代码描述
     description     VARCHAR(500)  NULL,
     -- 是否启用 1-启用 0-禁用
-    enabled         INT           NOT NULL DEFAULT 1,
-    -- 唯一约束：同一SPI接口下扩展名称不能重复
-    CONSTRAINT uk_spi_extension UNIQUE (spi_interface, extension_name)
+    enabled         INT           NOT NULL DEFAULT 1
 );
 

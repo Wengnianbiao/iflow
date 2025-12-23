@@ -20,7 +20,6 @@ import javax.sql.DataSource;
 @Configuration
 @MapperScan(
     basePackages = {"com.helianhealth.agent.workflow.mapper.hems"}, 
-    sqlSessionFactoryRef = "workflowHemsSqlSessionFactory",
     sqlSessionTemplateRef = "workflowHemsSqlSessionTemplate"
 )
 public class WorkflowHemsDataSourceConfig {

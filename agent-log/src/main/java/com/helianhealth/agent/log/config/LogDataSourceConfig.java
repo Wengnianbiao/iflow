@@ -20,7 +20,6 @@ import javax.sql.DataSource;
 @Configuration
 @MapperScan(
     basePackages = {"com.helianhealth.agent.log.mapper"}, 
-    sqlSessionFactoryRef = "logAgentSqlSessionFactory",
     sqlSessionTemplateRef = "logAgentSqlSessionTemplate"
 )
 public class LogDataSourceConfig {

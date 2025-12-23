@@ -13,10 +13,17 @@
     <description>Web应用模块：应用入口、资源配置</description>
 
     <dependencies>
-        <!-- 依赖Spring Boot Starter -->
+        <!-- agent-config: 包含静态资源和全局配置 -->
         <dependency>
             <groupId>com.helianhealth</groupId>
-            <artifactId>agent-spring-boot-starter</artifactId>
+            <artifactId>agent-config</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- 对外 API 与业务编排模块 -->
+        <dependency>
+            <groupId>com.helianhealth</groupId>
+            <artifactId>agent-api</artifactId>
             <version>${project.version}</version>
         </dependency>
 
