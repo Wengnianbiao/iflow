@@ -1,11 +1,12 @@
 package com.helianhealth.agent.invocation.remote.wrapper;
 
 import com.helianhealth.agent.invocation.context.InvocationLogContextHolder;
-import com.helianhealth.agent.workflow.model.domain.InterfaceWorkflowNode;
-import com.helianhealth.agent.workflow.model.dto.LogContext;
+import com.helianhealth.agent.invocation.context.LogContext;
+import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
 import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
+import com.helianhealth.agent.invocation.remote.model.Invocation;
 import com.helianhealth.agent.log.service.InterfaceInvokeLogService;
-import com.helianhealth.agent.utils.JsonUtils;
+import com.helianhealth.agent.common.utils.JsonUtils;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -26,13 +27,14 @@ public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker 
 
 
     @Override
-    public Map<String, Object> remoteInvoke(InterfaceWorkflowNode flowNode, Map<String, Object> businessData) {
+    public Map<String, Object> remoteInvoke(InterfaceWorkflowNode flowNode, Invocation invocation) {
         // 获取方法参数
         long startTime = System.currentTimeMillis();
 
         LogContext context = new LogContext();
         InvocationLogContextHolder.setContext(context);
         context.setNodeName(flowNode.getNodeName());
+        Map<String, Object> businessData = invocation.getBusinessData();
         // 提取关键字
         if (businessData != null && flowNode.getKeywordField() != null) {
             Object keywordObj = getNestedValue(businessData, flowNode.getKeywordField());
@@ -46,7 +48,7 @@ public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker 
             log.info("开始执行工作流节点: [{}]", flowNode.getNodeName());
 
             // 执行原方法
-            Map<String, Object> stringObjectMap = interfaceRemoteInvoker.remoteInvoke(flowNode, businessData);
+            Map<String, Object> stringObjectMap = interfaceRemoteInvoker.remoteInvoke(flowNode, invocation);
 
             // 记录调用结果
             context.setParamAfterInvoke(JsonUtils.toJsonString(stringObjectMap));

@@ -1,6 +1,6 @@
 package com.helianhealth.agent.workflow.service;
 
-import com.helianhealth.agent.common.PageList;
+import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.workflow.controller.reponse.InterfaceWorkflowNodeView;
 import com.helianhealth.agent.workflow.controller.reponse.NodeConfigExportRsp;
 import com.helianhealth.agent.workflow.controller.reponse.NodeParamConfigExportRsp;

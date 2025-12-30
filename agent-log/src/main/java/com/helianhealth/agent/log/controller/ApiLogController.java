@@ -1,10 +1,10 @@
 package com.helianhealth.agent.log.controller;
 
-import com.helianhealth.agent.common.PageList;
-import com.helianhealth.agent.common.ResultData;
+import com.helianhealth.agent.common.base.PageList;
+import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.log.model.InterfaceInvokeLogDO;
 import com.helianhealth.agent.log.service.InterfaceInvokeLogService;
-import com.helianhealth.agent.utils.ResponseRenderUtils;
+import com.helianhealth.agent.common.utils.ResponseRenderUtils;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;

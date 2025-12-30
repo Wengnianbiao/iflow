@@ -1,14 +1,14 @@
 package com.helianhealth.agent.invocation.remote.webService;
 
 import com.alibaba.fastjson2.JSONObject;
-import com.helianhealth.agent.common.XmlConstants;
-import com.helianhealth.agent.workflow.model.domain.InterfaceWorkflowNode;
-import com.helianhealth.agent.workflow.model.dto.ParamTreeNode;
+import com.helianhealth.agent.common.base.XmlConstants;
+import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.invocation.remote.ParamResolver;
 import com.helianhealth.agent.invocation.remote.manager.HttpApiClientManager;
-import com.helianhealth.agent.utils.JsonUtils;
+import com.helianhealth.agent.common.utils.JsonUtils;
 import com.helianhealth.agent.invocation.utils.ParamNodeUtils;
-import com.helianhealth.agent.utils.XmlUtils;
+import com.helianhealth.agent.common.utils.XmlUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -18,8 +18,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * SOAP消息生成器
- * 负责所有SOAP协议相关的处理：元数据解析、消息构建、请求发送和响应处理
+ * SOAP 消息处理器
+ * 负责所有 SOAP 协议相关的处理：元数据解析、消息构建、请求发送和响应处理
  */
 @Slf4j
 @Component

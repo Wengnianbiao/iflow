@@ -1,16 +1,22 @@
 package com.helianhealth.agent.api.controller;
 
-import com.helianhealth.agent.common.ResultData;
-import com.helianhealth.agent.utils.ResponseRenderUtils;
-import com.helianhealth.agent.schedule.build.WorkFlowNodeBuilder;
-import com.helianhealth.agent.workflow.model.domain.InterfaceWorkflowNode;
+import com.helianhealth.agent.common.base.ResultData;
+import com.helianhealth.agent.common.utils.ResponseRenderUtils;
+import com.helianhealth.agent.invocation.remote.model.Invocation;
+import com.helianhealth.agent.schedule.builder.WorkFlowNodeBuilder;
+import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
 import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
+import com.helianhealth.agent.schedule.convert.NodeParamConfigConvert;
+import com.helianhealth.agent.workflow.model.domain.NodeParamConfigDO;
+import com.helianhealth.agent.workflow.service.NodeParamConfigService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.dubbo.common.extension.ExtensionLoader;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Mock测试接口控制器
@@ -23,6 +29,7 @@ import java.util.Map;
 public class MockInvokeController {
 
     private final WorkFlowNodeBuilder workFlowNodeBuilder;
+    private final NodeParamConfigService nodeParamConfigService;
 
     /**
      * 调用Mock工作流节点
@@ -34,12 +41,22 @@ public class MockInvokeController {
             @RequestParam("mockId") Integer mockId,
             @RequestBody Map<String, Object> businessData) {
         try {
-            // 使用buildWithMock方法构建带Mock配置的节点
             InterfaceWorkflowNode workflowNode = workFlowNodeBuilder.buildWithMock(nodeId, mockId);
+            List<NodeParamConfigDO> preParamConfigs = nodeParamConfigService.selectPreProcessConfigByNodeId(nodeId);
+            List<NodeParamConfigDO> postParamConfigs = nodeParamConfigService.selectPostProcessConfigByNodeId(nodeId);
+            Invocation invocation = Invocation.builder()
+                    .preParamConfigs(preParamConfigs.stream()
+                            .map(NodeParamConfigConvert::convertToDomain)
+                            .collect(Collectors.toList()))
+                    .postParamConfigs(postParamConfigs.stream()
+                            .map(NodeParamConfigConvert::convertToDomain)
+                            .collect(Collectors.toList()))
+                    .businessData(businessData)
+                    .build();
 
             // 直接调用远程调用器执行节点
             InterfaceRemoteInvoker invoker = ExtensionLoader.getExtensionLoader(InterfaceRemoteInvoker.class).getAdaptiveExtension();
-            Map<String, Object> result = invoker.remoteInvoke(workflowNode, businessData);
+            Map<String, Object> result = invoker.remoteInvoke(workflowNode, invocation);
 
             return ResponseRenderUtils.render(result);
         } catch (IllegalArgumentException e) {

@@ -135,13 +135,13 @@ CREATE TABLE node_extension_config
     -- 实现类全限定名，例如: com.helianhealth.agent.custom.CustomRemoteInvoker
     class_name VARCHAR(255) NOT NULL,
     -- Java源代码
-    source_code TEXT NOT NULL,
+    source_code TEXT NULL,
     -- 代码描述
     description VARCHAR(500) NULL,
     -- 是否启用 1-启用 0-禁用
     enabled INTEGER NOT NULL DEFAULT 1,
-    -- 唯一约束：同一SPI接口下扩展名称不能重复
-    CONSTRAINT uk_spi_extension UNIQUE (spi_interface, extension_name)
+    -- 扩展方式：PROJECT-项目扩展（业务项目中实现） ONLINE-在线扩展（页面编写） 必选
+    extension_mode VARCHAR(20) NOT NULL DEFAULT 'ONLINE'
 );
 
 

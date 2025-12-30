@@ -1,7 +1,7 @@
 package com.helianhealth.agent.invocation.remote;
 
-import com.helianhealth.agent.workflow.model.domain.InterfaceWorkflowNode;
-import com.helianhealth.agent.workflow.model.dto.ParamTreeNode;
+import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import org.apache.dubbo.common.extension.Adaptive;
 import org.apache.dubbo.common.extension.SPI;
 

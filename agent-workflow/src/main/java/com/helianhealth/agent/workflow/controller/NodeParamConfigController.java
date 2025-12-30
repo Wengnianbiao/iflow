@@ -1,12 +1,12 @@
 
 package com.helianhealth.agent.workflow.controller;
 
-import com.helianhealth.agent.common.PageList;
-import com.helianhealth.agent.common.ResultData;
-import com.helianhealth.agent.workflow.enums.ProcessType;
+import com.helianhealth.agent.common.base.PageList;
+import com.helianhealth.agent.common.base.ResultData;
+import com.helianhealth.agent.common.enums.ProcessType;
+import com.helianhealth.agent.common.utils.ResponseRenderUtils;
 import com.helianhealth.agent.workflow.model.domain.NodeParamConfigDO;
 import com.helianhealth.agent.workflow.service.NodeParamConfigService;
-import com.helianhealth.agent.utils.ResponseRenderUtils;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.DeleteMapping;

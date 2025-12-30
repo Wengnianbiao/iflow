@@ -14,19 +14,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @ConditionalOnProperty(prefix = "interface-agent", name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(InterfaceAgentProperties.class)
-@ComponentScan(basePackages = {
-    "com.helianhealth.agent.config",              // 配置类
-    "com.helianhealth.agent.invocation.aspect",   // Invocation切面
-    "com.helianhealth.agent.api.controller",      // API控制器
-    "com.helianhealth.agent.workflow.controller", // Workflow控制器
-    "com.helianhealth.agent.log.controller",      // Log控制器
-    "com.helianhealth.agent.mock.controller",     // Mock控制器
-    "com.helianhealth.agent.workflow.service",    // Workflow服务层
-    "com.helianhealth.agent.log.service",         // Log服务层
-    "com.helianhealth.agent.mock.service",        // Mock服务层
-    "com.helianhealth.agent.api.service",         // API服务层
-    "com.helianhealth.agent.schedule"             // 调度器
-})
+@ComponentScan(basePackages = "com.helianhealth.agent")
 public class InterfaceAgentAutoConfiguration {
 
     private static final Logger logger = LoggerFactory.getLogger(InterfaceAgentAutoConfiguration.class);

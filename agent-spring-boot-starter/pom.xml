@@ -5,7 +5,7 @@
     <parent>
         <artifactId>interface-agent</artifactId>
         <groupId>com.helianhealth</groupId>
-        <version>1.0.0</version>
+        <version>1.0.1</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -24,6 +24,12 @@
             <groupId>com.helianhealth</groupId>
             <artifactId>agent-api</artifactId>
             <version>${project.version}</version>
+        </dependency>
+
+        <!-- Spring Boot Starter -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
         </dependency>
 
         <!-- Spring Boot Auto Configuration -->

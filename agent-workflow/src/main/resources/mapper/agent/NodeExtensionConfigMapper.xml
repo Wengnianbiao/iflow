@@ -12,6 +12,7 @@
         <result column="source_code" property="sourceCode" />
         <result column="description" property="description" />
         <result column="enabled" property="enabled" />
+        <result column="extension_mode" property="extensionMode" />
     </resultMap>
 
     <!-- 根据启用状态查询 -->
@@ -35,7 +36,7 @@
     </select>
 
     <!-- 插入新记录 -->
-    <insert id="insert" 
+    <insert id="insert"
             parameterType="com.helianhealth.agent.workflow.model.domain.NodeExtensionConfigDO"
             useGeneratedKeys="true"
             keyProperty="codeId"
@@ -47,7 +48,8 @@
             class_name,
             source_code,
             description,
-            enabled
+            enabled,
+            extension_mode
         ) VALUES (
             #{nodeId},
             #{spiInterface},
@@ -55,7 +57,8 @@
             #{className},
             #{sourceCode},
             #{description},
-            #{enabled}
+            #{enabled},
+            #{extensionMode}
         )
     </insert>
 
@@ -66,7 +69,9 @@
             class_name = #{className},
             source_code = #{sourceCode},
             description = #{description},
-            enabled = #{enabled}
+            enabled = #{enabled},
+            extensionName = #{extensionName},
+            extension_mode = #{extensionMode}
         WHERE code_id = #{codeId}
     </update>
 

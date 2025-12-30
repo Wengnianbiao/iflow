@@ -1,6 +1,7 @@
 package com.helianhealth.agent.invocation.remote.support;
 
-import com.helianhealth.agent.workflow.enums.ParamType;
+
+import com.helianhealth.agent.common.enums.ParamType;
 
 /**
  * 基础类型转换处理器

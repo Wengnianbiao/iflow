@@ -1,6 +1,6 @@
 package com.helianhealth.agent.invocation.factory;
 
-import com.helianhealth.agent.utils.ApplicationContextUtil;
+import com.helianhealth.agent.common.utils.ApplicationContextUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.dubbo.common.extension.ExtensionFactory;
 import org.apache.dubbo.common.extension.SPI;

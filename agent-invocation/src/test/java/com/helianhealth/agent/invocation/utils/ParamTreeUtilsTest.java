@@ -1,8 +1,7 @@
 package com.helianhealth.agent.invocation.utils;
 
-import com.helianhealth.agent.invocation.utils.ParamNodeUtils;
-import com.helianhealth.agent.workflow.enums.ParamType;
-import com.helianhealth.agent.workflow.model.dto.ParamTreeNode;
+import com.helianhealth.agent.common.enums.ParamType;
+import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 
 import java.util.ArrayList;
 import java.util.List;

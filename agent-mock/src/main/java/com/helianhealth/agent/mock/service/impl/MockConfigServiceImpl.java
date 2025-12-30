@@ -2,11 +2,11 @@ package com.helianhealth.agent.mock.service.impl;
 
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
-import com.helianhealth.agent.common.PageList;
+import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.mock.mapper.MockConfigMapper;
 import com.helianhealth.agent.mock.model.MockConfigDO;
 import com.helianhealth.agent.mock.service.MockConfigService;
-import com.helianhealth.agent.utils.JsonUtils;
+import com.helianhealth.agent.common.utils.JsonUtils;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

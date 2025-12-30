@@ -1,6 +1,6 @@
 package com.helianhealth.agent.log.service;
 
-import com.helianhealth.agent.common.PageList;
+import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.log.model.InterfaceInvokeLogDO;
 
 public interface InterfaceInvokeLogService {

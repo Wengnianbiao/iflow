@@ -2,9 +2,8 @@ package com.helianhealth.agent.api.controller;
 
 import com.helianhealth.agent.api.model.request.JarvisRequest;
 import com.helianhealth.agent.api.service.ApiService;
-import com.helianhealth.agent.common.ResultData;
-import com.helianhealth.agent.utils.ResponseRenderUtils;
-import io.swagger.annotations.ApiOperation;
+import com.helianhealth.agent.common.base.ResultData;
+import com.helianhealth.agent.common.utils.ResponseRenderUtils;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -25,7 +24,6 @@ public class ApiController {
 
     private final ApiService apiService;
 
-    @ApiOperation(value = "健康检查")
     @GetMapping("/HLOpenApi/Hjk")
     public ResultData<Object> healthCheck() {
         return ResponseRenderUtils.success();
@@ -45,6 +43,7 @@ public class ApiController {
     )
     @ResponseBody
     public String invokeOpenApi(@RequestBody String request, HttpServletRequest httpRequest) {
-        return apiService.invokeOpenApi(request, httpRequest);
+        String interfaceUri = httpRequest.getRequestURI();
+        return apiService.invokeOpenApi(request, interfaceUri);
     }
 }

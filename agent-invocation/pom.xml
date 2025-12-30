@@ -5,7 +5,7 @@
     <parent>
         <artifactId>interface-agent</artifactId>
         <groupId>com.helianhealth</groupId>
-        <version>1.0.0</version>
+        <version>1.0.1</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -74,7 +74,8 @@
         <!-- Druid for database connection pooling -->
         <dependency>
             <groupId>com.alibaba</groupId>
-            <artifactId>druid-spring-boot-starter</artifactId>
+            <artifactId>druid</artifactId>
+            <version>${druid.version}</version>
         </dependency>
 
         <!-- Dubbo SPI -->
@@ -97,8 +98,16 @@
 
         <!-- Spring AOP -->
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-aop</artifactId>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-aop</artifactId>
+            <version>${spring.version}</version>
+        </dependency>
+
+        <!-- AspectJ Weaver (for @Aspect support) -->
+        <dependency>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjweaver</artifactId>
+            <version>1.9.7</version>
         </dependency>
 
         <!-- JUnit 5 -->

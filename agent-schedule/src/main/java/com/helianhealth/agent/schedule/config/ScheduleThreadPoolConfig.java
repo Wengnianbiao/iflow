@@ -1,12 +1,12 @@
 package com.helianhealth.agent.schedule.config;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Schedule模块 - 线程池配置
@@ -16,9 +16,13 @@ public class ScheduleThreadPoolConfig {
 
     @Bean("WorkFlowNodeExecutor")
     public ThreadPoolTaskExecutor WorkFlowNodeExecutor() {
-        ThreadFactory threadFactory = new ThreadFactoryBuilder()
-            .setNameFormat("WorkFlowNodeExecutor-thread-pool-%d")
-            .build();
+        // 使用 JDK 原生方式创建 ThreadFactory
+        AtomicInteger threadNumber = new AtomicInteger(1);
+        ThreadFactory threadFactory = r -> {
+            Thread thread = new Thread(r);
+            thread.setName("WorkFlowNodeExecutor-thread-pool-" + threadNumber.getAndIncrement());
+            return thread;
+        };
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         //配置核心线程数
         executor.setCorePoolSize(5);

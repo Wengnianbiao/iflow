@@ -1,7 +1,7 @@
 package com.helianhealth.agent.invocation.remote.resolver;
 
-import com.helianhealth.agent.workflow.enums.MappingType;
-import com.helianhealth.agent.workflow.model.domain.NodeParamConfigDO;
+import com.helianhealth.agent.common.enums.MappingType;
+import com.helianhealth.agent.invocation.remote.model.NodeParamConfig;
 
 import java.util.Map;
 
@@ -10,7 +10,7 @@ import java.util.Map;
  */
 public interface ValueResolver {
 
-    Object resolveValue(NodeParamConfigDO config,
+    Object resolveValue(NodeParamConfig config,
                         Map<String, Object> businessData,
                         Map<String, Object> parentBusinessData,
                         Map<String, Object> sourceBusinessData);

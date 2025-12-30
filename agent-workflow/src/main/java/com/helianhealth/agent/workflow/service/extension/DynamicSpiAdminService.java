@@ -36,7 +36,7 @@ public class DynamicSpiAdminService {
         // Step 1: Insert extension config to database
         extensionMapper.insert(configDO);
 
-        // Step 2: Update related node's remoteExtension field (in same transaction)
+        // Step 2: Update related node's remoteExtension field,this is the key for spi
         if (configDO.getNodeId() != null) {
             InterfaceWorkflowNodePO node = nodeMapper.selectByPrimaryKey(configDO.getNodeId());
             if (node != null) {
@@ -45,7 +45,7 @@ public class DynamicSpiAdminService {
             }
         }
 
-        // Step 3: Register to SPI runtime (after transaction commit, if enabled)
+        // Step 3: Register to SPI runtime
         if (configDO.getEnabled() != null && configDO.getEnabled() == 1) {
             DynamicSpiDefinition definition = toDynamicSpi(configDO);
             dynamicSpiManager.loadAndRegister(definition);

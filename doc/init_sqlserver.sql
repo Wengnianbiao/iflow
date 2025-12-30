@@ -145,10 +145,12 @@ CREATE TABLE node_extension_config
     -- 实现类全限定名，例如: com.helianhealth.agent.custom.CustomRemoteInvoker
     class_name      VARCHAR(255)  NOT NULL,
     -- Java源代码
-    source_code     NVARCHAR(MAX) NOT NULL,
+    source_code     NVARCHAR(MAX) NULL,
     -- 代码描述
     description     VARCHAR(500)  NULL,
     -- 是否启用 1-启用 0-禁用
-    enabled         INT           NOT NULL DEFAULT 1
+    enabled           INT           NOT NULL DEFAULT 1,
+    -- 扩展方式：PROJECT-项目扩展（业务项目中实现） ONLINE-在线扩展（页面编写） 必选
+    extension_mode    VARCHAR(20)   NOT NULL DEFAULT 'ONLINE'
 );
 

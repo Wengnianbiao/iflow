@@ -1,11 +1,11 @@
 package com.helianhealth.agent.invocation.remote.wrapper;
 
 import com.helianhealth.agent.invocation.context.InvocationLogContextHolder;
+import com.helianhealth.agent.invocation.context.LogContext;
 import com.helianhealth.agent.invocation.remote.InterfaceClientProxy;
-import com.helianhealth.agent.utils.JsonUtils;
-import com.helianhealth.agent.workflow.model.domain.InterfaceWorkflowNode;
-import com.helianhealth.agent.workflow.model.dto.LogContext;
-import com.helianhealth.agent.workflow.model.dto.ParamTreeNode;
+import com.helianhealth.agent.common.utils.JsonUtils;
+import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 
 import java.util.List;
 import java.util.Map;

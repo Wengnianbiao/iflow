@@ -1,9 +1,9 @@
 package com.helianhealth.agent.workflow.controller.reponse;
 
-import com.helianhealth.agent.workflow.enums.MappingSource;
-import com.helianhealth.agent.workflow.enums.MappingType;
-import com.helianhealth.agent.workflow.enums.ParamType;
-import com.helianhealth.agent.workflow.enums.ProcessType;
+import com.helianhealth.agent.common.enums.MappingSource;
+import com.helianhealth.agent.common.enums.MappingType;
+import com.helianhealth.agent.common.enums.ParamType;
+import com.helianhealth.agent.common.enums.ProcessType;
 import lombok.Data;
 
 import java.util.List;

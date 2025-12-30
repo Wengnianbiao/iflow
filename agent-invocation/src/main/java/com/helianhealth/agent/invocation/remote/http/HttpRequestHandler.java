@@ -2,12 +2,12 @@ package com.helianhealth.agent.invocation.remote.http;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
-import com.helianhealth.agent.workflow.enums.ParamType;
-import com.helianhealth.agent.workflow.model.domain.InterfaceWorkflowNode;
-import com.helianhealth.agent.workflow.model.dto.ParamTreeNode;
+import com.helianhealth.agent.common.enums.ParamType;
+import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.invocation.remote.ParamResolver;
 import com.helianhealth.agent.invocation.remote.manager.HttpApiClientManager;
-import com.helianhealth.agent.utils.JsonUtils;
+import com.helianhealth.agent.common.utils.JsonUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.core5.http.ParseException;
 import org.springframework.stereotype.Component;
@@ -18,8 +18,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * HTTP参数解析委派类
- * 负责将ParamNodeDTO结构解析为HTTP调用所需的参数格式
+ * HTTP 参数解析器
+ * 负责将 ParamTreeNode 结构解析为 HTTP 调用所需的参数格式
  */
 @Slf4j
 @Component

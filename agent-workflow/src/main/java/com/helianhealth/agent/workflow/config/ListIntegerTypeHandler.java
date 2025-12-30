@@ -1,7 +1,7 @@
 package com.helianhealth.agent.workflow.config;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.TypeReference;
 import org.apache.ibatis.type.BaseTypeHandler;
 import org.apache.ibatis.type.JdbcType;
 
@@ -13,8 +13,6 @@ import java.util.List;
 
 public class ListIntegerTypeHandler extends BaseTypeHandler<List<Integer>> {
 
-    private static final ObjectMapper objectMapper = new ObjectMapper();
-
     @Override
     public void setParameter(PreparedStatement ps, int i, List<Integer> parameter, JdbcType jdbcType) throws SQLException {
         if (parameter == null) {
@@ -23,7 +21,7 @@ public class ListIntegerTypeHandler extends BaseTypeHandler<List<Integer>> {
         }
         try {
             // 将 List<Integer> 序列化为 JSON 字符串存入数据库
-            String json = objectMapper.writeValueAsString(parameter);
+            String json = JSON.toJSONString(parameter);
             ps.setString(i, json);
         } catch (Exception e) {
             throw new SQLException("Failed to serialize List<Long> to JSON", e);
@@ -74,7 +72,7 @@ public class ListIntegerTypeHandler extends BaseTypeHandler<List<Integer>> {
         }
         try {
             // 将 JSON 字符串反序列化为 List<Integer>
-            return objectMapper.readValue(json, new TypeReference<List<Integer>>() {});
+            return JSON.parseObject(json, new TypeReference<List<Integer>>() {});
         } catch (Exception e) {
             throw new SQLException("Failed to deserialize JSON to List<Long>", e);
         }

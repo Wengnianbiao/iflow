@@ -1,6 +1,5 @@
 package com.helianhealth.agent.workflow.mapper.agent;
 
-import com.helianhealth.agent.workflow.enums.ProcessType;
 import com.helianhealth.agent.workflow.model.domain.NodeParamConfigDO;
 import org.apache.ibatis.annotations.Param;
 import tk.mybatis.mapper.common.Mapper;

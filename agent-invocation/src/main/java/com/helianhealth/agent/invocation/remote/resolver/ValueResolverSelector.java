@@ -1,5 +1,6 @@
 package com.helianhealth.agent.invocation.remote.resolver;
 
+import com.helianhealth.agent.invocation.remote.model.NodeParamConfig;
 import com.helianhealth.agent.workflow.model.domain.NodeParamConfigDO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -18,7 +19,7 @@ public class ValueResolverSelector {
     }
 
 
-    public Object resolveValue(NodeParamConfigDO config,
+    public Object resolveValue(NodeParamConfig config,
                                Map<String, Object> businessData,
                                Map<String, Object> parentBusinessData,
                                Map<String, Object> sourceBusinessData) {

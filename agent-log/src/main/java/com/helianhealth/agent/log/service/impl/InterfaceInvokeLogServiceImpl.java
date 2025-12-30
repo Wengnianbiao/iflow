@@ -2,7 +2,7 @@ package com.helianhealth.agent.log.service.impl;
 
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
-import com.helianhealth.agent.common.PageList;
+import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.log.mapper.InterfaceInvokeLogMapper;
 import com.helianhealth.agent.log.model.InterfaceInvokeLogDO;
 import com.helianhealth.agent.log.service.InterfaceInvokeLogService;

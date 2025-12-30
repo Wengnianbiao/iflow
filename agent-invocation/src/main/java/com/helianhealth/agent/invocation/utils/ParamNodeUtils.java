@@ -2,9 +2,10 @@ package com.helianhealth.agent.invocation.utils;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
-import com.helianhealth.agent.utils.JsonUtils;
-import com.helianhealth.agent.workflow.enums.ParamType;
-import com.helianhealth.agent.workflow.model.dto.ParamTreeNode;
+import com.helianhealth.agent.common.enums.ParamType;
+import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
+import com.helianhealth.agent.common.utils.JsonUtils;
+
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;

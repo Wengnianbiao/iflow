@@ -1,13 +1,13 @@
 package com.helianhealth.agent.invocation.remote.database;
 
 import com.alibaba.fastjson2.JSONArray;
-import com.helianhealth.agent.workflow.enums.ParamType;
-import com.helianhealth.agent.exception.DatabaseRemoteBusinessException;
-import com.helianhealth.agent.workflow.model.domain.InterfaceWorkflowNode;
-import com.helianhealth.agent.workflow.model.dto.ParamTreeNode;
+import com.helianhealth.agent.common.enums.ParamType;
+import com.helianhealth.agent.common.exception.DatabaseRemoteBusinessException;
+import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
+import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
 import com.helianhealth.agent.invocation.remote.ParamResolver;
 import com.helianhealth.agent.invocation.remote.manager.DatabaseApiClientManager;
-import com.helianhealth.agent.utils.JsonUtils;
+import com.helianhealth.agent.common.utils.JsonUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;

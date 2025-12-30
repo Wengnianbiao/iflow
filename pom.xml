@@ -6,7 +6,7 @@
 
     <groupId>com.helianhealth</groupId>
     <artifactId>interface-agent</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <packaging>pom</packaging>
 
     <modules>
@@ -109,12 +109,6 @@
             </dependency>
 
             <dependency>
-                <groupId>com.fasterxml.jackson.core</groupId>
-                <artifactId>jackson-databind</artifactId>
-                <version>2.11.2</version>
-            </dependency>
-
-            <dependency>
                 <groupId>org.dom4j</groupId>
                 <artifactId>dom4j</artifactId>
                 <version>2.1.4</version>
@@ -173,13 +167,6 @@
                 <version>12.2.0.1</version>
             </dependency>
 
-            <!-- quartz -->
-            <dependency>
-                <groupId>org.quartz-scheduler</groupId>
-                <artifactId>quartz</artifactId>
-                <version>2.3.2</version>
-            </dependency>
-
             <!-- lombok -->
             <dependency>
                 <groupId>org.projectlombok</groupId>
@@ -192,26 +179,6 @@
                 <groupId>org.springframework</groupId>
                 <artifactId>spring-expression</artifactId>
                 <version>${spring.version}</version>
-            </dependency>
-
-            <!-- swagger -->
-            <dependency>
-                <groupId>io.springfox</groupId>
-                <artifactId>springfox-swagger2</artifactId>
-                <version>2.9.2</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.springfox</groupId>
-                <artifactId>springfox-swagger-ui</artifactId>
-                <version>2.9.2</version>
-            </dependency>
-
-            <!-- 引入 swagger-bootstrap-ui 依赖包 -->
-            <dependency>
-                <groupId>com.github.xiaoymin</groupId>
-                <artifactId>swagger-bootstrap-ui</artifactId>
-                <version>1.9.6</version>
             </dependency>
 
             <!-- 显式引入 spring-tx,确保类存在 -->

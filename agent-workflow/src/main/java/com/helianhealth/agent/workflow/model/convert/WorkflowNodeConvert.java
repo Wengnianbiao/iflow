@@ -1,7 +1,7 @@
 package com.helianhealth.agent.workflow.model.convert;
 
 import com.helianhealth.agent.workflow.controller.reponse.InterfaceWorkflowNodeView;
-import com.helianhealth.agent.workflow.enums.NodeType;
+import com.helianhealth.agent.common.enums.NodeType;
 import com.helianhealth.agent.workflow.model.dto.NodeConfigImportDTO;
 import com.helianhealth.agent.workflow.model.dto.NodeParamConfigImportDTO;
 import com.helianhealth.agent.workflow.model.po.InterfaceWorkflowNodePO;

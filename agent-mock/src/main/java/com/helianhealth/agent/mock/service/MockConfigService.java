@@ -1,6 +1,6 @@
 package com.helianhealth.agent.mock.service;
 
-import com.helianhealth.agent.common.PageList;
+import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.mock.model.MockConfigDO;
 
 import java.util.List;

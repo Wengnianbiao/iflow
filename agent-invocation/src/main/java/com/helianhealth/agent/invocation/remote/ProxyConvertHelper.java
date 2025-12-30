@@ -1,10 +1,11 @@
 package com.helianhealth.agent.invocation.remote;
 
-import com.helianhealth.agent.workflow.model.domain.InterfaceWorkflowNode;
-import com.helianhealth.agent.workflow.model.domain.NodeParamConfigDO;
-import com.helianhealth.agent.workflow.model.dto.ParamTreeNode;
-import com.helianhealth.agent.utils.JsonUtils;
+import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.invocation.remote.model.NodeParamConfig;
+import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.invocation.utils.ParamNodeUtils;
+import com.helianhealth.agent.common.utils.JsonUtils;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StringUtils;
 
@@ -49,7 +50,7 @@ public class ProxyConvertHelper {
     }
 
     @SuppressWarnings("unchecked")
-    public static Object convertSourceValue(NodeParamConfigDO config, Map<String, Object> businessData) {
+    public static Object convertSourceValue(NodeParamConfig config, Map<String, Object> businessData) {
         String sourceParamKey = config.getSourceParamKey();
         // 如果源参数key为空，则说明不需要进行转化
         if (StringUtils.isEmpty(sourceParamKey)) {
@@ -74,7 +75,7 @@ public class ProxyConvertHelper {
     }
 
     @SuppressWarnings("unchecked")
-    public static Object convertSourceValueForObjectNode(NodeParamConfigDO config, Map<String, Object> businessData) {
+    public static Object convertSourceValueForObjectNode(NodeParamConfig config, Map<String, Object> businessData) {
         String sourceParamKey = config.getSourceParamKey();
         // 如果源参数key为空，则说明不需要进行转化
         if (StringUtils.isEmpty(sourceParamKey)) {

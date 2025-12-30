@@ -1,7 +1,7 @@
 package com.helianhealth.agent.workflow.service;
 
-import com.helianhealth.agent.common.PageList;
-import com.helianhealth.agent.workflow.enums.ProcessType;
+import com.helianhealth.agent.common.base.PageList;
+import com.helianhealth.agent.common.enums.ProcessType;
 import com.helianhealth.agent.workflow.model.domain.NodeParamConfigDO;
 import com.helianhealth.agent.workflow.model.dto.NodeParamConfigImportDTO;
 import org.springframework.web.multipart.MultipartFile;

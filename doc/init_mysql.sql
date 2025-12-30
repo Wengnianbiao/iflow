@@ -39,7 +39,9 @@ CREATE TABLE `interface_workflow_node` (
 -- 拆分字段配置
    `split_field` VARCHAR(50) NULL,
 -- 关键字匹配,默认都用的patientCode
-   `keyword_field` VARCHAR(50) NULL
+   `keyword_field` VARCHAR(50) NULL,
+-- SPI扩展点映射配置，用于 Dubbo SPI 路由
+   `remote_extension` VARCHAR(100) NULL
 );
 
 -- 工作流节点参数配置表
@@ -127,11 +129,11 @@ CREATE TABLE `node_extension_config`
     -- 实现类全限定名，例如: com.helianhealth.agent.custom.CustomRemoteInvoker
     `class_name`      VARCHAR(255)  NOT NULL,
     -- Java源代码
-    `source_code`     TEXT          NOT NULL,
+    `source_code`     TEXT          NULL,
     -- 代码描述
     `description`     VARCHAR(500)  NULL,
     -- 是否启用 1-启用 0-禁用
-    `enabled`         INT           NOT NULL DEFAULT 1,
-    -- 唯一约束：同一SPI接口下扩展名称不能重复
-    UNIQUE KEY `uk_spi_extension` (`spi_interface`, `extension_name`)
+    `enabled`             INT           NOT NULL DEFAULT 1,
+    -- 扩展方式：PROJECT-项目扩展（业务项目中实现） ONLINE-在线扩展（页面编写） 必选
+    `extension_mode`      VARCHAR(20)   NOT NULL DEFAULT 'ONLINE'
 );

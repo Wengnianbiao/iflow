@@ -1,15 +1,13 @@
 package com.helianhealth.agent.api.service.impl;
 
-import com.helianhealth.agent.api.FlowNodeDispatcher;
-import com.helianhealth.agent.common.ResultData;
+import com.helianhealth.agent.api.WorkFlowOrchestrator;
+import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.api.model.request.JarvisRequest;
 import com.helianhealth.agent.api.service.ApiService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Service;
-
-import javax.servlet.http.HttpServletRequest;
 
 /**
  * API服务实现类
@@ -19,7 +17,7 @@ import javax.servlet.http.HttpServletRequest;
 @AllArgsConstructor
 public class ApiServiceImpl implements ApiService {
 
-    private final FlowNodeDispatcher dispatcherManager;
+    private final WorkFlowOrchestrator dispatcherManager;
 
     @Override
     public ResultData<Object> invokeJarvisApi(JarvisRequest request) {
@@ -32,11 +30,10 @@ public class ApiServiceImpl implements ApiService {
     }
 
     @Override
-    public String invokeOpenApi(String requestBody, HttpServletRequest httpRequest) {
-        String requestURI = httpRequest.getRequestURI();
-        MDC.put("invokeUri", requestURI == null ? "" : requestURI);
+    public String invokeOpenApi(String requestBody, String interfaceUri) {
+        MDC.put("invokeUri", interfaceUri == null ? "" : interfaceUri);
         try {
-            return dispatcherManager.dispatch(requestBody, requestURI);
+            return dispatcherManager.dispatch(requestBody, interfaceUri);
         } finally {
             MDC.clear();
         }

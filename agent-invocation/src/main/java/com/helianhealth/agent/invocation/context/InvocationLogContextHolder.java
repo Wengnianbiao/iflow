@@ -1,7 +1,5 @@
 package com.helianhealth.agent.invocation.context;
 
-import com.helianhealth.agent.workflow.model.dto.LogContext;
-
 /**
  * 调用过程的日志上下文管理工具类
  * 用于在调用链路中传递日志信息

@@ -1,6 +1,6 @@
 package com.helianhealth.agent.workflow.service;
 
-import com.helianhealth.agent.common.PageList;
+import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.workflow.model.domain.InterfaceWorkflowDO;
 
 import java.util.List;

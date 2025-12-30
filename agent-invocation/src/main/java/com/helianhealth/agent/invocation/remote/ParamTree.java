@@ -1,9 +1,9 @@
 package com.helianhealth.agent.invocation.remote;
 
-import com.helianhealth.agent.workflow.model.domain.NodeParamConfigDO;
-import com.helianhealth.agent.workflow.model.dto.ParamTreeNode;
-import com.helianhealth.agent.workflow.model.dto.PostBuildContext;
-import com.helianhealth.agent.workflow.model.dto.PreBuildContext;
+import com.helianhealth.agent.invocation.remote.model.NodeParamConfig;
+import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
+import com.helianhealth.agent.invocation.remote.model.PostBuildContext;
+import com.helianhealth.agent.invocation.remote.model.PreBuildContext;
 import org.apache.dubbo.common.URL;
 import org.apache.dubbo.common.extension.Adaptive;
 import org.apache.dubbo.common.extension.SPI;
@@ -27,7 +27,7 @@ public interface ParamTree {
      */
     @Adaptive("node")
     List<ParamTreeNode> buildPreParamTree(URL url,
-                                          List<NodeParamConfigDO> configs,
+                                          List<NodeParamConfig> configs,
                                           Integer parentId,
                                           PreBuildContext context);
 
@@ -41,7 +41,7 @@ public interface ParamTree {
      */
     @Adaptive("node")
     List<ParamTreeNode> buildPostParamTree(URL url,
-                                           List<NodeParamConfigDO> configs,
+                                           List<NodeParamConfig> configs,
                                            Integer parentId,
                                            PostBuildContext context);
 }

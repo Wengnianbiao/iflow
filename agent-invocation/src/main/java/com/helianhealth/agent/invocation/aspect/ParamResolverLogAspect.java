@@ -1,7 +1,7 @@
 package com.helianhealth.agent.invocation.aspect;
 
 import com.helianhealth.agent.invocation.context.InvocationLogContextHolder;
-import com.helianhealth.agent.workflow.model.dto.LogContext;
+import com.helianhealth.agent.invocation.context.LogContext;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.annotation.AfterReturning;
 import org.aspectj.lang.annotation.Aspect;

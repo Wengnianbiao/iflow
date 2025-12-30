@@ -2,11 +2,10 @@ package com.helianhealth.agent.workflow.service.impl;
 
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
-import com.helianhealth.agent.common.PageList;
+import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.workflow.mapper.agent.InterfaceWorkflowMapper;
 import com.helianhealth.agent.workflow.model.domain.InterfaceWorkflowDO;
 import com.helianhealth.agent.workflow.service.InterfaceWorkflowService;
-import io.swagger.models.auth.In;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

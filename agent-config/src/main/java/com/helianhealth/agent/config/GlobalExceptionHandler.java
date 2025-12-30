@@ -1,7 +1,7 @@
 package com.helianhealth.agent.config;
 
-import com.helianhealth.agent.common.ResultData;
-import com.helianhealth.agent.exception.BaseBusinessException;
+import com.helianhealth.agent.common.base.ResultData;
+import com.helianhealth.agent.common.exception.BaseBusinessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;

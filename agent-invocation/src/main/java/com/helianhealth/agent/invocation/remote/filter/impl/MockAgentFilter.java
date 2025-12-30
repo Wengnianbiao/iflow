@@ -1,7 +1,7 @@
 package com.helianhealth.agent.invocation.remote.filter.impl;
 
-import com.helianhealth.agent.workflow.model.domain.InterfaceWorkflowNode;
-import com.helianhealth.agent.workflow.model.dto.ParamTreeNode;
+import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.invocation.remote.InterfaceClientProxy;
 import com.helianhealth.agent.invocation.remote.database.DatabaseSqlHandler;
 import com.helianhealth.agent.invocation.remote.filter.AgentFilter;

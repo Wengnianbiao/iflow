@@ -1,7 +1,7 @@
 package com.helianhealth.agent.workflow.model.po;
 
-import com.helianhealth.agent.workflow.enums.NodeType;
-import com.helianhealth.agent.workflow.enums.ScheduleParamSourceType;
+import com.helianhealth.agent.common.enums.NodeType;
+import com.helianhealth.agent.common.enums.ScheduleParamSourceType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

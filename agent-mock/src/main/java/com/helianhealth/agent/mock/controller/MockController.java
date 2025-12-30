@@ -1,11 +1,10 @@
 package com.helianhealth.agent.mock.controller;
 
-import com.helianhealth.agent.common.PageList;
-import com.helianhealth.agent.common.ResultData;
+import com.helianhealth.agent.common.base.PageList;
+import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.mock.model.MockConfigDO;
 import com.helianhealth.agent.mock.service.MockConfigService;
-import com.helianhealth.agent.utils.ResponseRenderUtils;
-import io.swagger.annotations.ApiOperation;
+import com.helianhealth.agent.common.utils.ResponseRenderUtils;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
@@ -28,7 +27,6 @@ public class MockController {
      * 分页查询Mock配置
      */
     @GetMapping("/list")
-    @ApiOperation(value = "分页查询Mock配置")
     public ResultData<PageList<MockConfigDO>> getMockConfigList(
             @RequestParam(value = "nodeId", required = false) Integer nodeId,
             @RequestParam(value = "pageNum", defaultValue = "1") int pageNum,
@@ -46,7 +44,6 @@ public class MockController {
      * 根据节点ID查询所有Mock配置
      */
     @GetMapping("/node/{nodeId}")
-    @ApiOperation(value = "根据节点ID查询所有Mock配置")
     public ResultData<List<MockConfigDO>> getMockConfigsByNodeId(@PathVariable Integer nodeId) {
         try {
             List<MockConfigDO> list = mockConfigService.findByNodeId(nodeId);
@@ -61,7 +58,6 @@ public class MockController {
      * 根据MockID查询Mock配置详情
      */
     @GetMapping("/{mockId}")
-    @ApiOperation(value = "查询Mock配置详情")
     public ResultData<MockConfigDO> getMockConfigById(@PathVariable Integer mockId) {
         try {
             MockConfigDO mockConfig = mockConfigService.findById(mockId);
@@ -79,7 +75,6 @@ public class MockController {
      * 创建Mock配置
      */
     @PostMapping("/create")
-    @ApiOperation(value = "创建Mock配置")
     public ResultData<MockConfigDO> createMockConfig(@RequestBody MockConfigDO mockConfig) {
         try {
             if (mockConfig.getNodeId() == null) {
@@ -104,7 +99,6 @@ public class MockController {
      * 更新Mock配置
      */
     @PostMapping("/update")
-    @ApiOperation(value = "更新Mock配置")
     public ResultData<Integer> updateMockConfig(@RequestBody MockConfigDO mockConfig) {
         try {
             if (mockConfig.getMockId() == null) {
@@ -123,7 +117,6 @@ public class MockController {
      * 删除Mock配置
      */
     @DeleteMapping("/{mockId}")
-    @ApiOperation(value = "删除Mock配置")
     public ResultData<String> deleteMockConfig(@PathVariable Integer mockId) {
         try {
             int result = mockConfigService.deleteById(mockId);
@@ -142,7 +135,6 @@ public class MockController {
      * 根据节点ID删除所有Mock配置
      */
     @DeleteMapping("/node/{nodeId}")
-    @ApiOperation(value = "根据节点ID删除所有Mock配置")
     public ResultData<String> deleteMockConfigsByNodeId(@PathVariable Integer nodeId) {
         try {
             int result = mockConfigService.deleteByNodeId(nodeId);

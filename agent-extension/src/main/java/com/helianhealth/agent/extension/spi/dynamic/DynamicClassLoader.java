@@ -21,31 +21,39 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 动态类加载器
- * 负责在运行时编译和加载 Java 源代码字符串
+ * 隔离型动态类加载器
+ * 每个实例只加载一个动态类，实现类与 ClassLoader 的一对一隔离
+ * 支持类的完全卸载（当 ClassLoader 被 GC 时，其加载的类也会被卸载）
  */
 @Slf4j
 public class DynamicClassLoader extends ClassLoader {
 
     /**
-     * 缓存已编译的类
+     * 当前 ClassLoader 加载的类（只会有一个）
      */
-    private static final Map<String, Class<?>> CLASS_CACHE = new ConcurrentHashMap<>();
+    private Class<?> loadedClass;
+    
+    /**
+     * 当前加载的类名
+     */
+    private final String className;
 
-    public DynamicClassLoader(ClassLoader parent) {
+    public DynamicClassLoader(ClassLoader parent, String className) {
         super(parent);
+        this.className = className;
     }
 
     /**
-     * 从 Java 源码字符串加载类
+     * 从 Java 源码字符串编译并加载类
+     * 此 ClassLoader 实例只会加载一个类
      */
-    public Class<?> loadClass(String className, String javaCode) throws Exception {
-        if (CLASS_CACHE.containsKey(className)) {
-            log.info("Loading class from cache : {}", className);
-            return CLASS_CACHE.get(className);
+    public Class<?> compileAndLoad(String javaCode) throws Exception {
+        if (loadedClass != null) {
+            log.warn("Class already loaded in this ClassLoader: {}", className);
+            return loadedClass;
         }
 
-        log.info("Start to compiler class javaCode: {}", className);
+        log.info("Start compiling class: {}", className);
 
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         if (compiler == null) {
@@ -78,18 +86,29 @@ public class DynamicClassLoader extends ClassLoader {
             throw new RuntimeException(errorMsg.toString());
         }
 
-        Class<?> clazz = fileManager.getClassLoader(null).loadClass(className);
-        CLASS_CACHE.put(className, clazz);
-        log.info("Successfully compiled and loaded class: {}", className);
-        return clazz;
+        // 使用内部的 IsolatedClassLoader 加载类
+        loadedClass = fileManager.getIsolatedClassLoader().loadClass(className);
+        log.info("Successfully compiled and loaded class: {} by ClassLoader: {}", 
+                className, Integer.toHexString(this.hashCode()));
+        return loadedClass;
     }
-
-    public static void clearCache() {
-        CLASS_CACHE.clear();
+    
+    /**
+     * 获取已加载的类
+     */
+    public Class<?> getLoadedClass() {
+        return loadedClass;
     }
-
-    public static void clearCache(String className) {
-        CLASS_CACHE.remove(className);
+    
+    /**
+     * 清理引用，帮助 GC
+     */
+    public void unload() {
+        if (loadedClass != null) {
+            log.info("Unloading class: {} from ClassLoader: {}", 
+                    className, Integer.toHexString(this.hashCode()));
+            loadedClass = null;
+        }
     }
 
     private static class JavaClassObject extends SimpleJavaFileObject {
@@ -125,6 +144,7 @@ public class DynamicClassLoader extends ClassLoader {
 
     private static class ClassFileManager extends ForwardingJavaFileManager<JavaFileManager> {
         private final Map<String, JavaClassObject> classObjectMap = new ConcurrentHashMap<>();
+        private IsolatedClassLoader isolatedClassLoader;
 
         protected ClassFileManager(JavaFileManager fileManager) {
             super(fileManager);
@@ -140,17 +160,40 @@ public class DynamicClassLoader extends ClassLoader {
 
         @Override
         public ClassLoader getClassLoader(Location location) {
-            return new SecureClassLoader() {
-                @Override
-                protected Class<?> findClass(String name) throws ClassNotFoundException {
-                    JavaClassObject classObject = classObjectMap.get(name);
-                    if (classObject != null) {
-                        byte[] bytes = classObject.getBytes();
-                        return super.defineClass(name, bytes, 0, bytes.length);
-                    }
-                    return super.findClass(name);
-                }
-            };
+            return getIsolatedClassLoader();
+        }
+        
+        /**
+         * 获取隔离的 ClassLoader 实例
+         */
+        public IsolatedClassLoader getIsolatedClassLoader() {
+            if (isolatedClassLoader == null) {
+                isolatedClassLoader = new IsolatedClassLoader(classObjectMap);
+            }
+            return isolatedClassLoader;
+        }
+    }
+    
+    /**
+     * 隔离型 ClassLoader - 每个实例独立加载类
+     * 当此 ClassLoader 被 GC 时，其加载的类也会被卸载
+     */
+    private static class IsolatedClassLoader extends SecureClassLoader {
+        private final Map<String, JavaClassObject> classObjectMap;
+        
+        IsolatedClassLoader(Map<String, JavaClassObject> classObjectMap) {
+            super(null); // 不设置父加载器，实现完全隔离
+            this.classObjectMap = classObjectMap;
+        }
+        
+        @Override
+        protected Class<?> findClass(String name) throws ClassNotFoundException {
+            JavaClassObject classObject = classObjectMap.get(name);
+            if (classObject != null) {
+                byte[] bytes = classObject.getBytes();
+                return defineClass(name, bytes, 0, bytes.length);
+            }
+            return super.findClass(name);
         }
     }
 
