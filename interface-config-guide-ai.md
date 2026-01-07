@@ -7,7 +7,10 @@
 1. [节点配置](#节点配置)
 2. [工作流配置](#工作流配置)
 3. [参数映射配置](#参数映射配置)
-4. [配置示例](#配置示例)
+4. [嵌套参数配置](#嵌套参数配置)
+5. [节点扩展配置](#节点扩展配置)
+6. [配置示例](#配置示例)
+7. [AI配置指南](#ai配置指南)
 
 ---
 
@@ -284,7 +287,12 @@ Database节点的元数据配置为JSON格式，所有字段均为必填：
 - `paramDesc` (string, 可选): 参数描述，用于说明该参数的用途
 - `sort` (integer, 可选): 排序，用于控制参数映射的执行顺序，默认为0
 - `parentId` (integer, 可选): 父参数ID，用于嵌套结构映射
+  - 顶级节点的`parentId`为`null`
+  - 通过`parentId`构建参数的树形结构，实现嵌套对象和数组的映射
+  - 详见[嵌套参数配置](#嵌套参数配置)章节
 - `keepSingleElementKey` (string, 可选): 保留单元素键，用于数组映射场景
+  - 当数组中只有一个元素时，是否保留该元素的键名
+  - 通常用于XML格式的数组映射场景
 
 ### 映射类型说明
 
@@ -340,7 +348,13 @@ Database节点的元数据配置为JSON格式，所有字段均为必填：
 
 #### 3. 表达式映射（EXPRESSION）
 
-使用SpEL表达式进行复杂转换。
+使用SpEL表达式进行复杂转换，支持条件判断、字符串处理、类型转换等复杂逻辑。
+
+**SpEL表达式上下文变量：**
+- `#data`: 当前层级的业务数据（前置处理）
+- `#response`: 三方接口响应数据（后置处理）
+- `#input`: 原始入参数据（后置处理）
+- `#root`: 根级别的业务数据
 
 **示例（响应状态码处理）：**
 ```json
@@ -370,6 +384,32 @@ Database节点的元数据配置为JSON格式，所有字段均为必填：
 }
 ```
 
+#### 4. 函数表达式映射（BEAN_EXPRESSION）
+
+调用Spring Bean中的方法进行转换，适用于复杂业务逻辑处理。
+
+**示例：**
+```json
+{
+  "processType": "PRE_PROCESS",
+  "sourceParamKey": "birthday",
+  "sourceParamType": "STRING",
+  "targetParamKey": "age",
+  "targetParamType": "INTEGER",
+  "mappingType": "BEAN_EXPRESSION",
+  "mappingSource": null,
+  "mappingRule": "@dateUtils.calculateAge(#data['birthday'])"
+}
+```
+
+#### 5. 单值映射（SINGLE_MAP）
+
+将单个键值对映射为Map结构，用于特殊的数据格式要求。
+
+**注意事项：**
+- SINGLE_MAP类型主要用于特定厂商接口的特殊格式要求
+- 一般场景使用NAME或EXPRESSION即可满足需求
+
 ### 数据库查询结果映射
 
 对于Database节点，查询结果默认以`data`字段返回（数组格式）。后置处理时，需要将数据库字段（通常为小写）映射到目标字段（通常为大写）。
@@ -387,6 +427,239 @@ Database节点的元数据配置为JSON格式，所有字段均为必填：
   "mappingRule": null
 }
 ```
+
+---
+
+## 嵌套参数配置
+
+嵌套参数配置用于处理复杂的对象结构和数组结构，通过`parentId`字段建立参数之间的父子关系。
+
+### 参数类型说明
+
+框架支持以下参数类型：
+- `STRING`: 字符串类型
+- `INTEGER`: 整数类型
+- `LONG`: 长整型
+- `DOUBLE`: 双精度浮点型
+- `BOOLEAN`: 布尔类型
+- `OBJECT`: 对象类型（需要配置子参数）
+- `ARRAY`: 数组类型（需要配置子参数）
+- `PURE_ARRAY`: 纯数组类型（数组元素为基本类型）
+- `NONE`: 无类型（用于虚拟节点或固定值映射）
+
+### 嵌套对象映射
+
+当`targetParamType`为`OBJECT`时，需要配置子参数来描述对象的字段结构。
+
+**场景示例：** 将jarvis的患者信息映射为his系统的患者对象
+
+```json
+[
+  {
+    "processType": "PRE_PROCESS",
+    "nodeId": 1,
+    "sourceParamKey": null,
+    "sourceParamType": "NONE",
+    "targetParamKey": "patientInfo",
+    "targetParamType": "OBJECT",
+    "mappingType": "NAME",
+    "mappingSource": null,
+    "mappingRule": null,
+    "paramDesc": "患者信息对象",
+    "parentId": null
+  },
+  {
+    "processType": "PRE_PROCESS",
+    "nodeId": 1,
+    "sourceParamKey": "patientCode",
+    "sourceParamType": "STRING",
+    "targetParamKey": "patientCode",
+    "targetParamType": "STRING",
+    "mappingType": "NAME",
+    "mappingSource": null,
+    "mappingRule": null,
+    "paramDesc": "患者编号",
+    "parentId": <patientInfo的configId>
+  },
+  {
+    "processType": "PRE_PROCESS",
+    "nodeId": 1,
+    "sourceParamKey": "patientName",
+    "sourceParamType": "STRING",
+    "targetParamKey": "name",
+    "targetParamType": "STRING",
+    "mappingType": "NAME",
+    "mappingSource": null,
+    "mappingRule": null,
+    "paramDesc": "患者姓名",
+    "parentId": <patientInfo的configId>
+  }
+]
+```
+
+### 数组映射
+
+当`targetParamType`为`ARRAY`时，需要配置虚拟节点和数组元素的子参数。
+
+**重要规则：**
+1. 数组类型必须包含一个虚拟节点（`sourceParamType`为`NONE`，`targetParamType`为`OBJECT`）
+2. 虚拟节点的`targetParamKey`通常以`Node`结尾，如：`itemNode`、`dataNode`
+3. 数组元素的具体字段作为虚拟节点的子参数
+
+**场景示例：** 将jarvis的申请单items数组映射为his系统的items数组
+
+```json
+[
+  {
+    "processType": "PRE_PROCESS",
+    "nodeId": 1,
+    "sourceParamKey": "items",
+    "sourceParamType": "ARRAY",
+    "targetParamKey": "items",
+    "targetParamType": "ARRAY",
+    "mappingType": "NAME",
+    "mappingSource": null,
+    "mappingRule": null,
+    "paramDesc": "申请单项目数组",
+    "parentId": null
+  },
+  {
+    "processType": "PRE_PROCESS",
+    "nodeId": 1,
+    "sourceParamKey": null,
+    "sourceParamType": "NONE",
+    "targetParamKey": "itemNode",
+    "targetParamType": "OBJECT",
+    "mappingType": "NAME",
+    "mappingSource": null,
+    "mappingRule": null,
+    "paramDesc": "申请单项目虚拟节点",
+    "parentId": <items的configId>
+  },
+  {
+    "processType": "PRE_PROCESS",
+    "nodeId": 1,
+    "sourceParamKey": "itemCode",
+    "sourceParamType": "STRING",
+    "targetParamKey": "itemCode",
+    "targetParamType": "STRING",
+    "mappingType": "NAME",
+    "mappingSource": null,
+    "mappingRule": null,
+    "paramDesc": "项目编码",
+    "parentId": <itemNode的configId>
+  },
+  {
+    "processType": "PRE_PROCESS",
+    "nodeId": 1,
+    "sourceParamKey": "itemName",
+    "sourceParamType": "STRING",
+    "targetParamKey": "itemName",
+    "targetParamType": "STRING",
+    "mappingType": "NAME",
+    "mappingSource": null,
+    "mappingRule": null,
+    "paramDesc": "项目名称",
+    "parentId": <itemNode的configId>
+  }
+]
+```
+
+### 多维数组映射
+
+框架支持多维数组的映射，通过递归配置虚拟节点实现。
+
+**场景示例：** 二维数组映射
+
+```json
+[
+  {
+    "targetParamKey": "matrix",
+    "targetParamType": "ARRAY",
+    "sourceParamKey": "matrix",
+    "sourceParamType": "ARRAY",
+    "parentId": null
+  },
+  {
+    "targetParamKey": "rowNode",
+    "targetParamType": "ARRAY",
+    "sourceParamKey": null,
+    "sourceParamType": "NONE",
+    "parentId": <matrix的configId>
+  },
+  {
+    "targetParamKey": "cellNode",
+    "targetParamType": "OBJECT",
+    "sourceParamKey": null,
+    "sourceParamType": "NONE",
+    "parentId": <rowNode的configId>
+  },
+  {
+    "targetParamKey": "value",
+    "targetParamType": "STRING",
+    "sourceParamKey": "value",
+    "sourceParamType": "STRING",
+    "parentId": <cellNode的configId>
+  }
+]
+```
+
+### 嵌套配置注意事项
+
+1. **配置顺序**：必须先创建父参数，再创建子参数，因为子参数需要引用父参数的`configId`
+2. **虚拟节点**：数组类型必须包含虚拟节点，虚拟节点不映射实际数据，仅用于结构描述
+3. **递归处理**：框架会递归处理所有子参数，构建完整的参数树
+4. **类型匹配**：`sourceParamType`和`targetParamType`需要合理匹配，避免类型转换错误
+5. **排序控制**：通过`sort`字段控制同级参数的处理顺序，默认为0
+
+---
+
+## 节点扩展配置
+
+节点扩展配置用于处理框架标准功能无法满足的特殊场景，通过SPI机制实现自定义扩展。
+
+### 扩展场景
+
+以下场景建议使用节点扩展：
+1. **动态请求头**：请求头信息需要动态计算（如：动态签名、动态token）
+2. **非规范协议**：三方接口不遵循标准HTTP/WebService协议
+3. **复杂参数处理**：参数转换逻辑过于复杂，SpEL表达式难以实现
+4. **自定义调用逻辑**：需要特殊的重试、熔断、降级等逻辑
+5. **特殊数据格式**：三方接口使用特殊的数据格式（如：自定义加密）
+
+### 配置字段
+
+节点的`remoteExtension`字段用于指定SPI扩展的实现类名称。
+
+**节点配置示例：**
+```json
+{
+  "nodeName": "特殊厂商接口节点",
+  "nodeType": "HTTP",
+  "metaInfo": "{\"url\":\"http://example.com/api\"}",
+  "remoteExtension": "customVendorExtension"
+}
+```
+
+### SPI扩展实现
+
+扩展实现需要：
+1. 实现框架提供的SPI接口
+2. 在`META-INF/dubbo`目录下配置扩展点
+3. 通过节点的`remoteExtension`字段关联扩展实现
+
+**扩展点配置文件示例：** `META-INF/dubbo/com.helianhealth.agent.invocation.remote.RemoteClient`
+```properties
+customVendorExtension=com.example.extension.CustomVendorExtension
+```
+
+### 扩展使用注意事项
+
+1. **优先使用标准配置**：只有在标准配置无法满足需求时才使用扩展
+2. **扩展隔离**：不同厂商的扩展应该独立实现，避免耦合
+3. **错误处理**：扩展中要做好异常处理和日志记录
+4. **性能考虑**：扩展代码要注意性能优化，避免阻塞主流程
+5. **文档说明**：扩展实现要有清晰的文档说明，便于维护
 
 ---
 
@@ -508,26 +781,295 @@ Database节点的元数据配置为JSON格式，所有字段均为必填：
 
 ---
 
+## AI配置指南
+
+本章节专门为AI自动化配置提供指导，帮助AI理解如何根据接口文档生成完整的配置。
+
+### 配置生成流程
+
+1. **分析接口文档**
+   - 识别上游系统（jarvis/三方系统）
+   - 识别下游系统（his/pacs/lis等）
+   - 分析入参结构和响应结构
+   - 确定接口类型（HTTP/WebService/Database）
+
+2. **生成节点配置**
+   - 根据接口类型选择节点类型
+   - 提取接口URL、请求头等元信息
+   - 配置关键字字段用于日志追踪
+   - 评估是否需要参数过滤或数组拆分
+
+3. **生成参数映射配置**
+   - 遍历入参字段，生成前置处理配置
+   - 遍历响应字段，生成后置处理配置
+   - 处理嵌套对象和数组结构
+   - 处理固定值和表达式映射
+
+4. **生成工作流配置**
+   - 确定接口URI（jarvis的BusinessMethod或自定义路径）
+   - 设置内容类型（JSON/XML）
+   - 关联节点到工作流
+
+### 参数映射生成规则
+
+#### 基本类型映射
+
+**规则：**
+- 字段名相同 → 使用NAME映射
+- 字段名不同 → 使用NAME映射，配置不同的sourceParamKey和targetParamKey
+- 需要固定值 → 使用CONSTANT映射
+- 需要转换逻辑 → 使用EXPRESSION映射
+
+**示例：**
+```json
+{
+  "sourceParamKey": "patientCode",
+  "targetParamKey": "patNo",
+  "sourceParamType": "STRING",
+  "targetParamType": "STRING",
+  "mappingType": "NAME"
+}
+```
+
+#### 对象类型映射
+
+**规则：**
+1. 创建父节点（`targetParamType`为`OBJECT`）
+2. 如果源数据也是对象，`sourceParamType`为`OBJECT`
+3. 如果源数据是平铺字段，`sourceParamType`为`NONE`
+4. 递归创建子节点，设置`parentId`指向父节点
+
+**示例：**
+```json
+[
+  {
+    "targetParamKey": "patient",
+    "targetParamType": "OBJECT",
+    "sourceParamType": "NONE",
+    "mappingType": "NAME",
+    "parentId": null
+  },
+  {
+    "sourceParamKey": "patientCode",
+    "targetParamKey": "code",
+    "sourceParamType": "STRING",
+    "targetParamType": "STRING",
+    "mappingType": "NAME",
+    "parentId": <patient的configId>
+  }
+]
+```
+
+#### 数组类型映射
+
+**规则：**
+1. 创建数组节点（`targetParamType`为`ARRAY`）
+2. 创建虚拟节点（`sourceParamType`为`NONE`，`targetParamType`为`OBJECT`，`targetParamKey`以`Node`结尾）
+3. 创建数组元素的字段节点，`parentId`指向虚拟节点
+
+**示例：**
+```json
+[
+  {
+    "sourceParamKey": "items",
+    "targetParamKey": "items",
+    "sourceParamType": "ARRAY",
+    "targetParamType": "ARRAY",
+    "mappingType": "NAME",
+    "parentId": null
+  },
+  {
+    "targetParamKey": "itemNode",
+    "targetParamType": "OBJECT",
+    "sourceParamType": "NONE",
+    "mappingType": "NAME",
+    "parentId": <items的configId>
+  },
+  {
+    "sourceParamKey": "itemCode",
+    "targetParamKey": "code",
+    "sourceParamType": "STRING",
+    "targetParamType": "STRING",
+    "mappingType": "NAME",
+    "parentId": <itemNode的configId>
+  }
+]
+```
+
+### 特殊场景处理
+
+#### 场景1：响应状态码映射
+
+三方接口的状态码需要映射为统一格式。
+
+```json
+{
+  "processType": "POST_PROCESS",
+  "sourceParamKey": null,
+  "sourceParamType": "NONE",
+  "targetParamKey": "code",
+  "targetParamType": "STRING",
+  "mappingType": "EXPRESSION",
+  "mappingSource": "RESPONSE",
+  "mappingRule": "#response['code'] != null ? #response['code'].toString() : '200'"
+}
+```
+
+#### 场景2：数据库查询结果映射
+
+数据库字段通常为小写，需要映射为大写。
+
+```json
+{
+  "processType": "POST_PROCESS",
+  "sourceParamKey": "patientcode",
+  "targetParamKey": "PatientCode",
+  "sourceParamType": "STRING",
+  "targetParamType": "STRING",
+  "mappingType": "NAME",
+  "mappingSource": "RESPONSE"
+}
+```
+
+#### 场景3：类型不匹配处理
+
+源数据为字符串，目标需要整数。
+
+```json
+{
+  "sourceParamKey": "age",
+  "targetParamKey": "age",
+  "sourceParamType": "STRING",
+  "targetParamType": "INTEGER",
+  "mappingType": "EXPRESSION",
+  "mappingRule": "T(java.lang.Integer).parseInt(#data['age'])"
+}
+```
+
+#### 场景4：条件映射
+
+根据条件决定是否映射。
+
+```json
+{
+  "sourceParamKey": "gender",
+  "targetParamKey": "sex",
+  "sourceParamType": "STRING",
+  "targetParamType": "STRING",
+  "mappingType": "EXPRESSION",
+  "mappingRule": "#data['gender'] == '男' ? '1' : (#data['gender'] == '女' ? '2' : '0')"
+}
+```
+
+### 配置生成注意事项
+
+1. **必填字段检查**：确保所有必填字段都有值
+2. **类型匹配**：源类型和目标类型要合理匹配
+3. **嵌套结构**：正确处理parentId关系，先创建父节点
+4. **数组虚拟节点**：数组映射必须包含虚拟节点
+5. **排序设置**：合理设置sort值，确保执行顺序正确
+6. **描述清晰**：paramDesc要准确描述字段含义
+7. **表达式测试**：复杂表达式要测试验证正确性
+8. **响应映射**：后置处理要正确设置mappingSource（RESPONSE/INPUT）
+
+---
+
 ## MCP接口说明
 
 AI可以通过以下MCP接口自动化创建配置：
 
-1. **工作流管理**: `/v1/ai/mcp/workflow`
-   - `POST /create`: 创建工作流
-   - `POST /update`: 更新工作流
-   - `POST /delete`: 删除工作流
+### 1. 工作流管理
 
-2. **工作流节点管理**: `/v1/ai/mcp/workflow-node`
-   - `POST /create`: 创建节点
-   - `POST /update`: 更新节点
-   - `POST /delete`: 删除节点
+**基础路径**: `/v1/ai/mcp/workflow`
 
-3. **节点参数配置管理**: `/v1/ai/mcp/node-param-config`
-   - `POST /create`: 创建参数配置
-   - `POST /update`: 更新参数配置
-   - `POST /delete`: 删除参数配置
+#### 创建工作流
+- **路径**: `POST /create`
+- **请求体**:
+```json
+{
+  "flowName": "工作流名称",
+  "interfaceUri": "接口URI",
+  "contentType": "JSON",
+  "contentMetaInfo": "元信息描述",
+  "firstFlowNodes": [],
+  "status": 1
+}
+```
 
-所有接口返回格式：
+#### 更新工作流
+- **路径**: `POST /update`
+- **请求体**: 同创建，需包含`flowId`字段
+
+#### 删除工作流
+- **路径**: `POST /delete`
+- **请求参数**: `flowId`
+
+### 2. 工作流节点管理
+
+**基础路径**: `/v1/ai/mcp/workflow-node`
+
+#### 创建节点
+- **路径**: `POST /create`
+- **请求体**:
+```json
+{
+  "nodeName": "节点名称",
+  "nodeType": "HTTP",
+  "metaInfo": "{\"url\":\"http://example.com\"}",
+  "keywordField": "patientCode",
+  "splitField": null,
+  "paramFilterExpr": null,
+  "remoteExtension": null
+}
+```
+
+#### 更新节点
+- **路径**: `POST /update`
+- **请求体**: 同创建，需包含`nodeId`字段
+
+#### 删除节点
+- **路径**: `POST /delete`
+- **请求参数**: `nodeId`
+
+### 3. 节点参数配置管理
+
+**基础路径**: `/v1/ai/mcp/node-param-config`
+
+#### 创建参数配置
+- **路径**: `POST /create`
+- **请求体**:
+```json
+{
+  "nodeId": 1,
+  "processType": "PRE_PROCESS",
+  "sourceParamKey": "patientCode",
+  "sourceParamType": "STRING",
+  "targetParamKey": "patientCode",
+  "targetParamType": "STRING",
+  "mappingType": "NAME",
+  "mappingSource": null,
+  "mappingRule": null,
+  "paramDesc": "患者编号",
+  "parentId": null,
+  "sort": 0
+}
+```
+
+#### 批量创建参数配置
+- **路径**: `POST /batch-create`
+- **请求体**: 参数配置数组
+
+#### 更新参数配置
+- **路径**: `POST /update`
+- **请求体**: 同创建，需包含`configId`字段
+
+#### 删除参数配置
+- **路径**: `POST /delete`
+- **请求参数**: `configId`
+
+### 接口返回格式
+
+所有接口统一返回格式：
 ```json
 {
   "code": "200",
@@ -535,4 +1077,22 @@ AI可以通过以下MCP接口自动化创建配置：
   "rsp": <返回数据>
 }
 ```
+
+**成功响应**:
+- `code`: "200"
+- `message`: "success"
+- `rsp`: 具体返回数据（创建时返回ID，查询时返回实体）
+
+**失败响应**:
+- `code`: 非"200"的错误码
+- `message`: 错误信息描述
+- `rsp`: null
+
+### 使用流程建议
+
+1. **先创建节点**，获取nodeId
+2. **创建工作流**（firstFlowNodes暂时为空），获取flowId
+3. **批量创建参数配置**（前置处理和后置处理）
+4. **更新工作流**，将nodeId添加到firstFlowNodes
+5. **测试验证**配置是否正确
 
