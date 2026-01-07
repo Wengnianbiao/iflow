@@ -1,31 +1,76 @@
-out/
+# ===========================
+# Java & Maven
+# ===========================
 target/
-.idea/
-rebel.xml
+*.class
+*.jar
+*.war
+*.ear
 *.iml
-jetty/
-vcs.xml
+bin/
+
+# ===========================
+# IDE - IntelliJ IDEA
+# ===========================
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+# ===========================
+# IDE - Eclipse
+# ===========================
+.metadata/
+.settings/
+.classpath
+.project
+
+# ===========================
+# JRebel
+# ===========================
+rebel.xml
+rebel-remote.xml
+
+# ===========================
+# 日志文件
+# ===========================
 logs/
+*.log
 log.path_IS_UNDEFINED/
 LOG_HOME_IS_UNDEFINED/
-C:
-*target*
-*.idea*
+
+# ===========================
+# 前端 - Node.js & npm
+# ===========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+.pnpm-debug.log*
+
+# ===========================
+# 前端 - 构建产物
+# ===========================
+console-ui/dist/
+console-ui/node_modules/
+agent-config/src/main/resources/static/js/*.js
+agent-config/src/main/resources/static/js/*.map
+agent-config/src/main/resources/static/css/*.css
+agent-config/src/main/resources/static/css/*.map
+*.js.map
+*.css.map
+
+# ===========================
+# 操作系统
+# ===========================
 .DS_Store
-.idea
-*.settings/
-*.classpath
-*.project
-*.iml
-target/
-target/logs
-bin/
-.idea/
-rebel-remote.xml
-rebel.xml
-/.metadata/
-/.idea/
-/.idea/inspectionProfiles/Project_Default.xml
-*.log
+Thumbs.db
+
+# ===========================
+# 其他
+# ===========================
+jetty/
+vcs.xml
 interface-agent
-log.path_IS_UNDEFINED/
