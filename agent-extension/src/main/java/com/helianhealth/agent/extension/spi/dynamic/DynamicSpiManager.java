@@ -10,31 +10,30 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 动态 SPI 管理器（重构版）
- * 使用隔离型 ClassLoader 架构，支持类的完全卸载
- * 
- * 核心设计：
- * 1. 每个动态类使用独立的 DynamicClassLoader 实例
- * 2. ClassLoader 与类一对一绑定，同生共死
- * 3. 卸载时释放 ClassLoader，触发 JVM 类卸载机制
+ * Dynamic SPI Manager (Refactored Version)
+ * Uses isolated ClassLoader architecture to support complete class unloading
+ * Core Design:
+ * 1. Each dynamic class uses an independent DynamicClassLoader instance
+ * 2. ClassLoader and class are bound one-to-one, living and dying together
+ * 3. Release ClassLoader during unloading to trigger JVM class unloading mechanism
  */
 @Slf4j
 public class DynamicSpiManager {
 
     /**
-     * 已注册的动态扩展缓存
-     * key: spiInterface#extensionName, value: Class 对象
+     * Registered dynamic extension cache
+     * key: spiInterface#extensionName, value: Class object
      */
     private final Map<String, Class<?>> registeredExtensions = new ConcurrentHashMap<>();
-    
+
     /**
-     * ClassLoader 缓存（与类一对一绑定）
+     * ClassLoader cache (one-to-one binding with class)
      * key: className, value: DynamicClassLoader
      */
     private final Map<String, DynamicClassLoader> classLoaderMap = new ConcurrentHashMap<>();
-    
+
     /**
-     * 父 ClassLoader（用于创建隔离的 ClassLoader）
+     * Parent ClassLoader (used to create isolated ClassLoader)
      */
     private final ClassLoader parentClassLoader;
 
@@ -42,6 +41,16 @@ public class DynamicSpiManager {
         this.parentClassLoader = Thread.currentThread().getContextClassLoader();
     }
 
+    /**
+     * Load and register dynamic SPI extension
+     *
+     * Supports two modes:
+     * 1. Dynamic compilation mode: sourceCode is not empty, compile from string
+     * 2. Project mode: sourceCode is empty, load pre-compiled class from classpath
+     *
+     * @param dynamicSpi SPI definition
+     * @return Loaded Class object
+     */
     public Class<?> loadAndRegister(DynamicSpiDefinition dynamicSpi) throws Exception {
         String className = dynamicSpi.getClassName();
         String sourceCode = dynamicSpi.getSourceCode();
@@ -51,11 +60,22 @@ public class DynamicSpiManager {
         log.info("Start loading dynamic SPI: spiInterface={}, extensionName={}, className={}",
                 spiInterface, extensionName, className);
 
-        // 为每个类创建独立的 ClassLoader
+        // Create independent ClassLoader for each class
         DynamicClassLoader classLoader = new DynamicClassLoader(parentClassLoader, className);
-        Class<?> clazz = classLoader.compileAndLoad(sourceCode);
-        
-        // 缓存 ClassLoader（与类绑定）
+
+        // Decide loading mode based on whether sourceCode is empty
+        Class<?> clazz;
+        if (sourceCode != null && !sourceCode.trim().isEmpty()) {
+            // Mode 1: Dynamic compilation mode
+            log.info("Loading using dynamic compilation mode: {}", className);
+            clazz = classLoader.compileAndLoad(sourceCode);
+        } else {
+            // Mode 2: Project mode (load from classpath)
+            log.info("Loading using project mode from classpath: {}", className);
+            clazz = classLoader.loadFromClasspath();
+        }
+
+        // Cache ClassLoader (bind with class)
         classLoaderMap.put(className, classLoader);
 
         Class<?> interfaceClass = Class.forName(spiInterface);
@@ -71,13 +91,13 @@ public class DynamicSpiManager {
         String cacheKey = buildCacheKey(spiInterface, extensionName);
         registeredExtensions.put(cacheKey, clazz);
 
-        log.info("Successfully registered dynamic SPI: {}, ClassLoader: {}", 
+        log.info("Successfully registered dynamic SPI: {}, ClassLoader: {}",
                 cacheKey, Integer.toHexString(classLoader.hashCode()));
         return clazz;
     }
 
     /**
-     * 批量加载 SPI 扩展（由 workflow 层保证只传入启用的配置）
+     * Batch load SPI extensions (workflow layer ensures only enabled configs are passed)
      */
     public void batchLoad(List<DynamicSpiDefinition> dynamicSpiDefinitions) {
         for (DynamicSpiDefinition def : dynamicSpiDefinitions) {
@@ -113,84 +133,84 @@ public class DynamicSpiManager {
     }
 
     /**
-     * 刷新 SPI 扩展（卸载后重新加载）
+     * Refresh SPI extension (unload and reload)
      */
     public void refresh(DynamicSpiDefinition dynamicSpi) throws Exception {
-        // 先卸载旧的
+        // Unload old one first
         remove(dynamicSpi.getSpiInterface(), dynamicSpi.getExtensionName());
-        
-        // 重新加载
+
+        // Reload
         loadAndRegister(dynamicSpi);
-        
+
         String cacheKey = buildCacheKey(dynamicSpi.getSpiInterface(), dynamicSpi.getExtensionName());
         log.info("Successfully refreshed dynamic SPI: {}", cacheKey);
     }
 
     /**
-     * 移除动态 SPI 扩展，并完全卸载类
-     * 
-     * 卸载步骤：
-     * 1. 从 registeredExtensions 缓存中移除
-     * 2. 清理 Dubbo ExtensionLoader 的内部缓存
-     * 3. 释放 DynamicClassLoader（断开所有引用）
-     * 4. 触发 GC，让 JVM 卸载类
-     * 
-     * @param spiInterface 接口全限定名
-     * @param extensionName 扩展名称
+     * Remove dynamic SPI extension and completely unload class
+     *
+     * Unloading steps:
+     * 1. Remove from registeredExtensions cache
+     * 2. Clear Dubbo ExtensionLoader internal cache
+     * 3. Release DynamicClassLoader (break all references)
+     * 4. Trigger GC to let JVM unload class
+     *
+     * @param spiInterface Interface full qualified name
+     * @param extensionName Extension name
      */
     public void remove(String spiInterface, String extensionName) {
         String cacheKey = buildCacheKey(spiInterface, extensionName);
         Class<?> clazz = registeredExtensions.remove(cacheKey);
-        
+
         if (clazz != null) {
             String className = clazz.getName();
-            
-            // 1. 从 Dubbo ExtensionLoader 中移除扩展
+
+            // 1. Remove extension from Dubbo ExtensionLoader
             try {
                 Class<?> interfaceClass = Class.forName(spiInterface);
                 ExtensionLoader<?> loader = ExtensionLoader.getExtensionLoader(interfaceClass);
-                
-                // 通过反射清理 Dubbo 内部缓存
+
+                // Clear Dubbo internal cache via reflection
                 clearExtensionLoaderCache(loader, extensionName, clazz);
-                
+
                 log.info("Cleared Dubbo ExtensionLoader cache for: {}", cacheKey);
             } catch (Exception e) {
                 log.warn("Failed to clear Dubbo ExtensionLoader cache: {}", cacheKey, e);
             }
-            
-            // 2. 释放 ClassLoader（核心：断开引用链）
+
+            // 2. Release ClassLoader (core: break reference chain)
             DynamicClassLoader classLoader = classLoaderMap.remove(className);
             if (classLoader != null) {
-                classLoader.unload(); // 清理 ClassLoader 内部的类引用
-                log.info("Released ClassLoader for class: {}, ClassLoader: {}", 
+                classLoader.unload(); // Clear class reference inside ClassLoader
+                log.info("Released ClassLoader for class: {}, ClassLoader: {}",
                         className, Integer.toHexString(classLoader.hashCode()));
             }
-            
-            // 3. 清空所有引用
+
+            // 3. Clear all references
             clazz = null;
             classLoader = null;
-            
-            // 4. 建议 JVM 进行垃圾回收
+
+            // 4. Suggest JVM to perform garbage collection
             System.gc();
-            
+
             log.info("Successfully removed and unloaded dynamic SPI: {}, className: {}", cacheKey, className);
             log.info("Class will be unloaded when GC collects the ClassLoader");
-            
+
         } else {
             log.warn("Dynamic SPI not found in cache: {}", cacheKey);
         }
     }
-    
+
     /**
      * 通过反射清理 Dubbo ExtensionLoader 的内部缓存
-     * 
+     *
      * Dubbo ExtensionLoader 内部维护的缓存：
      * - cachedInstances: 扩展实例缓存（ConcurrentMap<String, Holder<Object>>）
      * - cachedClasses: 扩展类缓存（Holder<Map<String, Class<?>>>）
      */
     private void clearExtensionLoaderCache(ExtensionLoader<?> loader, String extensionName, Class<?> clazz) {
         try {
-            // 清理 cachedInstances（扩展实例缓存）
+            // Clear cachedInstances (extension instance cache)
             Field cachedInstancesField = ExtensionLoader.class.getDeclaredField("cachedInstances");
             cachedInstancesField.setAccessible(true);
             Object cachedInstances = cachedInstancesField.get(loader);
@@ -198,13 +218,13 @@ public class DynamicSpiManager {
                 ((ConcurrentHashMap<?, ?>) cachedInstances).remove(extensionName);
                 log.debug("Cleared cachedInstances for extension: {}", extensionName);
             }
-            
-            // 清理 cachedClasses（扩展类缓存）
+
+            // Clear cachedClasses (extension class cache)
             Field cachedClassesField = ExtensionLoader.class.getDeclaredField("cachedClasses");
             cachedClassesField.setAccessible(true);
             Object cachedClasses = cachedClassesField.get(loader);
             if (cachedClasses != null) {
-                // cachedClasses 是 Holder<Map<String, Class<?>>> 类型
+                // cachedClasses is Holder<Map<String, Class<?>>> type
                 Field valueField = cachedClasses.getClass().getDeclaredField("value");
                 valueField.setAccessible(true);
                 Object classesMap = valueField.get(cachedClasses);
@@ -213,9 +233,9 @@ public class DynamicSpiManager {
                     log.debug("Cleared cachedClasses for extension: {}", extensionName);
                 }
             }
-            
+
             log.debug("Successfully cleared Dubbo ExtensionLoader internal cache for: {}", extensionName);
-            
+
         } catch (NoSuchFieldException e) {
             log.warn("Dubbo ExtensionLoader structure may have changed, field not found: {}", e.getMessage());
         } catch (IllegalAccessException e) {
@@ -235,18 +255,18 @@ public class DynamicSpiManager {
 
     public void clear() {
         log.info("Clearing all dynamic SPIs, count: {}", registeredExtensions.size());
-        
-        // 卸载所有 ClassLoader
+
+        // Unload all ClassLoaders
         for (DynamicClassLoader loader : classLoaderMap.values()) {
             loader.unload();
         }
-        
+
         registeredExtensions.clear();
         classLoaderMap.clear();
-        
-        // 触发 GC
+
+        // Trigger GC
         System.gc();
-        
+
         log.info("Cleared all dynamic SPIs and triggered GC");
     }
 }

@@ -70,7 +70,7 @@
             source_code = #{sourceCode},
             description = #{description},
             enabled = #{enabled},
-            extensionName = #{extensionName},
+            extension_name = #{extensionName},
             extension_mode = #{extensionMode}
         WHERE code_id = #{codeId}
     </update>

@@ -3,6 +3,9 @@ spring:
     active: ${profiles.active}
   application:
     name: interface-agent
+  main:
+    banner-mode: off
+    allow-bean-definition-overriding: true
 
   jackson:
     time-zone: Asia/Shanghai
@@ -11,8 +14,6 @@ spring:
       enabled: true
       max-file-size: -1
       max-request-size: -1
-  main:
-    allow-bean-definition-overriding: true
 
 #日志配置 默认配置 后期切换
 logging:

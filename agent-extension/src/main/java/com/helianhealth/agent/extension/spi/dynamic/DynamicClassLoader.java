@@ -21,20 +21,20 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 隔离型动态类加载器
- * 每个实例只加载一个动态类，实现类与 ClassLoader 的一对一隔离
- * 支持类的完全卸载（当 ClassLoader 被 GC 时，其加载的类也会被卸载）
+ * Isolated Dynamic ClassLoader
+ * Each instance loads only one dynamic class, achieving one-to-one isolation between class and ClassLoader
+ * Supports complete class unloading (when ClassLoader is GC'd, its loaded class will also be unloaded)
  */
 @Slf4j
 public class DynamicClassLoader extends ClassLoader {
 
     /**
-     * 当前 ClassLoader 加载的类（只会有一个）
+     * Current loaded class by this ClassLoader (only one)
      */
     private Class<?> loadedClass;
     
     /**
-     * 当前加载的类名
+     * Name of the class being loaded
      */
     private final String className;
 
@@ -44,8 +44,11 @@ public class DynamicClassLoader extends ClassLoader {
     }
 
     /**
-     * 从 Java 源码字符串编译并加载类
-     * 此 ClassLoader 实例只会加载一个类
+     * Compile and load class from Java source code string
+     * This ClassLoader instance will only load one class
+     * 
+     * @param javaCode Java source code string
+     * @return Loaded Class object
      */
     public Class<?> compileAndLoad(String javaCode) throws Exception {
         if (loadedClass != null) {
@@ -86,7 +89,7 @@ public class DynamicClassLoader extends ClassLoader {
             throw new RuntimeException(errorMsg.toString());
         }
 
-        // 使用内部的 IsolatedClassLoader 加载类
+        // Use internal IsolatedClassLoader to load class
         loadedClass = fileManager.getIsolatedClassLoader().loadClass(className);
         log.info("Successfully compiled and loaded class: {} by ClassLoader: {}", 
                 className, Integer.toHexString(this.hashCode()));
@@ -94,14 +97,36 @@ public class DynamicClassLoader extends ClassLoader {
     }
     
     /**
-     * 获取已加载的类
+     * Load pre-compiled class from parent ClassLoader (project mode)
+     * Suitable for scenarios where .java files are written directly in the project
+     * 
+     * @return Loaded Class object
+     */
+    public Class<?> loadFromClasspath() throws Exception {
+        if (loadedClass != null) {
+            log.warn("Class already loaded in this ClassLoader: {}", className);
+            return loadedClass;
+        }
+        
+        log.info("Loading class from classpath: {}", className);
+        
+        // Use parent ClassLoader to load class
+        loadedClass = Class.forName(className, true, getParent());
+        
+        log.info("Successfully loaded class from classpath: {} by ClassLoader: {}", 
+                className, Integer.toHexString(this.hashCode()));
+        return loadedClass;
+    }
+    
+    /**
+     * Get the loaded class
      */
     public Class<?> getLoadedClass() {
         return loadedClass;
     }
     
     /**
-     * 清理引用，帮助 GC
+     * Clear references to help GC
      */
     public void unload() {
         if (loadedClass != null) {
@@ -164,7 +189,7 @@ public class DynamicClassLoader extends ClassLoader {
         }
         
         /**
-         * 获取隔离的 ClassLoader 实例
+         * Get isolated ClassLoader instance
          */
         public IsolatedClassLoader getIsolatedClassLoader() {
             if (isolatedClassLoader == null) {
@@ -175,14 +200,14 @@ public class DynamicClassLoader extends ClassLoader {
     }
     
     /**
-     * 隔离型 ClassLoader - 每个实例独立加载类
-     * 当此 ClassLoader 被 GC 时，其加载的类也会被卸载
+     * Isolated ClassLoader - each instance loads classes independently
+     * When this ClassLoader is GC'd, its loaded classes will also be unloaded
      */
     private static class IsolatedClassLoader extends SecureClassLoader {
         private final Map<String, JavaClassObject> classObjectMap;
         
         IsolatedClassLoader(Map<String, JavaClassObject> classObjectMap) {
-            super(null); // 不设置父加载器，实现完全隔离
+            super(Thread.currentThread().getContextClassLoader()); // Use application ClassLoader as parent
             this.classObjectMap = classObjectMap;
         }
         

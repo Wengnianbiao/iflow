@@ -31,4 +31,10 @@ public interface InterfaceWorkflowNodeService {
     NodeConfigExportRsp exportNodeConfig(Integer nodeId);
 
     void importNodeConfig(MultipartFile file);
+
+    // 批量删除节点
+    int batchDeleteByNodeIds(List<Integer> nodeIds);
+    
+    // 批量导入节点配置
+    void batchImportNodeConfig(MultipartFile file);
 }

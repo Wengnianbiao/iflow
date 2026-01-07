@@ -158,6 +158,28 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
     }
 
     @Override
+    @Transactional("workflowAgentTransactionManager")
+    public int batchDeleteByNodeIds(List<Integer> nodeIds) {
+        if (nodeIds == null || nodeIds.isEmpty()) {
+            throw new IllegalArgumentException("节点ID列表不能为空");
+        }
+
+        int deletedCount = 0;
+        for (Integer nodeId : nodeIds) {
+            if (nodeId != null) {
+                try {
+                    deleteByNodeId(nodeId);
+                    deletedCount++;
+                } catch (Exception e) {
+                    log.error("删除节点失败，nodeId: {}", nodeId, e);
+                    // 继续处理其他节点，不中断整个批量操作
+                }
+            }
+        }
+        return deletedCount;
+    }
+
+    @Override
     public NodeParamConfigExportRsp exportNodeParamConfig(Integer nodeId) {
         try {
             // 1. 查询节点的所有参数配置（包括所有处理类型）
@@ -270,37 +292,74 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
             nodeParamConfigService.importNodeParamConfig(nodeId, targetParams);
         } catch (IOException e) {
             log.error("导入节点配置失败：", e);
-        }{
-            try {
-                // 1. 校验文件格式
-                if (file == null || file.isEmpty()) {
-                    throw new IllegalArgumentException("文件不能为空");
-                }
-
-                String fileName = file.getOriginalFilename();
-                if (!StringUtils.hasText(fileName) || !fileName.toLowerCase().endsWith(".json")) {
-                    throw new IllegalArgumentException("文件格式不正确，仅支持JSON格式文件");
-                }
-
-                // 2. 解析JSON文件
-                String content = new String(file.getBytes(), StandardCharsets.UTF_8);
-                NodeConfigImportDTO importNodeDTO = JSON.parseObject(content, NodeConfigImportDTO.class);
-
-                // 3.1 先创建节点
-                NodeConfigImportDTO.NodeInfo nodeInfo = importNodeDTO.getNodeInfo();
-                InterfaceWorkflowNodePO workflowNodePO = nodeConvert.importNodeToPo(nodeInfo);
-                flowNodeMapper.createNode(workflowNodePO);
-                Integer nodeId = workflowNodePO.getNodeId();
-
-                List<NodeConfigImportDTO.NodeParamConfigDTO> sourceParams = importNodeDTO.getParamsConfig();
-                List<NodeParamConfigImportDTO.NodeParamConfigDTO> targetParams = sourceParams.stream()
-                        .map(nodeConvert::convertNodeParamConfig)
-                        .collect(Collectors.toList());
-                nodeParamConfigService.importNodeParamConfig(nodeId, targetParams);
-            } catch (IOException e) {
-                log.error("导入节点配置失败：", e);
-            }
         }
+    }
+    
+    @Override
+    public void batchImportNodeConfig(MultipartFile file) {
+        try {
+            // 1. 校验文件格式
+            if (file == null || file.isEmpty()) {
+                throw new IllegalArgumentException("文件不能为空");
+            }
+
+            String fileName = file.getOriginalFilename();
+            if (!StringUtils.hasText(fileName) || !fileName.toLowerCase().endsWith(".json")) {
+                throw new IllegalArgumentException("文件格式不正确，仅支持JSON格式文件");
+            }
+
+            // 2. 解析JSON文件
+            String content = new String(file.getBytes(), StandardCharsets.UTF_8);
+            // 尝试解析为单个节点配置
+            NodeConfigImportDTO singleImport = null;
+            List<NodeConfigImportDTO> importList = null;
+            
+            try {
+                singleImport = JSON.parseObject(content, NodeConfigImportDTO.class);
+            } catch (Exception e) {
+                // 如果解析单个对象失败，尝试解析为数组
+                try {
+                    importList = JSON.parseArray(content, NodeConfigImportDTO.class);
+                } catch (Exception e2) {
+                    throw new IllegalArgumentException("JSON文件格式不正确，既不是单个节点配置也不是节点配置数组");
+                }
+            }
+
+            // 3. 处理导入数据
+            if (singleImport != null) {
+                // 单个节点配置，创建单个节点
+                processSingleNodeImport(singleImport);
+                log.info("批量导入节点配置成功，共处理1个节点");
+            } else if (importList != null && !importList.isEmpty()) {
+                // 多个节点配置，批量创建
+                for (NodeConfigImportDTO importNodeDTO : importList) {
+                    processSingleNodeImport(importNodeDTO);
+                }
+                log.info("批量导入节点配置成功，共处理{}个节点", importList.size());
+            } else {
+                throw new IllegalArgumentException("JSON文件内容为空或格式不正确");
+            }
+        } catch (IOException e) {
+            log.error("批量导入节点配置失败：", e);
+            throw new RuntimeException("批量导入节点配置失败: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 处理单个节点的导入
+     */
+    private void processSingleNodeImport(NodeConfigImportDTO importNodeDTO) {
+        // 1. 创建节点
+        NodeConfigImportDTO.NodeInfo nodeInfo = importNodeDTO.getNodeInfo();
+        InterfaceWorkflowNodePO workflowNodePO = nodeConvert.importNodeToPo(nodeInfo);
+        flowNodeMapper.createNode(workflowNodePO);
+        Integer nodeId = workflowNodePO.getNodeId();
+
+        List<NodeConfigImportDTO.NodeParamConfigDTO> sourceParams = importNodeDTO.getParamsConfig();
+        List<NodeParamConfigImportDTO.NodeParamConfigDTO> targetParams = sourceParams.stream()
+                .map(nodeConvert::convertNodeParamConfig)
+                .collect(Collectors.toList());
+        nodeParamConfigService.importNodeParamConfig(nodeId, targetParams);
     }
 
     /**

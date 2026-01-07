@@ -1,9 +1,7 @@
 package com.helianhealth.agent.workflow.controller;
 
 import com.helianhealth.agent.extension.spi.dynamic.DynamicSpiManager;
-import com.helianhealth.agent.extension.spi.model.DynamicSpiDefinition;
 import com.helianhealth.agent.workflow.model.domain.NodeExtensionConfigDO;
-import com.helianhealth.agent.extension.spi.config.DynamicSpiConfigSource;
 import com.helianhealth.agent.workflow.service.extension.DynamicSpiAdminService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,9 +32,6 @@ public class NodeExtensionController {
     private DynamicSpiManager dynamicSpiManager;
 
     @Autowired
-    private DynamicSpiConfigSource dynamicSpiConfigSource;
-
-    @Autowired
     private DynamicSpiAdminService dynamicSpiAdminService;
 
     /**
@@ -51,7 +46,7 @@ public class NodeExtensionController {
      * 新增节点扩展配置并注册
      */
     @PostMapping("/register")
-    public void register(@RequestBody NodeExtensionConfigDO configDO) throws Exception {
+    public void register(@RequestBody NodeExtensionConfigDO configDO) {
         try {
             dynamicSpiAdminService.createAndRegister(configDO);
         } catch (Exception e) {
@@ -72,7 +67,7 @@ public class NodeExtensionController {
      * 禁用并卸载节点扩展
      */
     @PostMapping("/disable/{codeId}")
-    public void disable(@PathVariable Integer codeId) throws Exception {
+    public void disable(@PathVariable Integer codeId)  {
         dynamicSpiAdminService.disableAndUnregister(codeId);
     }
 

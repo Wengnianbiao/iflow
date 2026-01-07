@@ -21,6 +21,7 @@
         <module>agent-config</module>
         <module>agent-spring-boot-starter</module>
         <module>agent-web</module>
+        <module>agent-ai</module>
     </modules>
 
     <properties>

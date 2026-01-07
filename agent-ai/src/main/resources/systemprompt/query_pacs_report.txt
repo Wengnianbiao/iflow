@@ -1,0 +1,952 @@
+以下是PACS报告查询接口的调用链路
+首先是上游的请求入参，称作jarvis_request，它是基于json的数据格式
+{
+    "BusinessMethod": "GetItemResult",
+    "ServiceProviderType": "PACS",
+    "PatientCode": "25103100280",
+    "ApplyNoList": [
+        "80000188215"
+    ],
+    "QueryType": 2
+}
+
+
+然后是上游的响应出参，称作jarvis_response，它是基于json的数据格式
+{
+    "code": "200",
+    "message": "成功",
+    "rsp": [
+        {
+            "serviceProviderType": "PACS",
+            "patientCode": "25111000116",
+            "applyNo": "80000186281",
+            "examTime": "2025-11-18 11:33:49",
+            "examDoctor": "邹茸茸",
+            "auditDoctor": "邹茸茸",
+            "auditTime": "",
+            "impressionValue": "甲状腺右侧叶体积正常，形态规则，包膜光整，实质回声均匀，CDFI：未见异常血流信号。\n甲状腺左侧叶体积正常，形态规则，包膜光整，实质回声均匀，腺体内见两个囊性及低回声结节，大者0.33X0.22CM，边界清，形态规则。CDFI：未见异常血流信号。\n甲状腺峡部厚度正常，实质回声均匀。 \n\n",
+            "examItemValue": "甲状腺：左侧叶结节（拟C-TIRADS 2-3类）。",
+            "fileUrl": "http://10.192.50.204:8083/uisimages/20251118/496230/496230.PDF",
+            "fileProtocol": "http",
+            "fileType": "pdf",
+            "idSeverelevel": "3",
+            "accessionNum": "496230"
+        }
+    ]
+}
+
+接着是三方接口的入参，称作third_request,它可以是xml、也可以是json，在请求发送后agent框架都会将其转化成Map<String,Object>的结构
+这是json的案例
+{
+    "sourceIds": [
+        "80000188215"
+    ],
+    "patientCode": "25103100280"
+}
+这是xml的案例
+<Request>
+    <MessageHeader>
+        <Sender>EIF</Sender>
+        <Receiver>HIS</Receiver>
+        <EventType>REPORT_QUERY</EventType>
+    </MessageHeader>
+    <MessageBody>
+        <PatientId >25103100280</PatientId >
+        <ApplyNo >80000188215</ApplyNo >
+    </MessageBody>
+</Request>
+
+以及三方接口的响应，称作third_response,同样的既可以是xml，也可以是json
+这是json格式的响应
+{
+    "returnCode": "1",
+    "errorMessage": "成功",
+    "data": [
+        {
+            "sourceId": "80000188215",
+            "imagePath": "http://10.192.50.204:8083/uisimages/20251201/499371/499371.PDF",
+            "examiner": "杨敏",
+            "isPositive": "1",
+            "ordersName": "子宫附件",
+            "reportOpinion": "子宫多发肌瘤，建议专科就诊。",
+            "doctorId": "",
+            "reportFind": "经腹部：子宫前位，体积大，形态不规则，内膜厚约0.72CM（双层）。肌层回声不均匀，内见多个低回声团，大者约6.2X6.0CM，边界清，内回声不均。宫颈未见明显异常回声。\n双侧卵巢未见明显异常。\n子宫直肠凹未见明显无回声区。",
+            "examinationDate": "2025-11-29 07:45:23",
+            "audit": "杨敏",
+            "reportAdvise": "",
+            "patientCode": "25103100280",
+            "auditDate": ""
+        }
+    ]
+}
+这是xml格式的响应
+<Response>
+  <MessageHeader>
+    <Sender>PACS</Sender>
+    <Receiver>EMR</Receiver>
+    <SendTime>20250914161723</SendTime>
+    <EventType>ACK_REPORT_QUERY</EventType>
+    <MsgId>55a6c6b1-a22a-46e4-9902-98cdce29f605</MsgId>
+  </MessageHeader>
+  <MessageBody>
+    <ReportList>
+      <Report>
+        <EndDate />
+        <OrderId />
+        <PatientId>25103100280</PatientId>
+        <CultureName />
+        <ItemCode>XDT03</ItemCode>
+        <ReportImgSite>http://10.192.50.204:8083/uisimages/20251201/499371/499371.PDF</ReportImgSite>
+        <Bak2 />
+        <MicrobialBiomass />
+        <Bak3 />
+        <EmpIdCheck>杨敏</EmpIdCheck>
+        <Bak1 />
+        <OrdReportId>140461</OrdReportId>
+        <DrugResistantPhenotype />
+        <ItemName>子宫附件</ItemName>
+        <ParentLinkLev />
+        <DiagnosisType />
+        <ReportDate>2025-11-29 07:50:23</ReportDate>
+        <VisitId />
+        <EmpIdReportCode>102356</EmpIdReportCode>
+        <ResultType>D</ResultType>
+        <ObservationMethod />
+        <SmearComments />
+        <ReDate>2025-11-29 07:45:23</ReDate>
+        <OrderApplyIds />
+        <ParentResult />
+        <OrderApplyId>218662</OrderApplyId>
+        <SpecimenEvaluation />
+        <Note />
+        <BacterialName />
+        <DetaEnName />
+        <EmpIdCheckCode>101674</EmpIdCheckCode>
+        <ReportName>超声诊断报告单</ReportName>
+        <YangTypeTime />
+        <ReStatus>F</ReStatus>
+        <ReportViewSite />
+        <EmpIdReport>杨敏</EmpIdReport>
+        <IsValidate />
+        <DetaName />
+        <OrderSource />
+        <ReportSourceType>ULTRASOUND</ReportSourceType>
+        <SmearResults />
+        <CheckDate>2025-11-29 07:45:23</CheckDate>
+        <PatientVisitId>26565645</PatientVisitId>
+        <BeginDate />
+        <OrdResultId>80000188215</OrdResultId>
+        <ApplyNo>80000188215</ApplyNo>
+        <UrgentFlag />
+        <CpoeAppReportPacsList>
+          <CpoeAppReportPacs>
+            <ItemCode>XDT03</ItemCode>
+            <ItemName>子宫附件</ItemName>
+            <CheckResult>子宫多发肌瘤，建议专科就诊。</CheckResult>
+            <CheckMethod>经腹部超声</CheckMethod>
+            <CheckFinding>经腹部：子宫前位，体积大，形态不规则，内膜厚约0.72CM（双层）。肌层回声不均匀，内见多个低回声团，大者约6.2X6.0CM，边界清，内回声不均。宫颈未见明显异常回声。
+双侧卵巢未见明显异常。
+子宫直肠凹未见明显无回声区。</CheckFinding>
+            <ApplyResultDetaId>42439</ApplyResultDetaId>
+            <AbnormalFlag>Y</AbnormalFlag>
+          </CpoeAppReportPacs>
+        </CpoeAppReportPacsList>
+      </Report>
+    </ReportList>
+  </MessageBody>
+</Response>
+
+现在有个interface-agent平台，它的作用是将上游的入参jarvis_request转化成三方接口需要的入参third_request
+并把三方接口的响应third_response转化成上游的jarvis_response响应，进行完成接口的配置化对接
+平台通过json的配置文件完成整个链路的映射，下面的json就是上述的配置文件信息
+这是针对上述案例json的配置信息
+{
+  "nodeInfo": {
+    "nodeName": "PACS报告获取",
+    "nodeType": "HTTP"
+  },
+  "paramsConfig": [
+    {
+      "processType": "PRE_PROCESS",
+      "sourceParamKey": "PatientCode",
+      "sourceParamType": "STRING",
+      "paramDesc": "",
+      "targetParamKey": "patientCode",
+      "targetParamType": "STRING",
+      "keepSingleElementKey": null,
+      "sort": 1,
+      "mappingType": "NAME",
+      "mappingSource": "RESPONSE",
+      "mappingRule": "",
+      "childParam": null
+    },
+    {
+      "processType": "POST_PROCESS",
+      "sourceParamKey": "returnCode",
+      "sourceParamType": "STRING",
+      "paramDesc": "",
+      "targetParamKey": "code",
+      "targetParamType": "STRING",
+      "keepSingleElementKey": null,
+      "sort": 1,
+      "mappingType": "EXPRESSION",
+      "mappingSource": "RESPONSE",
+      "mappingRule": "#data == '1' ? '200': '-1'",
+      "childParam": null
+    },
+    {
+      "processType": "POST_PROCESS",
+      "sourceParamKey": "errorMessage",
+      "sourceParamType": "STRING",
+      "paramDesc": "",
+      "targetParamKey": "message",
+      "targetParamType": "STRING",
+      "keepSingleElementKey": null,
+      "sort": 1,
+      "mappingType": "NAME",
+      "mappingSource": "RESPONSE",
+      "mappingRule": "",
+      "childParam": null
+    },
+    {
+      "processType": "PRE_PROCESS",
+      "sourceParamKey": "ApplyNoList",
+      "sourceParamType": "ARRAY",
+      "paramDesc": "",
+      "targetParamKey": "sourceIds",
+      "targetParamType": "ARRAY",
+      "keepSingleElementKey": null,
+      "sort": 1,
+      "mappingType": "NAME",
+      "mappingSource": "RESPONSE",
+      "mappingRule": "",
+      "childParam": [
+        {
+          "processType": "PRE_PROCESS",
+          "sourceParamKey": null,
+          "sourceParamType": "NONE",
+          "paramDesc": "",
+          "targetParamKey": "sourceIdNode",
+          "targetParamType": "OBJECT",
+          "keepSingleElementKey": null,
+          "sort": 1,
+          "mappingType": "NAME",
+          "mappingSource": "RESPONSE",
+          "mappingRule": "",
+          "childParam": [
+            {
+              "processType": "PRE_PROCESS",
+              "sourceParamKey": null,
+              "sourceParamType": "NONE",
+              "paramDesc": "",
+              "targetParamKey": "sourceId",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "SINGLE_MAP",
+              "mappingSource": "RESPONSE",
+              "mappingRule": "",
+              "childParam": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "processType": "POST_PROCESS",
+      "sourceParamKey": "data",
+      "sourceParamType": "ARRAY",
+      "paramDesc": "报告结果数组",
+      "targetParamKey": "rsp",
+      "targetParamType": "ARRAY",
+      "keepSingleElementKey": null,
+      "sort": 1,
+      "mappingType": "NAME",
+      "mappingSource": "RESPONSE",
+      "mappingRule": "",
+      "childParam": [
+        {
+          "processType": "POST_PROCESS",
+          "sourceParamKey": null,
+          "sourceParamType": "NONE",
+          "paramDesc": "虚拟节点",
+          "targetParamKey": "rspNode",
+          "targetParamType": "OBJECT",
+          "keepSingleElementKey": null,
+          "sort": 1,
+          "mappingType": "NAME",
+          "mappingSource": "RESPONSE",
+          "mappingRule": "",
+          "childParam": [
+            {
+              "processType": "POST_PROCESS",
+              "sourceParamKey": null,
+              "sourceParamType": "NONE",
+              "paramDesc": "厂商类型",
+              "targetParamKey": "serviceProviderType",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "CONSTANT",
+              "mappingSource": "RESPONSE",
+              "mappingRule": "PACS",
+              "childParam": null
+            },
+            {
+              "processType": "POST_PROCESS",
+              "sourceParamKey": "patientCode",
+              "sourceParamType": "STRING",
+              "paramDesc": "体检编号",
+              "targetParamKey": "patientCode",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "NAME",
+              "mappingSource": "RESPONSE",
+              "mappingRule": "",
+              "childParam": null
+            },
+            {
+              "processType": "POST_PROCESS",
+              "sourceParamKey": "sourceId",
+              "sourceParamType": "STRING",
+              "paramDesc": "申请单号",
+              "targetParamKey": "applyNo",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "NAME",
+              "mappingSource": "RESPONSE",
+              "mappingRule": "",
+              "childParam": null
+            },
+            {
+              "processType": "POST_PROCESS",
+              "sourceParamKey": "examinationDate",
+              "sourceParamType": "STRING",
+              "paramDesc": "检查时间",
+              "targetParamKey": "examTime",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "NAME",
+              "mappingSource": "RESPONSE",
+              "mappingRule": "",
+              "childParam": null
+            },
+            {
+              "processType": "POST_PROCESS",
+              "sourceParamKey": "examiner",
+              "sourceParamType": "STRING",
+              "paramDesc": "检查人",
+              "targetParamKey": "examDoctor",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "NAME",
+              "mappingSource": "RESPONSE",
+              "mappingRule": "",
+              "childParam": null
+            },
+            {
+              "processType": "POST_PROCESS",
+              "sourceParamKey": "audit",
+              "sourceParamType": "STRING",
+              "paramDesc": "审核人",
+              "targetParamKey": "auditDoctor",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "NAME",
+              "mappingSource": "RESPONSE",
+              "mappingRule": "",
+              "childParam": null
+            },
+            {
+              "processType": "POST_PROCESS",
+              "sourceParamKey": "auditDate",
+              "sourceParamType": "STRING",
+              "paramDesc": "审核时间",
+              "targetParamKey": "auditTime",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "NAME",
+              "mappingSource": "RESPONSE",
+              "mappingRule": "",
+              "childParam": null
+            },
+            {
+              "processType": "POST_PROCESS",
+              "sourceParamKey": "reportFind",
+              "sourceParamType": "STRING",
+              "paramDesc": "检查所见值",
+              "targetParamKey": "impressionValue",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "NAME",
+              "mappingSource": "RESPONSE",
+              "mappingRule": "",
+              "childParam": null
+            },
+            {
+              "processType": "POST_PROCESS",
+              "sourceParamKey": "reportOpinion",
+              "sourceParamType": "STRING",
+              "paramDesc": "检测结果",
+              "targetParamKey": "examItemValue",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "NAME",
+              "mappingSource": "RESPONSE",
+              "mappingRule": "",
+              "childParam": null
+            },
+            {
+              "processType": "POST_PROCESS",
+              "sourceParamKey": "imagePath",
+              "sourceParamType": "STRING",
+              "paramDesc": "报告文件",
+              "targetParamKey": "fileUrl",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "NAME",
+              "mappingSource": "RESPONSE",
+              "mappingRule": "",
+              "childParam": null
+            },
+            {
+              "processType": "POST_PROCESS",
+              "sourceParamKey": null,
+              "sourceParamType": "NONE",
+              "paramDesc": "文件协议:http",
+              "targetParamKey": "fileProtocol",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "CONSTANT",
+              "mappingSource": "RESPONSE",
+              "mappingRule": "http",
+              "childParam": null
+            },
+            {
+              "processType": "POST_PROCESS",
+              "sourceParamKey": null,
+              "sourceParamType": "NONE",
+              "paramDesc": "文件类型:pdf",
+              "targetParamKey": "fileType",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "CONSTANT",
+              "mappingSource": "RESPONSE",
+              "mappingRule": "pdf",
+              "childParam": null
+            },
+            {
+              "processType": "POST_PROCESS",
+              "sourceParamKey": "isPositive",
+              "sourceParamType": "STRING",
+              "paramDesc": "pacs阳性标识",
+              "targetParamKey": "idSeverelevel",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "EXPRESSION",
+              "mappingSource": "RESPONSE",
+              "mappingRule": "#data == '1'?'3':'0'",
+              "childParam": null
+            },
+            {
+              "processType": "POST_PROCESS",
+              "sourceParamKey": "accessionNum",
+              "sourceParamType": "STRING",
+              "paramDesc": "映射字段",
+              "targetParamKey": "accessionNum",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "NAME",
+              "mappingSource": "RESPONSE",
+              "mappingRule": "",
+              "childParam": null
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+这是针对xml的配置信息，需要注意的是三方接口是xml格式的情况下，不需要处理出入参中的标签的属性值
+{
+  "nodeInfo": {
+    "nodeName": "查询PACS报告",
+    "nodeType": "WEBSERVICE"
+  },
+  "paramsConfig": [
+    {
+      "processType": "PRE_PROCESS",
+      "sourceParamKey": null,
+      "sourceParamType": "NONE",
+      "paramDesc": "",
+      "targetParamKey": "Request",
+      "targetParamType": "OBJECT",
+      "keepSingleElementKey": false,
+      "sort": 1,
+      "mappingType": "NAME",
+      "mappingSource": null,
+      "mappingRule": "",
+      "childParam": [
+        {
+          "processType": "PRE_PROCESS",
+          "sourceParamKey": null,
+          "sourceParamType": "NONE",
+          "paramDesc": "",
+          "targetParamKey": "MessageHeader",
+          "targetParamType": "OBJECT",
+          "keepSingleElementKey": false,
+          "sort": 1,
+          "mappingType": "NAME",
+          "mappingSource": null,
+          "mappingRule": "",
+          "childParam": [
+            {
+              "processType": "PRE_PROCESS",
+              "sourceParamKey": null,
+              "sourceParamType": "NONE",
+              "paramDesc": "",
+              "targetParamKey": "Sender",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "CONSTANT",
+              "mappingSource": null,
+              "mappingRule": "EIF",
+              "childParam": null
+            },
+            {
+              "processType": "PRE_PROCESS",
+              "sourceParamKey": null,
+              "sourceParamType": "NONE",
+              "paramDesc": "",
+              "targetParamKey": "Receiver",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "CONSTANT",
+              "mappingSource": null,
+              "mappingRule": "HIS",
+              "childParam": null
+            },
+            {
+              "processType": "PRE_PROCESS",
+              "sourceParamKey": null,
+              "sourceParamType": "NONE",
+              "paramDesc": "",
+              "targetParamKey": "EventType",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "CONSTANT",
+              "mappingSource": null,
+              "mappingRule": "REPORT_QUERY",
+              "childParam": null
+            }
+          ]
+        },
+        {
+          "processType": "PRE_PROCESS",
+          "sourceParamKey": null,
+          "sourceParamType": "NONE",
+          "paramDesc": "",
+          "targetParamKey": "MessageBody",
+          "targetParamType": "OBJECT",
+          "keepSingleElementKey": false,
+          "sort": 1,
+          "mappingType": "NAME",
+          "mappingSource": null,
+          "mappingRule": "",
+          "childParam": [
+            {
+              "processType": "PRE_PROCESS",
+              "sourceParamKey": "PatientCode",
+              "sourceParamType": "STRING",
+              "paramDesc": "",
+              "targetParamKey": "PatientId ",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "NAME",
+              "mappingSource": null,
+              "mappingRule": "",
+              "childParam": null
+            },
+            {
+              "processType": "PRE_PROCESS",
+              "sourceParamKey": "ApplyNoList",
+              "sourceParamType": "STRING",
+              "paramDesc": "",
+              "targetParamKey": "ApplyNo ",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "NAME",
+              "mappingSource": null,
+              "mappingRule": "",
+              "childParam": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "processType": "POST_PROCESS",
+      "sourceParamKey": "MessageBody.CpoeAppReportPacsList",
+      "sourceParamType": "ARRAY",
+      "paramDesc": "",
+      "targetParamKey": "rsp",
+      "targetParamType": "ARRAY",
+      "keepSingleElementKey": null,
+      "sort": 1,
+      "mappingType": "NAME",
+      "mappingSource": "RESPONSE",
+      "mappingRule": "",
+      "childParam": [
+        {
+          "processType": "POST_PROCESS",
+          "sourceParamKey": null,
+          "sourceParamType": "NONE",
+          "paramDesc": "",
+          "targetParamKey": "rspNode",
+          "targetParamType": "OBJECT",
+          "keepSingleElementKey": false,
+          "sort": 1,
+          "mappingType": "NAME",
+          "mappingSource": "RESPONSE",
+          "mappingRule": "",
+          "childParam": [
+            {
+              "processType": "POST_PROCESS",
+              "sourceParamKey": null,
+              "sourceParamType": "NONE",
+              "paramDesc": "",
+              "targetParamKey": "serviceProviderType",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "CONSTANT",
+              "mappingSource": "RESPONSE",
+              "mappingRule": "PACS",
+              "childParam": null
+            },
+            {
+              "processType": "POST_PROCESS",
+              "sourceParamKey": null,
+              "sourceParamType": "NONE",
+              "paramDesc": "",
+              "targetParamKey": "patientCode",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "EXPRESSION",
+              "mappingSource": "RESPONSE",
+              "mappingRule": "#response[MessageBody][PatientId]",
+              "childParam": null
+            },
+            {
+              "processType": "POST_PROCESS",
+              "sourceParamKey": null,
+              "sourceParamType": "NONE",
+              "paramDesc": "",
+              "targetParamKey": "applyNo",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "EXPRESSION",
+              "mappingSource": "RESPONSE",
+              "mappingRule": "#response[MessageBody][ApplyNo]",
+              "childParam": null
+            },
+            {
+              "processType": "POST_PROCESS",
+              "sourceParamKey": null,
+              "sourceParamType": "NONE",
+              "paramDesc": "",
+              "targetParamKey": "examTime",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "EXPRESSION",
+              "mappingSource": "RESPONSE",
+              "mappingRule": "#response[MessageBody][ReportDate]",
+              "childParam": null
+            },
+            {
+              "processType": "POST_PROCESS",
+              "sourceParamKey": null,
+              "sourceParamType": "NONE",
+              "paramDesc": "",
+              "targetParamKey": "examDoctor",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "EXPRESSION",
+              "mappingSource": "RESPONSE",
+              "mappingRule": "#response[MessageBody][EmpIdReport]",
+              "childParam": null
+            },
+            {
+              "processType": "POST_PROCESS",
+              "sourceParamKey": null,
+              "sourceParamType": "NONE",
+              "paramDesc": "",
+              "targetParamKey": "auditDoctor",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "EXPRESSION",
+              "mappingSource": "RESPONSE",
+              "mappingRule": "#response[MessageBody][EmpIdCheck]",
+              "childParam": null
+            },
+            {
+              "processType": "POST_PROCESS",
+              "sourceParamKey": null,
+              "sourceParamType": "NONE",
+              "paramDesc": "",
+              "targetParamKey": "auditTime",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "EXPRESSION",
+              "mappingSource": "RESPONSE",
+              "mappingRule": "#response[MessageBody][CheckDate]",
+              "childParam": null
+            },
+            {
+              "processType": "POST_PROCESS",
+              "sourceParamKey": "CheckFinding",
+              "sourceParamType": "STRING",
+              "paramDesc": "",
+              "targetParamKey": "impressionValue",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "NAME",
+              "mappingSource": "RESPONSE",
+              "mappingRule": "",
+              "childParam": null
+            },
+            {
+              "processType": "POST_PROCESS",
+              "sourceParamKey": "CheckResult",
+              "sourceParamType": "STRING",
+              "paramDesc": "",
+              "targetParamKey": "examItemValue",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "NAME",
+              "mappingSource": "RESPONSE",
+              "mappingRule": "",
+              "childParam": null
+            },
+            {
+              "processType": "POST_PROCESS",
+              "sourceParamKey": null,
+              "sourceParamType": "NONE",
+              "paramDesc": "",
+              "targetParamKey": "fileUrl",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "EXPRESSION",
+              "mappingSource": "RESPONSE",
+              "mappingRule": "#response[MessageBody][ReportImgSite]",
+              "childParam": null
+            },
+            {
+              "processType": "POST_PROCESS",
+              "sourceParamKey": null,
+              "sourceParamType": "NONE",
+              "paramDesc": "",
+              "targetParamKey": "fileProtocol",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "CONSTANT",
+              "mappingSource": "RESPONSE",
+              "mappingRule": "http",
+              "childParam": null
+            },
+            {
+              "processType": "POST_PROCESS",
+              "sourceParamKey": null,
+              "sourceParamType": "NONE",
+              "paramDesc": "",
+              "targetParamKey": "fileType",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "CONSTANT",
+              "mappingSource": "RESPONSE",
+              "mappingRule": "pdf",
+              "childParam": null
+            },
+            {
+              "processType": "POST_PROCESS",
+              "sourceParamKey": "AbnormalFlag",
+              "sourceParamType": "STRING",
+              "paramDesc": "",
+              "targetParamKey": "idSeverelevel",
+              "targetParamType": "STRING",
+              "keepSingleElementKey": null,
+              "sort": 1,
+              "mappingType": "EXPRESSION",
+              "mappingSource": "RESPONSE",
+              "mappingRule": "#data == 'Y' ? '3' : null",
+              "childParam": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "processType": "POST_PROCESS",
+      "sourceParamKey": null,
+      "sourceParamType": "NONE",
+      "paramDesc": "",
+      "targetParamKey": "code",
+      "targetParamType": "STRING",
+      "keepSingleElementKey": null,
+      "sort": 1,
+      "mappingType": "CONSTANT",
+      "mappingSource": "RESPONSE",
+      "mappingRule": "200",
+      "childParam": null
+    }
+  ]
+}
+其中nodeInfo表示接口元信息
+paramsConfig是一个根据三方接口的出入参构建的树状节点列表，每一个节点配置代表了一个参数配置
+下面介绍每个节点字段的含义
+processType表示处理类型，PRE_PROCESS是前置处理表示是由jarvis_request映射到third_request的节点，节点数量应当和third_request参数数量相同
+POST_PROCESS是后置处理表示是由third_response映射到jarvis_response的节点，节点数量应当和jarvis_response参数数量相同
+paramDesc是字段的描述信息
+sort硬编码为0即可
+mappingSource是映射源，只有在processType为POST_PROCESS时才会使用，值为RESPONSE和INPUT
+sourceParamKey和sourceParamType表示映射源的字段名称以及对应的类型
+targetParamKey和targetParamType表示目标字段名称以及对应的类型
+当processType为PRE_PROCESS时，sourceParamKey就是jarvis_request中的字段，targetParamKey就是third_request中的字段
+当processType为POST_PROCESS时，sourceParamKey会根据mappingSource确定该字段的映射来源，若为RESPONSE就是third_response中的字段，
+若为INPUT就是jarvis_request中的字段，targetParamKey固定就是jarvis_response中的字段
+sourceParamType和targetParamType的枚举如下
+public enum ParamType {
+
+    /**
+     * 字符串
+     */
+    STRING,
+
+    /**
+     * 数字INT
+     */
+    INTEGER,
+
+    /**
+     * 数字LONG
+     */
+    LONG,
+
+    /**
+     * 布尔
+     */
+    BOOLEAN,
+
+    /**
+     * 对象
+     */
+    OBJECT,
+
+    /**
+     * 数组
+     */
+    ARRAY,
+
+    /**
+     * 接口入参就是数组
+     */
+    PURE_ARRAY,
+
+    /**
+     * 无
+     */
+    NONE;
+}
+当type为NONE只会应用在sourceParamType，表示targetParamKey字段的值不需要直接依赖sourceParamKey或者是一个对象结构，
+当type为PURE_ARRAY只会应用在targetParamType，并且第一个节点就是该类型，表示三方接口的入参就是纯数组格式通常为http的请求体就是一个数组，
+当type为OBJECT表示sourceParamKey或targetParamKey所在的字段是个对象，就会存在嵌套子节点
+当type为ARRAY表示sourceParamKey或targetParamKey所在的字段是个数组，也会存在嵌套子节点
+当type为其余类型就表示sourceParamKey或targetParamKey所在的字段是个基础数据类型不会有嵌套子节点
+targetParamType为OBJECT时，sourceParamType为NONE表示目标参数只是用于表示对象结构，sourceParamType为OBJECT表示源参数也是个
+对象，就会向下递归，targetParamKey的子节点的映射源就是sourceParamKey递归进去的数据了，如果sourceParamType是ARRAY默认取数组的首个元素进行递归
+targetParamType为ARRAY时，必然会存在一个虚拟的节点用于表示数组元素结构，sourceParamType为OBJECT表示源参数是个对象，就会向下递归，数组的大小都会只是1
+如果sourceParamType是ARRAY也会向下递归，每个虚拟节点映射的就是递归进去的每个元素
+
+mappingType是映射类型，表示targetParamKey的字段值是如何生成的，枚举值如下
+public enum MappingType {
+
+    /**
+     * 固定值
+     */
+    CONSTANT,
+
+    /**
+     * 名称映射
+     */
+    NAME,
+
+    /**
+     * 表达式:通常为SpEL
+     */
+    EXPRESSION,
+
+    /**
+     * Bean表达式映射:主要场景还是查体软表完成字段映射
+     */
+    BEAN_EXPRESSION,
+
+    /**
+     * MAP只有一个key-map键值对
+     */
+    SINGLE_MAP
+}
+mappingRule表示映射时的规则
+当MappingType为CONSTANT时，表示targetParamKey的值是个固定值，mappingRule就是固定值的内容，此时sourceParamType就是NONE，因为不需要依赖源数据
+当MappingType为NAME时，表示是直接按照名称去映射，通常是targetParamType和sourceParamType递归后的处理方式
+当MappingType为EXPRESSION时，表示是个SpEL表达式会依据mappingRule表达式来得出结果值，针对于不同的processType，SpEL依赖的上下文会不同
+如果processType为PRE_PROCESS，上下文有这三种#data、#parent和#source，#data表示当前层级的映射源数据，#parent表示当前层级的父层级的映射源数据
+#source表示根映射源的数据
+如果processType为POST_PROCESS，上下文有这三种#data、#input和#response，#data表示当前层级的映射源数据，#input表示mappingSource为INPUT的根数据源
+#response表示mappingSource为RESPONSE的根数据源
+当MappingType为BEAN_EXPRESSION时,表示会使用框架内置的bean完成值的转化，当前支持#hemsMapper.selectPatientCodeByVisitNo和#hemsMapper.selectPatientCodeByApplyId
+当MappingType为SINGLE_MAP时,表示虚拟节点的父节点targetParamType为数组时，数组的元素都是基础数据类型的场景，这个时候子节点就需要设置为SINGLE_MAP
+
+childParam表示这个节点有没有子节点，当targetParamType为对象或数组时就会存在子节点
+当targetParamType是对象的情况下
+构建一个父节点用于映射递归，子节点就是源数据里面的字段
+targetParamType是数组的情况下的构建规则为
+1、如果sourceParamType为OBJECT就只能转化成一维数组，递归配置对应的子节点就好
+2、sourceParamType如果为ARRAY支持一维和多维，递归配置对应的子节点就好
+需要注意的是targetParamType是数组的情况下必须会存在一个targetParamType为OBJECT,sourceParamType为NONE的虚拟节点，节点名字通常会带上Node后缀
+
+
+现在我会给你一个新厂商的PACS报告查询接口的入参和响应
+请基于新厂商PACS报告查询接口的入参结构与响应格式，生成对应的接口映射配置。要求如下：
+1. 输出内容仅为标准JSON字符串，无任何额外文字、注释或标记；
+2. JSON需严格包含nodeInfo和paramsConfig数组；
+3. paramsConfig中每个PRE_PROCESS类型的参数项，需完整包含processType、sourceParamKey、sourceParamType、paramDesc、targetParamKey、targetParamType、sort、mappingType、mappingRule、childParam字段；
+4. 最终JSON必须**换行缩进格式化**（每个对象、数组单独换行，层级缩进清晰），便于阅读。
