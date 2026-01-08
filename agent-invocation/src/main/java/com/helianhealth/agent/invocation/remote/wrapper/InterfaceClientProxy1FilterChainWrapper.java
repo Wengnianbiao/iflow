@@ -13,11 +13,11 @@ import java.util.Map;
 /**
  * 过滤链wrapper，在执行真正的doInvoke方法之前，会走过扩展的过滤链操作
  */
-public class InterfaceClientProxy2FilterChainWrapper implements InterfaceClientProxy {
+public class InterfaceClientProxy1FilterChainWrapper implements InterfaceClientProxy {
 
     public final InterfaceClientProxy proxy;
 
-    public InterfaceClientProxy2FilterChainWrapper(InterfaceClientProxy proxy) {
+    public InterfaceClientProxy1FilterChainWrapper(InterfaceClientProxy proxy) {
         this.proxy = proxy;
     }
 

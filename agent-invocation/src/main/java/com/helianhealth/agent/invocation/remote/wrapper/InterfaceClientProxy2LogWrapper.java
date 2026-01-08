@@ -10,11 +10,11 @@ import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import java.util.List;
 import java.util.Map;
 
-public class InterfaceClientProxy1LogWrapper implements InterfaceClientProxy {
+public class InterfaceClientProxy2LogWrapper implements InterfaceClientProxy {
 
     private final InterfaceClientProxy interfaceClientProxy;
 
-    public InterfaceClientProxy1LogWrapper(InterfaceClientProxy interfaceClientProxy) {
+    public InterfaceClientProxy2LogWrapper(InterfaceClientProxy interfaceClientProxy) {
         this.interfaceClientProxy = interfaceClientProxy;
     }
 
