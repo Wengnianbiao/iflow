@@ -108,7 +108,9 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
                 .scheduleParamSourceType(scheduleParamSourceType == null || scheduleParamSourceType.isEmpty() ?
                         null : ScheduleParamSourceType.valueOf(scheduleParamSourceType)).build();
 
-        return flowNodeMapper.createNode(workflowNodePO);
+        flowNodeMapper.createNode(workflowNodePO);
+        // 返回自动生成的nodeId，而不是影响行数
+        return workflowNodePO.getNodeId();
     }
 
     @Override
