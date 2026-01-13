@@ -7,11 +7,14 @@ import com.helianhealth.agent.workflow.service.InterfaceWorkflowService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 /**
  * MCP接口 - 工作流管理
@@ -24,6 +27,40 @@ import org.springframework.web.bind.annotation.RestController;
 public class McpWorkflowController {
 
     private final InterfaceWorkflowService interfaceWorkflowService;
+
+    /**
+     * 查询所有工作流（不分页）
+     * 用于AI获取当前系统中的所有工作流及其ID
+     */
+    @GetMapping("/list")
+    public ResultData<List<InterfaceWorkflowDO>> listAllWorkflows() {
+        try {
+            log.info("MCP查询所有工作流");
+            List<InterfaceWorkflowDO> workflows = interfaceWorkflowService.getAllWorkflowsWithoutPaged();
+            return ResponseRenderUtils.render(workflows);
+        } catch (Exception e) {
+            log.error("MCP查询工作流列表失败", e);
+            return ResponseRenderUtils.error("查询工作流列表失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 根据flowId查询单个工作流
+     */
+    @GetMapping("/get/{flowId}")
+    public ResultData<InterfaceWorkflowDO> getWorkflow(@PathVariable Integer flowId) {
+        try {
+            log.info("MCP查询工作流: flowId={}", flowId);
+            InterfaceWorkflowDO workflow = interfaceWorkflowService.selectByFlowId(flowId);
+            if (workflow == null) {
+                return ResponseRenderUtils.error("工作流不存在");
+            }
+            return ResponseRenderUtils.render(workflow);
+        } catch (Exception e) {
+            log.error("MCP查询工作流失败", e);
+            return ResponseRenderUtils.error("查询工作流失败: " + e.getMessage());
+        }
+    }
 
     /**
      * 创建工作流
