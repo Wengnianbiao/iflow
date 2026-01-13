@@ -6,15 +6,19 @@ import com.helianhealth.agent.invocation.remote.InterfaceClientProxy;
 import com.helianhealth.agent.common.utils.JsonUtils;
 import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
+import org.apache.dubbo.common.extension.Activate;
 
 import java.util.List;
 import java.util.Map;
 
-public class InterfaceClientProxy2LogWrapper implements InterfaceClientProxy {
+/**
+ * 日志记录wrapper，记录调用时间和响应结果
+ */
+public class InterfaceClientProxyLogWrapper implements InterfaceClientProxy {
 
     private final InterfaceClientProxy interfaceClientProxy;
 
-    public InterfaceClientProxy2LogWrapper(InterfaceClientProxy interfaceClientProxy) {
+    public InterfaceClientProxyLogWrapper(InterfaceClientProxy interfaceClientProxy) {
         this.interfaceClientProxy = interfaceClientProxy;
     }
 

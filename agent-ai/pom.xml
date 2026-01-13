@@ -10,29 +10,27 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>agent-ai</artifactId>
-    <description>AI相关功能模块</description>
+    <description>AI配置模块：MCP接口、参数映射配置、AI指导文档</description>
 
     <dependencies>
+        <!-- Spring Web -->
         <dependency>
-            <groupId>com.helianhealth</groupId>
-            <artifactId>agent-common</artifactId>
-            <version>${project.version}</version>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
+        <!-- 工作流模块 -->
         <dependency>
             <groupId>com.helianhealth</groupId>
             <artifactId>agent-workflow</artifactId>
             <version>${project.version}</version>
         </dependency>
 
+        <!-- 公共模块 -->
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
+            <groupId>com.helianhealth</groupId>
+            <artifactId>agent-common</artifactId>
+            <version>${project.version}</version>
         </dependency>
 
         <!-- lombok -->
@@ -40,14 +38,6 @@
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
         </dependency>
-
-        <!-- JUnit 5 -->
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
 </project>
-

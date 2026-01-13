@@ -27,7 +27,7 @@
             <version>${project.version}</version>
         </dependency>
 
-        <!-- AI模块 -->
+        <!-- AI配置模块 -->
         <dependency>
             <groupId>com.helianhealth</groupId>
             <artifactId>agent-ai</artifactId>

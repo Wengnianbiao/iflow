@@ -224,8 +224,8 @@ SPI扩展通过`META-INF/dubbo`目录下的配置文件进行声明。系统在�
 
 例如，`InterfaceClientProxy`的配置文件内容如下：
 ```
-com.helianhealth.agent.invocation.remote.wrapper.InterfaceClientProxy1LogWrapper
-com.helianhealth.agent.invocation.remote.wrapper.InterfaceClientProxy2FilterChainWrapper
+com.helianhealth.agent.invocation.remote.wrapper.InterfaceClientProxyLogWrapper
+com.helianhealth.agent.invocation.remote.wrapper.InterfaceClientProxyFilterChainWrapper
 default=com.helianhealth.agent.invocation.remote.DefaultApiClientProxy
 http=com.helianhealth.agent.invocation.remote.http.HttpProtocolAdapter
 webservice=com.helianhealth.agent.invocation.remote.webService.WebServiceProtocolAdapter

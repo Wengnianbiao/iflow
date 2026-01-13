@@ -10,20 +10,28 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>agent-spring-boot-starter</artifactId>
-    <description>Spring Boot Starter模块：应用启动入口、自动配置、切面</description>
+    <version>1.0.4</version>
+    <description>Spring Boot Starter模块：应用启动入口、自动配置</description>
 
     <dependencies>
         <!-- 依赖配置模块和对外 API 模块，由 agent-api 组合各业务功能模块 -->
         <dependency>
             <groupId>com.helianhealth</groupId>
             <artifactId>agent-config</artifactId>
-            <version>${project.version}</version>
+            <version>1.0.1</version>
         </dependency>
 
         <dependency>
             <groupId>com.helianhealth</groupId>
             <artifactId>agent-api</artifactId>
-            <version>${project.version}</version>
+            <version>1.0.1</version>
+        </dependency>
+
+        <!-- AI模块 -->
+        <dependency>
+            <groupId>com.helianhealth</groupId>
+            <artifactId>agent-ai</artifactId>
+            <version>1.0.1</version>
         </dependency>
 
         <!-- Spring Boot Starter -->
@@ -45,5 +53,44 @@
             <optional>true</optional>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Maven Source Plugin - 打包源码 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>3.2.1</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Maven Javadoc Plugin - 打包Javadoc -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>3.3.1</version>
+                <configuration>
+                    <encoding>UTF-8</encoding>
+                    <charset>UTF-8</charset>
+                    <docencoding>UTF-8</docencoding>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>

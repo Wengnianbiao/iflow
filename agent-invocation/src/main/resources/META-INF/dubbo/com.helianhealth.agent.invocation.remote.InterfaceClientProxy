@@ -1,5 +1,5 @@
-com.helianhealth.agent.invocation.remote.wrapper.InterfaceClientProxy2LogWrapper
-com.helianhealth.agent.invocation.remote.wrapper.InterfaceClientProxy1FilterChainWrapper
+com.helianhealth.agent.invocation.remote.wrapper.InterfaceClientProxyFilterChainWrapper
+com.helianhealth.agent.invocation.remote.wrapper.InterfaceClientProxyLogWrapper
 default=com.helianhealth.agent.invocation.remote.DefaultApiClientProxy
 http=com.helianhealth.agent.invocation.remote.http.HttpProtocolAdapter
 webservice=com.helianhealth.agent.invocation.remote.webService.WebServiceProtocolAdapter

@@ -2,6 +2,7 @@ package com.helianhealth.agent.workflow.controller;
 
 import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.common.base.ResultData;
+import com.helianhealth.agent.workflow.controller.reponse.WorkflowFullExportRsp;
 import com.helianhealth.agent.workflow.model.domain.InterfaceWorkflowDO;
 import com.helianhealth.agent.workflow.service.InterfaceWorkflowService;
 import com.helianhealth.agent.common.utils.ResponseRenderUtils;
@@ -15,7 +16,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -98,6 +101,48 @@ public class WorkflowController {
         } catch (Exception e) {
             log.error("删除工作流失败", e);
             return ResponseRenderUtils.error("删除工作流失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 导出工作流完整配置（包含节点和参数配置）
+     */
+    @GetMapping("/export/{flowId}")
+    public ResultData<WorkflowFullExportRsp> exportWorkflow(@PathVariable Integer flowId) {
+        try {
+            log.info("导出工作流: flowId={}", flowId);
+            WorkflowFullExportRsp exportData = interfaceRuleFlowService.exportWorkflowFull(flowId);
+            return ResponseRenderUtils.render(exportData);
+        } catch (Exception e) {
+            log.error("导出工作流失败", e);
+            return ResponseRenderUtils.error("导出工作流失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 导入工作流完整配置（包含节点和参数配置）
+     */
+    @PostMapping("/import")
+    public ResultData<Integer> importWorkflow(@RequestParam("file") MultipartFile file) {
+        try {
+            if (file == null || file.isEmpty()) {
+                return ResponseRenderUtils.error("文件不能为空");
+            }
+
+            String fileName = file.getOriginalFilename();
+            if (fileName == null || !fileName.toLowerCase().endsWith(".json")) {
+                return ResponseRenderUtils.error("仅支持JSON格式文件");
+            }
+
+            String content = new String(file.getBytes(), StandardCharsets.UTF_8);
+            WorkflowFullExportRsp importData = com.alibaba.fastjson.JSON.parseObject(content, WorkflowFullExportRsp.class);
+            
+            log.info("导入工作流: {}", importData.getWorkflowInfo().getFlowName());
+            Integer flowId = interfaceRuleFlowService.importWorkflowFull(importData);
+            return ResponseRenderUtils.render(flowId);
+        } catch (Exception e) {
+            log.error("导入工作流失败", e);
+            return ResponseRenderUtils.error("导入工作流失败: " + e.getMessage());
         }
     }
 }

@@ -318,14 +318,14 @@ java -jar agent-web/target/interface-agent.jar
 3. AI 自动生成节点配置、工作流配置和参数映射
 4. 通过 MCP API 创建配置到系统中
 
-详细说明请参考：[接口配置 AI 指南](interface-config-guide-ai.md)
+详细说明请参考：[接口配置 AI 指南](agent-ai/interface-config-guide-ai.md)
 
 ---
 
 ## 文档
 
 - [模块化架构说明](模块化架构说明.md)
-- [接口配置 AI 指南](interface-config-guide-ai.md)
+- [接口配置 AI 指南](agent-ai/interface-config-guide-ai.md)
 
 ## 许可证
 
