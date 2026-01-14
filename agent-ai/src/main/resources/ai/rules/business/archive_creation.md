@@ -1,6 +1,18 @@
+---
+trigger: model_decision
+description: 
+---
 # 档案创建接口配置指南
 
-> 本文档为档案创建（建档）场景的**业务专用指南**，配置规则详见 `ai_config_guide.md`
+> **业务专用指南**：提供档案创建（建档）场景的完整配置示例和步骤
+
+---
+
+## 目的
+
+在HIS系统中创建患者档案信息，获取HIS分配的患者ID（档案号）和就诊号，用于后续业务流程。
+
+---
 
 ## 场景识别
 
@@ -8,16 +20,15 @@
 
 ---
 
-## 业务要点（必读）
+## 业务要点
 
-### 1. 接口协议差异
+### 1. 节点关键字配置
 
-his厂商接口可能是JSON或XML格式，**框架已通过Map屏蔽差异**，只关注字段映射。
+**keywordField**：`patientCode`
 
-| 协议 | 特点 | 配置差异 |
-|------|------|----------|
-| **HTTP/JSON** | 扁平结构 | 直接映射字段 |
-| **WebService/XML** | 嵌套结构（Head/Body） | 需配置XML标签层级 |
+用于日志检索和问题排查，框架会从Jarvis入参中提取此字段值作为业务关键字记录到调用日志中。
+
+**配置位置**：节点配置的 `keywordField` 字段
 
 ### 2. 常见字段转换
 
@@ -41,70 +52,75 @@ Jarvis入参中部分字段在嵌套对象内，需用EXPRESSION提取：
 | 登记时间 | `patientInfo.registertime` | `#data[registertime]` |
 | 单位ID | `patientInfo.hisOrgId` | `#data[hisOrgId]` |
 
-### 4. XML协议特殊处理
-
-WebService接口通常需要配置固定的Head信息：
-
-```
-HrRequest
-├── Head（固定值）
-│   ├── TradeCode: "PAT202"（交易码）
-│   ├── SystemCode: "TJ"（系统编码）
-│   ├── BranchCode: "01"（院区）
-│   └── HipKeyNo: "xxx"（认证串，现场提供）
-└── Body（业务数据）
-    └── 实际业务字段...
-```
-
-**AI处理**：询问客户Head中的固定值（TradeCode、认证串等）
-
 ---
 
-## Jarvis固定结构
-
-### 入参（字段名固定）
+## Jarvis入参
 
 ```json
 {
-  "patientName": "测试账号",
-  "patientCode": "2509050001",
   "sex": "2",
   "age": 53,
-  "birthday": "1972-02-25",
+  "marriage": "2",
   "identitycard": "330511197202254629",
   "cardType": "1",
   "phone": "13059970500",
+  "birthday": "1972-02-25",
   "address": "湖州",
-  "marriage": "2",
+  "patientName": "测试账号",
+  "patientCode": "2509050001",
   "nation": "01",
   "nationName": "汉族",
-  "orgName": "测试单位",
   "hisPatientId": null,
   "visitNo": null,
   "archivesCode": "10011081",
   "archivalNo": "10011081",
   "userType": 1,
+  "orgName": "测试单位",
   "patientInfo": {
+    "sex": "2",
+    "vpInvoiceTitle": null,
+    "vpSocialCode": null,
+    "age": 53,
+    "marriage": "2",
+    "identitycard": "330511197202254629",
+    "cardType": "1",
+    "patientLevelName": "普通体检人",
+    "phone": "13059970500",
+    "birthday": "1972-02-25",
     "hisOrgId": "85330",
+    "address": "湖州",
+    "patientName": "莫伟文",
+    "patientCode": "2508190082",
+    "hisPatientId": null,
+    "visitNo": null,
+    "userType": 1,
+    "orgName": "湖州市机关单位",
     "registertime": "2025-08-19 08:28:01",
-    "physicalTypes": "physical:types:A"
+    "physicalTypes": "physical:types:A",
+    "physicalTypeName": "健康体检"
   },
   "doctorInfo": {
     "idUser": 705,
     "userName": "陈元梅",
-    "number": "cym0555"
+    "number": "cym0555",
+    "loginName": null
   }
 }
 ```
 
 **关键字段**：
-- `patientCode` - 体检编号
-- `identitycard` - 身份证号
-- `hisPatientId` / `visitNo` - 建档前为null，建档后回填
-- `doctorInfo.number` - 操作员编号
-- `patientInfo.hisOrgId` - 单位ID
+- `patientCode` - keywordField，体检编号
+- `identitycard` - 身份证号（必填）
+- `patientName` - 患者姓名（必填）
+- `sex` - 性别（常需转换为中文）
+- `marriage` - 婚姻状况（常需转换为中文）
+- `doctorInfo.number` - 操作员编号（从嵌套对象提取）
+- `patientInfo.hisOrgId` - 单位ID（从嵌套对象提取）
+- `hisPatientId` / `visitNo` - 建档前为null，后置映射时回填
 
-### 响应（字段名固定）
+---
+
+## Jarvis出参
 
 ```json
 {
@@ -117,42 +133,97 @@ HrRequest
 }
 ```
 
+**字段说明**：
+
+| 字段 | 说明 |
+|------|------|
+| code | 状态码，200成功 |
+| message | 响应消息 |
+| rsp.outPatientCode | HIS分配的患者档案号 |
+| rsp.visitNo | HIS分配的就诊号 |
+
+---
+
+## 映射配置示例
+
+> **重要说明**：以下示例仅用于说明映射配置方法，实际HIS接口的入参、出参字段必须以客户提供的接口文档或实际出入参为准。
+
+### HIS入参示例
+
+```json
+{
+  "name": "测试账号",
+  "sex": "女",
+  "idCard": "330511197202254629",
+  "phone": "13059970500",
+  "birthday": "1972-02-25",
+  "marriage": "已婚",
+  "address": "湖州",
+  "operatorId": "cym0555",
+  "operatorName": "陈元梅",
+  "orgId": "85330",
+  "type": "1"
+}
+```
+
+### HIS响应示例
+
+```json
+{
+  "returnCode": "1",
+  "errorMessage": "",
+  "data": {
+    "patientId": "P20250905001",
+    "clinicId": "V202509050001",
+    "name": "测试账号",
+    "idCard": "330511197202254629"
+  }
+}
+```
+
+### 前置处理映射（Jarvis → HIS）
+
+| Jarvis字段 | 源参数类型 | HIS字段 | 目标参数类型 | 映射类型 | 映射规则 |
+|-------------|-----------|----------|-------------|----------|----------|
+| patientName | STRING | name | STRING | NAME | - |
+| identitycard | STRING | idCard | STRING | NAME | - |
+| phone | STRING | phone | STRING | NAME | - |
+| birthday | STRING | birthday | STRING | NAME | - |
+| address | STRING | address | STRING | NAME | - |
+| sex | STRING | sex | STRING | EXPRESSION | `#data == '1' ? '男' : '女'` |
+| marriage | STRING | marriage | STRING | EXPRESSION | `#data == '1' ? '未婚' : '已婚'` |
+| doctorInfo | OBJECT | operatorId | STRING | EXPRESSION | `#data['number']` |
+| doctorInfo | OBJECT | operatorName | STRING | EXPRESSION | `#data['userName']` |
+| patientInfo | OBJECT | orgId | STRING | EXPRESSION | `#data['hisOrgId']` |
+| - | NONE | type | STRING | CONSTANT | `"1"` |
+
+
+### 后置处理映射（HIS → Jarvis）
+
+| HIS字段 | 源参数类型 | Jarvis字段 | 目标参数类型 | 映射类型 | 映射数据源 | 映射规则 |
+|---------|-----------|-------------|-------------|----------|-----------|----------|
+| returnCode | STRING | code | STRING | EXPRESSION | RESPONSE | `#data == "1" ? "200" : "-1"` |
+| errorMessage | STRING | message | STRING | NAME | RESPONSE | - |
+| data | OBJECT | rsp | OBJECT | NAME | RESPONSE | 嵌套映射 |
+| └─ patientId | STRING | └─ outPatientCode | STRING | NAME | RESPONSE | - |
+| └─ clinicId | STRING | └─ visitNo | STRING | NAME | RESPONSE | - |
+
 ---
 
 ## AI配置步骤
 
-### 步骤1：获取his接口信息
+### 步骤1：获取HIS接口信息
 
-**如客户已提供** → 直接使用
-**如未提供** → 询问：
-1. his建档接口的入参字段？
-2. his响应中客户ID和就诊号的字段名？
-3. 是否有固定值字段（交易码、认证串等）？
-4. 接口协议是JSON还是XML？
+询问客户提供HIS接口文档，或明确以下信息：
 
-### 步骤2：生成前置映射（Jarvis → his）
+**必须信息**：
+1. HIS建档接口的入参字段及格式
+2. HIS建档接口的响应字段及格式
 
-**直接映射**：
-- `patientName` → `name`（NAME）
-- `identitycard` → `cardId`（NAME）
+### 步骤2：生成前置映射（Jarvis → HIS）
 
-**嵌套提取**：
-- `doctorInfo` → `operatorId`（EXPRESSION: `#data[number]`）
+参考上述前置处理映射表
 
-**值转换**：
-- `sex` → `sex`（EXPRESSION: `#data == '1' ? '男' : '女'`）
+### 步骤3：生成后置映射（HIS → Jarvis）
 
-**固定值**：
-- `type` = `"1"`（CONSTANT）
-
-### 步骤3：生成后置映射（his → Jarvis）
-
-**JSON响应**：
-- `data.patientId` → `rsp.outPatientCode`
-- `data.clinicId` → `rsp.visitNo`
-- `returnCode == "1" ? "200" : "-1"` → `code`
-
-**XML响应**：
-- `Body.PatientID` → `rsp.outPatientCode`
-- `Body.VisitNo` → `rsp.visitNo`
-- `Head.TradeStatus == 'AA' ? '200' : '-1'` → `code`
+参考上述后置处理映射表

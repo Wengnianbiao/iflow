@@ -1,3 +1,6 @@
+---
+trigger: always_on
+---
 # Interface-Agent 项目知识库
 
 > **本文档说明**：Interface-Agent框架的核心概念、数据结构、配置规范和技术原理
