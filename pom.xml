@@ -33,9 +33,24 @@
         <spring.version>5.2.8.RELEASE</spring.version>
         <spring-cloud-config-client.version>2.2.5.RELEASE</spring-cloud-config-client.version>
         <tk.mybatis.start.version>2.1.5</tk.mybatis.start.version>
+        <mybatis.version>3.5.9</mybatis.version>
+        <mybatis-spring-boot.version>2.2.2</mybatis-spring-boot.version>
+        <pagehelper.version>1.4.6</pagehelper.version>
         <com.alibaba.fastjson2.version>2.0.32</com.alibaba.fastjson2.version>
         <druid.version>1.2.18</druid.version>
+        <dom4j.version>2.1.4</dom4j.version>
+        <httpclient5.version>5.1</httpclient5.version>
+        <dubbo.version>2.7.15</dubbo.version>
+        <lombok.version>1.18.24</lombok.version>
+
+        <!-- 数据库驱动版本 -->
+        <mysql.version>8.0.25</mysql.version>
         <sqlserver.version>4.0</sqlserver.version>
+        <opengauss.version>3.0.0</opengauss.version>
+        <oracle.version>12.2.0.1</oracle.version>
+        <kingbase.version>9.0.1</kingbase.version>
+
+        <!-- 测试依赖版本 -->
         <mockito.version>4.11.0</mockito.version>
         <junit.version>5.8.2</junit.version>
     </properties>
@@ -80,20 +95,20 @@
             <dependency>
                 <groupId>org.mybatis</groupId>
                 <artifactId>mybatis</artifactId>
-                <version>3.5.9</version>
+                <version>${mybatis.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>org.mybatis.spring.boot</groupId>
                 <artifactId>mybatis-spring-boot-starter</artifactId>
-                <version>2.2.2</version>
+                <version>${mybatis-spring-boot.version}</version>
             </dependency>
 
             <!-- 分页 -->
             <dependency>
                 <groupId>com.github.pagehelper</groupId>
                 <artifactId>pagehelper-spring-boot-starter</artifactId>
-                <version>1.4.6</version>
+                <version>${pagehelper.version}</version>
             </dependency>
 
             <dependency>
@@ -112,13 +127,13 @@
             <dependency>
                 <groupId>org.dom4j</groupId>
                 <artifactId>dom4j</artifactId>
-                <version>2.1.4</version>
+                <version>${dom4j.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>org.apache.httpcomponents.client5</groupId>
                 <artifactId>httpclient5</artifactId>
-                <version>5.1</version>
+                <version>${httpclient5.version}</version>
             </dependency>
 
             <!-- JUnit 5 -->
@@ -172,7 +187,7 @@
             <dependency>
                 <groupId>org.projectlombok</groupId>
                 <artifactId>lombok</artifactId>
-                <version>1.18.24</version>
+                <version>${lombok.version}</version>
             </dependency>
 
             <!-- SpEL -->
@@ -194,7 +209,7 @@
             <dependency>
                 <groupId>org.apache.dubbo</groupId>
                 <artifactId>dubbo-common</artifactId>
-                <version>2.7.15</version>
+                <version>${dubbo.version}</version>
                 <exclusions>
                     <exclusion>
                         <groupId>log4j</groupId>
@@ -203,11 +218,38 @@
                 </exclusions>
             </dependency>
 
-
+            <!-- 数据库驱动 -->
             <dependency>
                 <groupId>mysql</groupId>
                 <artifactId>mysql-connector-java</artifactId>
-                <version>8.0.25</version>
+                <version>${mysql.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.microsoft.sqlserver</groupId>
+                <artifactId>sqljdbc4</artifactId>
+                <version>${sqlserver.version}</version>
+            </dependency>
+
+            <!-- openGauss -->
+            <dependency>
+                <groupId>org.opengauss</groupId>
+                <artifactId>opengauss-jdbc</artifactId>
+                <version>${opengauss.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.oracle.database.jdbc</groupId>
+                <artifactId>ojdbc8</artifactId>
+                <version>${oracle.version}</version>
+            </dependency>
+
+            <!-- KingBase 人大金仓 -->
+            <!-- Source: https://mvnrepository.com/artifact/cn.com.kingbase/kingbase8 -->
+            <dependency>
+                <groupId>cn.com.kingbase</groupId>
+                <artifactId>kingbase8</artifactId>
+                <version>${kingbase.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
