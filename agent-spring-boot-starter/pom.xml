@@ -5,12 +5,12 @@
     <parent>
         <artifactId>interface-agent</artifactId>
         <groupId>com.helianhealth</groupId>
-        <version>1.0.2</version>
+        <version>${revision}</version>
+        <relativePath>../pom.xml</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>agent-spring-boot-starter</artifactId>
-    <version>1.0.5</version>
     <description>Spring Boot Starter模块：应用启动入口、自动配置</description>
 
     <dependencies>
@@ -18,20 +18,20 @@
         <dependency>
             <groupId>com.helianhealth</groupId>
             <artifactId>agent-config</artifactId>
-            <version>1.0.2</version>
+            <version>${project.version}</version>
         </dependency>
 
         <dependency>
             <groupId>com.helianhealth</groupId>
             <artifactId>agent-api</artifactId>
-            <version>1.0.2</version>
+            <version>${project.version}</version>
         </dependency>
 
         <!-- AI模块 -->
         <dependency>
             <groupId>com.helianhealth</groupId>
             <artifactId>agent-ai</artifactId>
-            <version>1.0.2</version>
+            <version>${project.version}</version>
         </dependency>
 
         <!-- Spring Boot Starter -->
