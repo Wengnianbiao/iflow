@@ -1,8 +1,4 @@
 -- KingBase（人大金仓）数据库初始化脚本
--- Driver: com.kingbase8.Driver
--- 语法兼容PostgreSQL
-
-CREATE DATABASE interface_agent ENCODING 'UTF8';
 
 -- 接口规则工作流表
 CREATE TABLE interface_workflow (
@@ -83,7 +79,7 @@ CREATE TABLE interface_invoke_log (
     -- 主键ID，自增，不允许为空和更新
     log_id BIGSERIAL PRIMARY KEY,
     -- 节点id
-    node_name INT NOT NULL,
+    node_name VARCHAR(50) NOT NULL,
     -- 关键字匹配,默认都用的patientCode
     keyword VARCHAR(50) NULL,
     -- 业务数据
