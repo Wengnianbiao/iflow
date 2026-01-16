@@ -30,7 +30,7 @@
         <maven.compiler.target>1.8</maven.compiler.target>
 
         <!-- 项目版本统一管理 -->
-        <revision>1.0.6</revision>
+        <revision>1.0.7</revision>
         <spring-boot.version>2.3.2.RELEASE</spring-boot.version>
         <spring.version>5.2.8.RELEASE</spring.version>
         <spring-cloud-config-client.version>2.2.5.RELEASE</spring-cloud-config-client.version>
@@ -279,6 +279,21 @@
                         <phase>clean</phase>
                         <goals>
                             <goal>clean</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>3.2.1</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>jar-no-fork</goal>
                         </goals>
                     </execution>
                 </executions>
