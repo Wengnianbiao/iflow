@@ -2,10 +2,11 @@ package com.helianhealth.agent.extension.factory;
 
 import com.helianhealth.agent.extension.spi.dynamic.DynamicSpiManager;
 import com.helianhealth.agent.common.utils.ApplicationContextUtil;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.dubbo.common.extension.ExtensionFactory;
 import org.apache.dubbo.common.extension.SPI;
 import org.apache.dubbo.common.utils.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.context.ApplicationContext;
 
@@ -19,8 +20,9 @@ import java.util.stream.Collectors;
  * 1. 从动态 SPI 管理器获取扩展
  * 2. 从 Spring 容器查找 Bean
  */
-@Slf4j
 public class EnhancedAgentExtensionFactory implements ExtensionFactory {
+
+    private static final Logger log = LoggerFactory.getLogger(EnhancedAgentExtensionFactory.class);
 
     private volatile DynamicSpiManager dynamicSpiManager;
 
@@ -32,7 +34,6 @@ public class EnhancedAgentExtensionFactory implements ExtensionFactory {
 
         T dynamicExtension = getDynamicExtension(type, name);
         if (dynamicExtension != null) {
-            log.debug("Retrieved extension from dynamic SPI: type={}, name={}", type.getName(), name);
             return dynamicExtension;
         }
 
@@ -71,8 +72,9 @@ public class EnhancedAgentExtensionFactory implements ExtensionFactory {
                     if (context != null) {
                         try {
                             dynamicSpiManager = context.getBean(DynamicSpiManager.class);
+                            log.debug("DynamicSpiManager loaded from Spring context");
                         } catch (Exception e) {
-                            log.debug("DynamicSpiManager not registered in Spring container");
+                            log.debug("DynamicSpiManager not found in Spring context");
                         }
                     }
                 }

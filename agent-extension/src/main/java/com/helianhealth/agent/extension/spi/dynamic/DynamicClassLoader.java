@@ -1,6 +1,7 @@
 package com.helianhealth.agent.extension.spi.dynamic;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticCollector;
@@ -25,8 +26,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * Each instance loads only one dynamic class, achieving one-to-one isolation between class and ClassLoader
  * Supports complete class unloading (when ClassLoader is GC'd, its loaded class will also be unloaded)
  */
-@Slf4j
 public class DynamicClassLoader extends ClassLoader {
+
+    private static final Logger log = LoggerFactory.getLogger(DynamicClassLoader.class);
 
     /**
      * Current loaded class by this ClassLoader (only one)
@@ -52,11 +54,11 @@ public class DynamicClassLoader extends ClassLoader {
      */
     public Class<?> compileAndLoad(String javaCode) throws Exception {
         if (loadedClass != null) {
-            log.warn("Class already loaded in this ClassLoader: {}", className);
+            log.warn("Class already loaded: {}", className);
             return loadedClass;
         }
 
-        log.info("Start compiling class: {}", className);
+        log.debug("Compiling class: {}", className);
 
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         if (compiler == null) {
@@ -91,8 +93,8 @@ public class DynamicClassLoader extends ClassLoader {
 
         // Use internal IsolatedClassLoader to load class
         loadedClass = fileManager.getIsolatedClassLoader().loadClass(className);
-        log.info("Successfully compiled and loaded class: {} by ClassLoader: {}", 
-                className, Integer.toHexString(this.hashCode()));
+        log.debug("Compiled and loaded: {} ({}@{})", 
+                className, this.getClass().getSimpleName(), Integer.toHexString(this.hashCode()));
         return loadedClass;
     }
     
@@ -104,17 +106,17 @@ public class DynamicClassLoader extends ClassLoader {
      */
     public Class<?> loadFromClasspath() throws Exception {
         if (loadedClass != null) {
-            log.warn("Class already loaded in this ClassLoader: {}", className);
+            log.warn("Class already loaded: {}", className);
             return loadedClass;
         }
         
-        log.info("Loading class from classpath: {}", className);
+        log.debug("Loading from classpath: {}", className);
         
         // Use parent ClassLoader to load class
         loadedClass = Class.forName(className, true, getParent());
         
-        log.info("Successfully loaded class from classpath: {} by ClassLoader: {}", 
-                className, Integer.toHexString(this.hashCode()));
+        log.debug("Loaded from classpath: {} ({}@{})", 
+                className, this.getClass().getSimpleName(), Integer.toHexString(this.hashCode()));
         return loadedClass;
     }
     
@@ -130,8 +132,8 @@ public class DynamicClassLoader extends ClassLoader {
      */
     public void unload() {
         if (loadedClass != null) {
-            log.info("Unloading class: {} from ClassLoader: {}", 
-                    className, Integer.toHexString(this.hashCode()));
+            log.debug("Unloading: {} ({}@{})", 
+                    className, this.getClass().getSimpleName(), Integer.toHexString(this.hashCode()));
             loadedClass = null;
         }
     }

@@ -6,7 +6,8 @@ import com.helianhealth.agent.workflow.mapper.agent.InterfaceFlowNodeMapper;
 import com.helianhealth.agent.workflow.mapper.agent.NodeExtensionConfigMapper;
 import com.helianhealth.agent.workflow.model.domain.NodeExtensionConfigDO;
 import com.helianhealth.agent.workflow.model.po.InterfaceWorkflowNodePO;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,9 +20,10 @@ import java.util.List;
  * Dynamic SPI Admin Service (workflow layer)
  * Responsible for database CRUD + SPI runtime management
  */
-@Slf4j
 @Service
 public class DynamicSpiAdminService {
+
+    private static final Logger log = LoggerFactory.getLogger(DynamicSpiAdminService.class);
 
     @Autowired
     private NodeExtensionConfigMapper extensionMapper;
@@ -73,10 +75,15 @@ public class DynamicSpiAdminService {
     @Transactional(value = "workflowAgentTransactionManager", rollbackFor = Exception.class)
     public void updateAndRefresh(NodeExtensionConfigDO configDO) {
         try {
-            // Step 1: Update database
+            // Step 1: Query old configuration to get old extensionName (before update)
+            NodeExtensionConfigDO oldConfig = extensionMapper.selectById(configDO.getCodeId());
+            String oldExtensionName = oldConfig != null ? oldConfig.getExtensionName() : null;
+            String oldSpiInterface = oldConfig != null ? oldConfig.getSpiInterface() : null;
+
+            // Step 2: Update database
             extensionMapper.update(configDO);
 
-            // Step 2: Update related node's remoteExtension field (in same transaction)
+            // Step 3: Update related node's remoteExtension field (in same transaction)
             if (configDO.getNodeId() != null) {
                 InterfaceWorkflowNodePO node = nodeMapper.selectByPrimaryKey(configDO.getNodeId());
                 if (node != null) {
@@ -85,9 +92,9 @@ public class DynamicSpiAdminService {
                 }
             }
 
-            // Step 3: Refresh SPI runtime after transaction commit
-            DynamicSpiDefinition definition = toDynamicSpi(configDO);
-            refreshAfterCommit(definition);
+            // Step 4: Unload old SPI and load new one after transaction commit
+            DynamicSpiDefinition newDefinition = toDynamicSpi(configDO);
+            updateSpiAfterCommit(oldSpiInterface, oldExtensionName, newDefinition);
 
             log.info("Successfully updated extension config: extensionName={}, className={}",
                     configDO.getExtensionName(), configDO.getClassName());
@@ -172,28 +179,35 @@ public class DynamicSpiAdminService {
                     log.error("Failed to register dynamic SPI after commit: interface={}, extension={}, className={}",
                             definition.getSpiInterface(), definition.getExtensionName(),
                             definition.getClassName(), e);
-                    // Note: Transaction already committed, cannot rollback
-                    // Manual compensation may be required
                 }
             }
         });
     }
 
     /**
-     * Refresh SPI after transaction commit to ensure data consistency
+     * Update SPI after transaction commit: unload old and load new
+     * This method handles extensionName change correctly
      */
-    private void refreshAfterCommit(DynamicSpiDefinition definition) {
+    private void updateSpiAfterCommit(String oldSpiInterface, String oldExtensionName, DynamicSpiDefinition newDefinition) {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
                 try {
-                    dynamicSpiManager.refresh(definition);
-                    log.info("Successfully refreshed dynamic SPI after commit: interface={}, extension={}",
-                            definition.getSpiInterface(), definition.getExtensionName());
+                    // Step 1: Remove old SPI if exists
+                    if (oldSpiInterface != null && oldExtensionName != null) {
+                        dynamicSpiManager.remove(oldSpiInterface, oldExtensionName);
+                        log.debug("Removed old SPI: interface={}, extension={}",
+                                oldSpiInterface, oldExtensionName);
+                    }
+
+                    // Step 2: Register new SPI
+                    dynamicSpiManager.loadAndRegister(newDefinition);
+                    log.info("Successfully updated dynamic SPI after commit: interface={}, extension={}",
+                            newDefinition.getSpiInterface(), newDefinition.getExtensionName());
                 } catch (Exception e) {
-                    log.error("Failed to refresh dynamic SPI after commit: interface={}, extension={}, className={}",
-                            definition.getSpiInterface(), definition.getExtensionName(),
-                            definition.getClassName(), e);
+                    log.error("Failed to update dynamic SPI after commit: old=[{}#{}], new=[{}#{}]",
+                            oldSpiInterface, oldExtensionName,
+                            newDefinition.getSpiInterface(), newDefinition.getExtensionName(), e);
                 }
             }
         });

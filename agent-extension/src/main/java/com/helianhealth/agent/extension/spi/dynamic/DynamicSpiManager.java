@@ -1,8 +1,9 @@
 package com.helianhealth.agent.extension.spi.dynamic;
 
 import com.helianhealth.agent.extension.spi.model.DynamicSpiDefinition;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.dubbo.common.extension.ExtensionLoader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Field;
 import java.util.List;
@@ -10,15 +11,16 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Dynamic SPI Manager (Refactored Version)
+ * Dynamic SPI Manager
  * Uses isolated ClassLoader architecture to support complete class unloading
  * Core Design:
  * 1. Each dynamic class uses an independent DynamicClassLoader instance
  * 2. ClassLoader and class are bound one-to-one, living and dying together
  * 3. Release ClassLoader during unloading to trigger JVM class unloading mechanism
  */
-@Slf4j
 public class DynamicSpiManager {
+
+    private static final Logger log = LoggerFactory.getLogger(DynamicSpiManager.class);
 
     /**
      * Registered dynamic extension cache
@@ -43,21 +45,20 @@ public class DynamicSpiManager {
 
     /**
      * Load and register dynamic SPI extension
-     *
+     * <p>
      * Supports two modes:
      * 1. Dynamic compilation mode: sourceCode is not empty, compile from string
      * 2. Project mode: sourceCode is empty, load pre-compiled class from classpath
      *
      * @param dynamicSpi SPI definition
-     * @return Loaded Class object
      */
-    public Class<?> loadAndRegister(DynamicSpiDefinition dynamicSpi) throws Exception {
+    public void loadAndRegister(DynamicSpiDefinition dynamicSpi) throws Exception {
         String className = dynamicSpi.getClassName();
         String sourceCode = dynamicSpi.getSourceCode();
         String spiInterface = dynamicSpi.getSpiInterface();
         String extensionName = dynamicSpi.getExtensionName();
 
-        log.info("Start loading dynamic SPI: spiInterface={}, extensionName={}, className={}",
+        log.debug("Loading dynamic SPI: interface={}, name={}, class={}",
                 spiInterface, extensionName, className);
 
         // Create independent ClassLoader for each class
@@ -67,11 +68,11 @@ public class DynamicSpiManager {
         Class<?> clazz;
         if (sourceCode != null && !sourceCode.trim().isEmpty()) {
             // Mode 1: Dynamic compilation mode
-            log.info("Loading using dynamic compilation mode: {}", className);
+            log.debug("Using dynamic compilation mode: {}", className);
             clazz = classLoader.compileAndLoad(sourceCode);
         } else {
             // Mode 2: Project mode (load from classpath)
-            log.info("Loading using project mode from classpath: {}", className);
+            log.debug("Loading from classpath: {}", className);
             clazz = classLoader.loadFromClasspath();
         }
 
@@ -91,9 +92,7 @@ public class DynamicSpiManager {
         String cacheKey = buildCacheKey(spiInterface, extensionName);
         registeredExtensions.put(cacheKey, clazz);
 
-        log.info("Successfully registered dynamic SPI: {}, ClassLoader: {}",
-                cacheKey, Integer.toHexString(classLoader.hashCode()));
-        return clazz;
+        log.info("Registered dynamic SPI: {}", cacheKey);
     }
 
     /**
@@ -173,7 +172,7 @@ public class DynamicSpiManager {
                 // Clear Dubbo internal cache via reflection
                 clearExtensionLoaderCache(loader, extensionName, clazz);
 
-                log.info("Cleared Dubbo ExtensionLoader cache for: {}", cacheKey);
+                log.debug("Cleared Dubbo cache for: {}", cacheKey);
             } catch (Exception e) {
                 log.warn("Failed to clear Dubbo ExtensionLoader cache: {}", cacheKey, e);
             }
@@ -182,8 +181,8 @@ public class DynamicSpiManager {
             DynamicClassLoader classLoader = classLoaderMap.remove(className);
             if (classLoader != null) {
                 classLoader.unload(); // Clear class reference inside ClassLoader
-                log.info("Released ClassLoader for class: {}, ClassLoader: {}",
-                        className, Integer.toHexString(classLoader.hashCode()));
+                log.debug("Released ClassLoader: {}@{}",
+                        classLoader.getClass().getSimpleName(), Integer.toHexString(classLoader.hashCode()));
             }
 
             // 3. Clear all references
@@ -193,8 +192,7 @@ public class DynamicSpiManager {
             // 4. Suggest JVM to perform garbage collection
             System.gc();
 
-            log.info("Successfully removed and unloaded dynamic SPI: {}, className: {}", cacheKey, className);
-            log.info("Class will be unloaded when GC collects the ClassLoader");
+            log.info("Removed dynamic SPI: {}", cacheKey);
 
         } else {
             log.warn("Dynamic SPI not found in cache: {}", cacheKey);
@@ -254,7 +252,10 @@ public class DynamicSpiManager {
     }
 
     public void clear() {
-        log.info("Clearing all dynamic SPIs, count: {}", registeredExtensions.size());
+        int count = registeredExtensions.size();
+        if (count > 0) {
+            log.info("Clearing {} dynamic SPIs", count);
+        }
 
         // Unload all ClassLoaders
         for (DynamicClassLoader loader : classLoaderMap.values()) {
@@ -266,7 +267,5 @@ public class DynamicSpiManager {
 
         // Trigger GC
         System.gc();
-
-        log.info("Cleared all dynamic SPIs and triggered GC");
     }
 }

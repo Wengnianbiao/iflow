@@ -3,7 +3,6 @@ package com.helianhealth.agent.extension.spi.model;
 import lombok.Data;
 
 /**
- * 动态 SPI 扩展定义
  * The spi module only focuses on the registration and unregistration of spi extension classes
  */
 @Data
