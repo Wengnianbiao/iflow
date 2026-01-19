@@ -99,6 +99,7 @@ public class ParamNodeUtils {
             case INTEGER:
             case LONG:
             case BOOLEAN:
+            case DOUBLE:
                 return node.getParamValue();
             case ARRAY:
                 return processArrayNodeType(node);

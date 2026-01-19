@@ -29,6 +29,11 @@ public enum ParamType {
     BOOLEAN,
 
     /**
+     * 双精度浮点数
+     */
+    DOUBLE,
+
+    /**
      * 对象
      */
     OBJECT,

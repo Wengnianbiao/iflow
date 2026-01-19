@@ -29,6 +29,8 @@ public class BasicTypeConversionHandler implements TypeHandler {
                     return convertToLong(rawValue);
                 case BOOLEAN:
                     return convertToBoolean(rawValue);
+                case DOUBLE:
+                    return convertToDouble(rawValue);
                 default:
                     throw new TypeConversionException("不支持的目标类型: " + targetType);
             }
@@ -39,6 +41,15 @@ public class BasicTypeConversionHandler implements TypeHandler {
                     e
             );
         }
+    }
+
+    private Object convertToDouble(Object rawValue) {
+        if (rawValue instanceof Number) {
+            return ((Number) rawValue).doubleValue();
+        } else if (rawValue instanceof String) {
+            return Double.parseDouble(((String) rawValue).trim());
+        }
+        throw new TypeConversionException("无法将类型[" + rawValue.getClass() + "]转换为DOUBLE");
     }
 
     // 转换为Integer
@@ -86,6 +97,8 @@ public class BasicTypeConversionHandler implements TypeHandler {
                 return Long.class == rawType || long.class == rawType;
             case BOOLEAN:
                 return Boolean.class == rawType || boolean.class == rawType;
+            case DOUBLE:
+                return Double.class == rawType || double.class == rawType;
             default:
                 return false;
         }
