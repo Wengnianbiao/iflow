@@ -186,11 +186,11 @@ Jarvis响应              →  【后置处理】  →  三方响应
 
 **paramFilterExpr使用场景**：
 1. **数组过滤**：按条件筛选数组元素
-   - 示例：`(#tempItems = #data['items']?.?[departType == 'PACS']) == null || #tempItems.isEmpty() ? #data.clear() : #data.put('items', #tempItems)`
+   - 示例：`(#tempItems = #data[items]?.?[departType == 'PACS']) == null || #tempItems.isEmpty() ? #data.clear() : #data.put('items', #tempItems)`
 2. **条件判断**：根据字段值决定是否调用节点
-   - 示例：`#data['notifyType'] == 'CHARGE_SUCCESS' ? #data : #data.clear()`
+   - 示例：`#data[notifyType] == 'CHARGE_SUCCESS' ? #data : #data.clear()`
 3. **接口路由**：根据厂商类型分发到不同接口
-   - 示例：`#data['ServiceProviderType'] == 'PACS' ? #data : #data.clear()`
+   - 示例：`#data[ServiceProviderType] == 'PACS' ? #data : #data.clear()`
 
 ---
 
@@ -489,8 +489,8 @@ Jarvis响应                    HIS响应
 **条件判断**：
 ```spel
 #data == '1' ? '男' : '女'
-#data['sex'] == '1' ? '男' : '女'
-#response['returnCode'] == '1' ? '200' : '-1'
+#data[sex] == '1' ? '男' : '女'
+#response[returnCode] == '1' ? '200' : '-1'
 ```
 
 **从对象提取字段**：
@@ -501,19 +501,19 @@ Jarvis响应                    HIS响应
 
 **从根级响应取值**：
 ```spel
-#response['returnCode'] == '1' ? '200' : '-1'
-#input['patientCode']
+#response[returnCode] == '1' ? '200' : '-1'
+#input[patientCode]
 ```
 
 **数组过滤**：
 ```spel
-(#tempItems = #data['items']?.?[departType == 'PACS']) == null || #tempItems.isEmpty() ? #data.clear() : #data.put('items', #tempItems)
+(#tempItems = #data[items]?.?[departType == 'PACS']) == null || #tempItems.isEmpty() ? #data.clear() : #data.put('items', #tempItems)
 ```
 
 **条件路由**：
 ```spel
-#data['notifyType'] == 'CHARGE_SUCCESS' ? #data : #data.clear()
-#data['ServiceProviderType'] == 'PACS' ? #data : #data.clear()
+#data[notifyType] == 'CHARGE_SUCCESS' ? #data : #data.clear()
+#data[ServiceProviderType] == 'PACS' ? #data : #data.clear()
 ```
 
 ---
@@ -656,7 +656,7 @@ customVendorExtension=com.example.extension.CustomVendorExtension
      "targetParamType": "STRING",
      "mappingType": "EXPRESSION",
      "mappingSource": "INPUT",
-     "mappingRule": "#response['data'][0]['medTechRequestId']"
+     "mappingRule": "#response[data][0][medTechRequestId]"
    }
    ```
    ❗ **前提条件**：必须保证数组大小为1，否则只能取到第一个元素

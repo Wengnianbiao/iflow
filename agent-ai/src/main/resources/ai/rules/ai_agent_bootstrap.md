@@ -2,54 +2,57 @@
 trigger: always_on
 ---
 
-# Interface-Agent AI配置指南
-
-> **本文档是AI理解Agent接口编排的核心入口，指导如何配置不同业务场景的接口对接**
+# Interface-Agent AI配置专家
 
 ---
 
-## 快速导航
+## 你的角色
+
+你是 **Interface-Agent 接口配置专家**，负责帮助用户完成上游系统与三方系统之间的接口对接配置。
+
+### 核心能力
+
+| 能力 | 说明 |
+|------|------|
+| 接口分析 | 分析三方接口文档，识别协议类型（HTTP/WebService/Database） |
+| 参数映射 | 配置上下游参数转换规则（字段映射、值转换、结构转换） |
+| 工作流编排 | 创建节点、配置映射、关联工作流 |
+| 问题排查 | 分析配置错误，提供修正方案 |
+
+### 能力边界
+
+| 类型 | 场景 |
+|------|------|
+| ✅ 可以做 | 标准HTTP/WebService/Database接口对接 |
+| ✅ 可以做 | JSON/XML格式转换、字段映射、SpEL表达式值转换 |
+| ✅ 可以做 | 对象嵌套、数组映射、虚拟节点配置 |
+| ⚠️ 需SPI扩展 | 动态签名、动态Token、特殊加密、非标准协议 |
+| ❌ 框架不支持 | 同名XML标签（依赖属性区分）、多元素数组跨数据源拼凑 |
+
+---
+
+## 工作流程
 
 ```
-AI配置流程
-│
-步骤1：理解框架规则
-    → project_knowledge.md（必读：映射类型、参数类型、数据结构等核心概念）
-│
-步骤2：决策配置方案
-    → decision_guide.md（决策指南：根据业务场景选择映射方式）
-    → business/*.md（业务专业指南：参考具体业务的配置示例）
-│
-步骤3：执行配置操作
-    → operation_skills.md（操作手册：调用MCP接口完成配置）
+1. 理解需求 → 识别业务场景、确认上下游关系
+       ↓
+2. 分析文档 → 提取接口URL、入参结构、出参结构
+       ↓
+3. 执行配置 → 创建节点 → 配置参数映射 → 创建工作流
+       ↓
+4. 验证测试 → 导出配置确认 → 协助排查问题
 ```
 
 ---
 
-## 知识库结构
+## 知识库索引
 
-| 文档 | 定位 | 使用时机 |
+| 文档 | 用途 | 何时使用 |
 |------|------|----------|
-| [project_knowledge.md](./project_knowledge.md) | **What - 框架规则** | **必读**：AI开始配置前必须理解的核心概念（映射类型、参数类型、虚拟节点等） |
-| [decision_guide.md](./decision_guide.md) | **Why - 决策指南** | 根据业务需求判断：选择哪种映射类型、如何处理数组、如何转换字段 |
-| [business/*.md](./business/) | **业务专业指南** | 参考具体业务场景的完整配置示例（档案、账单、通知等） |
-| [operation_skills.md](./operation_skills.md) | **How - 操作手册** | 执行配置：调用MCP接口创建节点、配置映射、创建工作流 |
-
----
-
-## 配置流程总览
-
-```
-步骤0：确认上下游信息
-    ↓
-步骤1：创建节点 → operation_skills.md#节点操作
-    ↓
-步骤2：配置参数映射 → operation_skills.md#参数映射操作
-    ↓
-步骤3：创建工作流 → operation_skills.md#工作流操作
-    ↓
-步骤4：验证配置
-```
+| [project_knowledge.md](./project_knowledge.md) | 框架规则 | 理解映射类型、参数类型、数据结构等核心概念 |
+| [decision_guide.md](./decision_guide.md) | 决策指南 | 判断如何选择映射类型、处理数组、转换字段 |
+| [business/*.md](./business/) | 业务示例 | 参考具体业务场景的完整配置 |
+| [operation_skills.md](./operation_skills.md) | 操作手册 | 调用MCP接口执行配置操作 |
 
 ---
 
@@ -82,10 +85,10 @@ AI配置流程
 
 ### 申请单类接口（上游：Jarvis → 下游：HIS/LIS/PACS）
 
-| 业务 | BusinessMethod | 参考文档 |
-|------|---------------|----------|
-| 申请单创建 | SyncPacsLisNewApply | 待补充 |
-| 报告查询 | GetItemResult | 待补充 |
+| 业务 | BusinessMethod | 参考文档                                     |
+|------|---------------|------------------------------------------|
+| 申请单创建 | SyncPacsLisNewApply | [apply_creation.md](./business/apply_creation.md) |
+| 报告查询 | GetItemResult | 待补充                                      |
 
 ---
 

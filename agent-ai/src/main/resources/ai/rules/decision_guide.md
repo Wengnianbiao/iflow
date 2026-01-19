@@ -3,85 +3,18 @@ trigger: always_on
 ---
 # AI决策指南
 
-> **本文档说明**：指导AI在接口对接过程中的决策逻辑、关键卡点和场景识别
+> **本文档说明**：指导AI在接口对接过程中的决策逻辑和场景识别
 
 ---
 
 ## 目录
 
-1. [对接流程总览](#对接流程总览)
-2. [步骤0：确认上游信息（关键卡点）](#步骤0确认上游信息关键卡点)
-3. [步骤1：创建节点决策](#步骤1创建节点决策)
-4. [步骤2：参数映射决策](#步骤2参数映射决策)
-5. [步骤3：创建工作流决策](#步骤3创建工作流决策)
-6. [步骤4：验证与排错](#步骤4验证与排错)
-7. [场景识别规则](#场景识别规则)
-
----
-
-## 对接流程总览
-
-对接一个接口需要完成**四个核心步骤**：
-
-```
-步骤0: 确认上游信息 (⚠️ 必须，不可跳过)
-  ├─ AI智能分析：识别系统特征
-  ├─ 人工确认：上游系统类型
-  ├─ 人工确认：业务类型
-  └─ 获取上游入参：引用业务文档 或 要求提供示例
-  
-步骤1: 创建节点 (Node)
-  └─ 定义调用下游接口的元信息（URL、请求头等）
-  
-步骤2: 配置参数映射 (ParamMapping)
-  ├─ 前置处理: 上游入参 → 下游入参
-  └─ 后置处理: 下游响应 → 上游响应
-  
-步骤3: 创建工作流 (Workflow)
-  └─ 关联节点，定义对外接口URI
-  
-步骤4: 验证对接
-  ├─ 关闭Mock开关
-  ├─ 上游发起真实调用
-  └─ 查看调用日志排查问题
-```
-
-### 对接流程决策图
-
-```mermaid
-graph TD
-    Start([收到接口文档]) --> Analyze[AI分析接口文档]
-    
-    Analyze --> A1[识别接口类型]
-    A1 --> A2[提取URL/连接信息]
-    A2 --> A3[提取入参/出参结构]
-    
-    A3 --> Check{⚠️强制确认卡点}
-    Check --> C1[AI推断上下游关系]
-    C1 --> C2{AI判断结果}
-    
-    C2 -->|包含HIS/收费/PACS等关键词| C3[识别为三方系统接口]
-    C2 -->|包含jarvis/体检等关键词| C3_2[识别为Jarvis接口]
-    C2 -->|无法明确判断| C4[需要人工确认]
-    
-    C3 --> C5[❓ 确认上游是谁]
-    C3_2 --> C5
-    C4 --> C5
-    
-    C5 --> C6{人工确认上游}
-    C6 -->|Jarvis是上游| C7[选择业务类型]
-    C6 -->|三方系统是上游| C8[要求提供上游入参示例]
-    
-    C7 --> C9[引用 business/jarvis_*.md]
-    C9 --> Confirmed[✓ 确认完成]
-    C8 --> Confirmed
-    
-    Confirmed --> Step1[步骤1: 创建节点]
-    Step1 --> Step2[步骤2: 配置参数映射]
-    Step2 --> Step3[步骤3: 创建工作流]
-    Step3 --> Step4[步骤4: 验证对接]
-    Step4 --> End([✓ 对接完成])
-```
+1. [步骤0：确认上游信息（关键卡点）](#步骤0确认上游信息关键卡点)
+2. [步骤1：创建节点决策](#步骤1创建节点决策)
+3. [步骤2：参数映射决策](#步骤2参数映射决策)
+4. [步骤3：创建工作流决策](#步骤3创建工作流决策)
+5. [步骤4：验证与排错](#步骤4验证与排错)
+6. [场景识别规则](#场景识别规则)
 
 ---
 
@@ -270,19 +203,7 @@ AI：✓ 确认配置信息：
 | Jarvis是上游 | 使用BusinessMethod | `CreateArchives`、`SyncHisChagSheet` |
 | 三方系统是上游 | 使用/agent-open-api/** | `/agent-open-api/charge-notify` |
 
-**Jarvis BusinessMethod对照表**：
-
-| 业务类型 | BusinessMethod |
-|---------|----------------|
-| 建档 | CreateArchives |
-| 更新档案 | UpdateArchives |
-| 查询档案 | QueryArchives |
-| 账单创建 | SyncHisChagSheet |
-| 账单删除 | SyncHisDelChagSheet |
-| 拟退账单 | SyncHisRevokeChagSheet |
-| 申请单创建 | SyncPacsLisNewApply |
-| 申请单取消 | SyncPacsLisCancelApply |
-| 报告获取 | GetItemResult |
+> **BusinessMethod对照表**：参见 [ai_agent_bootstrap.md](./ai_agent_bootstrap.md) 中的业务场景速查
 
 ### contentType决策
 
@@ -294,7 +215,7 @@ AI：✓ 确认配置信息：
 ### firstFlowNodes决策
 
 | 业务场景 | 节点配置 |
-|---------|---------|
+|---------|--------|
 | 单一接口调用 | 单节点：`[nodeId]` |
 | 需要并行调用多个接口 | 多节点：`[nodeId1, nodeId2]` |
 | 需要路由分发 | 多节点 + paramFilterExpr |
@@ -328,11 +249,21 @@ AI：✓ 确认配置信息：
 
 | 关键词 | 识别为 | 引用文档 |
 |-------|-------|---------|
-| 建档、创建档案、患者信息 | 建档业务 | business/archive_creation.md |
-| 账单、收费、费用、缴费 | 账单业务 | business/charge_order_creation.md |
-| 申请单、检查、检验、PACS、LIS | 申请单业务 | business/jarvis_apply.md |
-| 报告、结果、回传 | 报告业务 | business/jarvis_report.md |
-| 通知、回调、推送 | 通知回调业务 | （三方作为上游） |
+| 建档、创建档案 | 建档业务 | business/archive_creation.md |
+| 档案查询 | 档案查询业务 | business/archive_query.md |
+| 档案修改 | 档案修改业务 | business/archive_update.md |
+| 申请单 | 申请单业务 | business/apply_creation.md |
+| 账单创建、收费 | 账单创建业务 | business/charge_order_creation.md |
+| 账单删除 | 账单删除业务 | business/charge_order_deletion.md |
+| 账单拟退 | 账单拟退业务 | business/charge_order_revocation.md |
+| 拟退取消 | 拟退取消业务 | business/charge_order_revocation_cancellation.md |
+| 支付状态查询 | 支付状态查询 | business/charge_payment_status_query.md |
+| 退费状态查询 | 退费状态查询 | business/charge_refund_status_query.md |
+| 收费通知、支付通知 | 收费通知业务 | business/charge_payment_notification.md |
+| 退费通知 | 退费通知业务 | business/charge_refund_notification.md |
+| 报告状态推送 | 报告状态推送 | business/report_status.md |
+| PACS报告获取、影像报告 | PACS报告查询 | business/report_pacs_query.md |
+| LIS报告获取、检验报告 | LIS报告查询 | business/report_lis_query.md |
 
 ### 接口类型识别
 
@@ -351,32 +282,3 @@ AI：✓ 确认配置信息：
 | "接收HIS通知" | HIS | Jarvis |
 | "HIS推送账单状态" | HIS | Jarvis |
 | "PACS回传报告" | PACS | Jarvis |
-
----
-
-## AI工作检查清单
-
-### 开始配置前必须确认
-
-- [ ] 已识别接口类型（HTTP/WebService/Database）
-- [ ] 已确认上游系统（Jarvis/三方系统）
-- [ ] 已确认业务类型（建档/账单/申请单/报告/通知）
-- [ ] 已获取上游入参定义（引用文档或示例JSON）
-- [ ] 已获取下游入参/出参结构
-
-### 配置完成后检查
-
-- [ ] 节点metaInfo配置完整（URL必填）
-- [ ] 前置处理覆盖所有必填字段
-- [ ] 后置处理包含状态码转换
-- [ ] 数组映射包含虚拟节点
-- [ ] 工作流interfaceUri正确
-- [ ] 工作流firstFlowNodes已关联节点
-
-### 常见遗漏提醒
-
-- [ ] 状态码转换（下游的成功码可能不是200）
-- [ ] 响应消息映射
-- [ ] rsp对象包装（Jarvis标准响应格式）
-- [ ] 日期格式转换（如需要）
-- [ ] 空值处理（如需要）
