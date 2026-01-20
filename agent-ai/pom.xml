@@ -27,6 +27,34 @@
             <version>${project.version}</version>
         </dependency>
 
+        <!-- Mock模块 -->
+        <dependency>
+            <groupId>com.helianhealth</groupId>
+            <artifactId>agent-mock</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- 调度模块 -->
+        <dependency>
+            <groupId>com.helianhealth</groupId>
+            <artifactId>agent-schedule</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- 调用模块 -->
+        <dependency>
+            <groupId>com.helianhealth</groupId>
+            <artifactId>agent-invocation</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- 日志模块 -->
+        <dependency>
+            <groupId>com.helianhealth</groupId>
+            <artifactId>agent-log</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <!-- 公共模块 -->
         <dependency>
             <groupId>com.helianhealth</groupId>

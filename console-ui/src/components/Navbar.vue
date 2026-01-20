@@ -10,7 +10,7 @@
         <i :class="isCollapse ? 'el-icon-s-unfold' : 'el-icon-s-fold'"></i>
       </div>
     </div>
-    
+
     <el-menu
       :default-active="activeIndex"
       class="el-menu-vertical-demo"
@@ -49,9 +49,10 @@
           <i class="el-icon-set-up"></i>
           <span>Mock</span>
         </template>
-        <el-menu-item index="4-1">Mock响应配置</el-menu-item>
+        <el-menu-item index="4-0">Mock调试说明</el-menu-item>
+        <el-menu-item index="4-1">Mock场景管理</el-menu-item>
         <el-menu-item index="4-2">Mock调用测试</el-menu-item>
-        <el-menu-item index="4-3">Jarvis入参模板</el-menu-item>
+        <el-menu-item index="4-3">入参模板</el-menu-item>
       </el-submenu>
       <el-menu-item index="5">
         <i class="el-icon-cpu"></i>
@@ -134,14 +135,19 @@ export default {
             this.$router.push('/invoke/log');
           }
           break;
+        case '4-0':
+          if (currentPath !== '/mock/guide') {
+            this.$router.push('/mock/guide');
+          }
+          break;
         case '4-1':
           if (currentPath !== '/mock/config') {
             this.$router.push('/mock/config');
           }
           break;
         case '4-2':
-          if (currentPath !== '/mock/log') {
-            this.$router.push('/mock/log');
+          if (currentPath !== '/mock/test') {
+            this.$router.push('/mock/test');
           }
           break;
         case '4-3':
@@ -202,9 +208,11 @@ export default {
       this.activeIndex = '6-1';
     } else if (currentPath === '/invoke/log') {
       this.activeIndex = '3';
+    } else if (currentPath === '/mock/guide') {
+      this.activeIndex = '4-0';
     } else if (currentPath === '/mock/config') {
       this.activeIndex = '4-1';
-    } else if (currentPath === '/mock/log') {
+    } else if (currentPath === '/mock/test') {
       this.activeIndex = '4-2';
     } else if (currentPath === '/jarvis/templates') {
       this.activeIndex = '4-3';
@@ -234,9 +242,11 @@ export default {
         this.activeIndex = '6-1';
       } else if (to.path === '/invoke/log') {
         this.activeIndex = '3';
+      } else if (to.path === '/mock/guide') {
+        this.activeIndex = '4-0';
       } else if (to.path === '/mock/config') {
         this.activeIndex = '4-1';
-      } else if (to.path === '/mock/log') {
+      } else if (to.path === '/mock/test') {
         this.activeIndex = '4-2';
       } else if (to.path === '/jarvis/templates') {
         this.activeIndex = '4-3';

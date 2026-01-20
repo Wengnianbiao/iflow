@@ -30,14 +30,14 @@ public class MockConfigServiceImpl implements MockConfigService {
             return null;
         }
 
-        // 查询该节点启用的所有Mock配置
-        List<MockConfigDO> mockConfigs = mockConfigMapper.selectEnabledByNodeId(nodeId);
+        // 查询该节点的所有Mock配置
+        List<MockConfigDO> mockConfigs = mockConfigMapper.selectByNodeId(nodeId);
         if (mockConfigs == null || mockConfigs.isEmpty()) {
             log.debug("节点{}没有配置Mock数据", nodeId);
             return null;
         }
 
-        // 直接使用第一个启用的Mock配置
+        // 直接使用第一个Mock配置
         MockConfigDO mockConfig = mockConfigs.get(0);
         log.info("节点{}使用Mock配置：caseName={}, mockId={}",
                 nodeId, mockConfig.getCaseName(), mockConfig.getMockId());
@@ -58,8 +58,8 @@ public class MockConfigServiceImpl implements MockConfigService {
         }
 
         MockConfigDO mockConfig = mockConfigMapper.selectById(mockId);
-        if (mockConfig == null || mockConfig.getEnabled() == 0) {
-            log.debug("mockId={}的Mock配置不存在或未启用", mockId);
+        if (mockConfig == null) {
+            log.debug("mockId={}的Mock配置不存在", mockId);
             return null;
         }
 
@@ -98,11 +98,6 @@ public class MockConfigServiceImpl implements MockConfigService {
 
     @Override
     public MockConfigDO save(MockConfigDO mockConfig) {
-        // 设置默认值
-        if (mockConfig.getEnabled() == null) {
-            mockConfig.setEnabled(1);
-        }
-
         mockConfigMapper.insert(mockConfig);
         return mockConfig;
     }

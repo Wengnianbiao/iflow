@@ -1095,7 +1095,7 @@
                 <div class="field-examples">
                   <div class="example-label">类型说明：</div>
                   <ul class="example-list">
-                    <li><strong>STRING、INTEGER、LONG、BOOLEAN：</strong>基础数据类型</li>
+                    <li><strong>STRING、INTEGER、LONG、DOUBLE、BOOLEAN：</strong>基础数据类型</li>
                     <li><strong>OBJECT：</strong>对象类型，需要配置子节点构建嵌套结构</li>
                     <li><strong>ARRAY：</strong>数组类型，需要配置虚拟节点和子节点</li>
                     <li><strong>NONE：</strong>无类型，用于固定值或表达式映射</li>
@@ -1204,7 +1204,7 @@
                 <div class="field-examples">
                   <div class="example-label">类型说明：</div>
                   <ul class="example-list">
-                    <li><strong>STRING、INTEGER、LONG、BOOLEAN：</strong>基础数据类型</li>
+                    <li><strong>STRING、INTEGER、LONG、DOUBLE、BOOLEAN：</strong>基础数据类型</li>
                     <li><strong>OBJECT：</strong>对象类型，用于嵌套结构</li>
                     <li><strong>ARRAY：</strong>数组类型</li>
                     <li><strong>NONE：</strong>无类型，用于固定值或表达式映射</li>
@@ -1324,7 +1324,7 @@
                 <div class="field-examples">
                   <div class="example-label">类型说明：</div>
                   <ul class="example-list">
-                    <li><strong>STRING、INTEGER、LONG、BOOLEAN：</strong>基础数据类型</li>
+                    <li><strong>STRING、INTEGER、LONG、DOUBLE、BOOLEAN：</strong>基础数据类型</li>
                     <li><strong>OBJECT：</strong>对象类型，需要配置子节点构建嵌套结构</li>
                     <li><strong>ARRAY：</strong>数组类型，需要配置虚拟节点和子节点</li>
                     <li><strong>NONE：</strong>无类型，用于固定值或表达式映射</li>
@@ -1446,7 +1446,7 @@
                 <div class="field-examples">
                   <div class="example-label">类型说明：</div>
                   <ul class="example-list">
-                    <li><strong>STRING、INTEGER、LONG、BOOLEAN：</strong>基础数据类型</li>
+                    <li><strong>STRING、INTEGER、LONG、DOUBLE、BOOLEAN：</strong>基础数据类型</li>
                     <li><strong>OBJECT：</strong>对象类型，用于嵌套结构</li>
                     <li><strong>ARRAY：</strong>数组类型</li>
                     <li><strong>NONE：</strong>无类型，用于固定值或表达式映射</li>
@@ -1532,7 +1532,7 @@
             </div>
             <div class="guide-content-body" v-show="!collapsedSteps.step3.item2">
               <p>导航至：<code>Mock → Mock调用测试</code></p>
-              <el-button type="text" size="small" @click="navigateTo('/mock/log')">
+              <el-button type="text" size="small" @click="navigateTo('/mock/test')">
                 前往测试 <i class="el-icon-arrow-right"></i>
               </el-button>
               <ul class="config-list">

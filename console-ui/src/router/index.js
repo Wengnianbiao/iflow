@@ -102,11 +102,22 @@ const routes = [
   {
     path: '/workflow/node/param/guide',
     name: 'NodeParamGuide',
-    component: () => import('@/views/NodeParamGuide.vue'),
+    component: () => import('@/views/NodeConfigIntro.vue'),
     meta: {
       breadcrumb: [
         { name: '配置手册', path: null, icon: 'el-icon-reading' },
         { name: '参数配置教程', path: '/workflow/node/param/guide' }
+      ]
+    }
+  },
+  {
+    path: '/mock/guide',
+    name: 'MockGuide',
+    component: () => import('@/views/MockGuide.vue'),
+    meta: {
+      breadcrumb: [
+        { name: 'Mock', path: null, icon: 'el-icon-set-up' },
+        { name: 'Mock调试说明', path: '/mock/guide' }
       ]
     }
   },
@@ -117,18 +128,18 @@ const routes = [
     meta: {
       breadcrumb: [
         { name: 'Mock', path: null, icon: 'el-icon-set-up' },
-        { name: 'Mock响应配置', path: '/mock/config' }
+        { name: 'Mock场景管理', path: '/mock/config' }
       ]
     }
   },
   {
-    path: '/mock/log',
-    name: 'MockInvoke',
-    component: () => import('@/views/MockInvokeLog.vue'),
+    path: '/mock/test',
+    name: 'MockInvokeTest',
+    component: () => import('@/views/MockInvokeTest.vue'),
     meta: {
       breadcrumb: [
         { name: 'Mock', path: null, icon: 'el-icon-set-up' },
-        { name: 'Mock调用测试', path: '/mock/log' }
+        { name: 'Mock调用测试', path: '/mock/test' }
       ]
     }
   },
@@ -139,7 +150,7 @@ const routes = [
     meta: {
       breadcrumb: [
         { name: 'Mock', path: null, icon: 'el-icon-set-up' },
-        { name: 'Jarvis入参模板', path: '/jarvis/templates' }
+        { name: '入参模板', path: '/jarvis/templates' }
       ]
     }
   },

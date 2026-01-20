@@ -6,7 +6,7 @@
       :closable="false"
       style="margin-bottom: 20px"
     >
-      以下是Jarvis系统的入参模板，可用于Mock调用测试时快速填充业务数据
+      以下是上游系统的入参模板，可用于Mock调用测试时快速填充业务数据。
     </el-alert>
 
     <el-row :gutter="20">
@@ -15,14 +15,13 @@
           <div slot="header" class="card-header">
             <span class="template-title">{{ templateNames[key] }}</span>
           </div>
-          
+
           <div class="template-info">
             <el-descriptions :column="1" border size="small">
-              <el-descriptions-item label="BusinessMethod">
-                <el-tag size="small">{{ template.BusinessMethod }}</el-tag>
-              </el-descriptions-item>
-              <el-descriptions-item label="BusinessCode">
-                {{ template.BusinessCode || '-' }}
+              <el-descriptions-item label="调用关系">
+                <el-tag :type="getTemplateDirection(key) === '三方 -> jarvis' ? 'warning' : 'success'" size="small">
+                  {{ getTemplateDirection(key) }}
+                </el-tag>
               </el-descriptions-item>
               <el-descriptions-item label="说明">
                 {{ getTemplateDescription(key) }}
@@ -31,16 +30,16 @@
           </div>
 
           <div class="template-actions">
-            <el-button 
-              size="small" 
+            <el-button
+              size="small"
               type="primary"
               @click="viewTemplate(key)"
               icon="el-icon-view"
             >
               查看详情
             </el-button>
-            <el-button 
-              size="small" 
+            <el-button
+              size="small"
               @click="copyTemplate(key)"
               icon="el-icon-document-copy"
             >
@@ -66,7 +65,7 @@
 
 <script>
 import { Message } from 'element-ui';
-import { jarvisTemplates, templateNames } from '@/config/jarvisTemplates';
+import { jarvisTemplates, templateNames, templateDescriptions, templateDirections } from '@/config/jarvisTemplates';
 import { useJsonViewer } from '@/composables/useJsonViewer';
 import JsonViewerDialog from '@/components/common/JsonViewerDialog.vue';
 
@@ -78,14 +77,12 @@ export default {
   setup() {
     const jsonViewer = useJsonViewer();
 
-    const templateDescriptions = {
-      CreateArchives: '用于创建患者档案，包含患者基本信息、详细信息和医生科室信息',
-      GetArchives: '用于查询患者档案信息',
-      UpdateArchives: '用于更新患者档案信息'
-    };
-
     const getTemplateDescription = (key) => {
       return templateDescriptions[key] || '暂无描述';
+    };
+
+    const getTemplateDirection = (key) => {
+      return templateDirections?.[key] || 'jarvis -> 三方';
     };
 
     const viewTemplate = (key) => {
@@ -97,7 +94,7 @@ export default {
     const copyTemplate = async (key) => {
       const template = jarvisTemplates[key];
       const templateStr = JSON.stringify(template, null, 2);
-      
+
       try {
         await navigator.clipboard.writeText(templateStr);
         Message.success('模板已复制到剪贴板');
@@ -124,6 +121,7 @@ export default {
       templateNames,
       jsonViewer,
       getTemplateDescription,
+      getTemplateDirection,
       viewTemplate,
       copyTemplate
     };

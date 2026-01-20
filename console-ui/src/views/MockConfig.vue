@@ -4,9 +4,9 @@
     <div style="margin-bottom: 20px; background-color: #f5f7fa; padding: 20px; border-radius: 4px;">
       <el-form :inline="true" style="display: flex; justify-content: center; flex-wrap: wrap; gap: 10px;">
         <el-form-item label="节点筛选">
-          <el-select 
-            v-model="filterNodeId" 
-            placeholder="请选择节点" 
+          <el-select
+            v-model="filterNodeId"
+            placeholder="请选择节点"
             clearable
             filterable
             @change="handleFilterChange"
@@ -48,24 +48,10 @@
 
       <el-table-column label="Mock响应" min-width="200">
         <template #default="scope">
-          <json-preview-cell 
-            :content="scope.row.mockResponse" 
+          <json-preview-cell
+            :content="scope.row.mockResponse"
             @click="jsonViewer.open($event, 'Mock响应数据')"
           />
-        </template>
-      </el-table-column>
-
-      <el-table-column label="是否启用" width="100" align="center">
-        <template #default="scope">
-          <el-tag :type="scope.row.enabled === 1 ? 'success' : 'info'">
-            {{ scope.row.enabled === 1 ? '启用' : '禁用' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-
-      <el-table-column label="创建时间" width="160" align="center">
-        <template #default="scope">
-          {{ scope.row.createTime || '-' }}
         </template>
       </el-table-column>
 
@@ -96,15 +82,15 @@
       width="700px"
       @close="dialog.close"
     >
-      <el-form 
-        :model="form" 
-        :rules="rules" 
-        ref="formRef" 
+      <el-form
+        :model="form"
+        :rules="rules"
+        ref="formRef"
         label-width="120px"
       >
         <el-form-item label="所属节点" prop="nodeId">
-          <el-select 
-            v-model="form.nodeId" 
+          <el-select
+            v-model="form.nodeId"
             placeholder="请选择节点"
             filterable
             style="width: 100%"
@@ -119,8 +105,8 @@
         </el-form-item>
 
         <el-form-item label="场景名称" prop="caseName">
-          <el-input 
-            v-model="form.caseName" 
+          <el-input
+            v-model="form.caseName"
             placeholder="请输入场景名称，如：成功场景、失败场景"
           ></el-input>
         </el-form-item>
@@ -141,16 +127,6 @@
             :rows="8"
             placeholder='请输入JSON格式的Mock响应数据'
           ></el-input>
-        </el-form-item>
-
-        <el-form-item label="是否启用">
-          <el-switch 
-            v-model="form.enabled"
-            :active-value="1"
-            :inactive-value="0"
-            active-text="启用"
-            inactive-text="禁用"
-          ></el-switch>
         </el-form-item>
       </el-form>
 
@@ -207,8 +183,7 @@ export default {
       nodeId: null,
       caseName: '',
       caseDesc: '',
-      mockResponse: '',
-      enabled: 1
+      mockResponse: ''
     });
 
     const validateJson = (rule, value, callback) => {
@@ -266,7 +241,7 @@ export default {
             map.set(node.nodeId, node.nodeName);
           });
           nodeMap.value = map;
-          
+
           await fetchData();
         }
       } catch (error) {
@@ -300,8 +275,7 @@ export default {
         nodeId: row.nodeId,
         caseName: row.caseName,
         caseDesc: row.caseDesc || '',
-        mockResponse: row.mockResponse || '',
-        enabled: row.enabled !== undefined ? row.enabled : 1
+        mockResponse: row.mockResponse || ''
       });
       dialog.open('编辑Mock配置');
     };
@@ -313,7 +287,7 @@ export default {
           cancelButtonText: '取消',
           type: 'warning'
         });
-        
+
         await deleteMockConfig(row.mockId);
         await fetchData();
       } catch (error) {
@@ -330,8 +304,7 @@ export default {
         nodeId: null,
         caseName: '',
         caseDesc: '',
-        mockResponse: '',
-        enabled: 1
+        mockResponse: ''
       });
     };
 
@@ -341,7 +314,7 @@ export default {
 
       try {
         const submitData = { ...form };
-        
+
         // 空字符串转null
         if (!submitData.caseDesc || submitData.caseDesc.trim() === '') {
           submitData.caseDesc = null;

@@ -144,6 +144,7 @@
             <el-option label="字符串" value="STRING"></el-option>
             <el-option label="数字INT" value="INTEGER"></el-option>
             <el-option label="数字LONG" value="LONG"></el-option>
+            <el-option label="数字DOUBLE" value="DOUBLE"></el-option>
             <el-option label="布尔" value="BOOLEAN"></el-option>
             <el-option label="对象" value="OBJECT"></el-option>
             <el-option label="数组" value="ARRAY"></el-option>
@@ -161,6 +162,7 @@
             <el-option label="字符串" value="STRING"></el-option>
             <el-option label="数字INT" value="INTEGER"></el-option>
             <el-option label="数字LONG" value="LONG"></el-option>
+            <el-option label="数字DOUBLE" value="DOUBLE"></el-option>
             <el-option label="布尔" value="BOOLEAN"></el-option>
             <el-option label="对象" value="OBJECT"></el-option>
             <el-option label="数组" value="ARRAY"></el-option>

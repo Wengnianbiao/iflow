@@ -14,8 +14,11 @@ trigger: always_on
 3. [节点操作](#节点操作)
 4. [参数映射操作](#参数映射操作)
 5. [工作流操作](#工作流操作)
-6. [配置模板](#配置模板)
-7. [完整对接示例](#完整对接示例)
+6. [Mock配置操作](#mock配置操作)
+7. [Mock调用验证](#mock调用验证)
+8. [调用日志查询](#调用日志查询)
+9. [配置模板](#配置模板)
+10. [完整对接示例](#完整对接示例)
 
 ---
 
@@ -47,10 +50,13 @@ trigger: always_on
 ### 基础路径
 
 | 模块 | 基础路径 |
-|------|---------|
+|------|------|
 | 节点管理 | `/v1/ai/mcp/workflow-node` |
 | 工作流管理 | `/v1/ai/mcp/workflow` |
 | 参数映射管理 | `/v1/ai/mcp/node-param-config` |
+| Mock配置管理 | `/v1/ai/mcp/mock-config` |
+| Mock调用验证 | `/v1/ai/mcp/mock-invoke` |
+| 调用日志查询 | `/v1/ai/mcp/invoke-log` |
 
 ### 接口清单
 
@@ -415,6 +421,266 @@ trigger: always_on
 
 ---
 
+## Mock配置操作
+
+### 创建Mock配置
+
+**接口**：`POST /v1/ai/mcp/mock-config/create`
+
+**请求体**：
+```json
+{
+  "nodeId": 39,
+  "caseName": "成功场景",
+  "caseDesc": "正常建档成功的响应",
+  "mockResponse": "{\"result\": \"1\", \"message\": \"创建成功\", \"data\": {\"patientId\": \"P001\"}}"
+}
+```
+
+**字段说明**：
+
+| 字段 | 必填 | 说明 |
+|------|------|------|
+| nodeId | 是 | 关联的节点ID |
+| caseName | 是 | Mock场景名称 |
+| caseDesc | 否 | 场景描述 |
+| mockResponse | 是 | Mock响应数据（JSON字符串） |
+
+**响应**：
+```json
+{
+  "code": "200",
+  "message": "OK",
+  "rsp": 7
+}
+```
+> 返回的 `rsp` 就是 mockId，用于后续Mock调用
+
+### 查询节点的所有Mock配置
+
+**接口**：`GET /v1/ai/mcp/mock-config/list/{nodeId}`
+
+**响应**：
+```json
+{
+  "code": "200",
+  "rsp": [
+    {
+      "mockId": 7,
+      "nodeId": 39,
+      "caseName": "成功场景",
+      "caseDesc": "正常建档成功的响应",
+      "mockResponse": "{\"result\": \"1\", \"message\": \"创建成功\"}"
+    }
+  ]
+}
+```
+
+### 查询单个Mock配置
+
+**接口**：`GET /v1/ai/mcp/mock-config/get/{mockId}`
+
+### 更新Mock配置
+
+**接口**：`POST /v1/ai/mcp/mock-config/update`
+
+**请求体**：同创建，需包含 `mockId` 字段
+
+### 删除Mock配置
+
+**接口**：`DELETE /v1/ai/mcp/mock-config/delete/{mockId}`
+
+### 批量删除节点的所有Mock
+
+**接口**：`DELETE /v1/ai/mcp/mock-config/delete-by-node/{nodeId}`
+
+---
+
+## Mock调用验证
+
+### 单次Mock调用
+
+**接口**：`POST /v1/ai/mcp/mock-invoke/invoke`
+
+**请求参数**：
+- `nodeId` (必填): 节点ID
+- `mockId` (必填): Mock配置ID
+
+**请求体**：模拟上游系统的业务数据
+```json
+{
+  "patientCode": "TEST001",
+  "patientName": "测试患者",
+  "sex": "1",
+  "age": 30
+}
+```
+
+**完整示例**：
+```bash
+POST /v1/ai/mcp/mock-invoke/invoke?nodeId=39&mockId=7
+Content-Type: application/json
+
+{
+  "patientCode": "TEST001",
+  "patientName": "测试患者",
+  "sex": "1",
+  "age": 30
+}
+```
+
+**响应**：
+```json
+{
+  "code": "200",
+  "rsp": {
+    "code": "-1",
+    "message": "创建成功",
+    "rsp": {
+      "patientCode": "TEST001",
+      "patientId": null,
+      "patientName": "测试患者"
+    }
+  }
+}
+```
+
+> **重要**：调用成功后，必须查询日志验证参数映射是否正确！
+
+### 批量Mock验证
+
+**接口**：`POST /v1/ai/mcp/mock-invoke/batch-invoke`
+
+**请求参数**：
+- `nodeId` (必填): 节点ID
+- `mockIds` (必填): Mock配置ID列表
+
+**请求体**：同单次调用
+
+**完整示例**：
+```bash
+POST /v1/ai/mcp/mock-invoke/batch-invoke?nodeId=39&mockIds=7,8,9
+Content-Type: application/json
+
+{
+  "patientCode": "TEST001",
+  "patientName": "测试患者"
+}
+```
+
+**响应**：
+```json
+{
+  "code": "200",
+  "rsp": [
+    {
+      "mockId": 7,
+      "success": true,
+      "message": "验证成功",
+      "result": {...}
+    },
+    {
+      "mockId": 8,
+      "success": false,
+      "message": "参数映射错误",
+      "result": null
+    }
+  ]
+}
+```
+
+---
+
+## 调用日志查询
+
+### 查询最新日志（推荐用于验证）
+
+**接口**：`GET /v1/ai/mcp/invoke-log/latest`
+
+**请求参数**：
+- `limit` (可选): 返回数量，默认5条
+
+**示例**：
+```bash
+GET /v1/ai/mcp/invoke-log/latest?limit=1
+```
+
+**响应**：
+```json
+{
+  "code": "200",
+  "rsp": {
+    "total": 59,
+    "pageNum": 1,
+    "pageSize": 1,
+    "rows": [
+      {
+        "logId": 124,
+        "nodeName": "HIS创建体检者档案",
+        "keyword": "TEST001",
+        "businessData": "{\"patientCode\":\"TEST001\",\"patientName\":\"测试患者\",\"sex\":\"1\",\"age\":30}",
+        "paramBeforeInvoke": "{\"patientName\":\"测试患者\",\"gender\":\"1\",\"nation\":\"CHN\"}",
+        "remoteInvokeResponse": "{\"result\":\"1\",\"message\":\"创建成功\"}",
+        "paramAfterInvoke": "{\"code\":\"-1\",\"message\":\"创建成功\",\"rsp\":{\"patientCode\":\"TEST001\"}}",
+        "invokeTime": "48",
+        "createTime": "2026-01-20T14:39:57.800+08:00"
+      }
+    ]
+  }
+}
+```
+
+**关键字段说明**：
+
+| 字段 | 说明 | 用途 |
+|------|------|------|
+| businessData | 原始业务数据 | 验证输入是否正确 |
+| paramBeforeInvoke | 前置映射结果 | **验证上游→下游的参数转换** |
+| remoteInvokeResponse | Mock响应数据 | 查看模拟的下游响应 |
+| paramAfterInvoke | 后置映射结果 | **验证下游→上游的参数转换** |
+
+### 根据关键字查询日志
+
+**接口**：`GET /v1/ai/mcp/invoke-log/by-keyword/{keyword}`
+
+**请求参数**：
+- `limit` (可选): 返回数量，默认10条
+
+**示例**：
+```bash
+GET /v1/ai/mcp/invoke-log/by-keyword/TEST001?limit=5
+```
+
+### 根据节点查询日志
+
+**接口**：`GET /v1/ai/mcp/invoke-log/by-node/{nodeName}`
+
+**请求参数**：
+- `pageNum` (可选): 页码，默认1
+- `pageSize` (可选): 每页数量，默认10
+
+**示例**：
+```bash
+GET /v1/ai/mcp/invoke-log/by-node/HIS创建体检者档案?pageNum=1&pageSize=10
+```
+
+### 分页查询日志
+
+**接口**：`GET /v1/ai/mcp/invoke-log/list`
+
+**请求参数**：
+- `nodeName` (可选): 节点名称
+- `keyword` (可选): 关键字
+- `pageNum` (可选): 页码，默认1
+- `pageSize` (可选): 每页数量，默认10
+
+**示例**：
+```bash
+GET /v1/ai/mcp/invoke-log/list?nodeName=HIS创建体检者档案&pageNum=1&pageSize=20
+```
+
+---
+
 ## 配置模板
 
 ### HTTP节点metaInfo模板
@@ -683,7 +949,62 @@ Content-Type: application/json
 }
 ```
 
-#### 步骤3：创建工作流
+#### 步骤3：创建Mock配置
+
+```bash
+POST /v1/ai/mcp/mock-config/create
+Content-Type: application/json
+
+{
+  "nodeId": 8,
+  "caseName": "成功场景",
+  "caseDesc": "正常建档成功的响应",
+  "mockResponse": "{\"returnCode\": \"1\", \"errorMessage\": \"创建成功\", \"hisPatientId\": \"P12345\"}"
+}
+```
+
+**响应**：`{"code":"200","rsp":15}`
+
+记录 mockId = 15
+
+#### 步骤4：执行Mock验证
+
+```bash
+POST /v1/ai/mcp/mock-invoke/invoke?nodeId=8&mockId=15
+Content-Type: application/json
+
+{
+  "patientCode": "P001",
+  "patientName": "张三",
+  "sex": "1"
+}
+```
+
+**响应**：
+```json
+{
+  "code": "200",
+  "rsp": {
+    "code": "200",
+    "message": "创建成功",
+    "rsp": {
+      "hisPatientId": "P12345"
+    }
+  }
+}
+```
+
+#### 步骤5：查询日志验证映射
+
+```bash
+GET /v1/ai/mcp/invoke-log/latest?limit=1
+```
+
+检查返回的日志中：
+- `paramBeforeInvoke`：确认 `sex` 是否转换为 `gender`，值为“男”
+- `paramAfterInvoke`：确认 `returnCode` 是否转换为 `code: "200"`
+
+#### 步骤6：创建工作流
 
 ```bash
 POST /v1/ai/mcp/workflow/create
@@ -700,23 +1021,30 @@ Content-Type: application/json
 
 **响应**：`{"code":"200","rsp":10}`
 
-#### 步骤4：验证配置
-
-```bash
-GET /v1/ai/mcp/node-param-config/export/8
-```
-
-检查返回的配置是否正确。
-
 ---
 
 ## 操作建议
+
+### AI自动验证流程
+
+**在完成参数映射配置后，必须执行以下验证步骤：**
+
+1. **创建Mock配置**：使用 `/v1/ai/mcp/mock-config/create` 创建测试场景
+2. **执行Mock调用**：使用 `/v1/ai/mcp/mock-invoke/invoke` 模拟真实调用
+3. **查询调用日志**：使用 `/v1/ai/mcp/invoke-log/latest` 获取转换过程
+4. **分析验证结果**：
+   - 检查 `paramBeforeInvoke`：验证前置映射是否正确
+   - 检查 `paramAfterInvoke`：验证后置映射是否正确
+5. **报告验证结果**：告知用户配置是否正确，如有错误说明问题
+
+> ⚠️ **重要**：Mock调用的响应不能直接验证映射正确性，必须查看日志中的转换过程！
 
 ### 推荐操作顺序
 
 1. **创建节点** → 获取 nodeId
 2. **导入参数映射** → 使用 nodeId
-3. **创建工作流** → 关联 nodeId
+3. **Mock验证** → 确认映射正确性
+4. **创建工作流** → 关联 nodeId
 
 ### 常用技巧
 

@@ -9,22 +9,19 @@
         <result column="case_name" property="caseName"/>
         <result column="case_desc" property="caseDesc"/>
         <result column="mock_response" property="mockResponse"/>
-        <result column="enabled" property="enabled"/>
     </resultMap>
 
     <!-- 根据节点ID查询启用的Mock配置列表 -->
     <select id="selectEnabledByNodeId" resultMap="MockConfigResultMap">
-        SELECT mock_id, node_id, case_name, case_desc,
-               mock_response, enabled
+        SELECT mock_id, node_id, case_name, case_desc, mock_response
         FROM mock_config
-        WHERE node_id = #{nodeId} AND enabled = 1
+        WHERE node_id = #{nodeId}
         ORDER BY mock_id ASC
     </select>
 
     <!-- 根据节点ID查询所有Mock配置列表 -->
     <select id="selectByNodeId" resultMap="MockConfigResultMap">
-        SELECT mock_id, node_id, case_name, case_desc,
-               mock_response, enabled
+        SELECT mock_id, node_id, case_name, case_desc, mock_response
         FROM mock_config
         WHERE node_id = #{nodeId}
         ORDER BY mock_id ASC
@@ -32,16 +29,14 @@
 
     <!-- 根据mockId查询Mock配置 -->
     <select id="selectById" resultMap="MockConfigResultMap">
-        SELECT mock_id, node_id, case_name, case_desc,
-               mock_response, enabled
+        SELECT mock_id, node_id, case_name, case_desc, mock_response
         FROM mock_config
         WHERE mock_id = #{mockId}
     </select>
 
     <!-- 分页查询Mock配置 -->
     <select id="selectByPage" resultMap="MockConfigResultMap">
-        SELECT mock_id, node_id, case_name, case_desc,
-               mock_response, enabled
+        SELECT mock_id, node_id, case_name, case_desc, mock_response
         FROM mock_config
         <where>
             <if test="nodeId != null">
@@ -63,10 +58,10 @@
     </select>
 
     <!-- 插入Mock配置 -->
-    <insert id="insert" parameterType="com.helianhealth.agent.mock.model.MockConfigDO" 
+    <insert id="insert" parameterType="com.helianhealth.agent.mock.model.MockConfigDO"
             useGeneratedKeys="true" keyProperty="mockId">
-        INSERT INTO mock_config (node_id, case_name, case_desc, mock_response, enabled)
-        VALUES (#{nodeId}, #{caseName}, #{caseDesc}, #{mockResponse}, #{enabled})
+        INSERT INTO mock_config (node_id, case_name, case_desc, mock_response)
+        VALUES (#{nodeId}, #{caseName}, #{caseDesc}, #{mockResponse})
     </insert>
 
     <!-- 更新Mock配置 -->
@@ -77,7 +72,6 @@
             <if test="caseName != null">case_name = #{caseName},</if>
             <if test="caseDesc != null">case_desc = #{caseDesc},</if>
             <if test="mockResponse != null">mock_response = #{mockResponse},</if>
-            <if test="enabled != null">enabled = #{enabled},</if>
         </set>
         WHERE mock_id = #{mockId}
     </update>
