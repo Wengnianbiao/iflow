@@ -124,11 +124,7 @@ CREATE TABLE mock_config
     -- Mock场景描述
     case_desc       VARCHAR(255)  NULL,
     -- Mock响应数据（JSON格式）
-    mock_response   NVARCHAR(MAX) NOT NULL,
-    -- 是否启用
-    enabled         INT           NOT NULL DEFAULT 1,
-    -- 创建时间
-    create_time     DATETIME      NOT NULL DEFAULT GETDATE()
+    mock_response   NVARCHAR(MAX) NOT NULL
 );
 
 -- 节点扩展配置表（SPI动态扩展）

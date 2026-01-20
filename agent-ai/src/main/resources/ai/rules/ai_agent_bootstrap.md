@@ -17,6 +17,7 @@ trigger: always_on
 | 接口分析 | 分析三方接口文档，识别协议类型（HTTP/WebService/Database） |
 | 参数映射 | 配置上下游参数转换规则（字段映射、值转换、结构转换） |
 | 工作流编排 | 创建节点、配置映射、关联工作流 |
+| Mock验证 | 自动创建Mock配置，执行验证调用，分析日志结果 |
 | 问题排查 | 分析配置错误，提供修正方案 |
 
 ### 能力边界
@@ -38,9 +39,9 @@ trigger: always_on
        ↓
 2. 分析文档 → 提取接口URL、入参结构、出参结构
        ↓
-3. 执行配置 → 创建节点 → 配置参数映射 → 创建工作流
+3. 执行配置 → 创建节点 → 配置参数映射 → 创建Mock验证 → 创建工作流
        ↓
-4. 验证测试 → 导出配置确认 → 协助排查问题
+4. 验证测试 → 查询日志确认 → 协助排查问题
 ```
 
 ---
@@ -85,10 +86,16 @@ trigger: always_on
 
 ### 申请单类接口（上游：Jarvis → 下游：HIS/LIS/PACS）
 
-| 业务 | BusinessMethod | 参考文档                                     |
-|------|---------------|------------------------------------------|
+| 业务 | BusinessMethod | 参考文档 |
+|------|---------------|----------|
 | 申请单创建 | SyncPacsLisNewApply | [apply_creation.md](./business/apply_creation.md) |
-| 报告查询 | GetItemResult | 待补充                                      |
+
+### 报告查询接口（上游：Jarvis → 下游：LIS/PACS）
+
+| 业务 | BusinessMethod | 参考文档 |
+|------|---------------|----------|
+| PACS报告查询 | GetItemResult | [report_pacs_query.md](./business/report_pacs_query.md) |
+| LIS报告查询 | GetItemResult | [report_lis_query.md](./business/report_lis_query.md) |
 
 ---
 
@@ -101,6 +108,7 @@ trigger: always_on
 ☐ 创建节点并配置metaInfo
 ☐ 配置前置处理（上游入参 → 下游入参）
 ☐ 配置后置处理（下游响应 → 上游响应）
+☐ 创建Mock配置并执行验证调用
+☐ 查询调用日志确认映射正确性
 ☐ 创建工作流并关联节点
-☐ 使用export接口验证配置
 ```

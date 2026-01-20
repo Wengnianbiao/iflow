@@ -10,11 +10,12 @@ trigger: always_on
 ## 目录
 
 1. [步骤0：确认上游信息（关键卡点）](#步骤0确认上游信息关键卡点)
-2. [步骤1：创建节点决策](#步骤1创建节点决策)
-3. [步骤2：参数映射决策](#步骤2参数映射决策)
-4. [步骤3：创建工作流决策](#步骤3创建工作流决策)
-5. [步骤4：验证与排错](#步骤4验证与排错)
-6. [场景识别规则](#场景识别规则)
+2. [接口可配置性判断（必须执行）](#接口可配置性判断必须执行)
+3. [步骤1：创建节点决策](#步骤1创建节点决策)
+4. [步骤2：参数映射决策](#步骤2参数映射决策)
+5. [步骤3：创建工作流决策](#步骤3创建工作流决策)
+6. [步骤4：验证与排错](#步骤4验证与排错)
+7. [场景识别规则](#场景识别规则)
 
 ---
 
@@ -86,6 +87,111 @@ AI：✓ 确认配置信息：
 - 后置处理：HIS响应 → Jarvis标准响应
 
 开始生成配置...
+```
+
+---
+
+## 接口可配置性判断（必须执行）
+
+> ⚠️ **关键检查**：在开始配置前，AI必须先判断接口是否可以通过标准配置处理。
+
+### 可配置性检查清单
+
+**✅ 可以配置化处理的接口**：
+
+| 检查项 | 可配置条件 | 示例 |
+|--------|------------|------|
+| 协议类型 | HTTP/HTTPS、WebService(SOAP)、Database | RESTful API、WSDL接口、SQL查询 |
+| 认证方式 | 无认证、基本认证、静态Token、请求头Header | Basic Auth、`Authorization: Bearer xxx` |
+| 数据格式 | JSON、XML、纯文本 | `{"name":"xxx"}`、`<name>xxx</name>` |
+| 参数结构 | 标准嵌套结构 | 对象、数组、基本类型 |
+| 字段映射 | 字段名直接对应或SpEL表达式 | `patientCode`→`patNo`、`#data=='1'?'男':'女'` |
+
+**❌ 无法配置化处理的接口（需SPI扩展）**：
+
+| 场景 | 原因 | 示例 |
+|------|------|------|
+| **动态签名** | 需要根据请求内容实时计算签名 | MD5/SHA256签名、HMAC签名 |
+| **动态Token** | Token需要先调用登录接口获取 | OAuth2、临时Token |
+| **特殊加密** | 参数需要加密/解密处理 | AES加密、RSA加密、Base64编码 |
+| **非标准协议** | 自定义协议、TCP长连接 | 私有协议、Socket通信 |
+| **复杂业务逻辑** | 需要多步骤交互或复杂计算 | 分步提交、条件跳转、自定义校验 |
+| **同名XML标签** | XML中多个同名标签依赖属性区分 | `<item type="A">...</item><item type="B">...</item>` |
+| **数组跨源拼接** | 数组元素需要从多个数据源按索引拼接 | `result[0]`来自入参，`result[1]`来自响应 |
+
+### 判断流程
+
+```
+分析接口文档
+    ↓
+检查认证方式
+    ├─ 静态Token/Basic Auth? → ✅ 可配置（在metaInfo.headers中配置）
+    ├─ 需要动态Token? → ❌ 需SPI扩展
+    └─ 需要签名? → ❌ 需SPI扩展
+    ↓
+检查数据格式
+    ├─ JSON/XML? → ✅ 可配置
+    └─ 自定义格式? → ❌ 需SPI扩展
+    ↓
+检查参数结构
+    ├─ 标准嵌套结构? → ✅ 可配置
+    ├─ 同XML标签依赖属性? → ❌ 需SPI扩展
+    └─ 需要加密/解密? → ❌ 需SPI扩展
+    ↓
+检查业务逻辑
+    ├─ 简单字段映射? → ✅ 可配置
+    ├─ SpEL表达式可实现? → ✅ 可配置
+    └─ 需要复杂计算/查询? → ❌ 需SPI扩展
+```
+
+### 处理方式
+
+**如果接口可配置化**：
+```
+✅ 该接口可以通过标准配置处理，开始创建节点和参数映射...
+```
+
+**如果接口不可配置化**：
+```
+⚠️ 检测到该接口无法通过标准配置处理：
+
+问题：[具体原因，如“需要动态签名”]
+解决方案：该接口需要通过SPI扩展实现。
+
+SPI扩展说明：
+1. 实现InterfaceRemoteInvoker或NodeParamResolver接口
+2. 自定义签名/加密/认证逻辑
+3. 通过extensionName指定使用该扩展
+
+建议：请提供更详细的接口文档，我可以帮助识别具体需要哪种SPI扩展。
+```
+
+### 常见可配置场景示例
+
+**✅ 可配置：静态Token认证**
+```json
+"metaInfo": "{
+  \"url\": \"http://his.example.com/api\",
+  \"headers\": {
+    \"Authorization\": \"Bearer fixed_token_12345\",
+    \"Content-Type\": \"application/json\"
+  }
+}"
+```
+
+**✅ 可配置：SpEL值转换**
+```json
+{
+  "mappingType": "EXPRESSION",
+  "mappingRule": "#data == '1' ? '男' : '女'"
+}
+```
+
+**❌ 不可配置：动态MD5签名**
+```
+需求：请求参数 + timestamp + secret 计算MD5
+原因：需要在请求前动态计算，SpEL表达式无法实现
+解决：实现InterfaceRemoteInvoker扩展
 ```
 
 ---
@@ -224,12 +330,71 @@ AI：✓ 确认配置信息：
 
 ## 步骤4：验证与排错
 
-### 验证流程
+### AI自动验证流程（必须执行）
 
-1. **关闭Mock开关**（如有）
-2. **上游发起真实调用**
-3. **查看调用日志**
-4. **检查返回结果**
+**在完成参数映射配置后，AI必须自动执行以下验证：**
+
+#### 1. 创建Mock配置
+
+使用 `POST /v1/ai/mcp/mock-config/create` 创建测试场景：
+- **成功场景**：模拟下游接口返回成功响应
+- **mockResponse**：根据下游接口文档构造真实响应格式
+
+#### 2. 执行Mock调用
+
+使用 `POST /v1/ai/mcp/mock-invoke/invoke?nodeId=X&mockId=Y` 模拟真实调用：
+- **businessData**：根据上游入参结构构造测试数据
+- 框架会执行完整的前置/后置映射流程
+
+#### 3. 查询调用日志
+
+使用 `GET /v1/ai/mcp/invoke-log/latest?limit=1` 获取最新调用日志：
+- **businessData**：验证原始输入是否正确
+- **paramBeforeInvoke**：验证前置映射是否正确
+- **remoteInvokeResponse**：查看Mock响应数据
+- **paramAfterInvoke**：验证后置映射是否正确
+
+#### 4. 分析验证结果
+
+**检查项**：
+- ✅ 字段名映射是否正确（sourceParamKey → targetParamKey）
+- ✅ 值转换是否正确（EXPRESSION的mappingRule）
+- ✅ 嵌套结构是否正确（OBJECT/ARRAY的childParams）
+- ✅ 默认值是否生效（CONSTANT的mappingRule）
+- ✅ 字段过滤是否正确（不需要的字段未传递）
+
+#### 5. 报告验证结果
+
+**如果验证成功**：
+```
+✅ Mock验证通过！
+
+前置映射验证：
+- patientCode → patNo: ✅ 正确
+- sex "1" → gender "男": ✅ 正确
+- 默认值 nation "CHN": ✅ 正确
+
+后置映射验证：
+- returnCode "1" → code "200": ✅ 正确
+- errorMessage → message: ✅ 正确
+- hisPatientId → rsp.hisPatientId: ✅ 正确
+
+配置已就绪，可以创建工作流。
+```
+
+**如果验证失败**：
+```
+⚠️ Mock验证发现问题：
+
+问题：性别字段转换错误
+- 期望：sex "1" → gender "男"
+- 实际：sex "1" → gender "1"
+- 原因：mappingType配置为NAME，应改为EXPRESSION
+
+正在修复...
+```
+
+> ⚠️ **重要**：Mock调用的响应不能直接验证映射正确性，必须查看日志中的转换过程！
 
 ### 常见问题排查
 
@@ -265,20 +430,3 @@ AI：✓ 确认配置信息：
 | PACS报告获取、影像报告 | PACS报告查询 | business/report_pacs_query.md |
 | LIS报告获取、检验报告 | LIS报告查询 | business/report_lis_query.md |
 
-### 接口类型识别
-
-| 特征 | 识别为 |
-|-----|-------|
-| http://xxx、POST/GET、JSON | HTTP接口 |
-| WSDL、SOAP、Envelope、XML | WebService接口 |
-| JDBC、SQL、SELECT/INSERT | Database接口 |
-
-### 上下游角色识别
-
-| 用户表述 | 上游 | 下游 |
-|---------|-----|-----|
-| "对接HIS建档接口" | Jarvis | HIS |
-| "调用收费系统" | Jarvis | 收费系统 |
-| "接收HIS通知" | HIS | Jarvis |
-| "HIS推送账单状态" | HIS | Jarvis |
-| "PACS回传报告" | PACS | Jarvis |

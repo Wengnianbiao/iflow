@@ -58,6 +58,8 @@ CREATE TABLE node_param_config (
     target_param_type VARCHAR(50) NULL,
     -- 三方接口需要的参数名称
     target_param_key VARCHAR(100) NULL,
+    -- 是否保留单元素键名
+    keep_single_element_key BOOLEAN NULL,
     -- 父节点ID（顶级节点为NULL）
     parent_id INT NULL,
     -- 排序号（控制参数顺序）
@@ -107,11 +109,7 @@ CREATE TABLE mock_config (
     -- Mock场景描述
     case_desc VARCHAR(255) NULL,
     -- Mock响应数据（JSON格式）
-    mock_response TEXT NOT NULL,
-    -- 是否启用
-    enabled INT NOT NULL DEFAULT 1,
-    -- 创建时间
-    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    mock_response TEXT NOT NULL
 );
 
 -- 节点扩展配置表（SPI动态扩展）
