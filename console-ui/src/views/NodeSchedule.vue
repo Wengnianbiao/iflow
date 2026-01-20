@@ -363,7 +363,7 @@ export default {
         nodeName: '',
         nodeType: '',
         scheduleExpr: '',
-        scheduleParamSourceType: 'PRE_RESPONSE'
+        scheduleParamSourceType: 'ORIGINAL'
       },
       scheduleRules: {
         nodeId: [
@@ -394,14 +394,14 @@ export default {
       const param = this.postProcessParams.find(p => p.key === paramName);
       const isStringType = param && (param.type === 'STRING' || param.type === 'OBJECT' || param.type === 'ARRAY');
       
-      // 如果是字符串类型，给值加引号
-      const formattedValue = isStringType ? `'${value}'` : value;
+      // 如果是字符串类型，给值加双引号
+      const formattedValue = isStringType ? `"${value}"` : value;
       
       // 生成节点ID列表
       const nodeIdsStr = targetNodeIds.join(', ');
       
-      // 生成三元表达式 - 使用 #data['key'] 而不是 #response.key
-      return `#data['${paramName}'] ${operator} ${formattedValue} ? Arrays.asList(${nodeIdsStr}) : null`;
+      // 生成三元表达式 - 使用 #data[key] 而不是 #data['key']
+      return `#data[${paramName}] ${operator} ${formattedValue} ? Arrays.asList(${nodeIdsStr}) : null`;
     },
 
     // 调度链路数据（每条链路包含：源节点 + 条件 + 目标节点列表）
@@ -512,7 +512,7 @@ export default {
       this.scheduleForm.nodeName = row.nodeName;
       this.scheduleForm.nodeType = row.nodeType;
       this.scheduleForm.scheduleExpr = row.scheduleExpr || '';
-      this.scheduleForm.scheduleParamSourceType = row.scheduleParamSourceType || 'PRE_RESPONSE';
+      this.scheduleForm.scheduleParamSourceType = row.scheduleParamSourceType || 'ORIGINAL';
       
       // 尝试解析表达式，如果可以解析则使用可视化模式
       if (this.parseExpressionToVisual(row.scheduleExpr)) {
@@ -532,15 +532,17 @@ export default {
     parseExpressionToVisual(expr) {
       if (!expr) return false;
       
-      // 解析三元表达式：#data['xxx'] == 'yyy' ? Arrays.asList(1, 2) : null
-      const regex = /#data\['([^']+)'\]\s*([=!<>]+)\s*(['"]?)([^'"\s?]+)\3\s*\?\s*Arrays\.asList\(([\d,\s]+)\)/;
+      // 解析三元表达式：#data[xxx] == "yyy" ? Arrays.asList(1, 2) : null
+      // 支持两种格式：带引号的 #data['xxx'] 和不带引号的 #data[xxx]
+      const regex = /#data\[(?:'([^']+)'|([^\]]+))\]\s*([=!<>]+)\s*(["']?)([^"'\s?]+)\4\s*\?\s*Arrays\.asList\(([\d,\s]+)\)/;
       const match = expr.match(regex);
       
       if (match) {
-        this.conditionConfig.paramName = match[1];
-        this.conditionConfig.operator = match[2];
-        this.conditionConfig.value = match[4];
-        this.conditionConfig.targetNodeIds = match[5].split(',').map(id => parseInt(id.trim()));
+        // match[1] 是带引号的字段名，match[2] 是不带引号的字段名
+        this.conditionConfig.paramName = match[1] || match[2];
+        this.conditionConfig.operator = match[3];
+        this.conditionConfig.value = match[5];
+        this.conditionConfig.targetNodeIds = match[6].split(',').map(id => parseInt(id.trim()));
         return true;
       }
       
