@@ -8,6 +8,8 @@ target/
 *.ear
 *.iml
 bin/
+.flattened-pom.xml
+pom.xml.versionsBackup
 
 # ===========================
 # IDE - IntelliJ IDEA

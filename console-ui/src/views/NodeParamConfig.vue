@@ -26,6 +26,7 @@
           <el-button type="primary" @click="handleSearch">查询</el-button>
           <el-button @click="handleReset">重置</el-button>
           <el-button type="success" @click="handleAdd">新增</el-button>
+          <el-button type="warning" icon="el-icon-view" @click="handleShowVisualization" :disabled="!searchForm.nodeId">可视化映射</el-button>
         </el-form-item>
       </el-form>
     </div>
@@ -42,11 +43,6 @@
           <el-tag :type="scope.row.processType === 'PRE_PROCESS' ? 'primary' : 'success'">
             {{ scope.row.processType === 'PRE_PROCESS' ? '前置处理' : '后置处理' }}
           </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column prop="mappingSource" label="映射来源" width="120" v-if="showMappingSourceColumn">
-        <template #default="scope">
-          <el-tag size="small">{{ scope.row.mappingSource}}</el-tag>
         </template>
       </el-table-column>
       <el-table-column prop="paramDesc" label="参数描述" show-overflow-tooltip width="200"></el-table-column>
@@ -90,6 +86,14 @@
         style="margin-top: 20px; text-align: right;"
     >
     </el-pagination>
+
+    <!-- 可视化映射对话框 -->
+    <param-mapping-visualization
+      :visible.sync="visualizationVisible"
+      :node-id="searchForm.nodeId"
+      :node-name="getNodeName(searchForm.nodeId)"
+      :config-list="allConfigsForVisualization"
+    />
 
     <!-- 编辑/新增对话框 -->
     <el-dialog
@@ -247,6 +251,7 @@ import { getNodeListUnpaged } from '@/api/workflownode';
 import { usePagination } from '@/composables/usePagination';
 import { useTableLoading } from '@/composables/useTableLoading';
 import { useDialog } from '@/composables/useDialog';
+import ParamMappingVisualization from '@/components/ParamMappingVisualization.vue';
 
 export const MappingSource = {
   RESPONSE: 'RESPONSE',
@@ -255,6 +260,9 @@ export const MappingSource = {
 
 export default {
   name: 'NodeParamConfig',
+  components: {
+    ParamMappingVisualization
+  },
   setup() {
     const searchForm = reactive({
       nodeId: '',
@@ -268,8 +276,9 @@ export default {
     const configParentOptions = ref([]);
     const configParentMap = ref(new Map());
     const allParentConfigs = ref([]);
-    const showMappingSourceColumn = ref(false);
     const editFormRef = ref(null);
+    const visualizationVisible = ref(false);
+    const allConfigsForVisualization = ref([]);
 
     const { loading, withLoading } = useTableLoading();
     const dialog = useDialog();
@@ -326,7 +335,6 @@ export default {
           configList.value = pageList.rows || [];
           pagination.total.value = pageList.total || 0;
           
-          showMappingSourceColumn.value = configList.value.some(item => item.processType === 'POST_PROCESS');
           loadMissingParentConfigs();
         }
       });
@@ -552,6 +560,27 @@ export default {
       }
     };
 
+    const handleShowVisualization = async () => {
+      if (!searchForm.nodeId) {
+        return;
+      }
+      
+      // 获取当前节点的所有配置(不分页)
+      try {
+        const response = await getNodeParamsUnpaged({ nodeId: searchForm.nodeId });
+        if (response.status === 200 && response.data.code === '200') {
+          allConfigsForVisualization.value = response.data.rsp || [];
+          visualizationVisible.value = true;
+        }
+      } catch (error) {
+        console.error('获取配置数据失败:', error);
+      }
+    };
+
+    const getNodeName = (nodeId) => {
+      return nodeMap.value.get(nodeId) || '';
+    };
+
     watch(() => editForm.sourceParamType, (newVal) => {
       if (newVal === 'NONE') {
         editForm.sourceParamKey = '';
@@ -565,7 +594,6 @@ export default {
     });
 
     watch(() => editForm.processType, (newVal) => {
-      showMappingSourceColumn.value = configList.value.some(item => item.processType === 'POST_PROCESS');
       if (newVal) {
         fetchConfigParentList();
       }
@@ -593,14 +621,17 @@ export default {
       editRules,
       editFormRef,
       configParentOptions,
-      showMappingSourceColumn,
+      visualizationVisible,
+      allConfigsForVisualization,
       getParentParamName,
+      getNodeName,
       handleSearch,
       handleReset,
       handleEdit,
       handleCopy,
       handleDelete,
       handleAdd,
+      handleShowVisualization,
       resetEditForm,
       submitEditForm
     };

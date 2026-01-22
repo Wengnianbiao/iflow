@@ -52,7 +52,6 @@
         <el-menu-item index="4-0">Mock调试说明</el-menu-item>
         <el-menu-item index="4-1">Mock场景管理</el-menu-item>
         <el-menu-item index="4-2">Mock调用测试</el-menu-item>
-        <el-menu-item index="4-3">入参模板</el-menu-item>
       </el-submenu>
       <el-menu-item index="5">
         <i class="el-icon-cpu"></i>
@@ -150,11 +149,6 @@ export default {
             this.$router.push('/mock/test');
           }
           break;
-        case '4-3':
-          if (currentPath !== '/jarvis/templates') {
-            this.$router.push('/jarvis/templates');
-          }
-          break;
         case '5':
           if (currentPath !== '/node/extension') {
             this.$router.push('/node/extension');
@@ -214,8 +208,6 @@ export default {
       this.activeIndex = '4-1';
     } else if (currentPath === '/mock/test') {
       this.activeIndex = '4-2';
-    } else if (currentPath === '/jarvis/templates') {
-      this.activeIndex = '4-3';
     } else if (currentPath === '/node/extension') {
       this.activeIndex = '5';
     } else if (currentPath === '/settings') {
@@ -248,8 +240,6 @@ export default {
         this.activeIndex = '4-1';
       } else if (to.path === '/mock/test') {
         this.activeIndex = '4-2';
-      } else if (to.path === '/jarvis/templates') {
-        this.activeIndex = '4-3';
       } else if (to.path === '/node/extension') {
         this.activeIndex = '5';
       } else if (to.path === '/settings') {
