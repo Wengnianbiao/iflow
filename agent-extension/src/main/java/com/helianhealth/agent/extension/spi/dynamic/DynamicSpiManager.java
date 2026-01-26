@@ -1,56 +1,57 @@
 package com.helianhealth.agent.extension.spi.dynamic;
 
+import com.helianhealth.agent.common.extension.AgentExtensionLoader;
+import com.helianhealth.agent.common.extension.AgentSPI;
+import com.helianhealth.agent.common.extension.ExtensionRegistry;
 import com.helianhealth.agent.extension.spi.model.DynamicSpiDefinition;
-import org.apache.dubbo.common.extension.ExtensionLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Dynamic SPI Manager
- * Uses isolated ClassLoader architecture to support complete class unloading
- * Core Design:
- * 1. Each dynamic class uses an independent DynamicClassLoader instance
- * 2. ClassLoader and class are bound one-to-one, living and dying together
- * 3. Release ClassLoader during unloading to trigger JVM class unloading mechanism
+ * 
+ * 动态SPI管理器，面向workflow层提供SPI扩展的动态注册管理能力
+ * 
+ * 核心职责：
+ * 1. 接收 DynamicSpiDefinition 进行扩展注册
+ * 2. 委托 ExtensionRegistry 完成实际的加载和注册
+ * 3. 维护动态注册扩展的元数据缓存
+ * 
+ * 设计说明：
+ * - extension模块仅负责SPI扩展类的注册与内存加载
+ * - 不处理业务节点逻辑和数据库相关字段
  */
 public class DynamicSpiManager {
 
     private static final Logger log = LoggerFactory.getLogger(DynamicSpiManager.class);
 
     /**
-     * Registered dynamic extension cache
-     * key: spiInterface#extensionName, value: Class object
+     * 已注册的动态扩展缓存
+     * key: spiInterface#extensionName, value: Class对象
      */
     private final Map<String, Class<?>> registeredExtensions = new ConcurrentHashMap<>();
 
     /**
-     * ClassLoader cache (one-to-one binding with class)
-     * key: className, value: DynamicClassLoader
+     * 扩展注册中心
      */
-    private final Map<String, DynamicClassLoader> classLoaderMap = new ConcurrentHashMap<>();
-
-    /**
-     * Parent ClassLoader (used to create isolated ClassLoader)
-     */
-    private final ClassLoader parentClassLoader;
+    private final ExtensionRegistry registry;
 
     public DynamicSpiManager() {
-        this.parentClassLoader = Thread.currentThread().getContextClassLoader();
+        this.registry = ExtensionRegistry.getInstance();
     }
 
     /**
-     * Load and register dynamic SPI extension
-     * <p>
-     * Supports two modes:
-     * 1. Dynamic compilation mode: sourceCode is not empty, compile from string
-     * 2. Project mode: sourceCode is empty, load pre-compiled class from classpath
+     * 加载并注册动态SPI扩展
+     * 
+     * 支持两种模式：
+     * 1. 动态编译模式：sourceCode不为空时，从源码编译
+     * 2. 类路径模式：sourceCode为空时，从类路径加载预编译类
      *
-     * @param dynamicSpi SPI definition
+     * @param dynamicSpi SPI定义
      */
     public void loadAndRegister(DynamicSpiDefinition dynamicSpi) throws Exception {
         String className = dynamicSpi.getClassName();
@@ -61,42 +62,24 @@ public class DynamicSpiManager {
         log.debug("Loading dynamic SPI: interface={}, name={}, class={}",
                 spiInterface, extensionName, className);
 
-        // Create independent ClassLoader for each class
-        DynamicClassLoader classLoader = new DynamicClassLoader(parentClassLoader, className);
+        // 委托ExtensionRegistry进行加载和注册
+        registry.loadAndRegister(spiInterface, extensionName, className, sourceCode);
 
-        // Decide loading mode based on whether sourceCode is empty
-        Class<?> clazz;
-        if (sourceCode != null && !sourceCode.trim().isEmpty()) {
-            // Mode 1: Dynamic compilation mode
-            log.debug("Using dynamic compilation mode: {}", className);
-            clazz = classLoader.compileAndLoad(sourceCode);
-        } else {
-            // Mode 2: Project mode (load from classpath)
-            log.debug("Loading from classpath: {}", className);
-            clazz = classLoader.loadFromClasspath();
-        }
-
-        // Cache ClassLoader (bind with class)
-        classLoaderMap.put(className, classLoader);
-
-        Class<?> interfaceClass = Class.forName(spiInterface);
-        if (!interfaceClass.isAssignableFrom(clazz)) {
-            throw new IllegalArgumentException(
-                    String.format("Class %s does not implement SPI interface %s", className, spiInterface));
-        }
-
-        // Register to Dubbo ExtensionLoader
-        ExtensionLoader<?> loader = ExtensionLoader.getExtensionLoader(interfaceClass);
-        loader.addExtension(extensionName, clazz);
-
+        // 更新本地缓存
         String cacheKey = buildCacheKey(spiInterface, extensionName);
-        registeredExtensions.put(cacheKey, clazz);
+        try {
+            Class<?> clazz = Class.forName(className);
+            registeredExtensions.put(cacheKey, clazz);
+        } catch (ClassNotFoundException e) {
+            // 动态编译的类可能无法通过Class.forName获取，忽略
+            log.debug("Class not in classpath (expected for dynamic compiled): {}", className);
+        }
 
         log.info("Registered dynamic SPI: {}", cacheKey);
     }
 
     /**
-     * Batch load SPI extensions (workflow layer ensures only enabled configs are passed)
+     * 批量加载SPI扩展
      */
     public void batchLoad(List<DynamicSpiDefinition> dynamicSpiDefinitions) {
         for (DynamicSpiDefinition def : dynamicSpiDefinitions) {
@@ -109,36 +92,40 @@ public class DynamicSpiManager {
         }
     }
 
+    /**
+     * 检查扩展是否已注册
+     */
     public boolean hasExtension(String spiInterface, String extensionName) {
-        String cacheKey = buildCacheKey(spiInterface, extensionName);
-        return registeredExtensions.containsKey(cacheKey);
+        return registry.hasExtension(spiInterface, extensionName);
     }
 
+    /**
+     * 获取扩展实例
+     */
     @SuppressWarnings("unchecked")
     public <T> T getExtension(String spiInterface, String extensionName) throws Exception {
-        String cacheKey = buildCacheKey(spiInterface, extensionName);
-        Class<?> clazz = registeredExtensions.get(cacheKey);
-        if (clazz == null) {
-            return null;
-        }
-
+        // 验证接口必须标注@AgentSPI
         Class<?> interfaceClass = Class.forName(spiInterface);
         if (!interfaceClass.isInterface()) {
             throw new IllegalArgumentException("spiInterface must be an interface type: " + spiInterface);
         }
+        if (!interfaceClass.isAnnotationPresent(AgentSPI.class)) {
+            throw new IllegalArgumentException("spiInterface must be annotated with @AgentSPI: " + spiInterface);
+        }
 
-        ExtensionLoader<?> loader = ExtensionLoader.getExtensionLoader(interfaceClass);
+        // 通过AgentExtensionLoader获取扩展
+        AgentExtensionLoader<?> loader = AgentExtensionLoader.getExtensionLoader(interfaceClass);
         return (T) loader.getExtension(extensionName);
     }
 
     /**
-     * Refresh SPI extension (unload and reload)
+     * 刷新SPI扩展（卸载后重新加载）
      */
     public void refresh(DynamicSpiDefinition dynamicSpi) throws Exception {
-        // Unload old one first
+        // 先卸载旧的
         remove(dynamicSpi.getSpiInterface(), dynamicSpi.getExtensionName());
 
-        // Reload
+        // 重新加载
         loadAndRegister(dynamicSpi);
 
         String cacheKey = buildCacheKey(dynamicSpi.getSpiInterface(), dynamicSpi.getExtensionName());
@@ -146,126 +133,65 @@ public class DynamicSpiManager {
     }
 
     /**
-     * Remove dynamic SPI extension and completely unload class
+     * 移除动态SPI扩展
      *
-     * Unloading steps:
-     * 1. Remove from registeredExtensions cache
-     * 2. Clear Dubbo ExtensionLoader internal cache
-     * 3. Release DynamicClassLoader (break all references)
-     * 4. Trigger GC to let JVM unload class
-     *
-     * @param spiInterface Interface full qualified name
-     * @param extensionName Extension name
+     * @param spiInterface 接口全限定名
+     * @param extensionName 扩展名称
      */
     public void remove(String spiInterface, String extensionName) {
         String cacheKey = buildCacheKey(spiInterface, extensionName);
-        Class<?> clazz = registeredExtensions.remove(cacheKey);
+        
+        // 从本地缓存移除
+        registeredExtensions.remove(cacheKey);
+        
+        // 委托ExtensionRegistry移除
+        registry.removeExtension(spiInterface, extensionName);
 
-        if (clazz != null) {
-            String className = clazz.getName();
-
-            // 1. Remove extension from Dubbo ExtensionLoader
-            try {
-                Class<?> interfaceClass = Class.forName(spiInterface);
-                ExtensionLoader<?> loader = ExtensionLoader.getExtensionLoader(interfaceClass);
-
-                // Clear Dubbo internal cache via reflection
-                clearExtensionLoaderCache(loader, extensionName, clazz);
-
-                log.debug("Cleared Dubbo cache for: {}", cacheKey);
-            } catch (Exception e) {
-                log.warn("Failed to clear Dubbo ExtensionLoader cache: {}", cacheKey, e);
+        // 清除AgentExtensionLoader的缓存
+        try {
+            Class<?> interfaceClass = Class.forName(spiInterface);
+            if (interfaceClass.isAnnotationPresent(AgentSPI.class)) {
+                AgentExtensionLoader<?> loader = AgentExtensionLoader.getExtensionLoader(interfaceClass);
+                loader.clearCache();
             }
-
-            // 2. Release ClassLoader (core: break reference chain)
-            DynamicClassLoader classLoader = classLoaderMap.remove(className);
-            if (classLoader != null) {
-                classLoader.unload(); // Clear class reference inside ClassLoader
-                log.debug("Released ClassLoader: {}@{}",
-                        classLoader.getClass().getSimpleName(), Integer.toHexString(classLoader.hashCode()));
-            }
-
-            // 3. Clear all references
-            clazz = null;
-            classLoader = null;
-
-            // 4. Suggest JVM to perform garbage collection
-            System.gc();
-
-            log.info("Removed dynamic SPI: {}", cacheKey);
-
-        } else {
-            log.warn("Dynamic SPI not found in cache: {}", cacheKey);
+        } catch (ClassNotFoundException e) {
+            log.warn("Interface class not found when clearing cache: {}", spiInterface);
         }
+
+        log.info("Removed dynamic SPI: {}", cacheKey);
     }
 
     /**
-     * 通过反射清理 Dubbo ExtensionLoader 的内部缓存
-     *
-     * Dubbo ExtensionLoader 内部维护的缓存：
-     * - cachedInstances: 扩展实例缓存（ConcurrentMap<String, Holder<Object>>）
-     * - cachedClasses: 扩展类缓存（Holder<Map<String, Class<?>>>）
+     * 获取所有已注册的动态扩展
      */
-    private void clearExtensionLoaderCache(ExtensionLoader<?> loader, String extensionName, Class<?> clazz) {
-        try {
-            // Clear cachedInstances (extension instance cache)
-            Field cachedInstancesField = ExtensionLoader.class.getDeclaredField("cachedInstances");
-            cachedInstancesField.setAccessible(true);
-            Object cachedInstances = cachedInstancesField.get(loader);
-            if (cachedInstances instanceof ConcurrentHashMap) {
-                ((ConcurrentHashMap<?, ?>) cachedInstances).remove(extensionName);
-                log.debug("Cleared cachedInstances for extension: {}", extensionName);
-            }
-
-            // Clear cachedClasses (extension class cache)
-            Field cachedClassesField = ExtensionLoader.class.getDeclaredField("cachedClasses");
-            cachedClassesField.setAccessible(true);
-            Object cachedClasses = cachedClassesField.get(loader);
-            if (cachedClasses != null) {
-                // cachedClasses is Holder<Map<String, Class<?>>> type
-                Field valueField = cachedClasses.getClass().getDeclaredField("value");
-                valueField.setAccessible(true);
-                Object classesMap = valueField.get(cachedClasses);
-                if (classesMap instanceof Map) {
-                    ((Map<?, ?>) classesMap).remove(extensionName);
-                    log.debug("Cleared cachedClasses for extension: {}", extensionName);
-                }
-            }
-
-            log.debug("Successfully cleared Dubbo ExtensionLoader internal cache for: {}", extensionName);
-
-        } catch (NoSuchFieldException e) {
-            log.warn("Dubbo ExtensionLoader structure may have changed, field not found: {}", e.getMessage());
-        } catch (IllegalAccessException e) {
-            log.warn("Failed to access Dubbo ExtensionLoader private fields: {}", e.getMessage());
-        } catch (Exception e) {
-            log.warn("Unexpected error while clearing Dubbo ExtensionLoader cache", e);
-        }
-    }
-
-    private String buildCacheKey(String spiInterface, String extensionName) {
-        return spiInterface + "#" + extensionName;
-    }
-
     public Map<String, Class<?>> getAllRegisteredExtensions() {
         return new ConcurrentHashMap<>(registeredExtensions);
     }
 
+    /**
+     * 清空所有动态扩展
+     */
     public void clear() {
         int count = registeredExtensions.size();
         if (count > 0) {
             log.info("Clearing {} dynamic SPIs", count);
         }
 
-        // Unload all ClassLoaders
-        for (DynamicClassLoader loader : classLoaderMap.values()) {
-            loader.unload();
+        // 逐个移除以确保正确清理
+        for (String key : registeredExtensions.keySet()) {
+            String[] parts = key.split("#");
+            if (parts.length == 2) {
+                registry.removeExtension(parts[0], parts[1]);
+            }
         }
 
         registeredExtensions.clear();
-        classLoaderMap.clear();
 
-        // Trigger GC
+        // 触发GC
         System.gc();
+    }
+
+    private String buildCacheKey(String spiInterface, String extensionName) {
+        return spiInterface + "#" + extensionName;
     }
 }

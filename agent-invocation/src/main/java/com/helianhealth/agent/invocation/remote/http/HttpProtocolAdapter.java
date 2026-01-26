@@ -13,8 +13,15 @@ import java.util.Map;
 
 public class HttpProtocolAdapter implements InterfaceClientProxy {
 
-    @Setter
-    private HttpRequestHandler httpRequestResolver;
+    private final HttpRequestHandler httpRequestResolver;
+
+    /**
+     * 带参构造函数
+     * HttpRequestHandler 通过 ExtensionFactory 自动注入（构造器注入）
+     */
+    public HttpProtocolAdapter(HttpRequestHandler httpRequestResolver) {
+        this.httpRequestResolver = httpRequestResolver;
+    }
 
     @Override
     @SuppressWarnings("unchecked")

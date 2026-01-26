@@ -7,6 +7,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.util.Map;
+
 /**
  * 接口规则引擎工作流节点
  * 每个工作流节点对应的是三方接口的调用
@@ -72,4 +74,11 @@ public class InterfaceWorkflowNode extends UrlWrapper {
      * SPI扩展点映射配置
      */
     private String remoteExtension;
+
+    /**
+     * 过滤器参数
+     * 用于激活特定过滤器或传递过滤器上下文
+     * 如：{"mock": "true", "auth": "required"}
+     */
+    private Map<String, String> filterParams;
 }

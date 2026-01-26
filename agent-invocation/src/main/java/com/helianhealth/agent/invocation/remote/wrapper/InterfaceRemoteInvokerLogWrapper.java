@@ -7,7 +7,6 @@ import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
 import com.helianhealth.agent.invocation.remote.model.Invocation;
 import com.helianhealth.agent.log.service.InterfaceInvokeLogService;
 import com.helianhealth.agent.common.utils.JsonUtils;
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Map;
@@ -15,14 +14,15 @@ import java.util.Map;
 @Slf4j
 public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker {
 
-    @Setter
-    private InterfaceInvokeLogService interfaceInvokeLogService;
+    private final InterfaceInvokeLogService interfaceInvokeLogService;
 
     private final InterfaceRemoteInvoker interfaceRemoteInvoker;
 
 
-    public InterfaceRemoteInvokerLogWrapper(InterfaceRemoteInvoker interfaceRemoteInvoker) {
+    public InterfaceRemoteInvokerLogWrapper(InterfaceRemoteInvoker interfaceRemoteInvoker,
+                                           InterfaceInvokeLogService interfaceInvokeLogService) {
         this.interfaceRemoteInvoker = interfaceRemoteInvoker;
+        this.interfaceInvokeLogService = interfaceInvokeLogService;
     }
 
 

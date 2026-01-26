@@ -5,7 +5,7 @@
     <parent>
         <artifactId>interface-agent</artifactId>
         <groupId>com.helianhealth</groupId>
-        <version>1.0.12</version>
+        <version>${revision}</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
@@ -33,6 +33,26 @@
             <groupId>com.helianhealth</groupId>
             <artifactId>agent-ai</artifactId>
             <version>${project.version}</version>
+        </dependency>
+
+        <!-- agent-common: 公共工具类 -->
+        <dependency>
+            <groupId>com.helianhealth</groupId>
+            <artifactId>agent-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- agent-invocation: 远程调用模块 -->
+        <dependency>
+            <groupId>com.helianhealth</groupId>
+            <artifactId>agent-invocation</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Spring Web: RestTemplate依赖 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
         <!-- lombok -->

@@ -1,12 +1,12 @@
 package com.helianhealth.agent.invocation.remote.wrapper;
 
+import com.helianhealth.agent.common.extension.AgentExtensionLoader;
 import com.helianhealth.agent.invocation.remote.InterfaceClientProxy;
 import com.helianhealth.agent.invocation.remote.filter.AgentFilter;
 import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
-import org.apache.dubbo.common.URL;
-import org.apache.dubbo.common.extension.ExtensionLoader;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -23,12 +23,14 @@ public class InterfaceClientProxyFilterChainWrapper implements InterfaceClientPr
 
     @Override
     public Map<String, Object> doInvoke(InterfaceWorkflowNode flowNode, List<ParamTreeNode> params) {
-        return buildFilterChain(proxy, flowNode.getUrl()).doInvoke(flowNode, params);
+        return buildFilterChain(proxy, flowNode.getFilterParams()).doInvoke(flowNode, params);
     }
 
-    private InterfaceClientProxy buildFilterChain(InterfaceClientProxy proxy, URL url) {
+    private InterfaceClientProxy buildFilterChain(InterfaceClientProxy proxy, Map<String, String> filterParams) {
         InterfaceClientProxy last = proxy;
-        List<AgentFilter> filters = ExtensionLoader.getExtensionLoader(AgentFilter.class).getActivateExtension(url, "filter");
+        List<AgentFilter> filters = AgentExtensionLoader
+                .getExtensionLoader(AgentFilter.class)
+                .getActivateExtensions(filterParams != null ? filterParams : Collections.emptyMap());
         for (int i = filters.size() - 1; i >= 0; i--) {
             AgentFilter agentFilter = filters.get(i);
             InterfaceClientProxy next = last;

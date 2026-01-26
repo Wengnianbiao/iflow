@@ -1,11 +1,13 @@
 package com.helianhealth.agent.invocation.remote;
 
+import com.helianhealth.agent.common.extension.AgentExtensionLoader;
 import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.Invocation;
 import com.helianhealth.agent.invocation.remote.model.NodeParamConfig;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.invocation.remote.model.PostBuildContext;
 import com.helianhealth.agent.invocation.remote.model.PreBuildContext;
+import com.helianhealth.agent.invocation.remote.wrapper.WrapperFactory;
 import org.apache.dubbo.common.extension.ExtensionLoader;
 import org.springframework.util.CollectionUtils;
 
@@ -15,9 +17,16 @@ import java.util.Map;
 
 public class DefaultInterfaceRemoteInvoker implements InterfaceRemoteInvoker {
 
-    private final ParamTree paramNode = ExtensionLoader.getExtensionLoader(ParamTree.class).getAdaptiveExtension();
+    private final ParamTree paramNode;
 
-    private final InterfaceClientProxy proxy = ExtensionLoader.getExtensionLoader(InterfaceClientProxy.class).getAdaptiveExtension();
+    private final InterfaceClientProxy proxy;
+
+
+    public DefaultInterfaceRemoteInvoker() {
+        InterfaceClientProxy rawProxy = AgentExtensionLoader.getExtensionLoader(InterfaceClientProxy.class).getAdaptiveExtension();
+        this.proxy = WrapperFactory.createClientProxyChain(rawProxy);
+        this.paramNode = AgentExtensionLoader.getExtensionLoader(ParamTree.class).getAdaptiveExtension();
+    }
 
 
     @Override
@@ -52,7 +61,7 @@ public class DefaultInterfaceRemoteInvoker implements InterfaceRemoteInvoker {
                 .parentData(businessData)
                 .rootData(businessData)
                 .build();
-        return paramNode.buildPreParamTree(flowNode.getUrl(), nodeConfigs, null, context);
+        return paramNode.buildPreParamTree(flowNode, nodeConfigs, null, context);
     }
 
     /**
@@ -76,7 +85,7 @@ public class DefaultInterfaceRemoteInvoker implements InterfaceRemoteInvoker {
                 .rootInputData(businessData)
                 .rootResponseData(response)
                 .build();
-        List<ParamTreeNode> rootNodes = paramNode.buildPostParamTree(flowNode.getUrl(),
+        List<ParamTreeNode> rootNodes = paramNode.buildPostParamTree(flowNode,
                 nodeConfigs, null, context);
 
         return ProxyConvertHelper.convertResponse(flowNode, rootNodes);

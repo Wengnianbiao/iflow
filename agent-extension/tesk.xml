@@ -1,0 +1,141 @@
+<clinicalDocument>
+    <documentHeader>
+        <realmCode>全院</realmCode>
+        <typeId>01</typeId>
+        <template />
+        <id>20251217153123</id>
+        <title>检验报告</title>
+        <effectiveTime>2025-12-17</effectiveTime>
+        <confidentiality code="1">公开</confidentiality>
+        <versionNumber>1.0</versionNumber>
+        <author id="952047">刘畅</author>
+        <custodian>检验科</custodian>
+        <patient>
+            <medicareNo></medicareNo>
+            <admvisitNo>5000866258</admvisitNo>
+            <medRecordNo></medRecordNo>
+            <healthCardNo></healthCardNo>
+            <certificate />
+            <addr />
+            <name>章顺华</name>
+            <telecom />
+            <administrativeGender code="1">男</administrativeGender>
+            <maritalStatus />
+            <ethnicGroup />
+            <age unit="岁">25</age>
+        </patient>
+        <participant />
+    </documentHeader>
+    <structuredBody>
+        <E0004 desc="姓名">章顺华</E0004>
+        <E0000 desc="门诊号">5000866258</E0000>
+        <E0002 desc="住院号"></E0002>
+        <E0148 desc="病人类型代码">O</E0148>
+        <E0149 desc="病人类型名称">门诊</E0149>
+        <E0150 desc="费别代码"></E0150>
+        <E0151 desc="费别名称"></E0151>
+        <E0005 desc="性别代码">1</E0005>
+        <E0006 desc="性别描述">男</E0006>
+        <E0076 desc="科室代码">2711</E0076>
+        <E0077 desc="科室">发热门诊</E0077>
+        <E0008 desc="年龄">25岁</E0008>
+        <E0075 desc="病床" />
+        <section code="S0048" desc="诊断">
+            <text>
+                <![CDATA[发热,咳嗽,流涕]]>
+            </text>
+        </section>
+        <section code="S0061" desc="检验记录">
+            <text>新冠甲乙流三项核酸</text>
+            <E01 desc="检验项目代码">9855097</E01>
+            <E02 desc="检验项目名称">
+                <![CDATA[新冠甲乙流三项核酸]]>
+            </E02>
+            <E03 desc="送检日期">2025-12-17</E03>
+            <E04 desc="送检时间">15:31:23</E04>
+            <E05 desc="标本类型代码">17</E05>
+            <E06 desc="标本类型名称">咽拭子</E06>
+            <E07 desc="标本号">2512173094</E07>
+            <E08 desc="检验备注" />
+            <E09 desc="送检医生代码">906328</E09>
+            <E10 desc="送检医生姓名">吕滨月</E10>
+            <E11 desc="检验日期">2025-12-17</E11>
+            <E12 desc="检验时间">15:59:59</E12>
+            <E13 desc="检验者代码">952047</E13>
+            <E14 desc="检验者姓名">刘畅</E14>
+            <E15 desc="报告日期">2025-12-17</E15>
+            <E15 desc="报告时间">15:59:59</E15>
+            <E17 desc="审核报告日期">2025-12-17</E17>
+            <E18 desc="审核报告时间">15:59:59</E18>
+            <E19 desc="审核者代码">952047</E19>
+            <E20 desc="审核者姓名">刘畅</E20>
+            <E21 desc="报告备注" />
+            <E22 desc="检验目的"></E22>
+            <E23 desc="检验结果"></E23>
+            <E24 desc="报告号">20251217153123</E24>
+            <E25 desc="医嘱号">17160079</E25>
+            <E26 desc="报告科室代码">3301</E26>
+            <E27 desc="报告科室名称">通用</E27>
+            <section code="S0062">
+                <text />
+                <E01 desc="检验子项代码">6240</E01>
+                <E02 desc="检验子项名称">
+                    <![CDATA[甲型流感病毒核酸检测]]>
+                </E02>
+                <E03 desc="检验子项结果（定量）" />
+                <E04 desc="检验子项结果单位" />
+                <E05 desc="检验子项结果（定性，阴/阳）">
+                    <![CDATA[阳性]]>
+                </E05>
+                <E06 desc="检验子项参考值范围">
+                    <![CDATA[阴性]]>
+                </E06>
+                <E07 desc="检验子项异常标志">异常</E07>
+                <E08 desc="检验设备编码">6060</E08>
+                <E09 desc="检验设备名称">
+                    <![CDATA[Flash10发热]]>
+                </E09>
+            </section>
+            <section code="S0062">
+                <text />
+                <E01 desc="检验子项代码">6022</E01>
+                <E02 desc="检验子项名称">
+                    <![CDATA[乙型流感病毒核酸检测]]>
+                </E02>
+                <E03 desc="检验子项结果（定量）" />
+                <E04 desc="检验子项结果单位" />
+                <E05 desc="检验子项结果（定性，阴/阳）">
+                    <![CDATA[阴性]]>
+                </E05>
+                <E06 desc="检验子项参考值范围">
+                    <![CDATA[阴性]]>
+                </E06>
+                <E07 desc="检验子项异常标志">正常</E07>
+                <E08 desc="检验设备编码">6060</E08>
+                <E09 desc="检验设备名称">
+                    <![CDATA[Flash10发热]]>
+                </E09>
+            </section>
+            <section code="S0062">
+                <text />
+                <E01 desc="检验子项代码">6021</E01>
+                <E02 desc="检验子项名称">
+                    <![CDATA[★新型冠状病毒核酸检测]]>
+                </E02>
+                <E03 desc="检验子项结果（定量）" />
+                <E04 desc="检验子项结果单位" />
+                <E05 desc="检验子项结果（定性，阴/阳）">
+                    <![CDATA[阴性]]>
+                </E05>
+                <E06 desc="检验子项参考值范围">
+                    <![CDATA[阴性]]>
+                </E06>
+                <E07 desc="检验子项异常标志">正常</E07>
+                <E08 desc="检验设备编码">6060</E08>
+                <E09 desc="检验设备名称">
+                    <![CDATA[Flash10发热]]>
+                </E09>
+            </section>
+        </section>
+    </structuredBody>
+</clinicalDocument>

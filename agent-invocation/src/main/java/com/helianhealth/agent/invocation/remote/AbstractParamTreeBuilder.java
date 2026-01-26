@@ -1,6 +1,7 @@
 package com.helianhealth.agent.invocation.remote;
 
 import com.helianhealth.agent.common.enums.MappingSource;
+import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.NodeParamConfig;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.invocation.remote.model.PostBuildContext;
@@ -8,7 +9,6 @@ import com.helianhealth.agent.invocation.remote.model.PreBuildContext;
 import com.helianhealth.agent.invocation.remote.resolver.ValueResolverSelector;
 import com.helianhealth.agent.invocation.remote.support.BasicTypeConversionHandler;
 import com.helianhealth.agent.invocation.remote.support.TypeHandler;
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.dubbo.common.URL;
 
@@ -25,18 +25,39 @@ import java.util.stream.Collectors;
 @Slf4j
 public abstract class AbstractParamTreeBuilder implements ParamTree {
 
-
-    @Setter
     private ValueResolverSelector valueResolverSelector;
+    private final TypeHandler typeHandler;
 
-    private final TypeHandler typeHandler = new BasicTypeConversionHandler();
+    /**
+     * 无参构造函数，用于SPI机制实例化
+     * ValueResolverSelector将通过ExtensionFactory自动注入（Setter注入）
+     */
+    public AbstractParamTreeBuilder() {
+        this.typeHandler = new BasicTypeConversionHandler();
+    }
+
+    /**
+     * 构造器注入，通过ExtensionFactory自动注入ValueResolverSelector（Spring Bean）
+     * ExtensionRegistry会自动调用此构造器并注入依赖
+     */
+    public AbstractParamTreeBuilder(ValueResolverSelector valueResolverSelector) {
+        this.valueResolverSelector = valueResolverSelector;
+        this.typeHandler = new BasicTypeConversionHandler();
+    }
+
+    /**
+     * Setter注入，用于ExtensionFactory自动注入
+     */
+    public void setValueResolverSelector(ValueResolverSelector valueResolverSelector) {
+        this.valueResolverSelector = valueResolverSelector;
+    }
 
     @Override
-    public List<ParamTreeNode> buildPreParamTree(URL url,
+    public List<ParamTreeNode> buildPreParamTree(InterfaceWorkflowNode flowNode,
                                                  List<NodeParamConfig> configs,
                                                  Integer parentId,
-                                                 PreBuildContext context) {
-        return doBuildPreParamTree(configs, parentId, context);
+                                                 PreBuildContext buildContext) {
+        return doBuildPreParamTree(configs, parentId, buildContext);
     }
 
     /**
@@ -126,11 +147,11 @@ public abstract class AbstractParamTreeBuilder implements ParamTree {
                                                     ParamTreeNode node);
 
     @Override
-    public List<ParamTreeNode> buildPostParamTree(URL url,
+    public List<ParamTreeNode> buildPostParamTree(InterfaceWorkflowNode flowNode,
                                                   List<NodeParamConfig> configs,
                                                   Integer parentId,
-                                                  PostBuildContext context){
-        return doBuildPostParamTree(configs, parentId, context);
+                                                  PostBuildContext buildContext){
+        return doBuildPostParamTree(configs, parentId, buildContext);
     }
 
     /**

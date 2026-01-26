@@ -7,6 +7,7 @@ import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.invocation.remote.model.PostBuildContext;
 import com.helianhealth.agent.invocation.remote.model.PreBuildContext;
 import com.helianhealth.agent.common.utils.JsonUtils;
+import com.helianhealth.agent.invocation.remote.resolver.ValueResolverSelector;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -17,6 +18,21 @@ import java.util.Map;
  * 参数树构建默认实现类
  */
 public class DefaultParamTreeBuilder extends AbstractParamTreeBuilder {
+
+    /**
+     * 无参构造函数，用于SPI机制实例化
+     * ValueResolverSelector将通过ExtensionFactory自动注入（Setter注入）
+     */
+    public DefaultParamTreeBuilder() {
+        super();
+    }
+
+    /**
+     * 带参构造函数，支持手动注入依赖
+     */
+    public DefaultParamTreeBuilder(ValueResolverSelector valueResolverSelector) {
+        super(valueResolverSelector);
+    }
 
     @Override
     protected void processPreObjectNodeType(NodeParamConfig config,

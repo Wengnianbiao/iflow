@@ -6,7 +6,7 @@ import com.helianhealth.agent.invocation.remote.InterfaceClientProxy;
 import com.helianhealth.agent.common.utils.JsonUtils;
 import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
-import org.apache.dubbo.common.extension.Activate;
+
 
 import java.util.List;
 import java.util.Map;

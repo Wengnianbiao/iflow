@@ -1,10 +1,12 @@
 package com.helianhealth.agent.schedule;
 
+import com.helianhealth.agent.common.extension.AgentExtensionLoader;
 import com.helianhealth.agent.invocation.remote.model.Invocation;
 import com.helianhealth.agent.common.enums.ScheduleParamSourceType;
 import com.helianhealth.agent.common.exception.WorkflowBusinessException;
 import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
 import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
+import com.helianhealth.agent.invocation.remote.wrapper.WrapperFactory;
 import com.helianhealth.agent.schedule.builder.WorkFlowNodeBuilder;
 import com.helianhealth.agent.schedule.convert.NodeParamConfigConvert;
 import com.helianhealth.agent.schedule.processor.ParamFilterProcessor;
@@ -36,17 +38,48 @@ import java.util.stream.Collectors;
  */
 @Component
 @Slf4j
-@AllArgsConstructor
 public class WorkflowScheduler {
 
     private final WorkFlowNodeBuilder workFlowNodeBuilder;
     private final ParamFilterProcessor businessDataPostProcessor;
     private final BusinessDataSplitter splitBusinessDataPostProcessor;
     private final NodeParamConfigService nodeParamConfigService;
-    private final InterfaceRemoteInvoker interfaceRemoteInvoker = ExtensionLoader.getExtensionLoader(InterfaceRemoteInvoker.class).getAdaptiveExtension();
-
-    @Qualifier("WorkFlowNodeExecutor")
     private final ThreadPoolTaskExecutor taskExecutor;
+    
+    /**
+     * 延迟初始化的InterfaceRemoteInvoker
+     */
+    private volatile InterfaceRemoteInvoker interfaceRemoteInvoker;
+
+    public WorkflowScheduler(WorkFlowNodeBuilder workFlowNodeBuilder,
+                           ParamFilterProcessor businessDataPostProcessor,
+                           BusinessDataSplitter splitBusinessDataPostProcessor,
+                           NodeParamConfigService nodeParamConfigService,
+                           @Qualifier("WorkFlowNodeExecutor") ThreadPoolTaskExecutor taskExecutor) {
+        this.workFlowNodeBuilder = workFlowNodeBuilder;
+        this.businessDataPostProcessor = businessDataPostProcessor;
+        this.splitBusinessDataPostProcessor = splitBusinessDataPostProcessor;
+        this.nodeParamConfigService = nodeParamConfigService;
+        this.taskExecutor = taskExecutor;
+    }
+    
+    /**
+     * 获取InterfaceRemoteInvoker实例（延迟初始化）
+     */
+    private InterfaceRemoteInvoker getInterfaceRemoteInvoker() {
+        if (interfaceRemoteInvoker == null) {
+            synchronized (this) {
+                if (interfaceRemoteInvoker == null) {
+                    // 使用显式包装工厂创建包装链
+                    InterfaceRemoteInvoker rawInvoker = AgentExtensionLoader
+                        .getExtensionLoader(InterfaceRemoteInvoker.class)
+                        .getAdaptiveExtension();
+                    interfaceRemoteInvoker = WrapperFactory.createRemoteInvokerChain(rawInvoker);
+                }
+            }
+        }
+        return interfaceRemoteInvoker;
+    }
 
     /**
      * 工作流调度
@@ -86,7 +119,7 @@ public class WorkflowScheduler {
             nodeResponse = parallelSplitNodeProcess(flowNode, businessDataAfterPost);
         } else {
             // 单节点处理 - 直接调用远程调用器
-            nodeResponse = interfaceRemoteInvoker.remoteInvoke(flowNode, buildInvocation(flowNode, businessDataAfterPost));
+            nodeResponse = getInterfaceRemoteInvoker().remoteInvoke(flowNode, buildInvocation(flowNode, businessDataAfterPost));
         }
 
         // 3、根据表达式调度下一个节点
@@ -130,7 +163,7 @@ public class WorkflowScheduler {
         // 2. 并行执行任务并收集Future
         List<CompletableFuture<Map<String, Object>>> futures = listBusinessData.stream()
                 .map(map -> CompletableFuture.supplyAsync(
-                        () -> interfaceRemoteInvoker.remoteInvoke(flowNode, buildInvocation(flowNode, map)),
+                        () -> getInterfaceRemoteInvoker().remoteInvoke(flowNode, buildInvocation(flowNode, map)),
                         taskExecutor
                 ))
                 .collect(Collectors.toList());
