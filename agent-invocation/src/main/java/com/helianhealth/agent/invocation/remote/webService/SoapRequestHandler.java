@@ -55,7 +55,14 @@ public class SoapRequestHandler implements ParamResolver {
                 return buildSoapFromConfig(metaInfo, paramJson);
             } else {
                 // 业务数据为XML格式
-                String paramXml = ParamNodeUtils.paramNode2Xml(paramNode.get(0));
+                String paramXml;
+                if (paramNode.size() > 1) {
+                    // 多个节点，无根标签包裹的情况
+                    paramXml = buildXmlFromMultipleNodes(paramNode);
+                } else {
+                    // 单个节点
+                    paramXml = ParamNodeUtils.paramNode2Xml(paramNode.get(0));
+                }
 
                 return buildSoapFromConfig(metaInfo, paramXml);
             }
@@ -129,5 +136,23 @@ public class SoapRequestHandler implements ParamResolver {
 
         // 替换占位符${inputParam}为实际参数XML
         return soupTemplate.replace(INPUT_PARAM_PLACEHOLDER_KEY, paramXml);
+    }
+
+    /**
+     * 将多个ParamTreeNode转换为XML字符串（无根标签包裹）
+     * 用于处理类似 <text>测试</text><mobiles>17826809811</mobiles><_source>tj</_source> 这种情况
+     */
+    private String buildXmlFromMultipleNodes(List<ParamTreeNode> paramNodes) {
+        if (paramNodes == null || paramNodes.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder xml = new StringBuilder();
+        for (ParamTreeNode node : paramNodes) {
+            String nodeXml = ParamNodeUtils.paramNode2Xml(node);
+            xml.append(nodeXml);
+        }
+
+        return xml.toString();
     }
 }
