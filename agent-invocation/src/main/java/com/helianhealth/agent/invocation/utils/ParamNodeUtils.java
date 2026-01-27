@@ -7,6 +7,7 @@ import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.common.utils.JsonUtils;
 
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -270,12 +271,30 @@ public class ParamNodeUtils {
 
         for (ParamTreeNode node : nodeList) {
             String key = node.getParamKey();
-            // 处理值：如果有子节点则递归转换，否则直接使用节点的value
-            Object value = node.getChildren() != null && !node.getChildren().isEmpty()
-                    ? convertToXmlFormatMap(node.getChildren())
-                    : node.getParamValue();
+            boolean isArray = node.getParamType() == ParamType.ARRAY;
 
-            result.put(key, value);
+            // 处理数组类型：将所有子节点转换为List
+            if (isArray) {
+                List<Object> arrayList = new ArrayList<>();
+                // 遍历所有子节点，转换后添加到List
+                if (node.getChildren() != null && !node.getChildren().isEmpty()) {
+                    for (ParamTreeNode child : node.getChildren()) {
+                        // 转换子节点为Map或值
+                        Object childValue = child.getChildren() != null && !child.getChildren().isEmpty()
+                                ? convertToXmlFormatMap(child.getChildren())
+                                : child.getParamValue();
+                        arrayList.add(childValue);
+                    }
+                }
+                // 将List放入结果Map
+                result.put(key, arrayList);
+            } else {
+                // 非数组类型：如果有子节点则递归转换，否则直接使用节点的value
+                Object value = node.getChildren() != null && !node.getChildren().isEmpty()
+                        ? convertToXmlFormatMap(node.getChildren())
+                        : node.getParamValue();
+                result.put(key, value);
+            }
         }
         return result;
     }
