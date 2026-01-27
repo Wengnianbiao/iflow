@@ -32,4 +32,29 @@ public class HttpUtils {
     public static String post(String url,  Map<String, String> headers, String requestBody) throws IOException, ParseException {
         return httpApiClientManager.executePost(url, headers, requestBody);
     }
+
+    /**
+     * 发送 application/x-www-form-urlencoded 格式的 POST 请求
+     * @param url 请求URL
+     * @param formParams 表单参数（会自动编码）
+     * @return 响应内容
+     * @throws IOException IO异常
+     * @throws ParseException 解析异常
+     */
+    public static String postForm(String url, Map<String, String> formParams) throws IOException, ParseException {
+        return httpApiClientManager.executePostForm(url, null, formParams);
+    }
+
+    /**
+     * 发送 application/x-www-form-urlencoded 格式的 POST 请求（带自定义 Headers）
+     * @param url 请求URL
+     * @param headers 自定义请求头
+     * @param formParams 表单参数（会自动编码）
+     * @return 响应内容
+     * @throws IOException IO异常
+     * @throws ParseException 解析异常
+     */
+    public static String postForm(String url, Map<String, String> headers, Map<String, String> formParams) throws IOException, ParseException {
+        return httpApiClientManager.executePostForm(url, headers, formParams);
+    }
 }

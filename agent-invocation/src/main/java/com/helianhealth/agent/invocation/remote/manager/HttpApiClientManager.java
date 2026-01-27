@@ -3,6 +3,7 @@ package com.helianhealth.agent.invocation.remote.manager;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.entity.UrlEncodedFormEntity;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
@@ -11,11 +12,13 @@ import org.apache.hc.client5.http.socket.ConnectionSocketFactory;
 import org.apache.hc.client5.http.socket.PlainConnectionSocketFactory;
 import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory;
 import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.http.NameValuePair;
 import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.config.Registry;
 import org.apache.hc.core5.http.config.RegistryBuilder;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.io.entity.StringEntity;
+import org.apache.hc.core5.http.message.BasicNameValuePair;
 import org.apache.hc.core5.ssl.SSLContexts;
 import org.apache.hc.core5.util.TimeValue;
 import org.apache.hc.core5.util.Timeout;
@@ -24,7 +27,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -148,6 +153,45 @@ public class HttpApiClientManager {
             return EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
         } catch (IOException | ParseException e) {
             logger.error("执行 GET 请求失败，URL: [{}]，异常: [{}]", url, e.getMessage(), e);
+            throw e;
+        }
+    }
+
+    /**
+     * 执行 application/x-www-form-urlencoded 格式的 POST 请求
+     * @param url 请求URL
+     * @param headers 自定义请求头（可为null）
+     * @param formParams 表单参数
+     * @return 响应内容
+     * @throws IOException IO异常
+     * @throws ParseException 解析异常
+     */
+    public String executePostForm(String url, Map<String, String> headers, Map<String, String> formParams) throws IOException, ParseException {
+        logger.info("执行 POST Form 请求，URL: [{}]，参数: [{}]", url, formParams);
+        HttpPost httpPost = new HttpPost(url);
+
+        // 设置请求头（默认 application/x-www-form-urlencoded）
+        if (headers != null && !headers.isEmpty()) {
+            headers.forEach(httpPost::setHeader);
+        }
+        // 确保 Content-Type 为 application/x-www-form-urlencoded
+        if (headers == null || !headers.containsKey("Content-Type")) {
+            httpPost.setHeader("Content-Type", "application/x-www-form-urlencoded");
+        }
+
+        // 构建表单参数
+        if (formParams != null && !formParams.isEmpty()) {
+            List<NameValuePair> params = new ArrayList<>();
+            formParams.forEach((key, value) -> params.add(new BasicNameValuePair(key, value)));
+            httpPost.setEntity(new UrlEncodedFormEntity(params, StandardCharsets.UTF_8));
+        }
+
+        try (CloseableHttpResponse response = httpClient.execute(httpPost)) {
+            String responseEntity = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+            logger.info("POST Form 请求响应: [{}]", responseEntity);
+            return responseEntity;
+        } catch (IOException | ParseException e) {
+            logger.error("执行 POST Form 请求失败，URL: [{}]，异常: [{}]", url, e.getMessage(), e);
             throw e;
         }
     }
