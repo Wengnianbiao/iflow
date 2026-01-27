@@ -23,14 +23,14 @@ public class InterfaceClientProxyFilterChainWrapper implements InterfaceClientPr
 
     @Override
     public Map<String, Object> doInvoke(InterfaceWorkflowNode flowNode, List<ParamTreeNode> params) {
-        return buildFilterChain(proxy, flowNode.getFilterParams()).doInvoke(flowNode, params);
+        return buildFilterChain(proxy, flowNode.getExtensionParam()).doInvoke(flowNode, params);
     }
 
-    private InterfaceClientProxy buildFilterChain(InterfaceClientProxy proxy, Map<String, String> filterParams) {
+    private InterfaceClientProxy buildFilterChain(InterfaceClientProxy proxy, Map<String, String> extensionParam) {
         InterfaceClientProxy last = proxy;
         List<AgentFilter> filters = AgentExtensionLoader
                 .getExtensionLoader(AgentFilter.class)
-                .getActivateExtensions(filterParams != null ? filterParams : Collections.emptyMap());
+                .getActivateExtensions(extensionParam != null ? extensionParam : Collections.emptyMap());
         for (int i = filters.size() - 1; i >= 0; i--) {
             AgentFilter agentFilter = filters.get(i);
             InterfaceClientProxy next = last;

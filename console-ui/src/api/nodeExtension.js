@@ -61,3 +61,13 @@ export function disableExtension(codeId) {
     method: 'post'
   })
 }
+
+/**
+ * 获取系统支持的所有SPI接口列表
+ */
+export function getSupportedSpiInterfaces() {
+  return request({
+    url: '/api/node-extension/supported-spi-interfaces',
+    method: 'get'
+  })
+}

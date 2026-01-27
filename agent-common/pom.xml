@@ -50,6 +50,13 @@
             <scope>provided</scope>
         </dependency>
 
+        <!-- MyBatis for TypeHandler (provided scope) -->
+        <dependency>
+            <groupId>org.mybatis</groupId>
+            <artifactId>mybatis</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
         <!-- lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>

@@ -1,7 +1,7 @@
 package com.helianhealth.agent.workflow.model.domain;
 
-import com.helianhealth.agent.workflow.config.ListIntegerTypeHandler;
 import com.helianhealth.agent.common.enums.WorkflowContentType;
+import com.helianhealth.agent.common.typehandler.ListIntegerTypeHandler;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

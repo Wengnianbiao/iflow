@@ -5,7 +5,8 @@
 
     <resultMap id="BaseResultMap" type="com.helianhealth.agent.workflow.model.domain.NodeExtensionConfigDO">
         <id column="code_id" property="codeId" />
-        <result column="node_id" property="nodeId" />
+        <result column="node_id" property="nodeId" 
+                typeHandler="com.helianhealth.agent.common.typehandler.ListIntegerTypeHandler" />
         <result column="spi_interface" property="spiInterface" />
         <result column="extension_name" property="extensionName" />
         <result column="class_name" property="className" />
@@ -51,7 +52,7 @@
             enabled,
             extension_mode
         ) VALUES (
-            #{nodeId},
+            #{nodeId, typeHandler=com.helianhealth.agent.common.typehandler.ListIntegerTypeHandler},
             #{spiInterface},
             #{extensionName},
             #{className},
@@ -65,7 +66,7 @@
     <!-- 更新记录 -->
     <update id="update" parameterType="com.helianhealth.agent.workflow.model.domain.NodeExtensionConfigDO">
         UPDATE node_extension_config
-        SET node_id = #{nodeId},
+        SET node_id = #{nodeId, typeHandler=com.helianhealth.agent.common.typehandler.ListIntegerTypeHandler},
             class_name = #{className},
             source_code = #{sourceCode},
             description = #{description},
@@ -87,5 +88,12 @@
         WHERE spi_interface = #{spiInterface}
         AND extension_name = #{extensionName}
     </delete>
+
+    <!-- 根据SPI接口查询所有配置 -->
+    <select id="selectBySpiInterface" resultMap="BaseResultMap">
+        SELECT * FROM node_extension_config
+        WHERE spi_interface = #{spiInterface}
+        ORDER BY code_id DESC
+    </select>
 
 </mapper>

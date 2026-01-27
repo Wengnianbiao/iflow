@@ -41,7 +41,9 @@ CREATE TABLE interface_workflow_node
     -- 关键字匹配,默认都用的patientCode
     keyword_field VARCHAR(50) NULL,
     -- SPI拓展字段
-    remote_extension VARCHAR(25) NULL
+    remote_extension VARCHAR(25) NULL,
+    -- 扩展参数配置，存储JSON格式字符串
+    extension_param TEXT NULL
 );
 
 
@@ -122,8 +124,8 @@ CREATE TABLE node_extension_config
 (
     -- 主键ID，自增
     code_id SERIAL PRIMARY KEY,
-    -- 关联的节点ID（可选，用于自动配置节点的remote_extension字段）
-    node_id INTEGER NULL,
+    -- 关联的节点ID（JSON数组格式，如 "[1,2,3]"），支持单节点或多节点关联
+    node_id VARCHAR(50) NULL,
     -- SPI接口（全限定名），例如: com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker
     spi_interface VARCHAR(255) NOT NULL,
     -- 扩展名称（用于SPI配置的key），例如: custom-http

@@ -30,6 +30,7 @@ public class WorkflowNodeConvert {
         view.setScheduleParamSourceType(po.getScheduleParamSourceType());
         view.setKeywordField(po.getKeywordField());
         view.setRemoteExtension(po.getRemoteExtension());
+        view.setExtensionParam(po.getExtensionParam());
 
         return view;
     }

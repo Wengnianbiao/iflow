@@ -15,6 +15,7 @@
         <result property="keywordField" column="keyword_field"/>
         <result property="remoteExtension" column="remote_extension"/>
         <result property="splitField" column="split_field"/>
+        <result property="extensionParam" column="extension_param"/>
     </resultMap>
 
     <insert id="createNode"
@@ -54,6 +55,9 @@
             <if test="splitField != null">
                 split_field,
             </if>
+            <if test="extensionParam != null">
+                extension_param,
+            </if>
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="nodeName != null">
@@ -86,6 +90,9 @@
             <if test="splitField != null">
                 #{splitField,jdbcType=VARCHAR},
             </if>
+            <if test="extensionParam != null">
+                #{extensionParam,jdbcType=VARCHAR},
+            </if>
         </trim>
     </insert>
 
@@ -117,7 +124,8 @@
             schedule_param_source_type = #{scheduleParamSourceType,jdbcType=VARCHAR},
             keyword_field = #{keywordField,jdbcType=VARCHAR},
             remote_extension = #{remoteExtension,jdbcType=VARCHAR},
-            split_field = #{splitField,jdbcType=VARCHAR}
+            split_field = #{splitField,jdbcType=VARCHAR},
+            extension_param = #{extensionParam,jdbcType=VARCHAR}
         WHERE node_id = #{nodeId}
     </update>
 </mapper>

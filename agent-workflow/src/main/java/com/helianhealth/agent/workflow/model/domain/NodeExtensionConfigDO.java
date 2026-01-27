@@ -1,8 +1,12 @@
 package com.helianhealth.agent.workflow.model.domain;
 
+import com.helianhealth.agent.common.typehandler.ListIntegerTypeHandler;
 import lombok.Data;
+import org.apache.ibatis.type.JdbcType;
+import tk.mybatis.mapper.annotation.ColumnType;
 
 import javax.persistence.*;
+import java.util.List;
 
 /**
  * 节点扩展配置领域对象
@@ -22,10 +26,15 @@ public class NodeExtensionConfigDO {
     private Integer codeId;
 
     /**
-     * 关联的节点ID（用于自动配置节点的remote_extension字段）
+     * 关联的节点ID（如 "[1,2,3]"）
+     * <ul>
+     * <li>RemoteInvoker扩展：单节点绑定，如 "[1]"，自动更新节点的 remote_extension 字段</li>
+     * <li>Filter扩展：多节点绑定，如 "[1,2,3]"，自动更新节点的 extension_param 字段</li>
+     * </ul>
      */
     @Column(name = "node_id")
-    private Integer nodeId;
+    @ColumnType(typeHandler = ListIntegerTypeHandler.class, jdbcType = JdbcType.VARCHAR)
+    private List<Integer> nodeId;
 
     /**
      * SPI接口（对应SPI接口的全限定名），例如: InterfaceRemoteInvoker, InterfaceClientProxy等

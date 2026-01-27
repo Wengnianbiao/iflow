@@ -68,4 +68,9 @@ public class InterfaceWorkflowNodeView {
      * SPI扩展点映射配置
      */
     private String remoteExtension;
+
+    /**
+     * 扩展点参数配置
+     */
+    private String extensionParam;
 }

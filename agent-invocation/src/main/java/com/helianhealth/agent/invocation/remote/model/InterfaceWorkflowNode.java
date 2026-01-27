@@ -75,9 +75,10 @@ public class InterfaceWorkflowNode {
     private String remoteExtension;
 
     /**
-     * 过滤器参数
-     * 用于激活特定过滤器或传递过滤器上下文
-     * 如：{"mock": "true", "auth": "required"}
+     * 通用扩展参数
+     * 类似 Dubbo URL 的 parameters，用于承载节点级别的可扩展配置
+     * 建议使用有前缀的 key 做命名空间，例如：
+     * filter.mock=123, invoker.signatureType=HMAC
      */
-    private Map<String, String> filterParams;
+    private Map<String, String> extensionParam;
 }

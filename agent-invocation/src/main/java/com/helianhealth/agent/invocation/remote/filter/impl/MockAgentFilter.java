@@ -1,5 +1,6 @@
 package com.helianhealth.agent.invocation.remote.filter.impl;
 
+import com.helianhealth.agent.common.base.ExtensionConstants;
 import com.helianhealth.agent.common.extension.AgentActivate;
 import com.helianhealth.agent.invocation.remote.InterfaceClientProxy;
 import com.helianhealth.agent.invocation.remote.database.DatabaseSqlHandler;
@@ -69,13 +70,13 @@ public class MockAgentFilter implements AgentFilter {
     public Map<String, Object> doInvoke(InterfaceClientProxy next, InterfaceWorkflowNode flowNode, List<ParamTreeNode> params) {
 
         // 检查节点配置中是否包含mockId，如果配置了mockId，则直接获取对应的Mock响应数据
-        Map<String, String> filterParams = flowNode.getFilterParams();
-        if (filterParams == null || !filterParams.containsKey("mock")) {
+        Map<String, String> extensionParam = flowNode.getExtensionParam();
+        if (extensionParam == null || !extensionParam.containsKey(ExtensionConstants.EXTENSION_PARAM_KEY_MOCK)) {
             // 无Mock标记，继续调用链
             return next.doInvoke(flowNode, params);
         }
 
-        String mock = filterParams.get("mock");
+        String mock = extensionParam.get(ExtensionConstants.EXTENSION_PARAM_KEY_MOCK);
         if (mock != null) {
             try {
                 Integer mockId = Integer.parseInt(mock);

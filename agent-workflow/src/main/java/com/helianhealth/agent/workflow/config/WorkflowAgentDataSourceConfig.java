@@ -1,6 +1,7 @@
 package com.helianhealth.agent.workflow.config;
 
 import com.alibaba.druid.spring.boot.autoconfigure.DruidDataSourceBuilder;
+import com.helianhealth.agent.common.typehandler.ListIntegerTypeHandler;
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.mybatis.spring.SqlSessionFactoryBean;
 import org.mybatis.spring.SqlSessionTemplate;
@@ -20,7 +21,7 @@ import javax.sql.DataSource;
  */
 @Configuration
 @MapperScan(
-    basePackages = {"com.helianhealth.agent.workflow.mapper.agent"}, 
+    basePackages = {"com.helianhealth.agent.workflow.mapper.agent"},
     sqlSessionTemplateRef = "workflowAgentSqlSessionTemplate"
 )
 public class WorkflowAgentDataSourceConfig {

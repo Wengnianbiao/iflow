@@ -86,4 +86,13 @@ public class NodeExtensionController {
     public List<NodeExtensionConfigDO> listEnabledConfigs() {
         return dynamicSpiAdminService.listEnabledConfigs();
     }
+
+    /**
+     * 获取系统支持的所有SPI接口列表
+     * 用于前端下拉框选择
+     */
+    @GetMapping("/supported-spi-interfaces")
+    public List<String> getSupportedSpiInterfaces() {
+        return dynamicSpiAdminService.getSupportedSpiInterfaces();
+    }
 }

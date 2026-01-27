@@ -96,4 +96,10 @@ public class InterfaceWorkflowNodePO {
      */
     @Column(name = "remote_extension")
     private String remoteExtension;
+
+    /**
+     * 扩展点参数配置（JSON 字符串，存储 Map 结构）
+     */
+    @Column(name = "extension_param")
+    private String extensionParam;
 }

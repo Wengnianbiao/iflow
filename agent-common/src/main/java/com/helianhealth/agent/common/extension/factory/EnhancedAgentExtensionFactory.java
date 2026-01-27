@@ -48,6 +48,11 @@ public class EnhancedAgentExtensionFactory implements AgentExtensionFactory {
             return null;
         }
 
+        // DynamicSpiManager 只支持接口类型，非接口类型直接跳过
+        if (!type.isInterface()) {
+            return null;
+        }
+
         DynamicSpiManager manager = getDynamicSpiManager();
         if (manager == null) {
             return null;
@@ -57,7 +62,8 @@ public class EnhancedAgentExtensionFactory implements AgentExtensionFactory {
             String spiType = type.getName();
             return manager.getExtension(spiType, name);
         } catch (Exception e) {
-            log.warn("Failed to retrieve extension from dynamic SPI: type={}, name={}", type.getName(), name, e);
+            // 只有真正异常时才记录警告（接口类型但查找失败）
+            log.debug("Failed to retrieve extension from dynamic SPI: type={}, name={}", type.getName(), name, e);
             return null;
         }
     }

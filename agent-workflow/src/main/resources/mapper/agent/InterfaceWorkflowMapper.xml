@@ -12,7 +12,7 @@
         <!-- 为 firstFlowNodes 绑定类型处理器 -->
         <result column="first_flow_nodes"
                 property="firstFlowNodes"
-                typeHandler="com.helianhealth.agent.workflow.config.ListIntegerTypeHandler"
+                typeHandler="com.helianhealth.agent.common.typehandler.ListIntegerTypeHandler"
                 jdbcType="VARCHAR" />
 
         <result column="status" property="status" />
@@ -35,7 +35,7 @@
                      #{interfaceUri},
                      #{contentType},
                      #{contentMetaInfo},
-                     #{firstFlowNodes, typeHandler=com.helianhealth.agent.workflow.config.ListIntegerTypeHandler},
+                     #{firstFlowNodes, typeHandler=com.helianhealth.agent.common.typehandler.ListIntegerTypeHandler},
                      #{status}
                  )
     </insert>

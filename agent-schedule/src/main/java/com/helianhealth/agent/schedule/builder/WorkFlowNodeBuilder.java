@@ -1,10 +1,12 @@
 package com.helianhealth.agent.schedule.builder;
 
-import com.helianhealth.agent.workflow.controller.reponse.InterfaceWorkflowNodeView;
+import com.helianhealth.agent.common.base.ExtensionConstants;
+import com.helianhealth.agent.common.utils.JsonUtils;
 import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
 import com.helianhealth.agent.mock.model.MockConfigDO;
-import com.helianhealth.agent.workflow.service.InterfaceWorkflowNodeService;
 import com.helianhealth.agent.mock.service.MockConfigService;
+import com.helianhealth.agent.workflow.controller.reponse.InterfaceWorkflowNodeView;
+import com.helianhealth.agent.workflow.service.InterfaceWorkflowNodeService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -33,6 +35,11 @@ public class WorkFlowNodeBuilder {
     private InterfaceWorkflowNode doBuild(Integer workFlowNodeId) {
         InterfaceWorkflowNodeView view = flowNodeService.selectByNodeId(workFlowNodeId);
 
+        Map<String, String> extensionParam = null;
+        if (view.getExtensionParam() != null && !view.getExtensionParam().isEmpty()) {
+            extensionParam = JsonUtils.fromJsonStringToMap(view.getExtensionParam());
+        }
+
         return InterfaceWorkflowNode.builder()
                 .nodeId(view.getNodeId())
                 .nodeName(view.getNodeName())
@@ -45,6 +52,7 @@ public class WorkFlowNodeBuilder {
                 .scheduleParamSourceType(view.getScheduleParamSourceType())
                 .keywordField(view.getKeywordField())
                 .remoteExtension(view.getRemoteExtension())
+                .extensionParam(extensionParam)
                 .build();
     }
 
@@ -68,11 +76,14 @@ public class WorkFlowNodeBuilder {
 
         // 3. 构建基础节点
         InterfaceWorkflowNodeView view = flowNodeService.selectByNodeId(workFlowNodeId);
+        Map<String, String> extensionParam = new HashMap<>();
+        if (view.getExtensionParam() != null && !view.getExtensionParam().isEmpty()) {
+            extensionParam.putAll(JsonUtils.fromJsonStringToMap(view.getExtensionParam()));
+        }
+        extensionParam.put(ExtensionConstants.EXTENSION_PARAM_KEY_MOCK, mockId.toString());
 
-        Map<String, String> filterParams = new HashMap<>();
-        filterParams.put("mock", mockId.toString());
-        // 4. 构建带Mock标记的节点（通过remoteExtension传递mockId）
-        InterfaceWorkflowNode workflowNode = InterfaceWorkflowNode.builder()
+        // 4. 构建带Mock标记的节点
+        return InterfaceWorkflowNode.builder()
                 .nodeId(view.getNodeId())
                 .nodeName(view.getNodeName())
                 .flowId(view.getFlowId())
@@ -83,9 +94,7 @@ public class WorkFlowNodeBuilder {
                 .scheduleExpr(view.getScheduleExpr())
                 .scheduleParamSourceType(view.getScheduleParamSourceType())
                 .keywordField(view.getKeywordField())
-                .filterParams(filterParams)
+                .extensionParam(extensionParam)
                 .build();
-
-        return workflowNode;
     }
 }
