@@ -1,7 +1,7 @@
 package com.helianhealth.agent.workflow.service.extension;
 
-import com.helianhealth.agent.extension.spi.dynamic.DynamicSpiManager;
-import com.helianhealth.agent.extension.spi.model.DynamicSpiDefinition;
+import com.helianhealth.agent.common.extension.dynamic.DynamicSpiManager;
+import com.helianhealth.agent.common.extension.model.DynamicSpiDefinition;
 import com.helianhealth.agent.workflow.mapper.agent.InterfaceFlowNodeMapper;
 import com.helianhealth.agent.workflow.mapper.agent.NodeExtensionConfigMapper;
 import com.helianhealth.agent.workflow.model.domain.NodeExtensionConfigDO;

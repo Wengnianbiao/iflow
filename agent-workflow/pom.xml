@@ -64,20 +64,6 @@
             <groupId>com.alibaba.fastjson2</groupId>
             <artifactId>fastjson2</artifactId>
         </dependency>
-
-        <!-- JUnit 5 -->
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <!-- 动态 SPI 机制依赖 -->
-        <dependency>
-            <groupId>com.helianhealth</groupId>
-            <artifactId>agent-extension</artifactId>
-            <version>${project.version}</version>
-        </dependency>
     </dependencies>
 
 </project>

@@ -1,5 +1,0 @@
-# 原有的Agent扩展工厂
-# agent=com.helianhealth.agent.invocation.factory.AgentExtensionFactory
-
-# 增强版Agent扩展工厂（支持动态SPI）
-agent=com.helianhealth.agent.extension.factory.EnhancedAgentExtensionFactory

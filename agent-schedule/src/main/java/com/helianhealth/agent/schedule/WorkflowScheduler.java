@@ -16,7 +16,6 @@ import com.helianhealth.agent.workflow.model.domain.NodeParamConfigDO;
 import com.helianhealth.agent.workflow.service.NodeParamConfigService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.dubbo.common.extension.ExtensionLoader;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;

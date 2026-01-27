@@ -8,7 +8,6 @@ import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.invocation.remote.model.PostBuildContext;
 import com.helianhealth.agent.invocation.remote.model.PreBuildContext;
 import com.helianhealth.agent.invocation.remote.wrapper.WrapperFactory;
-import org.apache.dubbo.common.extension.ExtensionLoader;
 import org.springframework.util.CollectionUtils;
 
 import java.util.ArrayList;

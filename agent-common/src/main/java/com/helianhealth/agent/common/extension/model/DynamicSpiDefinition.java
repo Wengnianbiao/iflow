@@ -1,9 +1,10 @@
-package com.helianhealth.agent.extension.spi.model;
+package com.helianhealth.agent.common.extension.model;
 
 import lombok.Data;
 
 /**
- * The spi module only focuses on the registration and unregistration of spi extension classes
+ * 动态 SPI 定义模型
+ * extension模块只关注SPI扩展类的注册与卸载
  */
 @Data
 public class DynamicSpiDefinition {

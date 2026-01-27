@@ -26,13 +26,6 @@
             <version>${project.version}</version>
         </dependency>
 
-        <!-- 动态 SPI 机制模块，仅作为调用方 -->
-        <dependency>
-            <groupId>com.helianhealth</groupId>
-            <artifactId>agent-extension</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
         <dependency>
             <groupId>com.helianhealth</groupId>
             <artifactId>agent-log</artifactId>
@@ -82,12 +75,6 @@
             <groupId>com.alibaba</groupId>
             <artifactId>druid</artifactId>
             <version>${druid.version}</version>
-        </dependency>
-
-        <!-- Dubbo SPI -->
-        <dependency>
-            <groupId>org.apache.dubbo</groupId>
-            <artifactId>dubbo-common</artifactId>
         </dependency>
 
         <dependency>

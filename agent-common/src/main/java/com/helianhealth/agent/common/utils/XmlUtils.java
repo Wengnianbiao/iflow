@@ -57,16 +57,17 @@ public class XmlUtils {
     }
 
     /**
-     * 解析SOAP响应XML，支持命名空间配置
+     * 解析XML，支持标签名定位业务数据
      *
-     * @param xml 原始SOAP响应XML
-     * @param metaMap    元信息
+     * @param xml     原始XML
+     * @param metaMap 元信息
      * @return 解析后的Map对象
      */
     @SuppressWarnings("unchecked")
     private static Map<String, Object> parseXmlForConfig(String xml, Map<String, Object> metaMap) {
         XmlParserFactory parserFactory = XmlParserFactory.getInstance();
         DocumentBuilder builder = parserFactory.getDocumentBuilder();
+
         // 转义字符全量处理配置
         boolean useEscape = Boolean.parseBoolean((String) metaMap.get(XmlConstants.USE_ESCAPE_KEY));
         if (useEscape) {
@@ -74,76 +75,101 @@ public class XmlUtils {
         }
 
         try {
-            // 获取xml中业务数据元素
             InputSource is = new InputSource(new StringReader(cleanXmlString(xml)));
             Document doc = builder.parse(is);
-            Element bizDataElement;
 
             String elementName = (String) metaMap.get(XmlConstants.ELEMENT_NAME_KEY);
-            String namespace = (String) metaMap.get(XmlConstants.NAMESPACE_KEY);
             if (StringUtils.hasText(elementName)) {
-                // 1. 优先根据标签名获取（确保标签名唯一）
-                NodeList bizDataNodes = doc.getElementsByTagName(elementName);
-                if (bizDataNodes.getLength() == 1) {
-                    boolean isCDATA = metaMap.get(XmlConstants.IS_CDATA_KEY) == null ||
-                            Boolean.parseBoolean((String) metaMap.get(XmlConstants.IS_CDATA_KEY));
-                    if (isCDATA) {
-                        String dataContent = bizDataNodes.item(0).getTextContent();
-                        String dataType = (String) metaMap.get(XmlConstants.DATA_TYPE_KEY);
-                        if (dataType != null && dataType.equalsIgnoreCase(XmlConstants.JSON_KEY)) {
-                            return JsonUtils.toMap(dataContent);
-                        }
-                        bizDataElement = builder.parse(new InputSource(new StringReader(dataContent))).getDocumentElement();
-                    } else {
-                        bizDataElement = (Element) bizDataNodes.item(0).getChildNodes().item(0);
-                    }
-                } else {
-                    log.error("标签名[{}]对应的节点数量不为1，无法确定唯一业务数据元素", elementName);
-                    throw new RuntimeException("无法确定唯一的业务数据元素，请检查标签名是否正确");
-                }
-            } else if (StringUtils.hasText(namespace)) {
-                // 2. 使用命名空间查找
-                String namespaceElementName = (String) metaMap.get(XmlConstants.NAMESPACE_ELEMENT_NAME_KEY);
-                String namespaceDataElementName = (String) metaMap.get(XmlConstants.NAMESPACE_DATA_ELEMENT_NAME_KEY);
-
-                if (!StringUtils.hasText(namespaceElementName) || !StringUtils.hasText(namespaceDataElementName)) {
-                    log.error("命名空间配置不完整，缺少元素名称");
-                    throw new RuntimeException("命名空间配置不完整");
-                }
-
-                NodeList namespaceNodes = doc.getElementsByTagNameNS(namespace, namespaceElementName);
-                if (namespaceNodes.getLength() == 0) {
-                    log.error("命名空间[{}]下未找到元素[{}]", namespace, namespaceElementName);
-                    throw new RuntimeException("未找到命名空间对应的元素");
-                }
-
-                Element namespaceElement = (Element) namespaceNodes.item(0);
-                Element namespaceDataElement = getElementByPath(namespaceElement, namespaceDataElementName);
-                boolean isCDATA = metaMap.get(XmlConstants.IS_CDATA_KEY) == null ||
-                        Boolean.parseBoolean((String) metaMap.get(XmlConstants.IS_CDATA_KEY));
-
-                if (isCDATA) {
-                    String dataContent = namespaceDataElement.getTextContent();
-                    String dataType = (String) metaMap.get(XmlConstants.DATA_TYPE_KEY);
-                    if (dataType != null && dataType.equalsIgnoreCase(XmlConstants.JSON_KEY)) {
-                        return JsonUtils.toMap(dataContent);
-                    }
-                    bizDataElement = builder.parse(new InputSource(new StringReader(dataContent))).getDocumentElement();
-                } else {
-                    bizDataElement = namespaceDataElement;
-                }
+                // 根据标签名定位业务数据元素
+                return parseByElementName(doc, builder, metaMap, elementName);
             } else {
-                // 3. 整个XML即为业务数据
-                bizDataElement = doc.getDocumentElement();
+                // 整个XML即为业务数据
+                return (Map<String, Object>) parseElement(metaMap, doc.getDocumentElement());
             }
-
-            return (Map<String, Object>) parseElement(metaMap, bizDataElement);
         } catch (Exception e) {
-            log.error("解析SOAP响应失败:", e);
-            throw new RuntimeException("解析SOAP响应失败: " + e.getMessage(), e);
+            log.error("解析XML失败:", e);
+            throw new RuntimeException("解析XML失败: " + e.getMessage(), e);
         } finally {
             parserFactory.clearThreadLocal();
         }
+    }
+
+    /**
+     * 根据标签名定位并解析业务数据
+     * 
+     * 配置项（相互独立）：
+     * 1. elementName：外层标签定位
+     * 2. isCDATA：是否从 CDATA/文本内容中提取（默认 true）
+     * 3. dataType：内容类型（json/xml）
+     * 4. innerElementName：XML 内容中的二级标签定位
+     */
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> parseByElementName(Document doc, DocumentBuilder builder,
+                                                           Map<String, Object> metaMap, String elementName) throws Exception {
+        NodeList bizDataNodes = doc.getElementsByTagName(elementName);
+        if (bizDataNodes.getLength() != 1) {
+            log.error("标签名[{}]对应的节点数量为{}，无法确定唯一业务数据元素", elementName, bizDataNodes.getLength());
+            throw new RuntimeException("无法确定唯一的业务数据元素，请检查标签名是否正确");
+        }
+
+        Node targetNode = bizDataNodes.item(0);
+        
+        // 1. 获取业务数据内容（根据 isCDATA 配置）
+        boolean isCDATA = metaMap.get(XmlConstants.IS_CDATA_KEY) == null ||
+                Boolean.parseBoolean((String) metaMap.get(XmlConstants.IS_CDATA_KEY));
+        
+        String dataContent;
+        if (isCDATA) {
+            // CDATA 或文本内容
+            dataContent = targetNode.getTextContent().trim();
+        } else {
+            // 直接取第一个子元素的 XML 内容
+            Node firstChild = targetNode.getChildNodes().item(0);
+            if (firstChild == null) {
+                throw new RuntimeException("标签[" + elementName + "]没有子元素");
+            }
+            // 如果是元素节点，直接解析；否则取文本内容
+            if (firstChild.getNodeType() == Node.ELEMENT_NODE) {
+                return (Map<String, Object>) parseElement(metaMap, (Element) firstChild);
+            }
+            dataContent = firstChild.getTextContent().trim();
+        }
+        
+        // 2. 根据 dataType 解析内容
+        String dataType = (String) metaMap.get(XmlConstants.DATA_TYPE_KEY);
+        if (dataType != null && dataType.equalsIgnoreCase(XmlConstants.JSON_KEY)) {
+            // JSON 格式，直接返回
+            return JsonUtils.toMap(dataContent);
+        }
+        
+        // 3. XML 格式，解析为 Document
+        Document innerDoc = builder.parse(new InputSource(new StringReader(dataContent)));
+        
+        // 4. 内层标签定位（可选）
+        Element bizDataElement;
+        String innerElementName = (String) metaMap.get(XmlConstants.INNER_ELEMENT_NAME_KEY);
+        if (StringUtils.hasText(innerElementName)) {
+            bizDataElement = locateInnerElement(innerDoc, innerElementName);
+        } else {
+            bizDataElement = innerDoc.getDocumentElement();
+        }
+        
+        return (Map<String, Object>) parseElement(metaMap, bizDataElement);
+    }
+
+    /**
+     * 在文档中定位内层元素
+     */
+    private static Element locateInnerElement(Document doc, String innerElementName) {
+        NodeList nodes = doc.getElementsByTagName(innerElementName);
+        if (nodes.getLength() == 0) {
+            log.warn("内层标签[{}]未找到，使用根元素", innerElementName);
+            return doc.getDocumentElement();
+        }
+        if (nodes.getLength() > 1) {
+            log.warn("内层标签[{}]对应节点数量为{}，使用第一个", innerElementName, nodes.getLength());
+        }
+        return (Element) nodes.item(0);
     }
 
     /**
@@ -270,34 +296,6 @@ public class XmlUtils {
     }
 
     /**
-     * 根据点号分隔的路径递归查找命名空间元素下的子元素
-     *
-     * @param parentElement 父元素
-     * @param path 以点号分隔的元素路径，如 "level1.level2.level3"
-     * @return 找到的元素，如果找不到返回null
-     */
-    private static Element getElementByPath(Element parentElement, String path) {
-        if (parentElement == null || path == null || path.isEmpty()) {
-            return null;
-        }
-
-        String[] elements = path.split("\\.");
-        Element currentElement = parentElement;
-
-        for (String tagName : elements) {
-            NodeList nodeList = currentElement.getElementsByTagName(tagName);
-
-            if (nodeList.getLength() > 0) {
-                currentElement = (Element) nodeList.item(0);
-            } else {
-                // 如果在路径中任何一点找不到元素，则返回null
-                return null;
-            }
-        }
-
-        return currentElement;
-    }
-
         /**
      * 将Map转换为XML字符串，支持自定义根元素名称
      *
@@ -544,33 +542,40 @@ public class XmlUtils {
     /**
      * 解析子元素并添加到Map
      */
-
     private static void addChildElementsToMap(Map<String, Object> metaContext,
                                               Element element,
                                               Map<String, List<Element>> childElements,
                                               Map<String, Object> map) {
-        String tagName = element.getNodeName();
         for (Map.Entry<String, List<Element>> entry : childElements.entrySet()) {
             String childTagName = entry.getKey();
             List<Element> elements = entry.getValue();
-            Object value = parseChildElementValue(metaContext, elements, isArrayTag(metaContext, childElements, tagName));
+            boolean forceArray = shouldTreatAsArray(metaContext, elements, childTagName);
+            Object value = parseChildElementValue(metaContext, elements, forceArray);
             map.put(childTagName, value);
         }
     }
 
     /**
-     * 数组的场景:同名子节点数量大于1且未明确配置为对象
+     * 判断是否应该作为数组处理
+     * 数组场景：同名元素数量 > 1，或明确配置为数组
      */
     @SuppressWarnings("unchecked")
-    private static Boolean isArrayTag(Map<String, Object> metaContext,
-                                      Map<String, List<Element>> childElements,
-                                      String tagName) {
-        List<String> objectTagName = (List<String>) metaContext.get(XmlConstants.OBJECT_TAG_KEY);
-        if (objectTagName == null || objectTagName.isEmpty()) {
-            return childElements.size() == 1;
-        } else {
-            return childElements.size() == 1 && !objectTagName.contains(tagName);
+    private static boolean shouldTreatAsArray(Map<String, Object> metaContext,
+                                               List<Element> elements,
+                                               String tagName) {
+        // 同名元素数量 > 1，必然是数组
+        if (elements.size() > 1) {
+            return true;
         }
+        
+        // 检查是否明确配置为对象（非数组）
+        List<String> objectTagNames = (List<String>) metaContext.get(XmlConstants.OBJECT_TAG_KEY);
+        if (objectTagNames != null && objectTagNames.contains(tagName)) {
+            return false;
+        }
+        
+        // 默认单个元素不作为数组
+        return false;
     }
 
     /**
@@ -592,13 +597,18 @@ public class XmlUtils {
 
     /**
      * 简化纯容器节点（消除冗余嵌套）
+     * 注意：只简化返回 Map 的情况，不简化数组
      */
     private static Object simplifyContainerNode(Element element, Map<String, Object> map, Map<String, List<Element>> childElements) {
         // 条件：无属性 + 只有一种子元素 + 无额外文本
         if (element.getAttributes().getLength() == 0
                 && childElements.size() == 1
                 && !map.containsKey(element.getNodeName())) {
-            return map.values().iterator().next();
+            Object value = map.values().iterator().next();
+            // 只简化 Map，不简化 List（确保 parseXmlForConfig 总是返回 Map）
+            if (value instanceof Map) {
+                return value;
+            }
         }
         return map;
     }

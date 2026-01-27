@@ -1,18 +1,23 @@
 package com.helianhealth.agent.api.controller;
 
 import com.helianhealth.agent.common.base.ResultData;
+import com.helianhealth.agent.common.extension.AgentExtensionLoader;
 import com.helianhealth.agent.common.utils.ResponseRenderUtils;
-import com.helianhealth.agent.invocation.remote.model.Invocation;
-import com.helianhealth.agent.schedule.builder.WorkFlowNodeBuilder;
-import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
 import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
+import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.invocation.remote.model.Invocation;
+import com.helianhealth.agent.invocation.remote.wrapper.WrapperFactory;
+import com.helianhealth.agent.schedule.builder.WorkFlowNodeBuilder;
 import com.helianhealth.agent.schedule.convert.NodeParamConfigConvert;
 import com.helianhealth.agent.workflow.model.domain.NodeParamConfigDO;
 import com.helianhealth.agent.workflow.service.NodeParamConfigService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.dubbo.common.extension.ExtensionLoader;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Map;
@@ -55,8 +60,8 @@ public class MockInvokeController {
                     .build();
 
             // 直接调用远程调用器执行节点
-            InterfaceRemoteInvoker invoker = ExtensionLoader.getExtensionLoader(InterfaceRemoteInvoker.class).getAdaptiveExtension();
-            Map<String, Object> result = invoker.remoteInvoke(workflowNode, invocation);
+            InterfaceRemoteInvoker invoker = AgentExtensionLoader.getExtensionLoader(InterfaceRemoteInvoker.class).getAdaptiveExtension();
+            Map<String, Object> result = WrapperFactory.createRemoteInvokerChain(invoker).remoteInvoke(workflowNode, invocation);
 
             return ResponseRenderUtils.render(result);
         } catch (IllegalArgumentException e) {

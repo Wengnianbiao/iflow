@@ -9,7 +9,9 @@ import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Component
 @AllArgsConstructor
@@ -31,8 +33,7 @@ public class WorkFlowNodeBuilder {
     private InterfaceWorkflowNode doBuild(Integer workFlowNodeId) {
         InterfaceWorkflowNodeView view = flowNodeService.selectByNodeId(workFlowNodeId);
 
-        // 工作流节点baseInfo
-        InterfaceWorkflowNode workflowNode = InterfaceWorkflowNode.builder()
+        return InterfaceWorkflowNode.builder()
                 .nodeId(view.getNodeId())
                 .nodeName(view.getNodeName())
                 .flowId(view.getFlowId())
@@ -45,14 +46,6 @@ public class WorkFlowNodeBuilder {
                 .keywordField(view.getKeywordField())
                 .remoteExtension(view.getRemoteExtension())
                 .build();
-
-        // URL初始化参数配置
-        // 节点树node的构建当前默认都走一个统一处理
-        workflowNode.initUrl()
-                .proxy(view.getNodeType().name().toLowerCase())
-                .remote(view.getRemoteExtension());
-
-        return workflowNode;
     }
 
     /**
@@ -76,6 +69,8 @@ public class WorkFlowNodeBuilder {
         // 3. 构建基础节点
         InterfaceWorkflowNodeView view = flowNodeService.selectByNodeId(workFlowNodeId);
 
+        Map<String, String> filterParams = new HashMap<>();
+        filterParams.put("mock", mockId.toString());
         // 4. 构建带Mock标记的节点（通过remoteExtension传递mockId）
         InterfaceWorkflowNode workflowNode = InterfaceWorkflowNode.builder()
                 .nodeId(view.getNodeId())
@@ -88,12 +83,8 @@ public class WorkFlowNodeBuilder {
                 .scheduleExpr(view.getScheduleExpr())
                 .scheduleParamSourceType(view.getScheduleParamSourceType())
                 .keywordField(view.getKeywordField())
+                .filterParams(filterParams)
                 .build();
-
-        // URL初始化参数配置
-        workflowNode.initUrl()
-                .proxy(view.getNodeType().name().toLowerCase())
-                .mock(mockId);
 
         return workflowNode;
     }

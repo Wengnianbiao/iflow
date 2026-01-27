@@ -2,7 +2,6 @@ package com.helianhealth.agent.invocation.remote.model;
 
 import com.helianhealth.agent.common.enums.NodeType;
 import com.helianhealth.agent.common.enums.ScheduleParamSourceType;
-import com.helianhealth.agent.common.utils.UrlWrapper;
 import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -13,10 +12,10 @@ import java.util.Map;
  * 接口规则引擎工作流节点
  * 每个工作流节点对应的是三方接口的调用
  */
-@EqualsAndHashCode(callSuper = true)
+@EqualsAndHashCode(callSuper = false)
 @Data
 @Builder
-public class InterfaceWorkflowNode extends UrlWrapper {
+public class InterfaceWorkflowNode {
 
     private Integer nodeId;
 

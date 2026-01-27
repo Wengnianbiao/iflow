@@ -1,15 +1,12 @@
-package com.helianhealth.agent.extension.factory;
+package com.helianhealth.agent.common.extension.factory;
 
-import com.helianhealth.agent.extension.spi.dynamic.DynamicSpiManager;
+import com.helianhealth.agent.common.extension.AgentSPI;
+import com.helianhealth.agent.common.extension.dynamic.DynamicSpiManager;
 import com.helianhealth.agent.common.utils.ApplicationContextUtil;
-import org.apache.dubbo.common.extension.ExtensionFactory;
-import org.apache.dubbo.common.extension.SPI;
-import org.apache.dubbo.common.utils.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.context.ApplicationContext;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -20,7 +17,7 @@ import java.util.stream.Collectors;
  * 1. 从动态 SPI 管理器获取扩展
  * 2. 从 Spring 容器查找 Bean
  */
-public class EnhancedAgentExtensionFactory implements ExtensionFactory {
+public class EnhancedAgentExtensionFactory implements AgentExtensionFactory {
 
     private static final Logger log = LoggerFactory.getLogger(EnhancedAgentExtensionFactory.class);
 
@@ -28,7 +25,8 @@ public class EnhancedAgentExtensionFactory implements ExtensionFactory {
 
     @Override
     public <T> T getExtension(Class<T> type, String name) {
-        if (type.isInterface() && type.isAnnotationPresent(SPI.class)) {
+        // 跳过 @AgentSPI 接口，由 AgentSpiExtensionFactory 处理
+        if (type.isInterface() && type.isAnnotationPresent(AgentSPI.class)) {
             return null;
         }
 
@@ -46,7 +44,7 @@ public class EnhancedAgentExtensionFactory implements ExtensionFactory {
     }
 
     private <T> T getDynamicExtension(Class<T> type, String name) {
-        if (StringUtils.isEmpty(name)) {
+        if (name == null || name.isEmpty()) {
             return null;
         }
 
@@ -97,7 +95,7 @@ public class EnhancedAgentExtensionFactory implements ExtensionFactory {
             return null;
         }
 
-        if (!StringUtils.isEmpty(name) && singletonBeanNames.contains(name)) {
+        if (name != null && !name.isEmpty() && singletonBeanNames.contains(name)) {
             return context.getBean(name, type);
         }
 

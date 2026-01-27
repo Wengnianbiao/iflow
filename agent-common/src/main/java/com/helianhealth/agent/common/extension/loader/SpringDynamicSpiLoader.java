@@ -1,8 +1,8 @@
-package com.helianhealth.agent.extension.spi.loader;
+package com.helianhealth.agent.common.extension.loader;
 
-import com.helianhealth.agent.extension.spi.model.DynamicSpiDefinition;
-import com.helianhealth.agent.extension.spi.dynamic.DynamicSpiManager;
-import com.helianhealth.agent.extension.spi.config.DynamicSpiConfigSource;
+import com.helianhealth.agent.common.extension.config.DynamicSpiConfigSource;
+import com.helianhealth.agent.common.extension.dynamic.DynamicSpiManager;
+import com.helianhealth.agent.common.extension.model.DynamicSpiDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

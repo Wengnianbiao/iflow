@@ -1,5 +1,6 @@
 package com.helianhealth.agent.workflow.controller;
 
+import com.alibaba.fastjson2.JSON;
 import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.workflow.controller.reponse.WorkflowFullExportRsp;
@@ -135,7 +136,7 @@ public class WorkflowController {
             }
 
             String content = new String(file.getBytes(), StandardCharsets.UTF_8);
-            WorkflowFullExportRsp importData = com.alibaba.fastjson.JSON.parseObject(content, WorkflowFullExportRsp.class);
+            WorkflowFullExportRsp importData = JSON.parseObject(content, WorkflowFullExportRsp.class);
             
             log.info("导入工作流: {}", importData.getWorkflowInfo().getFlowName());
             Integer flowId = interfaceRuleFlowService.importWorkflowFull(importData);

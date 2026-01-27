@@ -12,7 +12,6 @@
     <modules>
         <module>agent-common</module>
         <module>agent-workflow</module>
-        <module>agent-extension</module>
         <module>agent-invocation</module>
         <module>agent-schedule</module>
         <module>agent-api</module>
@@ -30,7 +29,7 @@
         <maven.compiler.target>1.8</maven.compiler.target>
 
         <!-- 项目版本统一管理 -->
-        <revision>1.0.13</revision>
+        <revision>1.0.14</revision>
         <spring-boot.version>2.3.2.RELEASE</spring-boot.version>
         <spring.version>5.2.8.RELEASE</spring.version>
         <spring-cloud-config-client.version>2.2.5.RELEASE</spring-cloud-config-client.version>
@@ -42,7 +41,6 @@
         <druid.version>1.2.18</druid.version>
         <dom4j.version>2.1.4</dom4j.version>
         <httpclient5.version>5.1</httpclient5.version>
-        <dubbo.version>2.7.15</dubbo.version>
         <lombok.version>1.18.24</lombok.version>
 
         <!-- 数据库驱动版本 -->
@@ -185,20 +183,6 @@
                 <groupId>org.springframework</groupId>
                 <artifactId>spring-tx</artifactId>
                 <version>${spring.version}</version>
-            </dependency>
-
-
-            <!-- 仅引入dubbo spi机制-->
-            <dependency>
-                <groupId>org.apache.dubbo</groupId>
-                <artifactId>dubbo-common</artifactId>
-                <version>${dubbo.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>log4j</groupId>
-                        <artifactId>log4j</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <!-- 数据库驱动 -->

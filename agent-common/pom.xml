@@ -43,10 +43,11 @@
             <version>${spring.version}</version>
         </dependency>
 
-        <!-- Dubbo SPI -->
+        <!-- Spring Boot for ApplicationRunner -->
         <dependency>
-            <groupId>org.apache.dubbo</groupId>
-            <artifactId>dubbo-common</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <!-- lombok -->

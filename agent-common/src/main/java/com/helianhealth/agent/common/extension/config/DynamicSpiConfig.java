@@ -1,6 +1,6 @@
-package com.helianhealth.agent.extension.config;
+package com.helianhealth.agent.common.extension.config;
 
-import com.helianhealth.agent.extension.spi.dynamic.DynamicSpiManager;
+import com.helianhealth.agent.common.extension.dynamic.DynamicSpiManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 

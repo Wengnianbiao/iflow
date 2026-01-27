@@ -1,9 +1,9 @@
-package com.helianhealth.agent.extension.spi.dynamic;
+package com.helianhealth.agent.common.extension.dynamic;
 
 import com.helianhealth.agent.common.extension.AgentExtensionLoader;
 import com.helianhealth.agent.common.extension.AgentSPI;
 import com.helianhealth.agent.common.extension.ExtensionRegistry;
-import com.helianhealth.agent.extension.spi.model.DynamicSpiDefinition;
+import com.helianhealth.agent.common.extension.model.DynamicSpiDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
