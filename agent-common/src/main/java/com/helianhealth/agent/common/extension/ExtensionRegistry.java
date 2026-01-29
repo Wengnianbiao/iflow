@@ -14,6 +14,7 @@ import javax.tools.SimpleJavaFileObject;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Constructor;
@@ -23,6 +24,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -105,16 +107,14 @@ public class ExtensionRegistry {
             log.debug("Loading from classpath: {}", className);
             clazz = Class.forName(className, true, parentClassLoader);
         }
-
+        // 注册拓展类
         registerExtension(interfaceName, extensionName, clazz);
     }
 
     /**
      * 注册扩展类
-     *
-     * @return true 如果该类是@AgentAdaptive标注的自适应扩展类
      */
-    public boolean registerExtension(String interfaceName, String extensionName, Class<?> clazz) {
+    public void registerExtension(String interfaceName, String extensionName, Class<?> clazz) {
         validateParams(interfaceName, extensionName, clazz.getName());
 
         String key = buildKey(interfaceName, extensionName);
@@ -137,14 +137,13 @@ public class ExtensionRegistry {
         if (isAdaptive) {
             log.info("Found adaptive extension class: {} for {}", clazz.getName(), interfaceName);
             // 标记为 adaptive class，返回给调用方（AgentExtensionLoader）缓存
-            return true;
+            return;
         }
 
         classCache.put(key, clazz);
         instanceCache.remove(key);
 
         log.info("Extension registered: {}", key);
-        return false;
     }
 
     /**
@@ -200,7 +199,7 @@ public class ExtensionRegistry {
 
     /**
      * 获取扩展实例（单例，带IOC注入）
-     * 
+     *
      * @deprecated 建议使用 getExtensionClass + createInstanceWithInjection
      */
     @Deprecated
@@ -438,9 +437,15 @@ public class ExtensionRegistry {
 
         ClassFileManager fileManager = new ClassFileManager(standardFileManager);
 
+        // 设置编译选项：添加当前类路径和禁用注解处理
+        List<String> options = Arrays.asList(
+            "-classpath", buildClasspath(),
+            "-proc:none"  // 禁用注解处理器（避免Lombok等处理器问题）
+        );
+
         JavaFileObject javaFileObject = new JavaSourceFromString(className, sourceCode);
         JavaCompiler.CompilationTask task = compiler.getTask(
-                null, fileManager, diagnostics, null, null,
+                null, fileManager, diagnostics, options, null,
                 Collections.singletonList(javaFileObject));
 
         boolean success = task.call();
@@ -459,6 +464,72 @@ public class ExtensionRegistry {
 
         log.debug("Compiled and loaded: {}", className);
         return clazz;
+    }
+
+    /**
+     * 构建编译时类路径
+     */
+    private String buildClasspath() {
+        StringBuilder classpath = new StringBuilder();
+        
+        try {
+            // 1. 优先从系统属性获取（包含所有jar）
+            String javaClassPath = System.getProperty("java.class.path");
+            if (javaClassPath != null && !javaClassPath.isEmpty()) {
+                classpath.append(javaClassPath);
+            }
+            
+            // 2. 尝试从类加载器获取（处理开发环境）
+            ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+            if (classLoader == null) {
+                classLoader = getClass().getClassLoader();
+            }
+            
+            if (classLoader instanceof java.net.URLClassLoader) {
+                java.net.URLClassLoader urlClassLoader = (java.net.URLClassLoader) classLoader;
+                for (java.net.URL url : urlClassLoader.getURLs()) {
+                    if (classpath.length() > 0) {
+                        classpath.append(File.pathSeparator);
+                    }
+                    try {
+                        classpath.append(new File(url.toURI()).getPath());
+                    } catch (Exception e) {
+                        classpath.append(url.getPath());
+                    }
+                }
+            } else {
+                // 3. Spring Boot环境：使用反射获取LaunchedURLClassLoader的URLs
+                try {
+                    java.lang.reflect.Method getURLsMethod = classLoader.getClass().getMethod("getURLs");
+                    java.net.URL[] urls = (java.net.URL[]) getURLsMethod.invoke(classLoader);
+                    if (urls != null && urls.length > 0) {
+                        for (java.net.URL url : urls) {
+                            if (classpath.length() > 0) {
+                                classpath.append(File.pathSeparator);
+                            }
+                            classpath.append(url.getPath());
+                        }
+                    }
+                } catch (Exception ignored) {
+                    // 如果反射失败，使用已获取的java.class.path
+                }
+            }
+            
+            String result = classpath.toString();
+            log.info("Dynamic compilation classpath length: {} chars, contains {} entries", 
+                    result.length(), 
+                    result.isEmpty() ? 0 : result.split(File.pathSeparator).length);
+            
+            if (log.isDebugEnabled()) {
+                log.debug("Dynamic compilation classpath: {}", result);
+            }
+            
+            return result;
+            
+        } catch (Exception e) {
+            log.error("Failed to build classpath", e);
+            return "";
+        }
     }
 
     // ==================== 工具方法 ====================

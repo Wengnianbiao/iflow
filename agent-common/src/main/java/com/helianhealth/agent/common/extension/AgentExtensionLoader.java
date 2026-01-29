@@ -383,6 +383,85 @@ public class AgentExtensionLoader<T> {
         log.info("Removed extension: {}#{}", type.getName(), name);
     }
 
+    // ==================== 动态扩展管理（支持运行时编译和类卸载） ====================
+
+    /**
+     * 注册动态扩展（支持源码编译或从类路径加载）
+     *
+     * @param name 扩展名称
+     * @param className 类全限定名
+     * @param sourceCode 源码（可选，为null时从类路径加载）
+     */
+    public void registerDynamicExtension(String name, String className, String sourceCode) throws Exception {
+        if (name == null || name.isEmpty()) {
+            throw new IllegalArgumentException("Extension name == null");
+        }
+        if (className == null || className.isEmpty()) {
+            throw new IllegalArgumentException("Class name == null");
+        }
+
+        log.debug("Registering dynamic extension: interface={}, name={}, class={}",
+                type.getName(), name, className);
+
+        // 委托ExtensionRegistry进行加载和注册（支持动态编译）
+        registry.loadAndRegister(type.getName(), name, className, sourceCode);
+
+        // 清除缓存，确保下次getExtension时重新加载
+        cachedInstances.remove(name);
+        cachedAdaptiveInstance = null;
+
+        // 尝试缓存Activate注解（如果类已加载）
+        try {
+            Class<?> clazz = Class.forName(className);
+            cacheActivateAnnotation(name, clazz);
+        } catch (ClassNotFoundException e) {
+            // 动态编译的类可能无法通过Class.forName获取，忽略
+            log.debug("Class not in classpath (expected for dynamic compiled): {}", className);
+        }
+
+        log.info("Registered dynamic extension: {}#{}", type.getName(), name);
+    }
+
+    /**
+     * 移除动态扩展（支持类卸载）
+     *
+     * @param name 扩展名称
+     */
+    public void removeDynamicExtension(String name) {
+        if (name == null || name.isEmpty()) {
+            throw new IllegalArgumentException("Extension name == null");
+        }
+
+        // 清理所有缓存
+        cachedInstances.remove(name);
+        cachedActivates.remove(name);
+        cachedAdaptiveInstance = null;
+
+        // 委托ExtensionRegistry进行类卸载
+        registry.removeExtension(type.getName(), name);
+
+        log.info("Removed dynamic extension with class unloading: {}#{}", type.getName(), name);
+    }
+
+    /**
+     * 刷新动态扩展（卸载后重新加载）
+     *
+     * @param name 扩展名称
+     * @param className 类全限定名
+     * @param sourceCode 源码（可选）
+     */
+    public void refreshDynamicExtension(String name, String className, String sourceCode) throws Exception {
+        log.info("Refreshing dynamic extension: {}#{}", type.getName(), name);
+
+        // 先卸载
+        removeDynamicExtension(name);
+
+        // 重新注册
+        registerDynamicExtension(name, className, sourceCode);
+
+        log.info("Successfully refreshed dynamic extension: {}#{}", type.getName(), name);
+    }
+
     /**
      * 检查扩展是否存在
      */

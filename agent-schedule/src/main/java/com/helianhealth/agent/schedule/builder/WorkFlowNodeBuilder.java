@@ -5,8 +5,8 @@ import com.helianhealth.agent.common.utils.JsonUtils;
 import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
 import com.helianhealth.agent.mock.model.MockConfigDO;
 import com.helianhealth.agent.mock.service.MockConfigService;
-import com.helianhealth.agent.workflow.controller.reponse.InterfaceWorkflowNodeView;
-import com.helianhealth.agent.workflow.service.InterfaceWorkflowNodeService;
+import com.helianhealth.agent.console.controller.reponse.InterfaceWorkflowNodeView;
+import com.helianhealth.agent.console.service.InterfaceWorkflowNodeService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;
 
