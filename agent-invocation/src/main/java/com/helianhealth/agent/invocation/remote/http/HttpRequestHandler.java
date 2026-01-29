@@ -123,11 +123,51 @@ public class HttpRequestHandler implements ParamResolver {
         return jsonArray;
     }
 
+    /**
+     * 执行HTTP请求
+     * 根据Content-Type自动选择JSON或Form格式
+     */
     public String executeHttpRequest(String url, String method, Map<String, String> headers, String requestBody) throws IOException, ParseException {
         if ("GET".equalsIgnoreCase(method)) {
             return httpApiClientManager.executeGet(url, headers);
         }
+        
+        // 检查Content-Type，判断使用JSON还是Form格式
+        String contentType = headers != null ? headers.get("Content-Type") : null;
+        if (contentType != null && contentType.contains("application/x-www-form-urlencoded")) {
+            // Form格式：将JSON转为Map<String, String>
+            Map<String, String> formParams = convertJsonToFormParams(requestBody);
+            return httpApiClientManager.executePostForm(url, headers, formParams);
+        }
+        
+        // 默认JSON格式
         return httpApiClientManager.executePost(url, headers, requestBody);
+    }
+    
+    /**
+     * 将JSON字符串转换为Form参数Map
+     * 只支持一级扁平结构：{"key1":"value1", "key2":"value2"}
+     */
+    private Map<String, String> convertJsonToFormParams(String jsonBody) {
+        Map<String, String> formParams = new HashMap<>();
+        if (jsonBody == null || jsonBody.trim().isEmpty()) {
+            return formParams;
+        }
+        
+        try {
+            Map<String, Object> jsonMap = JsonUtils.toMap(jsonBody);
+            if (jsonMap != null) {
+                jsonMap.forEach((key, value) -> {
+                    if (value != null) {
+                        formParams.put(key, value.toString());
+                    }
+                });
+            }
+        } catch (Exception e) {
+            log.warn("Failed to convert JSON to form params: {}", jsonBody, e);
+        }
+        
+        return formParams;
     }
 }
 
