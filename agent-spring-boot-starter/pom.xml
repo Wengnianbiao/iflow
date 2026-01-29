@@ -17,12 +17,6 @@
         <!-- 依赖配置模块和对外 API 模块，由 agent-api 组合各业务功能模块 -->
         <dependency>
             <groupId>com.helianhealth</groupId>
-            <artifactId>agent-config</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.helianhealth</groupId>
             <artifactId>agent-api</artifactId>
             <version>${project.version}</version>
         </dependency>

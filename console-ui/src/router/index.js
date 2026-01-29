@@ -100,6 +100,17 @@ const routes = [
     }
   },
   {
+    path: '/demo/param-mapping',
+    name: 'ParamMappingDemo',
+    component: () => import('@/views/ParamMappingDemo.vue'),
+    meta: {
+      breadcrumb: [
+        { name: '配置手册', path: null, icon: 'el-icon-reading' },
+        { name: '参数映射演示', path: '/demo/param-mapping' }
+      ]
+    }
+  },
+  {
     path: '/workflow/node/param/guide',
     name: 'NodeParamGuide',
     component: () => import('@/views/NodeConfigIntro.vue'),

@@ -11,13 +11,12 @@
 
     <modules>
         <module>agent-common</module>
-        <module>agent-workflow</module>
+        <module>agent-console</module>
         <module>agent-invocation</module>
         <module>agent-schedule</module>
         <module>agent-api</module>
         <module>agent-log</module>
         <module>agent-mock</module>
-        <module>agent-config</module>
         <module>agent-spring-boot-starter</module>
         <module>agent-web</module>
         <module>agent-ai</module>
@@ -29,7 +28,7 @@
         <maven.compiler.target>1.8</maven.compiler.target>
 
         <!-- 项目版本统一管理 -->
-        <revision>1.0.14</revision>
+        <revision>1.0.17</revision>
         <spring-boot.version>2.3.2.RELEASE</spring-boot.version>
         <spring.version>5.2.8.RELEASE</spring.version>
         <spring-cloud-config-client.version>2.2.5.RELEASE</spring-cloud-config-client.version>

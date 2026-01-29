@@ -2,10 +2,10 @@ package com.helianhealth.agent.ai.controller;
 
 import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.common.utils.ResponseRenderUtils;
-import com.helianhealth.agent.workflow.controller.reponse.InterfaceWorkflowNodeView;
-import com.helianhealth.agent.workflow.controller.request.WorkflowNodeCreateReq;
-import com.helianhealth.agent.workflow.controller.request.WorkflowNodeUpdateReq;
-import com.helianhealth.agent.workflow.service.InterfaceWorkflowNodeService;
+import com.helianhealth.agent.console.controller.reponse.InterfaceWorkflowNodeView;
+import com.helianhealth.agent.console.controller.request.WorkflowNodeCreateReq;
+import com.helianhealth.agent.console.controller.request.WorkflowNodeUpdateReq;
+import com.helianhealth.agent.console.service.InterfaceWorkflowNodeService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.DeleteMapping;

@@ -2,8 +2,8 @@ package com.helianhealth.agent.ai.controller;
 
 import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.common.utils.ResponseRenderUtils;
-import com.helianhealth.agent.workflow.model.domain.InterfaceWorkflowDO;
-import com.helianhealth.agent.workflow.service.InterfaceWorkflowService;
+import com.helianhealth.agent.console.model.domain.InterfaceWorkflowDO;
+import com.helianhealth.agent.console.service.InterfaceWorkflowService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.DeleteMapping;

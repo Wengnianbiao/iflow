@@ -1,11 +1,11 @@
 package com.helianhealth.agent.ai.service;
 
 import com.alibaba.fastjson2.JSON;
-import com.helianhealth.agent.workflow.model.domain.InterfaceWorkflowDO;
-import com.helianhealth.agent.workflow.model.domain.NodeParamConfigDO;
-import com.helianhealth.agent.workflow.service.InterfaceWorkflowNodeService;
-import com.helianhealth.agent.workflow.service.InterfaceWorkflowService;
-import com.helianhealth.agent.workflow.service.NodeParamConfigService;
+import com.helianhealth.agent.console.model.domain.InterfaceWorkflowDO;
+import com.helianhealth.agent.console.model.domain.NodeParamConfigDO;
+import com.helianhealth.agent.console.service.InterfaceWorkflowNodeService;
+import com.helianhealth.agent.console.service.InterfaceWorkflowService;
+import com.helianhealth.agent.console.service.NodeParamConfigService;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -60,8 +60,8 @@ public class McpConfigService {
             nodeConfig.setFlowId(flowId);
             
             // 将NodeConfig转换为WorkflowNodeCreateReq所需的格式
-            com.helianhealth.agent.workflow.controller.request.WorkflowNodeCreateReq nodeRequest = 
-                new com.helianhealth.agent.workflow.controller.request.WorkflowNodeCreateReq();
+            com.helianhealth.agent.console.controller.request.WorkflowNodeCreateReq nodeRequest = 
+                new com.helianhealth.agent.console.controller.request.WorkflowNodeCreateReq();
             nodeRequest.setNodeName(nodeConfig.getNodeName());
             nodeRequest.setFlowId(flowId);
             nodeRequest.setNodeType(nodeConfig.getNodeType());

@@ -14,10 +14,10 @@
     <description>Web应用模块：应用入口、资源配置</description>
 
     <dependencies>
-        <!-- agent-config: 包含静态资源和全局配置 -->
+        <!-- agent-console: 控制台模块（包含配置、静态资源和管理API） -->
         <dependency>
             <groupId>com.helianhealth</groupId>
-            <artifactId>agent-config</artifactId>
+            <artifactId>agent-console</artifactId>
             <version>${project.version}</version>
         </dependency>
 

@@ -1,7 +1,7 @@
 package com.helianhealth.agent.api.adapter;
 
 import com.helianhealth.agent.common.enums.WorkflowContentType;
-import com.helianhealth.agent.workflow.model.domain.InterfaceWorkflowDO;
+import com.helianhealth.agent.console.model.domain.InterfaceWorkflowDO;
 import com.helianhealth.agent.common.utils.JsonUtils;
 import com.helianhealth.agent.common.utils.XmlUtils;
 import lombok.extern.slf4j.Slf4j;

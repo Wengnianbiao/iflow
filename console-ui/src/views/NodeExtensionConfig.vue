@@ -5,7 +5,6 @@
       <el-form-item>
         <el-button type="primary" @click="showTypeSelector" icon="el-icon-plus">新增扩展</el-button>
         <el-button @click="loadExtensionList" icon="el-icon-refresh">刷新列表</el-button>
-        <el-button @click="showLoadedExtensions" icon="el-icon-view">查看已加载</el-button>
       </el-form-item>
       <el-form-item label="扩展类型筛选">
         <el-select v-model="filterType" placeholder="全部" @change="loadExtensionList" clearable>
@@ -326,22 +325,6 @@
         <el-button type="primary" @click="handleSaveFilterExtension" :loading="saveLoading">保存</el-button>
       </div>
     </el-dialog>
-
-    <!-- 已加载扩展对话框 -->
-    <el-dialog
-      title="当前已加载的SPI扩展（运行时）"
-      :visible.sync="loadedDialogVisible"
-      width="60%"
-    >
-      <el-table :data="loadedExtensionList" border>
-        <el-table-column prop="spiType" label="SPI接口" min-width="200" show-overflow-tooltip></el-table-column>
-        <el-table-column prop="extensionName" label="扩展名称" width="150"></el-table-column>
-        <el-table-column prop="className" label="实现类" min-width="200" show-overflow-tooltip></el-table-column>
-      </el-table>
-      <div slot="footer">
-        <el-button type="primary" @click="loadedDialogVisible = false">关闭</el-button>
-      </div>
-    </el-dialog>
   </div>
 </template>
 
@@ -351,15 +334,11 @@ import {
   getInterfaceExtensions,
   registerInterfaceExtension,
   updateInterfaceExtension,
-  disableInterfaceExtension
-} from '@/api/interfaceExtension';
-import {
   getFilterExtensions,
   registerFilterExtension,
   updateFilterExtension,
-  disableFilterExtension
-} from '@/api/filterExtension';
-import { getLoadedExtensions } from '@/api/nodeExtension';
+  disableExtension
+} from '@/api/extension';
 import { getAllNodes } from '@/api/workflow';
 
 export default {
@@ -417,10 +396,6 @@ export default {
       dialogTitle: '',
       isEdit: false,
       saveLoading: false,
-
-      // 已加载的扩展
-      loadedExtensionList: [],
-      loadedDialogVisible: false,
 
       // 代码模板
       templates: {
@@ -733,11 +708,7 @@ public class CustomFilter implements AgentFilter {
           }
         );
 
-        if (row.spiInterface === 'com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker') {
-          await disableInterfaceExtension(row.codeId);
-        } else {
-          await disableFilterExtension(row.codeId);
-        }
+        await disableExtension(row.codeId);
         
         Message.success('禁用成功');
         this.loadExtensionList();
@@ -745,26 +716,6 @@ public class CustomFilter implements AgentFilter {
         if (error !== 'cancel') {
           Message.error('禁用失败：' + (error.message || '未知错误'));
         }
-      }
-    },
-
-    // 查看已加载的扩展
-    async showLoadedExtensions() {
-      try {
-        const { data } = await getLoadedExtensions();
-        this.loadedExtensionList = [];
-        if (data && typeof data === 'object') {
-          Object.entries(data).forEach(([key, value]) => {
-            this.loadedExtensionList.push({
-              spiType: key.substring(0, key.lastIndexOf('.') || key.length),
-              extensionName: key.substring(key.lastIndexOf('.') + 1),
-              className: value.name || value
-            });
-          });
-        }
-        this.loadedDialogVisible = true;
-      } catch (error) {
-        Message.error('加载运行时扩展失败：' + (error.message || '未知错误'));
       }
     },
 

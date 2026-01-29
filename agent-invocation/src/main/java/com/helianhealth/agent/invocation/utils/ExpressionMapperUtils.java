@@ -1,6 +1,6 @@
 package com.helianhealth.agent.invocation.utils;
 
-import com.helianhealth.agent.workflow.mapper.hems.HemsMapper;
+import com.helianhealth.agent.console.mapper.hems.HemsMapper;
 import com.helianhealth.agent.common.utils.JsonUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

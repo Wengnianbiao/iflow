@@ -1,7 +1,7 @@
 package com.helianhealth.agent.schedule.convert;
 
 import com.helianhealth.agent.invocation.remote.model.NodeParamConfig;
-import com.helianhealth.agent.workflow.model.domain.NodeParamConfigDO;
+import com.helianhealth.agent.console.model.domain.NodeParamConfigDO;
 
 public class NodeParamConfigConvert {
 
