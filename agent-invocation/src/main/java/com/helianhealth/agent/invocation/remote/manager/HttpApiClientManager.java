@@ -20,13 +20,16 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.apache.hc.core5.http.message.BasicNameValuePair;
 import org.apache.hc.core5.ssl.SSLContexts;
+import org.apache.hc.core5.ssl.TrustStrategy;
 import org.apache.hc.core5.util.TimeValue;
 import org.apache.hc.core5.util.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.net.ssl.SSLContext;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -59,11 +62,29 @@ public class HttpApiClientManager {
 
     // 私有构造函数，防止外部实例化
     private HttpApiClientManager() {
+        // 创建信任所有证书的 SSL 上下文
+        SSLContext sslContext;
+        try {
+            // 信任所有证书（跳过证书验证）
+            TrustStrategy acceptingTrustStrategy = (X509Certificate[] chain, String authType) -> true;
+            sslContext = SSLContexts.custom()
+                    .loadTrustMaterial(null, acceptingTrustStrategy)
+                    .build();
+            logger.info("HTTPS certificate trust strategy enabled, skipping certificate verification");
+        } catch (Exception e) {
+            logger.warn("Failed to create custom SSL context, using system default configuration", e);
+            sslContext = SSLContexts.createSystemDefault();
+        }
+        SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(
+                sslContext,
+                (hostname, session) -> true
+        );
+
         Registry<ConnectionSocketFactory> socketFactoryRegistry = RegistryBuilder.<ConnectionSocketFactory>create()
                 .register("http", PlainConnectionSocketFactory.getSocketFactory())
-                .register("https", new SSLConnectionSocketFactory(SSLContexts.createSystemDefault()))
+                .register("https", sslSocketFactory)
                 .build();
-        // 创建连接池管理器
+
         connectionManager = new PoolingHttpClientConnectionManager(
                 socketFactoryRegistry,
                 null, //  poolConcurrencyPolicy 可传null使用默认
@@ -108,7 +129,8 @@ public class HttpApiClientManager {
      * @return 响应内容
      * @throws IOException IO异常
      */
-    public String executePost(String url,  Map<String, String> headers, String requestBody) throws IOException, ParseException {        logger.info("执行 POST 请求，URL: [{}]，请求体: [{}]", url, requestBody);
+    public String executePost(String url,  Map<String, String> headers, String requestBody) throws IOException, ParseException {
+        logger.info("执行 POST 请求，URL: [{}]，请求体: [{}]", url, requestBody);
         HttpPost httpPost = new HttpPost(url);
         // 设置请求头
         if (headers != null && !headers.isEmpty()) {
