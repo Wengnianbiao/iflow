@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -23,38 +24,53 @@ public class XmlUtilsParseXmlForConfigTest {
 
     @Test
     public void testSimpleXml_NoConfig() {
-        // 简单 XML，无任何配置 - 容器节点被简化
+        // 简单 XML，无任何配置 - 只有一种子标签名，识别为数组
         String xml = "<Response><patientCode>123456</patientCode></Response>";
         Map<String, Object> metaMap = new HashMap<>();
 
         Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 
-        assertEquals("123456", result.get("patientCode"));
+        // Response 下只有 patientCode 一种标签 → 数组
+        assertTrue(result.get("patientCode") instanceof List);
+        @SuppressWarnings("unchecked")
+        List<Object> list = (List<Object>) result.get("patientCode");
+        assertEquals("123456", list.get(0));
     }
 
     @Test
     public void testNestedXml_NoConfig() {
-        // 嵌套 XML - 单一子元素类型的容器会被简化
+        // 嵌套 XML - patient 下有多种子元素，不是数组
         String xml = "<Response><patient><code>P001</code><name>张三</name></patient></Response>";
         Map<String, Object> metaMap = new HashMap<>();
 
         Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 
-        // Response 简化为 patient 内容，patient 有多种子元素不简化
-        assertEquals("P001", result.get("code"));
-        assertEquals("张三", result.get("name"));
+        // Response 下只有 patient 一种标签 → patient 是数组
+        // patient 下有 code 和 name 两种标签 → 它们是对象属性
+        assertInstanceOf(List.class, result.get("patient"));
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> patients = (List<Map<String, Object>>) result.get("patient");
+        assertEquals("P001", patients.get(0).get("code"));
+        assertEquals("张三", patients.get(0).get("name"));
     }
 
     @Test
     public void testMultiLevelNestedXml() {
-        // 多层嵌套 - 每层单一子元素都会被简化
+        // 多层嵌套 - 每层只有一种子标签，都是数组
         String xml = "<Root><Level1><Level2><value>深层数据</value></Level2></Level1></Root>";
         Map<String, Object> metaMap = new HashMap<>();
 
         Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 
-        // 所有单一子元素容器都被简化
-        assertEquals("深层数据", result.get("value"));
+        // Root→Level1(数组)→Level2(数组)→value(数组)
+        assertInstanceOf(List.class, result.get("Level1"));
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> level1 = (List<Map<String, Object>>) result.get("Level1");
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> level2 = (List<Map<String, Object>>) level1.get(0).get("Level2");
+        @SuppressWarnings("unchecked")
+        List<Object> values = (List<Object>) level2.get(0).get("value");
+        assertEquals("深层数据", values.get(0));
     }
 
     @Test
@@ -80,7 +96,11 @@ public class XmlUtilsParseXmlForConfigTest {
 
         Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 
-        assertEquals("P001", result.get("code"));
+        // patient 下只有 code 一种标签 → 数组
+        assertInstanceOf(List.class, result.get("code"));
+        @SuppressWarnings("unchecked")
+        List<Object> codes = (List<Object>) result.get("code");
+        assertEquals("P001", codes.get(0));
     }
 
     @Test
@@ -92,7 +112,11 @@ public class XmlUtilsParseXmlForConfigTest {
 
         Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 
-        assertEquals("001", result.get("id"));
+        // data 下只有 id 一种标签 → 数组
+        assertInstanceOf(List.class, result.get("id"));
+        @SuppressWarnings("unchecked")
+        List<Object> ids = (List<Object>) result.get("id");
+        assertEquals("001", ids.get(0));
     }
 
     @Test
@@ -127,7 +151,11 @@ public class XmlUtilsParseXmlForConfigTest {
 
         Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 
-        assertEquals("002", result.get("id"));
+        // data 下只有 id 一种标签 → 数组
+        assertInstanceOf(List.class, result.get("id"));
+        @SuppressWarnings("unchecked")
+        List<Object> ids = (List<Object>) result.get("id");
+        assertEquals("002", ids.get(0));
     }
 
     @Test
@@ -140,8 +168,11 @@ public class XmlUtilsParseXmlForConfigTest {
 
         Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 
-        // 降级到根元素 <data>
-        assertEquals("003", result.get("id"));
+        // 降级到根元素 <data>，data 下只有 id 一种标签 → 数组
+        assertTrue(result.get("id") instanceof List);
+        @SuppressWarnings("unchecked")
+        List<Object> ids = (List<Object>) result.get("id");
+        assertEquals("003", ids.get(0));
     }
 
     // ==================== 4. isCDATA 配置场景 ====================
@@ -156,7 +187,11 @@ public class XmlUtilsParseXmlForConfigTest {
 
         Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 
-        assertEquals("P002", result.get("code"));
+        // patient 下只有 code 一种标签 → 数组
+        assertTrue(result.get("code") instanceof List);
+        @SuppressWarnings("unchecked")
+        List<Object> codes = (List<Object>) result.get("code");
+        assertEquals("P002", codes.get(0));
     }
 
     @Test
@@ -168,7 +203,11 @@ public class XmlUtilsParseXmlForConfigTest {
 
         Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 
-        assertEquals("P003", result.get("code"));
+        // patient 下只有 code 一种标签 → 数组
+        assertTrue(result.get("code") instanceof List);
+        @SuppressWarnings("unchecked")
+        List<Object> codes = (List<Object>) result.get("code");
+        assertEquals("P003", codes.get(0));
     }
 
     // ==================== 5. dataType=json 配置场景 ====================
@@ -212,7 +251,11 @@ public class XmlUtilsParseXmlForConfigTest {
 
         Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 
-        assertEquals("test", result.get("data"));
+        // Response 下只有 data 一种标签 → 数组
+        assertTrue(result.get("data") instanceof List);
+        @SuppressWarnings("unchecked")
+        List<Object> dataList = (List<Object>) result.get("data");
+        assertEquals("test", dataList.get(0));
     }
 
     // ==================== 7. 数组场景 ====================
@@ -248,29 +291,40 @@ public class XmlUtilsParseXmlForConfigTest {
 
     @Test
     public void testElementWithAttributes() {
-        // 带属性的元素 - 有属性的容器不简化
+        // 带属性的元素 - 有属性时不简化，但子元素遵循数组规则
         String xml = "<Root><patient id=\"P001\" type=\"VIP\"><name>张三</name></patient></Root>";
         Map<String, Object> metaMap = new HashMap<>();
 
         Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 
-        // Root 只有一个子元素且是 Map，会简化
-        // patient 有属性，返回 Map 包含属性和子元素
-        assertEquals("P001", result.get("id"));
-        assertEquals("VIP", result.get("type"));
-        assertEquals("张三", result.get("name"));
+        // Root 下只有 patient 一种标签 → patient 是数组
+        assertTrue(result.get("patient") instanceof List);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> patients = (List<Map<String, Object>>) result.get("patient");
+        Map<String, Object> patient = patients.get(0);
+        assertEquals("P001", patient.get("id"));
+        assertEquals("VIP", patient.get("type"));
+        // patient 有属性，name 是唯一子元素 → name 是数组
+        assertTrue(patient.get("name") instanceof List);
+        @SuppressWarnings("unchecked")
+        List<Object> names = (List<Object>) patient.get("name");
+        assertEquals("张三", names.get(0));
     }
 
     @Test
     public void testRootWithAttributes() {
-        // 根元素有属性 - 不简化
+        // 根元素有属性 - 不简化，子元素遵循数组规则
         String xml = "<Response status=\"ok\"><code>001</code></Response>";
         Map<String, Object> metaMap = new HashMap<>();
 
         Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 
         assertEquals("ok", result.get("status"));
-        assertEquals("001", result.get("code"));
+        // Response 有属性，code 是唯一子元素 → code 是数组
+        assertTrue(result.get("code") instanceof List);
+        @SuppressWarnings("unchecked")
+        List<Object> codes = (List<Object>) result.get("code");
+        assertEquals("001", codes.get(0));
     }
 
     // ==================== 9. 空标签场景 ====================
@@ -291,15 +345,18 @@ public class XmlUtilsParseXmlForConfigTest {
 
     @Test
     public void testSelfClosingTag() {
-        // 自闭合标签 - 值为 null
+        // 自闭合标签 - 值为 null，但遵循数组规则
         String xml = "<Response><status/></Response>";
         Map<String, Object> metaMap = new HashMap<>();
 
         Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 
-        // status 是空标签，值为 null
+        // Response 下只有 status 一种标签 → status 是数组
         assertTrue(result.containsKey("status"));
-        assertNull(result.get("status"));
+        assertTrue(result.get("status") instanceof List);
+        @SuppressWarnings("unchecked")
+        List<Object> statusList = (List<Object>) result.get("status");
+        assertNull(statusList.get(0));
     }
 
     // ==================== 10. 边界/异常场景 ====================
@@ -404,5 +461,39 @@ public class XmlUtilsParseXmlForConfigTest {
 
         // items 只有一个子元素，会被简化
         assertNotNull(result);
+    }
+
+    @Test
+    public void testItemHisID_Scenario() {
+        // 用户的真实场景：ItemHisID 下只有 HIS_ID，应简化为数组
+        String xml = "<Request>" +
+                "<OPERATOR_TIME>2026-01-29 12:22:22</OPERATOR_TIME>" +
+                "<ItemHisID>" +
+                "<HIS_ID>80000055973</HIS_ID>" +
+                "<HIS_ID>80000055975</HIS_ID>" +
+                "</ItemHisID>" +
+                "<REQUISITION_STATE>samplinged</REQUISITION_STATE>" +
+                "<patid>102601150002</patid>" +
+                "<OPERATOR_PERSON>张三</OPERATOR_PERSON>" +
+                "<REQUISITION_ID>2103418066</REQUISITION_ID>" +
+                "</Request>";
+        Map<String, Object> metaMap = new HashMap<>();
+
+        Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
+
+        // Request 下有多种标签 → 各自作为对象属性
+        assertEquals("2026-01-29 12:22:22", result.get("OPERATOR_TIME"));
+        assertEquals("samplinged", result.get("REQUISITION_STATE"));
+        assertEquals("102601150002", result.get("patid"));
+        assertEquals("张三", result.get("OPERATOR_PERSON"));
+        assertEquals("2103418066", result.get("REQUISITION_ID"));
+
+        // ItemHisID 下只有 HIS_ID 一种标签 → 简化为数组
+        assertTrue(result.get("ItemHisID") instanceof List);
+        @SuppressWarnings("unchecked")
+        List<Object> itemHisIds = (List<Object>) result.get("ItemHisID");
+        assertEquals(2, itemHisIds.size());
+        assertEquals("80000055973", itemHisIds.get(0));
+        assertEquals("80000055975", itemHisIds.get(1));
     }
 }

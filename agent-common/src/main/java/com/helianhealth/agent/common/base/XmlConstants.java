@@ -16,7 +16,7 @@ public class XmlConstants {
     public static final String DATA_TYPE_KEY = "dataType";
 
     public static final String JSON_KEY = "json";
-    public static final String XML_KEY = "XML";
+
     public static final String IS_CDATA_KEY = "isCDATA";
 
     /**
@@ -25,7 +25,8 @@ public class XmlConstants {
     public static final String USE_ESCAPE_KEY = "escape";
 
     /**
-     * 对象标签
+     * 对象标签 - 指定哪些父元素应保留对象结构（其子元素不转为数组）
+     * 用于覆盖默认的"单一子标签名=数组"规则
      */
     public static final String OBJECT_TAG_KEY = "objectTag";
 }

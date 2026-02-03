@@ -1,20 +1,19 @@
 package com.helianhealth.agent.schedule;
 
-import com.helianhealth.agent.common.extension.AgentExtensionLoader;
-import com.helianhealth.agent.invocation.remote.model.Invocation;
 import com.helianhealth.agent.common.enums.ScheduleParamSourceType;
 import com.helianhealth.agent.common.exception.WorkflowBusinessException;
-import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
-import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
-import com.helianhealth.agent.invocation.remote.wrapper.WrapperFactory;
-import com.helianhealth.agent.schedule.builder.WorkFlowNodeBuilder;
-import com.helianhealth.agent.schedule.convert.NodeParamConfigConvert;
-import com.helianhealth.agent.schedule.processor.ParamFilterProcessor;
-import com.helianhealth.agent.schedule.processor.BusinessDataSplitter;
-import com.helianhealth.agent.invocation.utils.ExpressionMapperUtils;
+import com.helianhealth.agent.common.extension.AgentExtensionLoader;
 import com.helianhealth.agent.console.model.domain.NodeParamConfigDO;
 import com.helianhealth.agent.console.service.NodeParamConfigService;
-import lombok.AllArgsConstructor;
+import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
+import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.invocation.remote.model.Invocation;
+import com.helianhealth.agent.invocation.remote.wrapper.WrapperFactory;
+import com.helianhealth.agent.invocation.utils.ExpressionMapperUtils;
+import com.helianhealth.agent.schedule.builder.WorkFlowNodeBuilder;
+import com.helianhealth.agent.schedule.convert.NodeParamConfigConvert;
+import com.helianhealth.agent.schedule.processor.BusinessDataSplitter;
+import com.helianhealth.agent.schedule.processor.ParamFilterProcessor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
@@ -44,7 +43,7 @@ public class WorkflowScheduler {
     private final BusinessDataSplitter splitBusinessDataPostProcessor;
     private final NodeParamConfigService nodeParamConfigService;
     private final ThreadPoolTaskExecutor taskExecutor;
-    
+
     /**
      * 延迟初始化的InterfaceRemoteInvoker
      */
@@ -61,7 +60,7 @@ public class WorkflowScheduler {
         this.nodeParamConfigService = nodeParamConfigService;
         this.taskExecutor = taskExecutor;
     }
-    
+
     /**
      * 获取InterfaceRemoteInvoker实例（延迟初始化）
      */

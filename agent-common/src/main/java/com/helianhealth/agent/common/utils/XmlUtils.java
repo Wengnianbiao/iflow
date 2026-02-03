@@ -32,26 +32,6 @@ public class XmlUtils {
 
     private static final Logger log = LoggerFactory.getLogger(XmlUtils.class);
 
-    /**
-     * 将XML字符串转换为Map<String, Object>
-     *
-     * @param xml XML字符串
-     * @return 转换后的Map对象
-     */
-    public static Map<String, Object> xmlToMap(String xml) {
-        try {
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            factory.setNamespaceAware(true);
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            Document document = builder.parse(new InputSource(new StringReader(xml)));
-
-            return elementToMap(document.getDocumentElement());
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to parse XML to Map", e);
-        }
-    }
-
-
     public static Map<String, Object> parseResponseXml(String responseXml, Map<String, Object> metaMap) {
         return parseXmlForConfig(responseXml, metaMap);
     }
@@ -63,7 +43,6 @@ public class XmlUtils {
      * @param metaMap 元信息
      * @return 解析后的Map对象
      */
-    @SuppressWarnings("unchecked")
     private static Map<String, Object> parseXmlForConfig(String xml, Map<String, Object> metaMap) {
         XmlParserFactory parserFactory = XmlParserFactory.getInstance();
         DocumentBuilder builder = parserFactory.getDocumentBuilder();
@@ -84,7 +63,8 @@ public class XmlUtils {
                 return parseByElementName(doc, builder, metaMap, elementName);
             } else {
                 // 整个XML即为业务数据
-                return (Map<String, Object>) parseElement(metaMap, doc.getDocumentElement());
+                Element rootElement = doc.getDocumentElement();
+                return wrapAsMapIfNeeded(parseElement(metaMap, rootElement));
             }
         } catch (Exception e) {
             log.error("解析XML失败:", e);
@@ -96,14 +76,13 @@ public class XmlUtils {
 
     /**
      * 根据标签名定位并解析业务数据
-     * 
+     *
      * 配置项（相互独立）：
      * 1. elementName：外层标签定位
      * 2. isCDATA：是否从 CDATA/文本内容中提取（默认 true）
      * 3. dataType：内容类型（json/xml）
      * 4. innerElementName：XML 内容中的二级标签定位
      */
-    @SuppressWarnings("unchecked")
     private static Map<String, Object> parseByElementName(Document doc, DocumentBuilder builder,
                                                            Map<String, Object> metaMap, String elementName) throws Exception {
         NodeList bizDataNodes = doc.getElementsByTagName(elementName);
@@ -113,38 +92,36 @@ public class XmlUtils {
         }
 
         Node targetNode = bizDataNodes.item(0);
-        
+
         // 1. 获取业务数据内容（根据 isCDATA 配置）
         boolean isCDATA = metaMap.get(XmlConstants.IS_CDATA_KEY) == null ||
                 Boolean.parseBoolean((String) metaMap.get(XmlConstants.IS_CDATA_KEY));
-        
+
         String dataContent;
         if (isCDATA) {
             // CDATA 或文本内容
             dataContent = targetNode.getTextContent().trim();
         } else {
             // 直接取第一个子元素的 XML 内容
-            Node firstChild = targetNode.getChildNodes().item(0);
+            Node firstChild = getFirstElementChild(targetNode);
             if (firstChild == null) {
                 throw new RuntimeException("标签[" + elementName + "]没有子元素");
             }
-            // 如果是元素节点，直接解析；否则取文本内容
-            if (firstChild.getNodeType() == Node.ELEMENT_NODE) {
-                return (Map<String, Object>) parseElement(metaMap, (Element) firstChild);
-            }
-            dataContent = firstChild.getTextContent().trim();
+            // 如果是元素节点，直接解析
+            Element firstElement = (Element) firstChild;
+            return wrapAsMapIfNeeded(parseElement(metaMap, firstElement));
         }
-        
+
         // 2. 根据 dataType 解析内容
         String dataType = (String) metaMap.get(XmlConstants.DATA_TYPE_KEY);
         if (dataType != null && dataType.equalsIgnoreCase(XmlConstants.JSON_KEY)) {
             // JSON 格式，直接返回
             return JsonUtils.toMap(dataContent);
         }
-        
+
         // 3. XML 格式，解析为 Document
         Document innerDoc = builder.parse(new InputSource(new StringReader(dataContent)));
-        
+
         // 4. 内层标签定位（可选）
         Element bizDataElement;
         String innerElementName = (String) metaMap.get(XmlConstants.INNER_ELEMENT_NAME_KEY);
@@ -153,8 +130,37 @@ public class XmlUtils {
         } else {
             bizDataElement = innerDoc.getDocumentElement();
         }
-        
-        return (Map<String, Object>) parseElement(metaMap, bizDataElement);
+
+        return wrapAsMapIfNeeded(parseElement(metaMap, bizDataElement));
+    }
+
+    /**
+     * 获取第一个子元素节点
+     */
+    private static Node getFirstElementChild(Node parent) {
+        NodeList children = parent.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            if (children.item(i).getNodeType() == Node.ELEMENT_NODE) {
+                return children.item(i);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 如果解析结果是 List，包装成 Map（使用元素名作为 key）
+     * 用于确保 parseXmlForConfig 的返回类型始终是 Map
+     */
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> wrapAsMapIfNeeded(Object parseResult) {
+        if (parseResult instanceof Map) {
+            return (Map<String, Object>) parseResult;
+        }
+        // List 或基本类型：包装成 Map，使用元素名的子标签名（如果是简化后的数组）
+        // 这种情况说明该元素只有一种子标签且被简化了，需要从元素的第一个子标签获取 key
+        Map<String, Object> wrapper = new LinkedHashMap<>();
+        wrapper.put("data", parseResult);
+        return wrapper;
     }
 
     /**
@@ -460,7 +466,7 @@ public class XmlUtils {
 
         // 3. 子元素解析
         Map<String, List<Element>> childElements = groupChildElementsByTagName(element);
-        addChildElementsToMap(metaContext, element, childElements, resultMap);
+        addChildElementsToMap(metaContext, childElements, resultMap);
 
         // 4. 简化纯容器节点（仅含一个子元素且无属性）
         return simplifyContainerNode(element, resultMap, childElements);
@@ -542,39 +548,84 @@ public class XmlUtils {
     /**
      * 解析子元素并添加到Map
      */
+    @SuppressWarnings("unchecked")
     private static void addChildElementsToMap(Map<String, Object> metaContext,
-                                              Element element,
                                               Map<String, List<Element>> childElements,
                                               Map<String, Object> map) {
+        // 父元素下不同子标签名的数量
+        int distinctTagCount = childElements.size();
+
         for (Map.Entry<String, List<Element>> entry : childElements.entrySet()) {
             String childTagName = entry.getKey();
             List<Element> elements = entry.getValue();
-            boolean forceArray = shouldTreatAsArray(metaContext, elements, childTagName);
+            boolean forceArray = shouldTreatAsArray(metaContext, elements, childTagName, distinctTagCount);
             Object value = parseChildElementValue(metaContext, elements, forceArray);
+
+            // 简化：当子元素是 Map，只有一个 key，且该 key 的值是基本类型数组时，直接使用该数组
+            // 例如：ItemHisID: {HIS_ID: ["a", "b"]} → ItemHisID: ["a", "b"]
+            if (value instanceof Map) {
+                Map<String, Object> childMap = (Map<String, Object>) value;
+                if (childMap.size() == 1) {
+                    Object innerValue = childMap.values().iterator().next();
+                    if (innerValue instanceof List) {
+                        List<?> list = (List<?>) innerValue;
+                        // 只简化基本类型数组（非 Map 数组）
+                        if (list.isEmpty() || !(list.get(0) instanceof Map)) {
+                            value = innerValue;
+                        }
+                    }
+                }
+            }
+
             map.put(childTagName, value);
         }
     }
 
     /**
      * 判断是否应该作为数组处理
-     * 数组场景：同名元素数量 > 1，或明确配置为数组
+     * 核心规则：
+     * 1. 有多个同名子元素 → 必然是数组
+     * 2. 父元素下只有一种子标签名 → 默认是数组（除非配置了objectTag）
+     * 3. 父元素下有多种子标签名 → 默认是对象
+     *
+     * 示例：
+     * <ItemHisID>
+     *   <HIS_ID>80000055973</HIS_ID>
+     * </ItemHisID>
+     * ItemHisID 下只有 HIS_ID 一种标签 → HIS_ID 识别为数组
+     *
+     * <Request>
+     *   <patid>123</patid>
+     *   <name>张三</name>
+     * </Request>
+     * Request 下有多种标签 → patid、name 识别为普通值
      */
     @SuppressWarnings("unchecked")
     private static boolean shouldTreatAsArray(Map<String, Object> metaContext,
                                                List<Element> elements,
-                                               String tagName) {
+                                               String tagName,
+                                               int distinctTagCount) {
         // 同名元素数量 > 1，必然是数组
         if (elements.size() > 1) {
             return true;
         }
-        
-        // 检查是否明确配置为对象（非数组）
-        List<String> objectTagNames = (List<String>) metaContext.get(XmlConstants.OBJECT_TAG_KEY);
-        if (objectTagNames != null && objectTagNames.contains(tagName)) {
-            return false;
+
+        // 父元素下只有一种子标签名 → 默认作为数组
+        if (distinctTagCount == 1) {
+            // 检查是否明确配置为对象（优先级最高）
+            if (elements.size() == 1 && elements.get(0).getParentNode() instanceof Element) {
+                Element parentElement = (Element) elements.get(0).getParentNode();
+                String parentTagName = parentElement.getNodeName();
+
+                List<String> objectTagNames = (List<String>) metaContext.get(XmlConstants.OBJECT_TAG_KEY);
+                if (objectTagNames != null && objectTagNames.contains(parentTagName)) {
+                    return false;
+                }
+            }
+            return true;
         }
-        
-        // 默认单个元素不作为数组
+
+        // 父元素下有多种子标签名 → 默认不作为数组
         return false;
     }
 
@@ -597,7 +648,8 @@ public class XmlUtils {
 
     /**
      * 简化纯容器节点（消除冗余嵌套）
-     * 注意：只简化返回 Map 的情况，不简化数组
+     * 规则：只简化返回 Map 的情况，不简化数组
+     * 数组的简化在 addChildElementsToMap 中处理
      */
     private static Object simplifyContainerNode(Element element, Map<String, Object> map, Map<String, List<Element>> childElements) {
         // 条件：无属性 + 只有一种子元素 + 无额外文本
@@ -605,6 +657,7 @@ public class XmlUtils {
                 && childElements.size() == 1
                 && !map.containsKey(element.getNodeName())) {
             Object value = map.values().iterator().next();
+
             // 只简化 Map，不简化 List（确保 parseXmlForConfig 总是返回 Map）
             if (value instanceof Map) {
                 return value;
