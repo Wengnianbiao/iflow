@@ -22,8 +22,6 @@ import java.lang.annotation.Target;
  * {@code @AgentActivate(order = 100)}
  * public class LogFilter implements Filter { }
  * </pre>
- *
- * @author Agent Team
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)

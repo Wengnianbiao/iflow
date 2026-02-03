@@ -9,30 +9,36 @@ import java.lang.reflect.Proxy;
 
 /**
  * Agent Adaptive Extension Proxy
+ * <p>
+ * Adaptive extension proxy that extracts attribute values from method parameter objects
+ * as extension names based on {@code @AgentAdaptive} annotation configuration.
+ * <p>
+ * <b>Extension Name Extraction Strategy:</b>
+ * <ol>
+ * <li>Read the value from {@code @AgentAdaptive} annotation on the method</li>
+ * <li>Convert the value to getter method name (e.g., "nodeType" -> "getNodeType")</li>
+ * <li>Invoke the getter on parameter objects to retrieve the extension name</li>
+ * </ol>
+ * <p>
+ * <b>Usage Example:</b>
+ * <pre>{@code
+ * @AgentAdaptive("nodeType")
+ * Map<String, Object> doInvoke(InterfaceWorkflowNode flowNode, List params);
  *
- * 自适应扩展代理，根据@AgentAdaptive注解配置，从方法参数对象中提取属性值作为扩展名
- *
- * 扩展名提取策略：
- * 1. 读取方法上的@AgentAdaptive注解的value值
- * 2. 将value转换为getter方法名（如 "nodeType" -> "getNodeType"）
- * 3. 从参数对象中调用该getter获取扩展名
- *
- * 示例：
- * <pre>
- * {@code @AgentAdaptive("nodeType")}
- * Map<String,Object> doInvoke(InterfaceWorkflowNode flowNode, List params);
- *
- * // 调用时会执行 flowNode.getNodeType() 获取扩展名
- * </pre>
- *
- * @author Agent Team
+ * // When invoked, it will call flowNode.getNodeType() to get the extension name
+ * }</pre>
  */
 class AdaptiveExtensionProxy {
 
     private static final Logger log = LoggerFactory.getLogger(AdaptiveExtensionProxy.class);
 
     /**
-     * 创建自适应代理实例
+     * Create an adaptive proxy instance
+     *
+     * @param interfaceClass the extension interface class
+     * @param loader the extension loader
+     * @param <T> the extension interface type
+     * @return the adaptive proxy instance
      */
     @SuppressWarnings("unchecked")
     static <T> T createProxy(Class<T> interfaceClass, AgentExtensionLoader<T> loader) {
@@ -44,7 +50,9 @@ class AdaptiveExtensionProxy {
     }
 
     /**
-     * 自适应调用处理器
+     * Adaptive invocation handler for dynamic extension selection
+     *
+     * @param <T> the extension interface type
      */
     private static class AdaptiveInvocationHandler<T> implements InvocationHandler {
 
@@ -58,7 +66,7 @@ class AdaptiveExtensionProxy {
 
         @Override
         public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-            // 处理Object方法
+            // Handle Object methods
             String methodName = method.getName();
             if ("equals".equals(methodName)) {
                 return proxy == args[0];
@@ -70,17 +78,17 @@ class AdaptiveExtensionProxy {
                 return "AdaptiveProxy@" + interfaceClass.getSimpleName();
             }
 
-            // 获取方法上的@AgentAdaptive注解
+            // Get @AgentAdaptive annotation from method
             AgentAdaptive adaptive = method.getAnnotation(AgentAdaptive.class);
 
-            // 提取扩展名
+            // Extract extension name
             String extensionName = null;
 
             if (adaptive != null && adaptive.value().length > 0) {
-                // 按@AgentAdaptive配置的属性名提取
+                // Extract by @AgentAdaptive configured property name
                 extensionName = extractByAdaptiveConfig(adaptive.value(), args);
             }
-            // 降级：使用默认扩展
+            // Fallback: use default extension
             if (extensionName == null || extensionName.isEmpty()) {
                 extensionName = loader.getDefaultExtensionName();
             }
@@ -91,7 +99,7 @@ class AdaptiveExtensionProxy {
                     "." + methodName + "(), please check @AgentAdaptive configuration");
             }
 
-            // 获取扩展并调用
+            // Get extension and invoke
             T extension = loader.getExtension(extensionName);
             if (extension == null) {
                 throw new IllegalStateException(
@@ -105,23 +113,23 @@ class AdaptiveExtensionProxy {
         }
 
         /**
-         * 根据@AgentAdaptive配置的属性名提取扩展名
+         * Extract extension name by property names configured in {@code @AgentAdaptive}
          *
-         * @param keys 配置的属性名数组，如 {"nodeType", "type"}
-         * @param args 方法参数
-         * @return 扩展名
+         * @param keys configured property name array, e.g., {"nodeType", "type"}
+         * @param args method arguments
+         * @return extension name, or null if not found
          */
         private String extractByAdaptiveConfig(String[] keys, Object[] args) {
             if (args == null || args.length == 0) {
                 return null;
             }
 
-            // 遍历配置的key（按优先级）
+            // Iterate configured keys (by priority)
             for (String key : keys) {
-                // 构造getter方法名
+                // Construct getter method name
                 String getterName = "get" + Character.toUpperCase(key.charAt(0)) + key.substring(1);
 
-                // 从所有参数对象中查找
+                // Search from all parameter objects
                 for (Object arg : args) {
                     if (arg == null) {
                         continue;
@@ -138,11 +146,11 @@ class AdaptiveExtensionProxy {
         }
 
         /**
-         * 反射调用getter方法
+         * Invoke getter method via reflection
          *
-         * @param obj 目标对象
-         * @param getterName getter方法名
-         * @return getter返回值的字符串形式，失败返回null
+         * @param obj target object
+         * @param getterName getter method name
+         * @return string representation of getter return value, or null if failed
          */
         private String invokeGetter(Object obj, String getterName) {
             try {
@@ -153,17 +161,17 @@ class AdaptiveExtensionProxy {
                     return null;
                 }
 
-                // 处理枚举类型
+                // Handle enum type
                 if (result instanceof Enum) {
                     return ((Enum<?>) result).name().toLowerCase();
                 }
 
-                // 其他类型转字符串
+                // Convert other types to string
                 String value = result.toString().trim();
                 return value.isEmpty() ? null : value;
 
             } catch (NoSuchMethodException e) {
-                // 方法不存在，静默忽略
+                // Method not found, silently ignore
                 return null;
             } catch (Exception e) {
                 log.debug("Failed to invoke {}.{}: {}",

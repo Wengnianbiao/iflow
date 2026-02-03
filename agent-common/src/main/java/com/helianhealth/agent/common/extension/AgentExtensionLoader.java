@@ -18,35 +18,39 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
- * Agent Extension Loader
- * <pre>
- * Agent轻量级SPI加载器，替代Dubbo ExtensionLoader
- * <pre>
- * 核心特性：
- * 1. 静态加载：从 META-INF/agent/ 目录读取配置
- * 2. 动态注册：运行时添加/替换扩展
- * 3. IOC注入：有参构造器自动注入SPI依赖
- * 4. 自适应代理：动态选择扩展实现（支持@AgentAdaptive）
- * 5. 激活扩展：根据条件自动激活扩展（支持@AgentActivate）
- * <pre>
- * 使用示例：
- * // 获取指定扩展
+ * Agent Extension Loader - AgentSPI Dynamic Loader
+ * <p>
+ * Reference implementation based on Dubbo ExtensionLoader, providing a flexible SPI mechanism
+ * for dynamic extension loading and management.
+ * <p>
+ * <b>Core Features:</b>
+ * <ul>
+ * <li>Static Loading: Read configuration from META-INF/agent/ directory</li>
+ * <li>Dynamic Registration: Add/replace extensions at runtime</li>
+ * <li>IOC Injection: Auto-inject SPI dependencies through constructor</li>
+ * <li>Adaptive Proxy: Dynamically select extension implementation (supports @AgentAdaptive)</li>
+ * <li>Activate Extensions: Auto-activate extensions based on conditions (supports @AgentActivate)</li>
+ * </ul>
+ * <p>
+ * <b>Usage Examples:</b>
+ * <pre>{@code
+ * // Get specific extension
  * InterfaceRemoteInvoker invoker = AgentExtensionLoader
  *     .getExtensionLoader(InterfaceRemoteInvoker.class)
  *     .getExtension("http");
  *
- * // 获取自适应扩展
+ * // Get adaptive extension
  * InterfaceRemoteInvoker adaptive = AgentExtensionLoader
  *     .getExtensionLoader(InterfaceRemoteInvoker.class)
  *     .getAdaptiveExtension();
  *
- * // 获取激活扩展列表
+ * // Get activate extension list
  * List<Filter> filters = AgentExtensionLoader
  *     .getExtensionLoader(Filter.class)
  *     .getActivateExtensions(params);
- * </pre>
+ * }</pre>
  *
- * @author Agent Team
+ * @param <T> the extension interface type
  */
 public class AgentExtensionLoader<T> {
 
@@ -137,7 +141,7 @@ public class AgentExtensionLoader<T> {
         }
         if (!type.isAnnotationPresent(AgentSPI.class)) {
             throw new IllegalArgumentException("Extension type (" + type +
-                ") is not extension, because WITHOUT @AgentSPI Annotation!");
+                ") is not extension, because without @AgentSPI Annotation!");
         }
 
         AgentExtensionLoader<T> loader = (AgentExtensionLoader<T>) EXTENSION_LOADERS.get(type);
@@ -157,11 +161,6 @@ public class AgentExtensionLoader<T> {
     public T getExtension(String name) {
         if (name == null || name.isEmpty()) {
             throw new IllegalArgumentException("Extension name == null");
-        }
-
-        // 支持 "true" 作为默认扩展的别名
-        if ("true".equals(name)) {
-            return getDefaultExtension();
         }
 
         // 确保已加载静态配置
@@ -504,7 +503,8 @@ public class AgentExtensionLoader<T> {
             }
         }
 
-        // 否则使用动态代理
+        // 否则使用动态代理,这里是和dubbo不一样的地方,dubbo是动态编译自适应拓展类
+        // agent则是使用动态代理来创建自适应扩展(有反射开销)
         return AdaptiveExtensionProxy.createProxy(type, this);
     }
 

@@ -1,30 +1,13 @@
 package com.helianhealth.agent.common.extension;
 
+import com.helianhealth.agent.common.extension.compiler.DynamicCompiler;
 import com.helianhealth.agent.common.extension.factory.AgentExtensionFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.tools.Diagnostic;
-import javax.tools.DiagnosticCollector;
-import javax.tools.FileObject;
-import javax.tools.JavaCompiler;
-import javax.tools.JavaFileManager;
-import javax.tools.JavaFileObject;
-import javax.tools.SimpleJavaFileObject;
-import javax.tools.StandardJavaFileManager;
-import javax.tools.ToolProvider;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.OutputStream;
 import java.lang.reflect.Constructor;
-import java.net.URI;
-import java.security.SecureClassLoader;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -67,9 +50,9 @@ public class ExtensionRegistry {
     /**
      * ClassLoader cache for dynamic compiled classes
      * key: className
-     * value: IsolatedClassLoader
+     * value: DynamicClassLoader
      */
-    private final Map<String, IsolatedClassLoader> classLoaderCache = new ConcurrentHashMap<>();
+    private final Map<String, DynamicCompiler.DynamicClassLoader> classLoaderCache = new ConcurrentHashMap<>();
 
     private final ClassLoader parentClassLoader;
 
@@ -175,7 +158,7 @@ public class ExtensionRegistry {
 
         if (clazz != null) {
             String className = clazz.getName();
-            IsolatedClassLoader classLoader = classLoaderCache.remove(className);
+            DynamicCompiler.DynamicClassLoader classLoader = classLoaderCache.remove(className);
             if (classLoader != null) {
                 classLoader.unload();
             }
@@ -287,7 +270,7 @@ public class ExtensionRegistry {
     public void clear() {
         int count = classCache.size();
 
-        for (IsolatedClassLoader loader : classLoaderCache.values()) {
+        for (DynamicCompiler.DynamicClassLoader loader : classLoaderCache.values()) {
             loader.unload();
         }
 
@@ -302,11 +285,6 @@ public class ExtensionRegistry {
 
     // ==================== IOC注入 ====================
 
-    /**
-     * 创建实例并进行IOC注入
-     *
-     * 优先使用有参构造器，参数类型为@AgentSPI注解的接口时自动注入
-     */
     /**
      * 创建实例并注入依赖
      * <p>
@@ -425,111 +403,13 @@ public class ExtensionRegistry {
      * 编译Java源码
      */
     private Class<?> compileClass(String className, String sourceCode) throws Exception {
-        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-        if (compiler == null) {
-            throw new IllegalStateException(
-                "JDK compiler not available, please run on JDK");
-        }
+        DynamicCompiler.CompileResult result = DynamicCompiler.getInstance().compile(className, sourceCode);
 
-        DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
-        StandardJavaFileManager standardFileManager =
-            compiler.getStandardFileManager(diagnostics, null, null);
+        // 缓存类加载器以支持后续卸载
+        classLoaderCache.put(className, result.getClassLoader());
 
-        ClassFileManager fileManager = new ClassFileManager(standardFileManager);
-
-        // 设置编译选项：添加当前类路径和禁用注解处理
-        List<String> options = Arrays.asList(
-            "-classpath", buildClasspath(),
-            "-proc:none"  // 禁用注解处理器（避免Lombok等处理器问题）
-        );
-
-        JavaFileObject javaFileObject = new JavaSourceFromString(className, sourceCode);
-        JavaCompiler.CompilationTask task = compiler.getTask(
-                null, fileManager, diagnostics, options, null,
-                Collections.singletonList(javaFileObject));
-
-        boolean success = task.call();
-        if (!success) {
-            StringBuilder errorMsg = new StringBuilder("Compilation failed:\n");
-            for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {
-                errorMsg.append(String.format("Line %d: %s%n",
-                        diagnostic.getLineNumber(), diagnostic.getMessage(null)));
-            }
-            throw new RuntimeException(errorMsg.toString());
-        }
-
-        IsolatedClassLoader isolatedLoader = fileManager.getIsolatedClassLoader();
-        Class<?> clazz = isolatedLoader.loadClass(className);
-        classLoaderCache.put(className, isolatedLoader);
-
-        log.debug("Compiled and loaded: {}", className);
-        return clazz;
-    }
-
-    /**
-     * 构建编译时类路径
-     */
-    private String buildClasspath() {
-        StringBuilder classpath = new StringBuilder();
-        
-        try {
-            // 1. 优先从系统属性获取（包含所有jar）
-            String javaClassPath = System.getProperty("java.class.path");
-            if (javaClassPath != null && !javaClassPath.isEmpty()) {
-                classpath.append(javaClassPath);
-            }
-            
-            // 2. 尝试从类加载器获取（处理开发环境）
-            ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-            if (classLoader == null) {
-                classLoader = getClass().getClassLoader();
-            }
-            
-            if (classLoader instanceof java.net.URLClassLoader) {
-                java.net.URLClassLoader urlClassLoader = (java.net.URLClassLoader) classLoader;
-                for (java.net.URL url : urlClassLoader.getURLs()) {
-                    if (classpath.length() > 0) {
-                        classpath.append(File.pathSeparator);
-                    }
-                    try {
-                        classpath.append(new File(url.toURI()).getPath());
-                    } catch (Exception e) {
-                        classpath.append(url.getPath());
-                    }
-                }
-            } else {
-                // 3. Spring Boot环境：使用反射获取LaunchedURLClassLoader的URLs
-                try {
-                    java.lang.reflect.Method getURLsMethod = classLoader.getClass().getMethod("getURLs");
-                    java.net.URL[] urls = (java.net.URL[]) getURLsMethod.invoke(classLoader);
-                    if (urls != null && urls.length > 0) {
-                        for (java.net.URL url : urls) {
-                            if (classpath.length() > 0) {
-                                classpath.append(File.pathSeparator);
-                            }
-                            classpath.append(url.getPath());
-                        }
-                    }
-                } catch (Exception ignored) {
-                    // 如果反射失败，使用已获取的java.class.path
-                }
-            }
-            
-            String result = classpath.toString();
-            log.info("Dynamic compilation classpath length: {} chars, contains {} entries", 
-                    result.length(), 
-                    result.isEmpty() ? 0 : result.split(File.pathSeparator).length);
-            
-            if (log.isDebugEnabled()) {
-                log.debug("Dynamic compilation classpath: {}", result);
-            }
-            
-            return result;
-            
-        } catch (Exception e) {
-            log.error("Failed to build classpath", e);
-            return "";
-        }
+        log.info("Compiled and loaded: {}", className);
+        return result.getClazz();
     }
 
     // ==================== 工具方法 ====================
@@ -550,189 +430,4 @@ public class ExtensionRegistry {
         }
     }
 
-    // ==================== 内部类 ====================
-
-    /**
-     * Java源码对象
-     */
-    private static class JavaSourceFromString extends SimpleJavaFileObject {
-        private final String code;
-
-        JavaSourceFromString(String className, String code) {
-            super(URI.create("string:///" + className.replace('.', '/') + Kind.SOURCE.extension),
-                  Kind.SOURCE);
-            this.code = code;
-        }
-
-        @Override
-        public CharSequence getCharContent(boolean ignoreEncodingErrors) {
-            return code;
-        }
-    }
-
-    /**
-     * 编译后的类对象
-     */
-    private static class JavaClassObject extends SimpleJavaFileObject {
-        private final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-
-        protected JavaClassObject(String name, Kind kind) {
-            super(URI.create("string:///" + name.replace('.', '/') + kind.extension), kind);
-        }
-
-        @Override
-        public OutputStream openOutputStream() {
-            return outputStream;
-        }
-
-        byte[] getBytes() {
-            return outputStream.toByteArray();
-        }
-    }
-
-    /**
-     * 文件管理器
-     */
-    private static class ClassFileManager extends ForwardingJavaFileManager<JavaFileManager> {
-        private final Map<String, JavaClassObject> classObjectMap = new ConcurrentHashMap<>();
-        private IsolatedClassLoader isolatedClassLoader;
-
-        protected ClassFileManager(JavaFileManager fileManager) {
-            super(fileManager);
-        }
-
-        @Override
-        public JavaFileObject getJavaFileForOutput(Location location, String className,
-                                                    JavaFileObject.Kind kind, FileObject sibling) {
-            JavaClassObject classObject = new JavaClassObject(className, kind);
-            classObjectMap.put(className, classObject);
-            return classObject;
-        }
-
-        @Override
-        public ClassLoader getClassLoader(Location location) {
-            return getIsolatedClassLoader();
-        }
-
-        public IsolatedClassLoader getIsolatedClassLoader() {
-            if (isolatedClassLoader == null) {
-                isolatedClassLoader = new IsolatedClassLoader(classObjectMap);
-            }
-            return isolatedClassLoader;
-        }
-    }
-
-    /**
-     * 转发文件管理器
-     */
-    private static class ForwardingJavaFileManager<M extends JavaFileManager> implements JavaFileManager {
-        protected final M fileManager;
-
-        protected ForwardingJavaFileManager(M fileManager) {
-            this.fileManager = fileManager;
-        }
-
-        @Override
-        public ClassLoader getClassLoader(Location location) {
-            return fileManager.getClassLoader(location);
-        }
-
-        @Override
-        public Iterable<JavaFileObject> list(Location location, String packageName,
-                                             Set<JavaFileObject.Kind> kinds, boolean recurse) throws IOException {
-            return fileManager.list(location, packageName, kinds, recurse);
-        }
-
-        @Override
-        public String inferBinaryName(Location location, JavaFileObject file) {
-            return fileManager.inferBinaryName(location, file);
-        }
-
-        @Override
-        public boolean isSameFile(FileObject a, FileObject b) {
-            return fileManager.isSameFile(a, b);
-        }
-
-        @Override
-        public boolean handleOption(String current, Iterator<String> remaining) {
-            return fileManager.handleOption(current, remaining);
-        }
-
-        @Override
-        public boolean hasLocation(Location location) {
-            return fileManager.hasLocation(location);
-        }
-
-        @Override
-        public JavaFileObject getJavaFileForInput(Location location, String className,
-                                                  JavaFileObject.Kind kind) throws IOException {
-            return fileManager.getJavaFileForInput(location, className, kind);
-        }
-
-        @Override
-        public JavaFileObject getJavaFileForOutput(Location location, String className,
-                                                    JavaFileObject.Kind kind, FileObject sibling) throws IOException {
-            return fileManager.getJavaFileForOutput(location, className, kind, sibling);
-        }
-
-        @Override
-        public FileObject getFileForInput(Location location, String packageName,
-                                          String relativeName) throws IOException {
-            return fileManager.getFileForInput(location, packageName, relativeName);
-        }
-
-        @Override
-        public FileObject getFileForOutput(Location location, String packageName,
-                                           String relativeName, FileObject sibling) throws IOException {
-            return fileManager.getFileForOutput(location, packageName, relativeName, sibling);
-        }
-
-        @Override
-        public void flush() throws IOException {
-            fileManager.flush();
-        }
-
-        @Override
-        public void close() throws IOException {
-            fileManager.close();
-        }
-
-        @Override
-        public int isSupportedOption(String option) {
-            return fileManager.isSupportedOption(option);
-        }
-    }
-
-    /**
-     * 隔离类加载器
-     */
-    static class IsolatedClassLoader extends SecureClassLoader {
-        private final Map<String, JavaClassObject> classObjectMap;
-        private volatile boolean unloaded = false;
-
-        IsolatedClassLoader(Map<String, JavaClassObject> classObjectMap) {
-            super(Thread.currentThread().getContextClassLoader());
-            this.classObjectMap = classObjectMap;
-        }
-
-        @Override
-        protected Class<?> findClass(String name) throws ClassNotFoundException {
-            if (unloaded) {
-                throw new ClassNotFoundException("ClassLoader has been unloaded: " + name);
-            }
-
-            JavaClassObject classObject = classObjectMap.get(name);
-            if (classObject == null) {
-                return super.findClass(name);
-            }
-
-            byte[] bytes = classObject.getBytes();
-            return defineClass(name, bytes, 0, bytes.length);
-        }
-
-        void unload() {
-            unloaded = true;
-            classObjectMap.clear();
-        }
-    }
 }
