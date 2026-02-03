@@ -7,6 +7,7 @@ import com.helianhealth.agent.common.utils.XmlUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -56,6 +57,13 @@ public class ContentTypeAdapter {
     public String adaptResponse(InterfaceWorkflowDO workflow, Map<String, Object> responseData) {
         WorkflowContentType contentType = workflow.getContentType();
         if (WorkflowContentType.JSON.equals(contentType)) {
+            // 如果 Map 只有一个 key 且 key 为保留字 "data"，且该 value 是数组类型，直接返回数组的 JSON
+            if (responseData.size() == 1 && responseData.containsKey("data")) {
+                Object value = responseData.get("data");
+                if (value instanceof Collection || (value != null && value.getClass().isArray())) {
+                    return JsonUtils.toJsonString(value);
+                }
+            }
             return JsonUtils.toJsonString(responseData);
         } else if (WorkflowContentType.XML.equals(contentType)) {
             return XmlUtils.buildResponseXml(responseData, workflow.getContentMetaInfo());
