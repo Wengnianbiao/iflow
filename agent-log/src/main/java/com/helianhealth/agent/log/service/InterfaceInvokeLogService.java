@@ -2,6 +2,9 @@ package com.helianhealth.agent.log.service;
 
 import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.log.model.InterfaceInvokeLogDO;
+import com.helianhealth.agent.log.model.InvokeStatsVO;
+
+import java.util.List;
 
 public interface InterfaceInvokeLogService {
 
@@ -39,4 +42,16 @@ public interface InterfaceInvokeLogService {
                        String invokeTime);
 
     PageList<InterfaceInvokeLogDO> findAllInvokeLogs(String nodeName, String keyword, int pageNum, int pageSize);
+
+    /**
+     * 统计今日各接口调用情况
+     * @return 统计结果列表
+     */
+    List<InvokeStatsVO> getTodayStats();
+
+    /**
+     * 统计最近7天各接口调用情况
+     * @return 统计结果列表
+     */
+    List<InvokeStatsVO> getLast7DaysStats();
 }

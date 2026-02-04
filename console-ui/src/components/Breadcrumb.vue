@@ -5,7 +5,7 @@
       <el-breadcrumb-item 
         v-for="(item, index) in breadcrumbList" 
         :key="index"
-        :to="item.path ? { path: item.path } : null"
+        :to="isCurrentRoute(item.path) ? null : (item.path ? { path: item.path } : null)"
       >
         <i v-if="item.icon" :class="item.icon" style="margin-right: 5px;"></i>
         {{ item.name }}
@@ -51,6 +51,11 @@ export default {
           this.breadcrumbList.push(breadcrumb);
         }
       }
+    },
+
+    // 判断是否为当前路由
+    isCurrentRoute(path) {
+      return path && this.$route.path === path;
     }
   }
 };

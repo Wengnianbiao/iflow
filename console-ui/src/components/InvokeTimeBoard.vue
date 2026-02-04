@@ -1,279 +1,185 @@
 <template>
   <div class="invoke-time-board">
-    <!-- 总体统计卡片 -->
-    <el-card class="box-card summary-card" shadow="hover">
-      <div slot="header" class="clearfix">
-        <span>接口调用总体统计</span>
-        <el-button style="float: right; padding: 3px 0" type="text" @click="refreshData" :loading="loading">
-          <i class="el-icon-refresh" /> 刷新
+    <!-- 今日接口调用统计 -->
+    <el-card class="stats-card" shadow="never">
+      <div slot="header" class="card-header">
+        <div class="header-left">
+          <i class="el-icon-data-line"></i>
+          <span class="card-title">今日接口调用统计</span>
+        </div>
+        <el-button 
+          size="small"
+          icon="el-icon-refresh" 
+          @click="refreshData"
+          :loading="loading"
+        >
+          刷新
         </el-button>
       </div>
-      <div v-loading="loading" class="card-content">
-        <div v-if="statsData && statsData.length > 0" class="summary-stats">
-          <div class="summary-grid">
-            <div class="summary-item">
-              <div class="summary-label">统计次数</div>
-              <div class="summary-value">{{ totalStats.count }} 次</div>
-            </div>
-            <div class="summary-item">
-              <div class="summary-label">平均耗时</div>
-              <div 
-                class="summary-value time-value" 
-                :class="getAverageTimeClass(totalStats.averageTime)"
-              >
-                {{ Math.round(totalStats.averageTime) }} ms
+
+      <div v-loading="loading">
+        <el-table 
+          v-if="todayStats.length > 0"
+          :data="todayStats" 
+          style="width: 100%"
+          :header-cell-style="{ background: '#fafafa', color: '#606266' }"
+        >
+          <el-table-column label="接口名称" min-width="200">
+            <template slot-scope="scope">
+              <div class="interface-name">
+                <i class="el-icon-connection"></i>
+                {{ scope.row.nodeName }}
               </div>
-            </div>
-            <div class="summary-item">
-              <div class="summary-label">最快耗时</div>
-              <div class="summary-value time-value time-fast">{{ totalStats.minTime }} ms</div>
-            </div>
-            <div class="summary-item">
-              <div class="summary-label">最慢耗时</div>
-              <div class="summary-value time-value time-very-slow">{{ totalStats.maxTime }} ms</div>
-            </div>
-            <div class="summary-item">
-              <div class="summary-label">最近调用</div>
-              <div class="summary-value">
-                {{ latestLog ? (nodeMap.get(latestLog.nodeId) || latestLog.nodeId) : '无记录' }}
-              </div>
-            </div>
-            <div class="summary-item">
-              <div class="summary-label">调用时间</div>
-              <div class="summary-value">
-                {{ latestLog ? formatDateTime(latestLog.createTime) : '无记录' }}
-              </div>
-            </div>
-          </div>
-        </div>
-        <div v-else class="no-data">
-          暂无调用记录
+            </template>
+          </el-table-column>
+          
+          <el-table-column label="调用次数" width="120" align="center">
+            <template slot-scope="scope">
+              <el-tag type="primary" size="medium">{{ scope.row.count }}</el-tag>
+            </template>
+          </el-table-column>
+          
+          <el-table-column label="平均耗时" width="120" align="center">
+            <template slot-scope="scope">
+              <span :class="['time-value', getTimeClass(scope.row.averageTime)]">
+                {{ Math.round(scope.row.averageTime) }} ms
+              </span>
+            </template>
+          </el-table-column>
+          
+          <el-table-column label="最快" width="100" align="center">
+            <template slot-scope="scope">
+              <span class="time-value fast">{{ scope.row.minTime }} ms</span>
+            </template>
+          </el-table-column>
+          
+          <el-table-column label="最慢" width="100" align="center">
+            <template slot-scope="scope">
+              <span :class="['time-value', scope.row.maxTime > 1000 ? 'very-slow' : 'slow']">
+                {{ scope.row.maxTime }} ms
+              </span>
+            </template>
+          </el-table-column>
+        </el-table>
+        
+        <div v-else class="empty-state">
+          <i class="el-icon-info"></i>
+          <span>今日暂无调用记录</span>
         </div>
       </div>
     </el-card>
 
-    <!-- 各接口详细统计 -->
-    <div v-if="statsData && statsData.length > 0" class="per-interface-stats">
-      <h3>各接口调用耗时统计</h3>
-      <el-card class="interface-card" shadow="hover" v-for="stat in statsData" :key="stat.nodeId">
-        <div class="interface-header">
-          <div class="interface-name">{{ stat.name }}</div>
-          <div class="interface-id">{{ stat.nodeId }}</div>
+    <!-- 最近7日调用统计 -->
+    <el-card class="stats-card" shadow="never">
+      <div slot="header" class="card-header">
+        <div class="header-left">
+          <i class="el-icon-date"></i>
+          <span class="card-title">最近7日调用统计</span>
         </div>
-        <div class="interface-stats">
-          <div class="stat-item">
-            <div class="stat-label">调用次数</div>
-            <div class="stat-value">{{ stat.count }} 次</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-label">平均耗时</div>
-            <div 
-              class="stat-value time-value" 
-              :class="getAverageTimeClass(stat.averageTime)"
-            >
-              {{ Math.round(stat.averageTime) }} ms
-            </div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-label">最快耗时</div>
-            <div class="stat-value time-value time-fast">{{ stat.minTime }} ms</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-label">最慢耗时</div>
-            <div 
-              class="stat-value time-value" 
-              :class="stat.maxTime < 1000 ? 'time-slow' : 'time-very-slow'"
-            >
-              {{ stat.maxTime }} ms
-            </div>
-          </div>
+      </div>
+
+      <div v-loading="loading">
+        <el-table 
+          v-if="last7DaysStats.length > 0"
+          :data="last7DaysStats" 
+          style="width: 100%"
+          :header-cell-style="{ background: '#fafafa', color: '#606266' }"
+        >
+          <el-table-column label="接口名称" min-width="200">
+            <template slot-scope="scope">
+              <div class="interface-name">
+                <i class="el-icon-connection"></i>
+                {{ scope.row.nodeName }}
+              </div>
+            </template>
+          </el-table-column>
+          
+          <el-table-column label="调用次数" width="120" align="center">
+            <template slot-scope="scope">
+              <el-tag type="info" size="medium">{{ scope.row.count }}</el-tag>
+            </template>
+          </el-table-column>
+          
+          <el-table-column label="平均耗时" width="120" align="center">
+            <template slot-scope="scope">
+              <span :class="['time-value', getTimeClass(scope.row.averageTime)]">
+                {{ Math.round(scope.row.averageTime) }} ms
+              </span>
+            </template>
+          </el-table-column>
+          
+          <el-table-column label="最快" width="100" align="center">
+            <template slot-scope="scope">
+              <span class="time-value fast">{{ scope.row.minTime }} ms</span>
+            </template>
+          </el-table-column>
+          
+          <el-table-column label="最慢" width="100" align="center">
+            <template slot-scope="scope">
+              <span :class="['time-value', scope.row.maxTime > 1000 ? 'very-slow' : 'slow']">
+                {{ scope.row.maxTime }} ms
+              </span>
+            </template>
+          </el-table-column>
+        </el-table>
+        
+        <div v-else class="empty-state">
+          <i class="el-icon-info"></i>
+          <span>最近7日暂无调用记录</span>
         </div>
-      </el-card>
-    </div>
+      </div>
+    </el-card>
   </div>
 </template>
 
 <script>
-import { fetchLogList, fetchNodeList } from '@/api/invokeLog';
+import { fetchTodayStats, fetchLast7DaysStats } from '@/api/invokeLog';
 
 export default {
   name: 'InvokeTimeBoard',
   data() {
     return {
-      latestLog: null,
-      statsData: [], // 存储每个接口的统计数据
-      totalStats: {
-        count: 0,
-        averageTime: 0,
-        minTime: 0,
-        maxTime: 0
-      },
-      loading: false,
-      nodeMap: new Map(),
-      allNodes: [] // 存储所有接口节点
+      todayStats: [],
+      last7DaysStats: [],
+      loading: false
     };
   },
   mounted() {
-    this.initData();
+    this.fetchStatsData();
   },
   methods: {
-    async initData() {
-      await this.fetchNodeList();
-    },
-
-    async fetchNodeList() {
-      try {
-        const response = await fetchNodeList();
-        if (response.status === 200 && response.data.code === '200') {
-          const nodeOptions = response.data.rsp || [];
-          this.allNodes = nodeOptions;
-          this.nodeMap = new Map();
-          nodeOptions.forEach(node => {
-            this.nodeMap.set(node.nodeId, node.nodeName);
-          });
-          await this.fetchStatsData();
-        } else {
-          this.$message.error('获取节点列表失败: ' + response.data.message);
-        }
-      } catch (error) {
-        this.$message.error('获取节点列表失败: ' + error.message);
-      }
-    },
-
     async fetchStatsData() {
       this.loading = true;
       try {
-        const params = {
-          pageNum: 1,
-          pageSize: 20
-        };
-        const response = await fetchLogList(params);
-        if (response.status === 200 && response.data.code === '200') {
-          const pageList = response.data.rsp;
-          const logs = pageList.rows || [];
-          
-          // 获取最新一条记录
-          this.latestLog = logs.length > 0 ? logs[0] : null;
-          
-          // 按 node_id 分组统计每个接口的数据
-          const statsByNodeId = new Map();
-          
-          logs.forEach(log => {
-            const nodeId = log.nodeId;
-            if (!statsByNodeId.has(nodeId)) {
-              statsByNodeId.set(nodeId, {
-                count: 0,
-                totalTime: 0,
-                minTime: Number.MAX_SAFE_INTEGER,
-                maxTime: 0
-              });
-            }
-            
-            const stats = statsByNodeId.get(nodeId);
-            stats.count++;
-            stats.totalTime += log.invokeTime;
-            stats.minTime = Math.min(stats.minTime, log.invokeTime);
-            stats.maxTime = Math.max(stats.maxTime, log.invokeTime);
-          });
-          
-          // 转换为数组，包含每个接口的统计数据
-          this.statsData = this.allNodes.map(node => {
-            const stats = statsByNodeId.get(node.nodeId) || {
-              count: 0,
-              totalTime: 0,
-              minTime: Number.MAX_SAFE_INTEGER,
-              maxTime: 0
-            };
-            
-            return {
-              nodeId: node.nodeId,
-              name: node.nodeName,
-              count: stats.count,
-              averageTime: stats.count > 0 ? stats.totalTime / stats.count : 0,
-              minTime: stats.minTime === Number.MAX_SAFE_INTEGER ? 0 : stats.minTime,
-              maxTime: stats.maxTime
-            };
-          }).filter(stat => stat.count > 0); // 只显示有调用记录的接口
-          
-          // 计算总体统计数据
-          this.calculateTotalStats();
-        } else {
-          this.$message.error('获取调用日志失败: ' + response.data.message);
+        const [todayRes, last7DaysRes] = await Promise.all([
+          fetchTodayStats(),
+          fetchLast7DaysStats()
+        ]);
+
+        if (todayRes.status === 200 && todayRes.data.code === '200') {
+          this.todayStats = todayRes.data.rsp || [];
+        }
+
+        if (last7DaysRes.status === 200 && last7DaysRes.data.code === '200') {
+          this.last7DaysStats = last7DaysRes.data.rsp || [];
         }
       } catch (error) {
-        this.$message.error('获取调用日志失败: ' + error.message);
+        console.error('获取统计数据失败:', error);
+        this.$message.error('获取统计数据失败: ' + error.message);
       } finally {
         this.loading = false;
       }
-    },
-
-    // 计算总体统计数据
-    calculateTotalStats() {
-      if (this.statsData.length === 0) {
-        this.totalStats = {
-          count: 0,
-          averageTime: 0,
-          minTime: 0,
-          maxTime: 0
-        };
-        return;
-      }
-      
-      // 计算总调用次数和总耗时
-      let totalCount = 0;
-      let totalTimeSum = 0;
-      let allTimes = [];
-      
-      this.statsData.forEach(stat => {
-        totalCount += stat.count;
-        totalTimeSum += stat.averageTime * stat.count;
-        
-        // 收集所有时间用于计算最小和最大值
-        if (stat.count > 0) {
-          allTimes.push(stat.minTime);
-          allTimes.push(stat.maxTime);
-        }
-      });
-      
-      // 计算总体平均值
-      const averageTime = totalCount > 0 ? totalTimeSum / totalCount : 0;
-      
-      // 计算最小和最大耗时
-      const minTime = allTimes.length > 0 ? Math.min(...allTimes) : 0;
-      const maxTime = allTimes.length > 0 ? Math.max(...allTimes) : 0;
-      
-      this.totalStats = {
-        count: totalCount,
-        averageTime,
-        minTime,
-        maxTime
-      };
     },
 
     refreshData() {
       this.fetchStatsData();
     },
 
-    formatDateTime(timestamp) {
-      if (!timestamp) return '';
-      const date = new Date(timestamp);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      const hours = String(date.getHours()).padStart(2, '0');
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-      const seconds = String(date.getSeconds()).padStart(2, '0');
-      const milliseconds = String(date.getMilliseconds()).padStart(3, '0');
-
-      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}`;
-    },
-
-    // 根据耗时返回对应的样式类名
-    getAverageTimeClass(averageTime) {
-      if (averageTime < 100) return 'time-fast';
-      if (averageTime < 500) return 'time-normal';
-      if (averageTime < 1000) return 'time-slow';
-      return 'time-very-slow';
+    getTimeClass(time) {
+      if (time < 100) return 'fast';
+      if (time < 500) return 'normal';
+      if (time < 1000) return 'slow';
+      return 'very-slow';
     }
   }
 };
@@ -281,139 +187,113 @@ export default {
 
 <style scoped>
 .invoke-time-board {
+  padding: 0;
+}
+
+.stats-card {
+  border-radius: 4px;
+  border: 1px solid #ebeef5;
   margin-bottom: 20px;
-  padding: 0 15px;
 }
 
-.summary-card {
-  margin-bottom: 25px;
+.stats-card:last-child {
+  margin-bottom: 0;
 }
 
-.per-interface-stats {
-  margin-top: 30px;
-}
-
-.per-interface-stats h3 {
-  margin-bottom: 15px;
-  color: #303133;
-  font-size: 16px;
-  font-weight: 500;
-}
-
-.interface-card {
-  margin-bottom: 15px;
-  transition: all 0.3s ease;
-}
-
-.interface-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.interface-header {
+/* 卡片头部 */
+.card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #f0f0f0;
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-left i {
+  font-size: 18px;
+  color: #409eff;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: #303133;
+}
+
+/* 接口名称 */
 .interface-name {
-  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-weight: 500;
-  color: #1f2329;
-}
-
-.interface-id {
-  font-size: 12px;
-  color: #86909c;
-}
-
-.card-content {
-  min-height: 150px;
-  padding: 15px 0;
-}
-
-.summary-stats {
-  width: 100%;
-}
-
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 15px;
-}
-
-.summary-item {
-  padding: 10px 15px;
-  background-color: #f7f8fa;
-  border-radius: 4px;
-}
-
-.summary-label {
-  font-size: 13px;
-  color: #606266;
-  margin-bottom: 5px;
-}
-
-.summary-value {
-  font-size: 16px;
-  color: #303133;
-  font-weight: 500;
-}
-
-.interface-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 10px;
-}
-
-.stat-item {
-  padding: 8px 0;
-}
-
-.stat-label {
-  font-size: 13px;
-  color: #606266;
-  margin-bottom: 3px;
-}
-
-.stat-value {
-  font-size: 14px;
   color: #303133;
 }
 
-.time-value {
-  font-weight: bold;
-}
-
-.time-fast {
-  color: #67c23a; /* 绿色 - 快速 */
-}
-
-.time-normal {
-  color: #409eff; /* 蓝色 - 正常 */
-}
-
-.time-slow {
-  color: #e6a23c; /* 橙色 - 较慢 */
-}
-
-.time-very-slow {
-  color: #f56c6c; /* 红色 - 很慢 */
-}
-
-.no-data {
-  text-align: center;
+.interface-name i {
   color: #909399;
   font-size: 14px;
-  padding: 30px 0;
 }
 
-.clearfix::after {
-  content: "";
-  display: table;
-  clear: both;
+/* 时间值 */
+.time-value {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.time-value.fast {
+  color: #67c23a;
+}
+
+.time-value.normal {
+  color: #409eff;
+}
+
+.time-value.slow {
+  color: #e6a23c;
+}
+
+.time-value.very-slow {
+  color: #f56c6c;
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px;
+  color: #909399;
+  font-size: 14px;
+}
+
+.empty-state i {
+  font-size: 18px;
+}
+
+/* 表格样式优化 */
+::v-deep .el-table {
+  font-size: 14px;
+}
+
+::v-deep .el-table th {
+  font-weight: 500;
+  padding: 14px 0;
+}
+
+::v-deep .el-table td {
+  padding: 16px 0;
+}
+
+::v-deep .el-table tbody tr:hover > td {
+  background-color: #f5f7fa;
+}
+
+::v-deep .el-table__empty-block {
+  min-height: 100px;
 }
 </style>
