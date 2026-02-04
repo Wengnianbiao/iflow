@@ -2,16 +2,30 @@
   <div class="workflow-list">
     <!-- 操作按钮区 -->
     <div style="margin-bottom: 10px; text-align: right;">
+      <el-dropdown trigger="click" @command="handleImportCommand" style="margin-right: 10px;">
+        <el-button type="primary">
+          导入 <i class="el-icon-arrow-down el-icon--right"></i>
+        </el-button>
+        <el-dropdown-menu slot="dropdown">
+          <el-dropdown-item command="file">
+            <i class="el-icon-upload"></i> 从文件导入
+          </el-dropdown-item>
+          <el-dropdown-item command="json">
+            <i class="el-icon-document"></i> 从json文本导入
+          </el-dropdown-item>
+        </el-dropdown-menu>
+      </el-dropdown>
+      <el-button type="success" @click="handleAdd">新增</el-button>
+      
+      <!-- 隐藏的文件上传 -->
       <el-upload
         ref="importUploadRef"
         :show-file-list="false"
         :before-upload="handleImportUpload"
         accept=".json"
-        style="display: inline-block; margin-right: 10px;"
+        style="display: none;"
       >
-        <el-button type="primary">导入</el-button>
       </el-upload>
-      <el-button type="success" @click="handleAdd">新增</el-button>
     </div>
 
     <!-- 工作流表格 -->
@@ -133,6 +147,25 @@
         <el-button type="primary" @click="submitForm">确 定</el-button>
       </span>
     </el-dialog>
+
+    <!-- JSON文本导入对话框 -->
+    <el-dialog
+      title="从json文本导入工作流"
+      :visible.sync="jsonImportDialog.visible"
+      width="700px"
+    >
+      <el-input
+        v-model="jsonImportDialog.content"
+        type="textarea"
+        :rows="15"
+        placeholder="请粘贴JSON文本..."
+      >
+      </el-input>
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="jsonImportDialog.visible = false">取 消</el-button>
+        <el-button type="primary" @click="handleJsonImport">导 入</el-button>
+      </span>
+    </el-dialog>
   </div>
 </template>
 
@@ -156,6 +189,11 @@ export default {
 
     const { loading, withLoading } = useTableLoading();
     const dialog = useDialog();
+
+    const jsonImportDialog = reactive({
+      visible: false,
+      content: ''
+    });
 
     const form = reactive({
       flowName: '',
@@ -299,6 +337,17 @@ export default {
       }
     };
 
+    const handleImportCommand = (command) => {
+      if (command === 'file') {
+        // 触发文件选择
+        importUploadRef.value.$children[0].$refs.input.click();
+      } else if (command === 'json') {
+        // 打开JSON文本对话框
+        jsonImportDialog.visible = true;
+        jsonImportDialog.content = '';
+      }
+    };
+
     const handleImportUpload = async (file) => {
       try {
         const response = await importWorkflow(file);
@@ -309,6 +358,39 @@ export default {
         console.error('导入失败:', error);
       }
       return false;
+    };
+
+    const handleJsonImport = async () => {
+      try {
+        if (!jsonImportDialog.content.trim()) {
+          proxy.$message.warning('请输入JSON文本');
+          return;
+        }
+
+        // 验证JSON格式
+        let jsonData;
+        try {
+          jsonData = JSON.parse(jsonImportDialog.content);
+        } catch (e) {
+          proxy.$message.error('JSON格式错误：' + e.message);
+          return;
+        }
+
+        // 将JSON数据转换为Blob，然后转换为File对象
+        const blob = new Blob([JSON.stringify(jsonData)], { type: 'application/json' });
+        const file = new File([blob], 'import.json', { type: 'application/json' });
+
+        const response = await importWorkflow(file);
+        if (response.status === 200 && response.data.code === '200') {
+          proxy.$message.success('导入成功');
+          jsonImportDialog.visible = false;
+          jsonImportDialog.content = '';
+          await fetchNodeList();
+        }
+      } catch (error) {
+        console.error('导入失败:', error);
+        proxy.$message.error('导入失败：' + (error.message || '未知错误'));
+      }
     };
 
     const resetForm = () => {
@@ -355,6 +437,7 @@ export default {
       loading,
       pagination,
       dialog,
+      jsonImportDialog,
       form,
       rules,
       formRef,
@@ -364,7 +447,9 @@ export default {
       handleCopy,
       handleDelete,
       handleExport,
+      handleImportCommand,
       handleImportUpload,
+      handleJsonImport,
       importUploadRef,
       resetForm,
       submitForm

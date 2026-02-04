@@ -42,6 +42,7 @@ public class WorkflowNodeConvert {
         po.setMetaInfo(nodeInfo.getMetaInfo());
         po.setParamFilterExpr(nodeInfo.getParamFilterExpr());
         po.setKeywordField(nodeInfo.getKeywordField());
+        po.setSplitField(nodeInfo.getSplitField());
         return po;
     }
 

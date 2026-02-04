@@ -28,6 +28,8 @@ public class NodeConfigExportRsp {
         private String paramFilterExpr;
 
         private String keywordField;
+
+        private String splitField;
     }
 
     @Data

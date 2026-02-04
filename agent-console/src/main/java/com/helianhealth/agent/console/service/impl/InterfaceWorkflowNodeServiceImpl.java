@@ -227,6 +227,7 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
             nodeInfo.setMetaInfo(workflowNodePO.getMetaInfo());
             nodeInfo.setParamFilterExpr(workflowNodePO.getParamFilterExpr());
             nodeInfo.setKeywordField(workflowNodePO.getKeywordField());
+            nodeInfo.setSplitField(workflowNodePO.getSplitField());
             response.setNodeInfo(nodeInfo);
 
             List<NodeConfigExportRsp.NodeParamConfigDTO> rootParams =
