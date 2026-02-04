@@ -137,7 +137,7 @@
 </template>
 
 <script>
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, getCurrentInstance } from 'vue';
 import { getWorkflows, getAllNodes, createWorkflow, updateWorkflow, deleteWorkflow, exportWorkflow, importWorkflow } from '@/api/workflow';
 import { usePagination } from '@/composables/usePagination';
 import { useTableLoading } from '@/composables/useTableLoading';
@@ -146,6 +146,7 @@ import { useDialog } from '@/composables/useDialog';
 export default {
   name: 'WorkFlowList',
   setup() {
+    const { proxy } = getCurrentInstance();
     const workflows = ref([]);
     const nodeOptions = ref([]);
     const nodeMap = ref(new Map());
@@ -256,10 +257,24 @@ export default {
 
     const handleDelete = async (row) => {
       try {
+        await proxy.$confirm(
+          `确定要删除工作流 "${row.flowName}" 吗？删除后无法恢复！`,
+          '删除确认',
+          {
+            confirmButtonText: '确定删除',
+            cancelButtonText: '取消',
+            type: 'warning'
+          }
+        );
+        
         await deleteWorkflow(row.flowId);
+        proxy.$message.success('删除成功');
         await fetchData();
       } catch (error) {
-        console.error('删除失败:', error);
+        if (error !== 'cancel') {
+          console.error('删除失败:', error);
+          proxy.$message.error('删除失败：' + (error.message || '未知错误'));
+        }
       }
     };
 
