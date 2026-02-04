@@ -5,15 +5,18 @@
       <div>
         <!-- 视图切换 -->
         <el-radio-group v-model="viewMode" size="small">
-          <el-radio-button label="list">
-            <i class="el-icon-s-grid"></i> 列表视图
-          </el-radio-button>
           <el-radio-button label="flow">
             <i class="el-icon-share"></i> 流程视图
           </el-radio-button>
+          <el-radio-button label="list">
+            <i class="el-icon-s-grid"></i> 列表视图
+          </el-radio-button>
         </el-radio-group>
       </div>
-      <el-button type="primary" icon="el-icon-plus" @click="handleAdd">新增调度</el-button>
+      <div>
+        <el-button icon="el-icon-question" @click="showSpelHelp">SPEL调度表达式帮助</el-button>
+        <el-button type="primary" icon="el-icon-plus" @click="handleAdd">新增调度</el-button>
+      </div>
     </div>
 
     <!-- 列表视图 -->
@@ -42,10 +45,10 @@
       </el-table-column>
       <el-table-column label="目标节点" width="250">
         <template #default="scope">
-          <el-tag 
-            v-for="nodeId in scope.row.nextNodeIds" 
-            :key="nodeId" 
-            size="small" 
+          <el-tag
+            v-for="nodeId in scope.row.nextNodeIds"
+            :key="nodeId"
+            size="small"
             style="margin-right: 5px;"
           >
             {{ getNodeName(nodeId) }}
@@ -65,42 +68,49 @@
     <div v-show="viewMode === 'flow'" class="flow-container" v-loading="loading">
       <div class="flow-canvas">
         <!-- 只显示配置了调度的节点链路 -->
-        <div 
-          v-for="(chain, chainIndex) in scheduleChains" 
+        <div
+          v-for="(chain, chainIndex) in scheduleChains"
           :key="'chain-' + chainIndex"
-          class="schedule-chain"
-          :style="getChainPosition(chainIndex)"
+          class="schedule-chain-wrapper"
+          @click="handleEdit(chain.sourceNode)"
         >
-          <!-- 源节点（配置了调度的节点） -->
-          <div class="flow-node source-node" @click="handleEdit(chain.sourceNode)">
-            <div class="node-icon" :class="getNodeIconClass(chain.sourceNode.nodeType)">
-              <i :class="getNodeIcon(chain.sourceNode.nodeType)"></i>
-            </div>
-            <div class="node-name">{{ chain.sourceNode.nodeName }}</div>
-          </div>
-
-          <!-- 条件标签 -->
-          <div class="condition-label">
-            {{ chain.condition }}
-          </div>
-
-          <!-- 目标节点列表 -->
-          <div class="target-nodes">
-            <div 
-              v-for="targetNode in chain.targetNodes" 
-              :key="targetNode.nodeId"
-              class="flow-node target-node"
-              @click="handleNodeClick(targetNode)"
-            >
-              <div class="node-icon" :class="getNodeIconClass(targetNode.nodeType)">
-                <i :class="getNodeIcon(targetNode.nodeType)"></i>
+          <div class="chain-row">
+            <!-- 源节点 -->
+            <div class="chain-source">
+              <div class="flow-node source-node">
+                <div class="node-icon">
+                  <i :class="getNodeIcon(chain.sourceNode.nodeType)"></i>
+                </div>
+                <div class="node-name">{{ chain.sourceNode.nodeName }}</div>
               </div>
-              <div class="node-name">{{ targetNode.nodeName }}</div>
+            </div>
+
+            <!-- 连接线和条件 -->
+            <div class="chain-connector">
+              <div class="connector-line"></div>
+              <div class="condition-wrapper">
+                <div class="condition-text">{{ chain.condition }}</div>
+                <div class="condition-badge">条件</div>
+              </div>
+              <div class="connector-line"></div>
+            </div>
+
+            <!-- 目标节点列表 -->
+            <div class="chain-targets">
+              <div
+                v-for="targetNode in chain.targetNodes"
+                :key="targetNode.nodeId"
+                class="target-item"
+              >
+                <div class="flow-node target-node">
+                  <div class="node-icon">
+                    <i :class="getNodeIcon(targetNode.nodeType)"></i>
+                  </div>
+                  <div class="node-name">{{ targetNode.nodeName }}</div>
+                </div>
+              </div>
             </div>
           </div>
-
-          <!-- 连线箭头 -->
-          <div class="chain-arrow"></div>
         </div>
 
         <!-- 空状态提示 -->
@@ -109,12 +119,6 @@
           <p>暂无调度配置</p>
           <el-button type="primary" size="small" @click="handleAdd">新增调度</el-button>
         </div>
-      </div>
-
-      <!-- 提示信息 -->
-      <div class="flow-tips" v-if="scheduleChains.length > 0">
-        <i class="el-icon-info"></i>
-        点击节点查看或编辑调度配置
       </div>
     </div>
 
@@ -132,9 +136,9 @@
         label-width="140px"
       >
         <el-form-item label="选择节点" prop="nodeId">
-          <el-select 
-            v-model="scheduleForm.nodeId" 
-            placeholder="请选择节点" 
+          <el-select
+            v-model="scheduleForm.nodeId"
+            placeholder="请选择节点"
             filterable
             style="width: 100%;"
             @change="handleNodeChange"
@@ -204,9 +208,9 @@
           </el-form-item>
 
           <el-form-item label="调度目标节点" prop="targetNodeIds">
-            <el-select 
-              v-model="conditionConfig.targetNodeIds" 
-              multiple 
+            <el-select
+              v-model="conditionConfig.targetNodeIds"
+              multiple
               placeholder="选择要调度的节点"
               style="width: 100%;"
             >
@@ -235,11 +239,11 @@
 
         <!-- 手动编写表达式 -->
         <el-form-item label="调度表达式" prop="scheduleExpr" v-if="configMode === 'manual'">
-          <el-input 
-            v-model="scheduleForm.scheduleExpr" 
+          <el-input
+            v-model="scheduleForm.scheduleExpr"
             type="textarea"
             :rows="3"
-            placeholder="请输入SPEL表达式，例如：#data['code'] == '200' ? Arrays.asList(2, 3) : null"
+            placeholder="请输入SPEL表达式，例如：#data[code] == '200' ? T(java.util.Arrays).asList(2) : null"
           >
             <template slot="append">
               <el-button @click="showSpelHelp">帮助</el-button>
@@ -272,60 +276,46 @@
 
     <!-- SPEL表达式帮助对话框 -->
     <el-dialog
-      title="SPEL表达式帮助"
       :visible.sync="spelHelpVisible"
       width="800px"
     >
       <div class="spel-help">
-        <h4>表达式说明</h4>
-        <p>SPEL（Spring Expression Language）表达式用于根据节点响应数据判断是否触发调度。</p>
-        
-        <h4>返回值要求</h4>
-        <ul>
-          <li>必须返回 <code>List&lt;Integer&gt;</code> 类型，表示要调度的节点ID列表</li>
-          <li>返回 <code>null</code> 或空列表表示不触发调度</li>
-        </ul>
+        <h4>节点调度表达式说明</h4>
+        <p>节点调度表达式用于根据当前节点的响应数据，<strong>决定接下来要调度哪些节点</strong>。</p>
 
-        <h4>上下文变量</h4>
-        <ul>
-          <li><code>#data</code> - 当前节点的响应数据（Map类型）</li>
-          <li><code>#data['code']</code> - 获取响应中的code字段</li>
-          <li><code>#data['result']</code> - 获取响应中的result字段</li>
-          <li>注意：使用 <code>#data['key']</code> 而不是 <code>#data.key</code></li>
-        </ul>
-
-        <h4>常用操作符</h4>
-        <ul>
-          <li><code>==</code> <code>!=</code> - 等于、不等于</li>
-          <li><code>&gt;</code> <code>&lt;</code> <code>&gt;=</code> <code>&lt;=</code> - 大于、小于、大于等于、小于等于</li>
-          <li><code>and</code> <code>or</code> <code>not</code> - 逻辑与、或、非</li>
-          <li><code>? :</code> - 三元表达式</li>
-        </ul>
-
-        <h4>常用函数</h4>
-        <ul>
-          <li><code>Arrays.asList(1, 2, 3)</code> - 创建列表</li>
-          <li><code>#data.containsKey('key')</code> - 判断键是否存在</li>
-          <li><code>#data['key']</code> - 获取值</li>
-        </ul>
-
-        <h4>示例</h4>
+        <h4>表达式格式</h4>
         <div class="example-block">
-          <p><strong>示例1：</strong>根据响应code决定调度节点</p>
-          <code>#data['code'] == '200' ? Arrays.asList(2, 3) : null</code>
-          <p class="explain">当code等于200时，调度节点2和3，否则不调度</p>
+          <code>#data[字段名] 条件判断 ? T(java.util.Arrays).asList(节点ID列表) : null</code>
+          <p class="explain">条件满足时调度指定节点，不满足则不调度</p>
+        </div>
+
+        <h4>核心要点</h4>
+        <ul>
+          <li><code>#data</code> - 当前节点的响应数据</li>
+          <li><code>#data[字段名]</code> - 获取响应中的某个字段（字段名不带引号）</li>
+          <li>条件判断 - 支持 <code>==</code> <code>!=</code> <code>&gt;</code> <code>&lt;</code> <code>and</code> <code>or</code></li>
+          <li>字符串值要加引号，如 <code>'200'</code> <code>'success'</code></li>
+          <li>返回节点ID列表：<code>T(java.util.Arrays).asList(2, 3)</code> 表示调度节点2和3</li>
+          <li>返回 <code>null</code> 表示不触发任何调度</li>
+        </ul>
+
+        <h4>典型示例</h4>
+        <div class="example-block">
+          <p><strong>示例1：</strong>响应码判断</p>
+          <code>#data[code] == '200' ? T(java.util.Arrays).asList(2, 3) : null</code>
+          <p class="explain">当响应的code等于'200'时，调度节点2和3，否则不调度</p>
         </div>
 
         <div class="example-block">
-          <p><strong>示例2：</strong>根据响应数据判断</p>
-          <code>#data['status'] == 'success' ? Arrays.asList(5) : Arrays.asList(6)</code>
-          <p class="explain">当status为success时调度节点5，否则调度节点6</p>
+          <p><strong>示例2：</strong>状态分支调度</p>
+          <code>#data[status] == 'success' ? T(java.util.Arrays).asList(5) : T(java.util.Arrays).asList(6)</code>
+          <p class="explain">成功时调度节点5，失败时调度节点6</p>
         </div>
 
         <div class="example-block">
-          <p><strong>示例3：</strong>复杂条件判断</p>
-          <code>#data['code'] == '200' and #data['count'] &gt; 0 ? Arrays.asList(2, 3, 4) : null</code>
-          <p class="explain">多条件判断，同时调度多个节点</p>
+          <p><strong>示例3：</strong>多条件判断</p>
+          <code>#data[code] == '200' and #data[count] &gt; 0 ? T(java.util.Arrays).asList(2, 3, 4) : null</code>
+          <p class="explain">code为'200'且count大于0时，同时调度节点2、3、4</p>
         </div>
       </div>
     </el-dialog>
@@ -340,7 +330,7 @@ export default {
   name: 'NodeSchedule',
   data() {
     return {
-      viewMode: 'list', // 视图模式：list 或 flow
+      viewMode: 'flow', // 视图模式：list 或 flow，默认流程视图
       canvasWidth: 1200,
       canvasHeight: 800,
       allNodes: [],
@@ -385,23 +375,23 @@ export default {
     // 生成的SPEL表达式
     generatedExpression() {
       const { paramName, operator, value, targetNodeIds } = this.conditionConfig;
-      
+
       if (!paramName || !operator || !value || !targetNodeIds || targetNodeIds.length === 0) {
         return '请完成所有配置项';
       }
-      
+
       // 根据参数类型决定是否需要引号
       const param = this.postProcessParams.find(p => p.key === paramName);
       const isStringType = param && (param.type === 'STRING' || param.type === 'OBJECT' || param.type === 'ARRAY');
-      
+
       // 如果是字符串类型，给值加双引号
       const formattedValue = isStringType ? `"${value}"` : value;
-      
+
       // 生成节点ID列表
       const nodeIdsStr = targetNodeIds.join(', ');
-      
-      // 生成三元表达式 - 使用 #data[key] 而不是 #data['key']
-      return `#data[${paramName}] ${operator} ${formattedValue} ? Arrays.asList(${nodeIdsStr}) : null`;
+
+      // 生成三元表达式 - 使用 T(java.util.Arrays).asList() 而不是 Arrays.asList()
+      return `#data[${paramName}] ${operator} ${formattedValue} ? T(java.util.Arrays).asList(${nodeIdsStr}) : null`;
     },
 
     // 调度链路数据（每条链路包含：源节点 + 条件 + 目标节点列表）
@@ -411,7 +401,7 @@ export default {
         const targetNodes = (node.nextNodeIds || []).map(nodeId => {
           return this.allNodes.find(n => n.nodeId === nodeId);
         }).filter(n => n); // 过滤掉不存在的节点
-        
+
         return {
           sourceNode: node,
           condition: this.extractCondition(node.scheduleExpr),
@@ -429,12 +419,12 @@ export default {
           pageNum: 1,
           pageSize: 1000
         });
-            
+
         if (res.code === '200') {
           this.allNodes = res.rsp.rows || [];
-              
+
           // 筛选出有调度配置的节点
-          this.scheduleList = this.allNodes.filter(node => 
+          this.scheduleList = this.allNodes.filter(node =>
             node.scheduleExpr && node.scheduleExpr.trim() !== ''
           ).map(node => ({
             ...node,
@@ -454,7 +444,8 @@ export default {
     // 解析表达式中的节点ID
     parseNextNodeIds(expr) {
       if (!expr) return [];
-      const match = expr.match(/Arrays\.asList\((\d+(?:,\s*\d+)*)\)/);
+      // 支持两种格式：Arrays.asList() 和 T(java.util.Arrays).asList()
+      const match = expr.match(/(?:T\(java\.util\.Arrays\)|Arrays)\.asList\((\d+(?:,\s*\d+)*)\)/);
       if (match && match[1]) {
         return match[1].split(',').map(id => parseInt(id.trim()));
       }
@@ -513,14 +504,14 @@ export default {
       this.scheduleForm.nodeType = row.nodeType;
       this.scheduleForm.scheduleExpr = row.scheduleExpr || '';
       this.scheduleForm.scheduleParamSourceType = row.scheduleParamSourceType || 'ORIGINAL';
-      
+
       // 尝试解析表达式，如果可以解析则使用可视化模式
       if (this.parseExpressionToVisual(row.scheduleExpr)) {
         this.configMode = 'visual';
       } else {
         this.configMode = 'manual';
       }
-      
+
       this.dialogVisible = true;
       // 加载后置参数
       this.$nextTick(() => {
@@ -531,12 +522,13 @@ export default {
     // 尝试将表达式解析为可视化配置
     parseExpressionToVisual(expr) {
       if (!expr) return false;
-      
-      // 解析三元表达式：#data[xxx] == "yyy" ? Arrays.asList(1, 2) : null
+
+      // 解析三元表达式：#data[xxx] == "yyy" ? T(java.util.Arrays).asList(1, 2) : null
       // 支持两种格式：带引号的 #data['xxx'] 和不带引号的 #data[xxx]
-      const regex = /#data\[(?:'([^']+)'|([^\]]+))\]\s*([=!<>]+)\s*(["']?)([^"'\s?]+)\4\s*\?\s*Arrays\.asList\(([\d,\s]+)\)/;
+      // 同时支持 Arrays.asList() 和 T(java.util.Arrays).asList()
+      const regex = /#data\[(?:'([^']+)'|([^\]]+))\]\s*([=!<>]+)\s*(["']?)([^"'\s?]+)\4\s*\?\s*(?:T\(java\.util\.Arrays\)|Arrays)\.asList\(([\d,\s]+)\)/;
       const match = expr.match(regex);
-      
+
       if (match) {
         // match[1] 是带引号的字段名，match[2] 是不带引号的字段名
         this.conditionConfig.paramName = match[1] || match[2];
@@ -545,7 +537,7 @@ export default {
         this.conditionConfig.targetNodeIds = match[6].split(',').map(id => parseInt(id.trim()));
         return true;
       }
-      
+
       return false;
     },
 
@@ -557,13 +549,13 @@ export default {
           cancelButtonText: '取消',
           type: 'warning'
         });
-        
+
         await updateNode({
           ...row,
           scheduleExpr: '',
           scheduleParamSourceType: null
         });
-        
+
         this.$message.success('删除成功');
         this.loadNodes();
       } catch (error) {
@@ -590,7 +582,7 @@ export default {
         this.$message.warning('请先选择节点');
         return;
       }
-      
+
       try {
         const res = await getNodeParams({
           nodeId: this.scheduleForm.nodeId,
@@ -598,7 +590,7 @@ export default {
           pageNum: 1,
           pageSize: 1000
         });
-        
+
         if (res.status === 200 && res.data.code === '200') {
           const params = res.data.rsp.rows || [];
           // 转换为下拉选项格式
@@ -607,7 +599,7 @@ export default {
             label: p.paramDesc ? `${p.targetParamKey} (${p.paramDesc})` : p.targetParamKey,
             type: p.targetParamType
           }));
-          
+
           if (this.postProcessParams.length === 0) {
             this.$message.info('该节点没有配置后置处理参数');
           }
@@ -632,7 +624,7 @@ export default {
               this.$message.error('节点不存在');
               return;
             }
-            
+
             // 根据配置模式决定表达式来源
             let scheduleExpr;
             if (this.configMode === 'visual') {
@@ -646,13 +638,13 @@ export default {
               // 手动模式：使用输入的表达式
               scheduleExpr = this.scheduleForm.scheduleExpr;
             }
-            
+
             await updateNode({
               ...node,
               scheduleExpr: scheduleExpr,
               scheduleParamSourceType: this.scheduleForm.scheduleParamSourceType
             });
-            
+
             this.$message.success('保存成功');
             this.dialogVisible = false;
             this.loadNodes();
@@ -686,7 +678,7 @@ export default {
     },
 
     // ========== 流程视图相关方法 ==========
-    
+
     // 获取调度链路位置
     getChainPosition(chainIndex) {
       return {
@@ -698,14 +690,15 @@ export default {
     // 提取条件简述
     extractCondition(expr) {
       if (!expr) return '条件';
-      
-      // 提取三元表达式中的条件部分：#data['xxx'] == 'yyy'
-      const match = expr.match(/#data\['([^']+)'\]\s*([=!<>]+)\s*([^?]+)/);
+
+      // 提取三元表达式中的条件部分：#data[xxx] == "yyy"
+      // SPEL语法：字段名不带引号，只有字符串值才带引号
+      const match = expr.match(/#data\[([^\]]+)\]\s*([=!<>]+)\s*([^?]+)/);
       if (match) {
         const paramName = match[1];
         const operator = match[2];
         let value = match[3].trim();
-        // 去掉引号
+        // 去掉值的引号（如果有）
         value = value.replace(/^['"]|['"]$/g, '');
         return `${paramName} ${operator} ${value}`;
       }
@@ -867,24 +860,107 @@ export default {
 }
 
 .flow-canvas {
-  position: relative;
   width: 100%;
   min-height: 600px;
-  padding: 20px;
 }
 
-/* 调度链路 */
-.schedule-chain {
-  position: absolute;
+/* 调度链路容器 */
+.schedule-chain-wrapper {
+  margin-bottom: 30px;
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.schedule-chain-wrapper:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
+}
+
+.chain-row {
   display: flex;
   align-items: center;
   gap: 30px;
-  padding: 20px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  margin-bottom: 30px;
 }
+
+/* 源节点区域 */
+.chain-source {
+  flex-shrink: 0;
+}
+
+/* 连接线区域 */
+.chain-connector {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.connector-line {
+  width: 40px;
+  height: 2px;
+  background: linear-gradient(to right, #409eff, #67c23a);
+  position: relative;
+}
+
+.connector-line:last-child::after {
+  content: '';
+  position: absolute;
+  right: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid #67c23a;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+}
+
+/* 条件容器 */
+.condition-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.condition-text {
+  font-size: 12px;
+  color: #606266;
+  white-space: nowrap;
+  background: #f5f7fa;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.condition-badge {
+  padding: 6px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+/* 目标节点区域 */
+.chain-targets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  flex: 1;
+}
+
+.target-item {
+  flex-shrink: 0;
+}
+
+
 
 /* 节点样式 */
 .flow-node {
@@ -897,15 +973,10 @@ export default {
   background: white;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  cursor: pointer;
   transition: all 0.3s;
   border: 2px solid #e4e7ed;
   flex-shrink: 0;
-}
-
-.flow-node:hover {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-  transform: translateY(-2px);
+  pointer-events: none; /* 禁用节点自身的点击事件 */
 }
 
 .source-node {
@@ -927,6 +998,7 @@ export default {
   font-size: 24px;
   color: white;
   margin-bottom: 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
 .node-name {
@@ -938,49 +1010,7 @@ export default {
   line-height: 1.4;
 }
 
-/* 条件标签 */
-.condition-label {
-  position: relative;
-  padding: 8px 16px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-  flex-shrink: 0;
-}
 
-/* 目标节点列表 */
-.target-nodes {
-  display: flex;
-  gap: 15px;
-  flex-wrap: wrap;
-}
-
-/* 连线箭头 */
-.chain-arrow {
-  position: absolute;
-  left: 190px;
-  top: 50%;
-  width: 40px;
-  height: 2px;
-  background: #409eff;
-  transform: translateY(-50%);
-}
-
-.chain-arrow::after {
-  content: '';
-  position: absolute;
-  right: -8px;
-  top: -4px;
-  width: 0;
-  height: 0;
-  border-left: 8px solid #409eff;
-  border-top: 5px solid transparent;
-  border-bottom: 5px solid transparent;
-}
 
 /* 空状态 */
 .empty-state {
@@ -1001,24 +1031,5 @@ export default {
 .empty-state p {
   font-size: 14px;
   margin-bottom: 16px;
-}
-
-/* 提示信息 */
-.flow-tips {
-  position: absolute;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(255, 255, 255, 0.95);
-  padding: 10px 20px;
-  border-radius: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  font-size: 13px;
-  color: #606266;
-}
-
-.flow-tips i {
-  color: #409eff;
-  margin-right: 5px;
 }
 </style>
