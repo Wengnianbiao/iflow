@@ -3,13 +3,24 @@
     <div style="margin-bottom: 20px; background-color: #f5f7fa; padding: 20px; border-radius: 4px;">
       <el-form :inline="true" :model="searchForm" style="display: flex; justify-content: center; flex-wrap: wrap; gap: 10px;">
         <el-form-item label="接口名称">
-          <el-autocomplete
+          <el-select
             v-model="searchForm.nodeName"
-            :fetch-suggestions="queryNodeName"
+            ref="nodeSelectRef"
             placeholder="请选择或输入接口名称"
             clearable
-            @select="handleNodeSelect"
-          ></el-autocomplete>
+            filterable
+            allow-create
+            default-first-option
+            @blur="handleNodeBlur"
+            style="width: 240px;"
+          >
+            <el-option
+              v-for="node in nodeOptions"
+              :key="node.nodeId"
+              :label="node.nodeName"
+              :value="node.nodeName"
+            ></el-option>
+          </el-select>
         </el-form-item>
 
         <el-form-item label="关键字">
@@ -135,6 +146,7 @@ export default {
 
     const logList = ref([]);
     const nodeOptions = ref([]);
+    const nodeSelectRef = ref(null);
 
     const { loading, withLoading } = useTableLoading();
     const jsonViewer = useJsonViewer();
@@ -182,19 +194,12 @@ export default {
       fetchData();
     };
 
-    const queryNodeName = (queryString, callback) => {
-      if (!nodeOptions.value.length) {
-        callback([]);
-        return;
+    const handleNodeBlur = () => {
+      // 当输入框失焦时，如果有输入内容但没有选中选项，自动确认输入值
+      const inputValue = nodeSelectRef.value?.$refs?.input?.value || nodeSelectRef.value?.$refs?.reference?.$refs?.input?.value;
+      if (inputValue && inputValue !== searchForm.nodeName) {
+        searchForm.nodeName = inputValue;
       }
-      const results = nodeOptions.value
-        .filter(node => node.nodeName.toLowerCase().includes(queryString.toLowerCase()))
-        .map(node => ({ value: node.nodeName, label: node.nodeName }));
-      callback(results);
-    };
-
-    const handleNodeSelect = (item) => {
-      searchForm.nodeName = item.value;
     };
 
     const formatDateTime = (timestamp) => {
@@ -219,13 +224,13 @@ export default {
       searchForm,
       logList,
       nodeOptions,
+      nodeSelectRef,
       loading,
       pagination,
       jsonViewer,
       handleSearch,
       handleReset,
-      queryNodeName,
-      handleNodeSelect,
+      handleNodeBlur,
       formatDateTime
     };
   }
@@ -259,7 +264,7 @@ export default {
   padding: 12px 10px;
 }
 
-.el-autocomplete {
+.el-select {
   width: 240px;
 }
 </style>
