@@ -356,40 +356,6 @@
                     </div>
 
                     <div class="config-item">
-                      <h5>namespace <span class="optional">可选</span></h5>
-                      <p class="item-desc">命名空间URI，与 <span class="code-inline">namespaceElementName</span> 和 <span class="code-inline">namespaceDataElementName</span> 组合使用，用于定位带命名空间的业务数据</p>
-                      <div class="field-examples">
-                        <div class="example-label">示例：</div>
-                        <ul class="example-list">
-                          <li><span class="code-inline">http://herenit.com</span></li>
-                        </ul>
-                      </div>
-                    </div>
-
-                    <div class="config-item">
-                      <h5>namespaceElementName <span class="optional">可选</span></h5>
-                      <p class="item-desc">命名空间下的元素名，与 <span class="code-inline">namespace</span> 和 <span class="code-inline">namespaceDataElementName</span> 组合使用，用于定位业务数据</p>
-                      <div class="field-examples">
-                        <div class="example-label">示例：</div>
-                        <ul class="example-list">
-                          <li><span class="code-inline">MessageIn</span></li>
-                        </ul>
-                      </div>
-                    </div>
-
-                    <div class="config-item">
-                      <h5>namespaceDataElementName <span class="optional">可选</span></h5>
-                      <p class="item-desc">业务数据元素名，支持递归路径（使用.分隔），与 <span class="code-inline">namespace</span> 和 <span class="code-inline">namespaceElementName</span> 组合使用，用于从响应中提取业务数据</p>
-                      <div class="field-examples">
-                        <div class="example-label">示例：</div>
-                        <ul class="example-list">
-                          <li><span class="code-inline">pInput</span> - 直接元素名</li>
-                          <li><span class="code-inline">param.request</span> - 递归路径</li>
-                        </ul>
-                      </div>
-                    </div>
-
-                    <div class="config-item">
                       <h5>isCDATA <span class="optional">可选</span></h5>
                       <p class="item-desc">业务数据是否为CDATA格式，缺省值为true。在解析业务数据时，用于标识三方接口响应是否将业务数据包裹在CDATA标签中，当业务数据在CDATA标签中时设置为true，否则设置为false</p>
                       <div class="field-examples">
@@ -864,13 +830,6 @@
                       <ul class="sub-list">
                         <li>当XML入参中业务数据所在的标签名唯一时，可直接通过标签名定位</li>
                         <li>示例：<span class="code-inline">"elementName": "request"</span></li>
-                      </ul>
-                    </li>
-                    <li><strong>namespace + namespaceElementName + namespaceDataElementName：</strong>用于定位带命名空间的业务数据
-                      <ul class="sub-list">
-                        <li><strong>namespace：</strong>命名空间URI，如 <span class="code-inline">"http://herenit.com"</span></li>
-                        <li><strong>namespaceElementName：</strong>命名空间下的元素名，如 <span class="code-inline">"MessageIn"</span></li>
-                        <li><strong>namespaceDataElementName：</strong>业务数据元素名，支持递归路径（使用.分隔），如 <span class="code-inline">"pInput"</span> 或 <span class="code-inline">"param.request"</span></li>
                       </ul>
                     </li>
                     <li><strong>isCDATA：</strong>业务数据是否在CDATA标签中
@@ -1813,7 +1772,7 @@ export default {
       webserviceConfigExamples: {
         default: '{\n  "url": "http://10.20.0.141:8805/soup-api/pacs_apply",\n  "soupTemplate": "<soapenv:Envelope xmlns:soapenv=\\"http://schemas.xmlsoap.org/soap/envelope/\\" xmlns:her=\\"http://herenit.com\\">\\n  <soapenv:Header></soapenv:Header>\\n  <soapenv:Body>\\n    <her:MessageIn>\\n      <her:DataType>XML</her:DataType>\\n      <her:pInput><![CDATA[${inputParam}]]></her:pInput>\\n    </her:MessageIn>\\n  </soapenv:Body>\\n</soapenv:Envelope>"\n}',
         normal: '{\n  "url": "http://10.20.0.141:8805/soup-api/pacs_apply",\n  "soupTemplate": "<soapenv:Envelope xmlns:soapenv=\\"http://schemas.xmlsoap.org/soap/envelope/\\" xmlns:her=\\"http://herenit.com\\">\\n  <soapenv:Header></soapenv:Header>\\n  <soapenv:Body>\\n    <her:MessageIn>\\n      <her:DataType>XML</her:DataType>\\n      <her:pInput><![CDATA[${inputParam}]]></her:pInput>\\n    </her:MessageIn>\\n  </soapenv:Body>\\n</soapenv:Envelope>",\n  "elementName": "request"\n}',
-        full: '{\n  "url": "http://10.20.0.141:8805/soup-api/pacs_apply",\n  "method": "POST",\n  "headers": {\n    "Content-Type": "text/xml;charset=UTF-8"\n  },\n  "soupTemplate": "<soapenv:Envelope xmlns:soapenv=\\"http://schemas.xmlsoap.org/soap/envelope/\\" xmlns:her=\\"http://herenit.com\\">\\n  <soapenv:Header></soapenv:Header>\\n  <soapenv:Body>\\n    <her:MessageIn>\\n      <her:DataType>XML</her:DataType>\\n      <her:pInput><![CDATA[${inputParam}]]></her:pInput>\\n    </her:MessageIn>\\n  </soapenv:Body>\\n</soapenv:Envelope>",\n  "dataType": "xml",\n  "escape": false,\n  "elementName": "request",\n  "namespace": "http://herenit.com",\n  "namespaceElementName": "MessageIn",\n  "namespaceDataElementName": "pInput",\n  "isCDATA": true,\n  "objectTag": ["PatientInfo", "OrderInfo"]\n}'
+        full: '{\n  "url": "http://10.20.0.141:8805/soup-api/pacs_apply",\n  "method": "POST",\n  "headers": {\n    "Content-Type": "text/xml;charset=UTF-8"\n  },\n  "soupTemplate": "<soapenv:Envelope xmlns:soapenv=\\"http://schemas.xmlsoap.org/soap/envelope/\\" xmlns:her=\\"http://herenit.com\\">\\n  <soapenv:Header></soapenv:Header>\\n  <soapenv:Body>\\n    <her:MessageIn>\\n      <her:DataType>XML</her:DataType>\\n      <her:pInput><![CDATA[${inputParam}]]></her:pInput>\\n    </her:MessageIn>\\n  </soapenv:Body>\\n</soapenv:Envelope>",\n  "dataType": "xml",\n  "escape": false,\n  "elementName": "request",\n  "isCDATA": true,\n  "objectTag": ["PatientInfo", "OrderInfo"]\n}'
       },
       databaseConfigExamples: {
         full: '{\n  "driverClassName": "com.microsoft.sqlserver.jdbc.SQLServerDriver",\n  "operation": "SELECT",\n  "url": "jdbc:sqlserver://10.20.4.245:1433;DatabaseName=HEMS_V5;encrypt=false;trustServerCertificate=false",\n  "username": "sa",\n  "password": "Hjk@2022!@",\n  "sqlTemplate": "SELECT * FROM ReportDetail WHERE patid= {PatientCode} and Applyno IN {ApplyNoList}"\n}'

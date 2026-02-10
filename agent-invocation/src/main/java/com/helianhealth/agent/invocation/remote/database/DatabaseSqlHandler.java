@@ -50,7 +50,7 @@ public class DatabaseSqlHandler implements ParamResolver {
             case "INSERT":
                 return buildInsertSql(sqlTemplate, params.get(0));
             case "UPDATE":
-                return buildUpdateSql(sqlTemplate, params.get(0));
+                return buildUpdateSql(sqlTemplate, params);
             case "DELETE":
                 return buildDeleteSql(sqlTemplate, params);
             case "SELECT":
@@ -59,10 +59,29 @@ public class DatabaseSqlHandler implements ParamResolver {
         }
     }
 
-    private String buildUpdateSql(String sqlTemplate, ParamTreeNode paramTreeNode) {
+    /**
+     * 构建UPDATE SQL语句
+     * 遍历所有参数节点，替换SQL模板中的占位符
+     * 例如: UPDATE user SET name={name}, age={age} WHERE id={id}
+     */
+    private String buildUpdateSql(String sqlTemplate, List<ParamTreeNode> params) {
         String finalSql = sqlTemplate;
-
-        return null;
+    
+        // 遍历所有参数节点
+        for (ParamTreeNode param : params) {
+            // 只处理有参数值的节点
+            if (param.getParamValue() != null) {
+                String formattedValue = formatValue(param.getParamValue());
+                finalSql = finalSql.replace("{" + param.getParamKey() + "}", formattedValue);
+            }
+        }
+    
+        // 检查是否还有未替换的占位符
+        if (finalSql.contains("{") && finalSql.contains("}")) {
+            throw DatabaseRemoteBusinessException.DATABASE_PLACE_HOLDER_ERROR.toException();
+        }
+    
+        return finalSql;
     }
 
     private String buildDeleteSql(String sqlTemplate, List<ParamTreeNode> params) {
