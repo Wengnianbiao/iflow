@@ -21,6 +21,17 @@ export function getExtensionList(extensionType) {
 }
 
 /**
+ * 获取扩展配置详情（带节点参数值）
+ * @param {number} codeId - 配置ID
+ */
+export function getExtensionDetail(codeId) {
+  return request({
+    url: `/api/extension/detail/${codeId}`,
+    method: 'get'
+  });
+}
+
+/**
  * 注册扩展
  * @param {string} extensionType - 扩展类型（filter/remote）
  * @param {object} data - 扩展配置数据

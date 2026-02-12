@@ -2,11 +2,19 @@ package com.helianhealth.agent.console.service.extension;
 
 import com.helianhealth.agent.common.extension.AgentExtensionLoader;
 import com.helianhealth.agent.common.extension.model.DynamicSpiDefinition;
+import com.helianhealth.agent.common.utils.JsonUtils;
 import com.helianhealth.agent.console.enums.ExtensionType;
+import com.helianhealth.agent.console.mapper.agent.InterfaceFlowNodeMapper;
 import com.helianhealth.agent.console.mapper.agent.NodeExtensionConfigMapper;
+import com.helianhealth.agent.console.model.convert.NodeExtensionConfigConvert;
 import com.helianhealth.agent.console.model.domain.NodeExtensionConfigDO;
+import com.helianhealth.agent.console.model.dto.NodeExtensionConfigCreateReq;
+import com.helianhealth.agent.console.model.dto.NodeExtensionConfigDetailResponse;
+import com.helianhealth.agent.console.model.dto.NodeExtensionConfigUpdateReq;
+import com.helianhealth.agent.console.model.po.InterfaceWorkflowNodePO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,6 +22,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Dynamic SPI Admin Service
@@ -34,17 +43,27 @@ public class DynamicSpiAdminService {
     @Autowired
     private ExtensionNodeUpdateService extensionNodeUpdateService;
 
+    @Autowired
+    private InterfaceFlowNodeMapper nodeMapper;
+
+    @Autowired
+    private NodeExtensionConfigConvert extensionConfigConvert;
+
     /**
      * 注册扩展（完整流程：更新节点字段 + 持久化 + 注册SPI）
      */
     @Transactional(value = "workflowAgentTransactionManager", rollbackFor = Exception.class)
-    public void registerExtension(ExtensionType type, NodeExtensionConfigDO configDO) {
+    public void registerExtension(ExtensionType type, NodeExtensionConfigCreateReq request) {
         try {
-            // Step 1: 更新节点字段
+            // 转换Request为DO
+            NodeExtensionConfigDO configDO = convertCreateReqToDO(request);
+            
+            // Step 1: 更新节点字段（传递extensionParamValue）
             extensionNodeUpdateService.updateNodeFields(
                 type,
                 configDO.getExtensionName(),
-                configDO.getNodeId()
+                configDO.getNodeId(),
+                request.getExtensionParamValue()
             );
 
             // Step 2: 插入扩展配置到数据库
@@ -56,11 +75,11 @@ public class DynamicSpiAdminService {
                 registerAfterCommit(definition);
             }
 
-            log.info("Successfully registered extension: type={}, extensionName={}, nodeIds={}",
-                    type.getDescription(), configDO.getExtensionName(), configDO.getNodeId());
+            log.info("Successfully registered extension: type={}, extensionName={}, nodeIds={}, paramValue={}",
+                    type.getDescription(), configDO.getExtensionName(), configDO.getNodeId(), request.getExtensionParamValue());
         } catch (Exception e) {
             log.error("Failed to register extension: extensionName={}, className={}",
-                    configDO.getExtensionName(), configDO.getClassName(), e);
+                    request.getExtensionName(), request.getClassName(), e);
             throw e;
         }
     }
@@ -69,8 +88,11 @@ public class DynamicSpiAdminService {
      * 更新扩展（完整流程：清理旧节点 + 更新新节点 + 持久化 + 刷新SPI）
      */
     @Transactional(value = "workflowAgentTransactionManager", rollbackFor = Exception.class)
-    public void updateExtension(ExtensionType type, NodeExtensionConfigDO configDO) {
+    public void updateExtension(ExtensionType type, NodeExtensionConfigUpdateReq request) {
         try {
+            // 转换Request为DO
+            NodeExtensionConfigDO configDO = convertUpdateReqToDO(request);
+            
             // Step 1: 查询旧配置,清理旧节点字段
             NodeExtensionConfigDO oldConfig = extensionMapper.selectById(configDO.getCodeId());
             if (oldConfig != null && oldConfig.getNodeId() != null) {
@@ -81,11 +103,12 @@ public class DynamicSpiAdminService {
                 );
             }
 
-            // Step 2: 更新新节点字段
+            // Step 2: 更新新节点字段（传递extensionParamValue）
             extensionNodeUpdateService.updateNodeFields(
                 type,
                 configDO.getExtensionName(),
-                configDO.getNodeId()
+                configDO.getNodeId(),
+                request.getExtensionParamValue()
             );
 
             // Step 3: 更新数据库
@@ -97,11 +120,11 @@ public class DynamicSpiAdminService {
             DynamicSpiDefinition newDefinition = toDynamicSpi(configDO);
             updateSpiAfterCommit(oldSpiInterface, oldExtensionName, newDefinition);
 
-            log.info("Successfully updated extension: type={}, extensionName={}, nodeIds={}",
-                    type.getDescription(), configDO.getExtensionName(), configDO.getNodeId());
+            log.info("Successfully updated extension: type={}, extensionName={}, nodeIds={}, paramValue={}",
+                    type.getDescription(), configDO.getExtensionName(), configDO.getNodeId(), request.getExtensionParamValue());
         } catch (Exception e) {
             log.error("Failed to update extension: extensionName={}, className={}",
-                    configDO.getExtensionName(), configDO.getClassName(), e);
+                    request.getExtensionName(), request.getClassName(), e);
             throw e;
         }
     }
@@ -159,6 +182,44 @@ public class DynamicSpiAdminService {
      */
     public NodeExtensionConfigDO getExtensionById(Integer codeId) {
         return extensionMapper.selectById(codeId);
+    }
+
+    /**
+     * 查询扩展配置详情（带节点参数值）
+     * 从关联节点的 extension_param 中提取该 filter 的实际配置值
+     * 
+     * @param codeId 扩展配置ID
+     * @return 扩展配置详情响应对象
+     */
+    public NodeExtensionConfigDetailResponse getExtensionDetailById(Integer codeId) {
+        NodeExtensionConfigDO configDO = extensionMapper.selectById(codeId);
+        if (configDO == null) {
+            return null;
+        }
+        
+        // 只有 Filter 类型才需要从节点提取参数
+        if ("com.helianhealth.agent.invocation.remote.filter.AgentFilter".equals(configDO.getSpiInterface())) {
+            List<Integer> nodeIds = configDO.getNodeId();
+            if (nodeIds != null && !nodeIds.isEmpty()) {
+                // 从第一个节点获取 extension_param
+                Integer firstNodeId = nodeIds.get(0);
+                InterfaceWorkflowNodePO node = nodeMapper.selectByPrimaryKey(firstNodeId);
+                if (node != null && node.getExtensionParam() != null) {
+                    try {
+                        Map<String, String> extensionParam = JsonUtils.fromJsonStringToMap(node.getExtensionParam());
+                        String filterKey = "filter." + configDO.getExtensionName();
+                        String paramValue = extensionParam.get(filterKey);
+                        // 设置到 DO 对象中（用于转换）
+                        configDO.setExtensionParamValue(paramValue);
+                    } catch (Exception e) {
+                        log.warn("Failed to extract extensionParamValue for filter: {}", configDO.getExtensionName(), e);
+                    }
+                }
+            }
+        }
+        
+        // 转换为 Response 对象
+        return extensionConfigConvert.doConvertToDetailResponse(configDO);
     }
 
     /**
@@ -349,5 +410,23 @@ public class DynamicSpiAdminService {
         target.setClassName(source.getClassName());
         target.setSourceCode(source.getSourceCode());
         return target;
+    }
+
+    /**
+     * 转换创建请求为DO对象
+     */
+    private NodeExtensionConfigDO convertCreateReqToDO(NodeExtensionConfigCreateReq request) {
+        NodeExtensionConfigDO configDO = new NodeExtensionConfigDO();
+        BeanUtils.copyProperties(request, configDO);
+        return configDO;
+    }
+
+    /**
+     * 转换更新请求为DO对象
+     */
+    private NodeExtensionConfigDO convertUpdateReqToDO(NodeExtensionConfigUpdateReq request) {
+        NodeExtensionConfigDO configDO = new NodeExtensionConfigDO();
+        BeanUtils.copyProperties(request, configDO);
+        return configDO;
     }
 }

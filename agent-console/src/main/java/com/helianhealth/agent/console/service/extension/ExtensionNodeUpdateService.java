@@ -37,6 +37,19 @@ public class ExtensionNodeUpdateService {
      */
     @Transactional(value = "workflowAgentTransactionManager", rollbackFor = Exception.class)
     public void updateNodeFields(ExtensionType extensionType, String extensionName, List<Integer> nodeIds) {
+        updateNodeFields(extensionType, extensionName, nodeIds, null);
+    }
+
+    /**
+     * 根据扩展类型更新节点字段（支持自定义参数值）
+     *
+     * @param extensionType 扩展类型
+     * @param extensionName 扩展名称
+     * @param nodeIds 节点ID列表
+     * @param extensionParamValue 扩展参数值（可选，Filter类型使用，null则默认为"true"）
+     */
+    @Transactional(value = "workflowAgentTransactionManager", rollbackFor = Exception.class)
+    public void updateNodeFields(ExtensionType extensionType, String extensionName, List<Integer> nodeIds, String extensionParamValue) {
         if (nodeIds == null || nodeIds.isEmpty()) {
             log.debug("节点ID列表为空，跳过节点字段更新");
             return;
@@ -47,7 +60,7 @@ public class ExtensionNodeUpdateService {
                 updateRemoteExtensionField(extensionName, nodeIds);
                 break;
             case FILTER:
-                updateExtensionParamField(extensionName, nodeIds);
+                updateExtensionParamField(extensionName, nodeIds, extensionParamValue);
                 break;
             default:
                 throw new IllegalArgumentException("不支持的扩展类型: " + extensionType);
@@ -99,9 +112,18 @@ public class ExtensionNodeUpdateService {
     /**
      * 更新节点的 extension_param 字段（用于 FILTER 类型）
      * 多节点绑定：遍历所有节点
-     * 将 filter 的 extensionName 作为 key，值为 "true"
+     * 将 filter 的 extensionName 作为 key，值为自定义参数的 JSON 字符串或默认 "true"
+     *
+     * @param extensionName 扩展名称
+     * @param nodeIds 节点ID列表
+     * @param extensionParamValue 扩展参数值（JSON格式的Map字符串，如 "{\"user\":\"123\"}"，可选，null则默认为"true"）
      */
-    private void updateExtensionParamField(String extensionName, List<Integer> nodeIds) {
+    private void updateExtensionParamField(String extensionName, List<Integer> nodeIds, String extensionParamValue) {
+        // 确定参数值：如果没有传入自定义值，默认为 "true"
+        String paramValue = (extensionParamValue != null && !extensionParamValue.trim().isEmpty()) 
+                ? extensionParamValue 
+                : "true";
+        
         for (Integer nodeId : nodeIds) {
             InterfaceWorkflowNodePO node = nodeMapper.selectByPrimaryKey(nodeId);
             if (node != null) {
@@ -110,20 +132,21 @@ public class ExtensionNodeUpdateService {
                 String existingParam = node.getExtensionParam();
                 if (existingParam != null && !existingParam.trim().isEmpty()) {
                     try {
-                        extensionParam = JsonUtils.fromJsonStringToMap(existingParam);
+                        Map<String, String> parsed = JsonUtils.fromJsonStringToMap(existingParam);
+                        extensionParam.putAll(parsed);
                     } catch (Exception e) {
                         log.warn("Failed to parse existing extension_param for node {}: {}", nodeId, existingParam, e);
                     }
                 }
 
-                // 添加新的 filter 配置（key: "filter.{extensionName}", value: "true"）
+                // 添加/更新 filter 配置（key: "filter.{extensionName}", value: JSON字符串或"true"）
                 String filterKey = "filter." + extensionName;
-                extensionParam.put(filterKey, "true");
+                extensionParam.put(filterKey, paramValue);
 
                 // 回写到节点
                 node.setExtensionParam(JsonUtils.toJsonString(extensionParam));
                 nodeMapper.updateByPrimaryKey(node);
-                log.info("Updated node {} extension_param, added filter: {}", nodeId, filterKey);
+                log.info("Updated node {} extension_param: {}={}", nodeId, filterKey, paramValue);
             } else {
                 log.warn("Node not found for update: {}", nodeId);
             }

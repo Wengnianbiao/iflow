@@ -2,6 +2,9 @@ package com.helianhealth.agent.console.controller;
 
 import com.helianhealth.agent.console.enums.ExtensionType;
 import com.helianhealth.agent.console.model.domain.NodeExtensionConfigDO;
+import com.helianhealth.agent.console.model.dto.NodeExtensionConfigCreateReq;
+import com.helianhealth.agent.console.model.dto.NodeExtensionConfigDetailResponse;
+import com.helianhealth.agent.console.model.dto.NodeExtensionConfigUpdateReq;
 import com.helianhealth.agent.console.service.extension.DynamicSpiAdminService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,29 +30,29 @@ public class ExtensionController {
     /**
      * 新增扩展配置并注册
      * @param extensionType 扩展类型（filter/invoker）
-     * @param configDO 扩展配置
+     * @param request 扩展配置创建请求
      */
     @PostMapping("/{extensionType}/register")
-    public void register(@PathVariable String extensionType, @RequestBody NodeExtensionConfigDO configDO) {
+    public void register(@PathVariable String extensionType, @RequestBody NodeExtensionConfigCreateReq request) {
         ExtensionType type = ExtensionType.fromCode(extensionType);
-        configDO.setSpiInterface(type.getSpiInterface());
-        validateNodeBinding(type, configDO);
+        request.setSpiInterface(type.getSpiInterface());
+        validateNodeBinding(type, request);
 
-        dynamicSpiAdminService.registerExtension(type, configDO);
+        dynamicSpiAdminService.registerExtension(type, request);
     }
 
     /**
      * 更新扩展配置并热刷新
      * @param extensionType 扩展类型（filter/remote）
-     * @param configDO 扩展配置
+     * @param request 扩展配置更新请求
      */
     @PostMapping("/{extensionType}/update")
-    public void update(@PathVariable String extensionType, @RequestBody NodeExtensionConfigDO configDO) {
+    public void update(@PathVariable String extensionType, @RequestBody NodeExtensionConfigUpdateReq request) {
         ExtensionType type = ExtensionType.fromCode(extensionType);
-        configDO.setSpiInterface(type.getSpiInterface());
-        validateNodeBinding(type, configDO);
+        request.setSpiInterface(type.getSpiInterface());
+        validateNodeBindingForUpdate(type, request);
 
-        dynamicSpiAdminService.updateExtension(type, configDO);
+        dynamicSpiAdminService.updateExtension(type, request);
     }
 
     /**
@@ -83,6 +86,15 @@ public class ExtensionController {
     }
 
     /**
+     * 获取扩展配置详情（带节点参数值）
+     * @param codeId 配置ID
+     */
+    @GetMapping("/detail/{codeId}")
+    public NodeExtensionConfigDetailResponse getDetail(@PathVariable Integer codeId) {
+        return dynamicSpiAdminService.getExtensionDetailById(codeId);
+    }
+
+    /**
      * 获取所有启用的扩展配置
      */
     @GetMapping("/enabled-configs")
@@ -107,12 +119,25 @@ public class ExtensionController {
     }
 
     /**
-     * 校验节点绑定
+     * 校验节点绑定（创建请求）
      */
-    private void validateNodeBinding(ExtensionType type, NodeExtensionConfigDO configDO) {
+    private void validateNodeBinding(ExtensionType type, NodeExtensionConfigCreateReq request) {
         if (type.isMultiNodeSupported()) {
             // 多节点类型：至少绑定一个节点
-            if (configDO.getNodeId() == null || configDO.getNodeId().isEmpty()) {
+            if (request.getNodeId() == null || request.getNodeId().isEmpty()) {
+                throw new IllegalArgumentException(type.getDescription() + "必须至少绑定一个节点");
+            }
+        }
+        // 单节点类型不做强制校验，允许为空（通用扩展）
+    }
+
+    /**
+     * 校验节点绑定（更新请求）
+     */
+    private void validateNodeBindingForUpdate(ExtensionType type, NodeExtensionConfigUpdateReq request) {
+        if (type.isMultiNodeSupported()) {
+            // 多节点类型：至少绑定一个节点
+            if (request.getNodeId() == null || request.getNodeId().isEmpty()) {
                 throw new IllegalArgumentException(type.getDescription() + "必须至少绑定一个节点");
             }
         }

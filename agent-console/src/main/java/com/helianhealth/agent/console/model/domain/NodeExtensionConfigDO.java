@@ -81,4 +81,11 @@ public class NodeExtensionConfigDO {
      */
     @Column(name = "enabled")
     private Integer enabled;
+
+    /**
+     * 扩展参数值
+     * 用于存储扩展执行时需要的参数配置
+     */
+    @Column(name = "extension_param_value", columnDefinition = "TEXT")
+    private String extensionParamValue;
 }

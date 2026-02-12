@@ -21,7 +21,6 @@
       style="width: 100%; margin-bottom: 20px"
       v-loading="tableLoading"
     >
-      <el-table-column prop="codeId" label="ID" width="80"></el-table-column>
       <el-table-column label="扩展类型" width="120">
         <template slot-scope="scope">
           <el-tag :type="getExtensionTypeTag(scope.row.spiInterface)" size="small">
@@ -86,8 +85,8 @@
       :close-on-click-modal="false"
     >
       <div class="type-selector">
-        <el-card 
-          class="type-card" 
+        <el-card
+          class="type-card"
           shadow="hover"
           @click.native="selectExtensionType('InterfaceRemoteInvoker')"
         >
@@ -103,8 +102,8 @@
           </ul>
         </el-card>
 
-        <el-card 
-          class="type-card" 
+        <el-card
+          class="type-card"
           shadow="hover"
           @click.native="selectExtensionType('AgentFilter')"
         >
@@ -239,7 +238,7 @@
           style="margin-bottom: 20px;"
         >
           <p>功能：实现请求/响应拦截处理逻辑</p>
-          <p>特性：多节点绑定，自动更新节点的 extension_param 字段（key: "filter.{extensionName}", value: "true"）</p>
+          <p>特性：多节点绑定，自动更新节点的 extension_param 字段（key: "filter.{extensionName}", value: 自定义值或默认"true"）</p>
         </el-alert>
 
         <el-form-item label="关联节点" prop="nodeId" required>
@@ -265,6 +264,46 @@
             v-model="filterExtensionForm.extensionName"
             placeholder="例如: header"
           ></el-input>
+        </el-form-item>
+
+        <el-form-item>
+          <span slot="label">
+            扩展上下文
+            <el-tooltip content="配置扩展执行时需要的参数，如未配置则默认使用 &quot;true&quot;" placement="top">
+              <i class="el-icon-question" style="color: #909399; margin-left: 4px;"></i>
+            </el-tooltip>
+          </span>
+          <div class="param-list">
+            <div
+                v-for="(param, index) in filterExtensionForm.extensionParamList"
+                :key="index"
+                class="param-item"
+            >
+              <el-input
+                  v-model="param.key"
+                  placeholder="参数名（key）"
+                  style="width: 40%; margin-right: 10px;"
+              ></el-input>
+              <el-input
+                  v-model="param.value"
+                  placeholder="参数值（value）"
+                  style="width: 40%; margin-right: 10px;"
+              ></el-input>
+              <el-button
+                  type="danger"
+                  icon="el-icon-delete"
+                  size="small"
+                  circle
+                  @click="removeExtensionParam(index)"
+              ></el-button>
+            </div>
+            <el-button
+                type="text"
+                icon="el-icon-plus"
+                @click="addExtensionParam"
+                style="margin-top: 10px;"
+            >添加参数</el-button>
+          </div>
         </el-form-item>
 
         <el-form-item label="实现类全名" prop="className">
@@ -337,7 +376,8 @@ import {
   getFilterExtensions,
   registerFilterExtension,
   updateFilterExtension,
-  disableExtension
+  disableExtension,
+  getExtensionDetail
 } from '@/api/extension';
 import { getAllNodes } from '@/api/workflow';
 
@@ -383,7 +423,8 @@ export default {
         sourceCode: '',
         description: '',
         enabled: 1,
-        extensionMode: 'ONLINE'
+        extensionMode: 'ONLINE',
+        extensionParamList: []  // key-value 列表
       },
       filterExtensionRules: {
         nodeId: [{ required: true, message: '请选择关联节点', trigger: 'change' }],
@@ -432,10 +473,10 @@ public class CustomFilter implements AgentFilter {
     public Map<String, Object> invoke(InterfaceWorkflowNode node, Map<String, Object> businessData) {
         // TODO: 实现请求预处理逻辑
         System.out.println("Filter 前置处理: " + node.getNodeName());
-        
+
         // 调用下一个过滤器或实际调用
         Map<String, Object> result = businessData;
-        
+
         // TODO: 实现响应后处理逻辑
         System.out.println("Filter 后置处理");
         return result;
@@ -454,7 +495,7 @@ public class CustomFilter implements AgentFilter {
       this.tableLoading = true;
       try {
         let combinedList = [];
-        
+
         if (!this.filterType || this.filterType === 'InterfaceRemoteInvoker') {
           const interfaceResp = await getInterfaceExtensions();
           if (interfaceResp && interfaceResp.data) {
@@ -465,7 +506,7 @@ public class CustomFilter implements AgentFilter {
             combinedList = combinedList.concat(interfaceList);
           }
         }
-        
+
         if (!this.filterType || this.filterType === 'AgentFilter') {
           const filterResp = await getFilterExtensions();
           if (filterResp && filterResp.data) {
@@ -476,7 +517,7 @@ public class CustomFilter implements AgentFilter {
             combinedList = combinedList.concat(filterList);
           }
         }
-        
+
         this.extensionList = combinedList;
       } catch (error) {
         Message.error('加载扩展列表失败：' + (error.message || '未知错误'));
@@ -516,7 +557,7 @@ public class CustomFilter implements AgentFilter {
     selectExtensionType(type) {
       this.typeSelectorVisible = false;
       this.isEdit = false;
-      
+
       if (type === 'InterfaceRemoteInvoker') {
         this.dialogTitle = '新增接口扩展';
         this.interfaceExtensionForm = {
@@ -545,7 +586,8 @@ public class CustomFilter implements AgentFilter {
           sourceCode: '',
           description: '',
           enabled: 1,
-          extensionMode: 'ONLINE'
+          extensionMode: 'ONLINE',
+          extensionParamList: []
         };
         this.filterExtensionDialogVisible = true;
         this.$nextTick(() => {
@@ -557,14 +599,26 @@ public class CustomFilter implements AgentFilter {
     },
 
     // 编辑扩展
-    handleEdit(row) {
+    async handleEdit(row) {
       this.isEdit = true;
-      
+
+      // 查询详情（会从节点提取 extensionParamValue）
+      let detailRow = row;
+      try {
+        const detailResp = await getExtensionDetail(row.codeId);
+        if (detailResp && detailResp.data) {
+          detailRow = detailResp.data;
+        }
+      } catch (error) {
+        console.error('Failed to load extension detail:', error);
+        // 失败时继续使用列表数据
+      }
+
       // 处理扩展方式字段兼容
-      let mode = row.extensionMode || row.extensionLocation || (row.usePageCode === 1 ? 'ONLINE' : 'PROJECT') || 'ONLINE';
-      
+      let mode = detailRow.extensionMode || detailRow.extensionLocation || (detailRow.usePageCode === 1 ? 'ONLINE' : 'PROJECT') || 'ONLINE';
+
       // 处理 nodeId
-      let nodeId = row.nodeId;
+      let nodeId = detailRow.nodeId;
       if (nodeId && !Array.isArray(nodeId)) {
         try {
           nodeId = typeof nodeId === 'string' ? JSON.parse(nodeId) : [nodeId];
@@ -574,11 +628,11 @@ public class CustomFilter implements AgentFilter {
       } else if (!nodeId) {
         nodeId = [];
       }
-      
-      if (row.spiInterface === 'com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker') {
+
+      if (detailRow.spiInterface === 'com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker') {
         this.dialogTitle = '编辑接口扩展';
         this.interfaceExtensionForm = {
-          ...row,
+          ...detailRow,
           nodeId: Array.isArray(nodeId) && nodeId.length > 0 ? nodeId[0] : null,
           extensionMode: mode
         };
@@ -588,12 +642,13 @@ public class CustomFilter implements AgentFilter {
             this.$refs.interfaceExtensionForm.clearValidate();
           }
         });
-      } else if (row.spiInterface === 'com.helianhealth.agent.invocation.remote.filter.AgentFilter') {
+      } else if (detailRow.spiInterface === 'com.helianhealth.agent.invocation.remote.filter.AgentFilter') {
         this.dialogTitle = '编辑过滤器扩展';
         this.filterExtensionForm = {
-          ...row,
+          ...detailRow,
           nodeId: nodeId,
-          extensionMode: mode
+          extensionMode: mode,
+          extensionParamList: this.convertJsonToParamList(detailRow.extensionParamValue)  // 转换为 key-value 列表
         };
         this.filterExtensionDialogVisible = true;
         this.$nextTick(() => {
@@ -630,11 +685,11 @@ public class CustomFilter implements AgentFilter {
           ...this.interfaceExtensionForm,
           nodeId: [this.interfaceExtensionForm.nodeId]  // 转为数组
         };
-        
+
         if (submitData.extensionMode === 'PROJECT') {
           delete submitData.sourceCode;
         }
-        
+
         if (this.isEdit) {
           await updateInterfaceExtension(submitData);
           Message.success('更新成功，已热刷新');
@@ -674,11 +729,15 @@ public class CustomFilter implements AgentFilter {
       this.saveLoading = true;
       try {
         const submitData = { ...this.filterExtensionForm };
-        
+
+        // 将 extensionParamList 转换为 JSON 字符串
+        submitData.extensionParamValue = this.convertParamListToJson(submitData.extensionParamList);
+        delete submitData.extensionParamList;  // 删除临时字段
+
         if (submitData.extensionMode === 'PROJECT') {
           delete submitData.sourceCode;
         }
-        
+
         if (this.isEdit) {
           await updateFilterExtension(submitData);
           Message.success('更新成功，已热刷新');
@@ -709,7 +768,7 @@ public class CustomFilter implements AgentFilter {
         );
 
         await disableExtension(row.codeId);
-        
+
         Message.success('禁用成功');
         this.loadExtensionList();
       } catch (error) {
@@ -722,7 +781,7 @@ public class CustomFilter implements AgentFilter {
     // 根据节点ID获取节点名称
     getNodeName(nodeId) {
       if (!nodeId) return '-';
-      
+
       if (Array.isArray(nodeId)) {
         if (nodeId.length === 0) return '-';
         return nodeId.map(id => {
@@ -730,7 +789,7 @@ public class CustomFilter implements AgentFilter {
           return node ? node.nodeName : `节点${id}`;
         }).join(', ');
       }
-      
+
       const node = this.nodeList.find(n => n.nodeId === nodeId);
       return node ? node.nodeName : `节点${nodeId}`;
     },
@@ -764,7 +823,7 @@ public class CustomFilter implements AgentFilter {
     // 应用模板
     applyTemplate(templateType) {
       const targetForm = templateType === 'interfaceRemoteInvoker' ? 'interfaceExtensionForm' : 'filterExtensionForm';
-      
+
       if (this[targetForm].sourceCode.trim()) {
         MessageBox.confirm('应用模板将覆盖当前代码，是否继续？', '提示', {
           confirmButtonText: '确定',
@@ -777,6 +836,52 @@ public class CustomFilter implements AgentFilter {
       } else {
         this[targetForm].sourceCode = this.templates[templateType];
         Message.success('模板已应用');
+      }
+    },
+
+    // 添加扩展参数
+    addExtensionParam() {
+      this.filterExtensionForm.extensionParamList.push({ key: '', value: '' });
+    },
+
+    // 删除扩展参数
+    removeExtensionParam(index) {
+      this.filterExtensionForm.extensionParamList.splice(index, 1);
+    },
+
+    // 将 extensionParamList 转换为 Map 对象的 JSON 字符串
+    convertParamListToJson(paramList) {
+      if (!paramList || paramList.length === 0) {
+        return null;
+      }
+      const paramObj = {};
+      paramList.forEach(item => {
+        if (item.key && item.key.trim()) {
+          paramObj[item.key.trim()] = item.value || '';
+        }
+      });
+      // 直接返回 JSON 字符串（Map 格式）
+      return Object.keys(paramObj).length > 0 ? JSON.stringify(paramObj) : null;
+    },
+
+    // 将 Map 对象的 JSON 字符串转换为 extensionParamList
+    convertJsonToParamList(jsonStr) {
+      if (!jsonStr || !jsonStr.trim()) {
+        return [];
+      }
+      try {
+        // 兼容处理：可能是对象，也可能已经是字符串
+        const paramObj = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
+        if (typeof paramObj !== 'object' || paramObj === null) {
+          return [];
+        }
+        return Object.keys(paramObj).map(key => ({
+          key: key,
+          value: paramObj[key]
+        }));
+      } catch (e) {
+        console.error('解析 extensionParamValue 失败:', e);
+        return [];
       }
     }
   }
@@ -848,5 +953,15 @@ public class CustomFilter implements AgentFilter {
 .code-toolbar {
   margin-top: 10px;
   text-align: right;
+}
+
+.param-list {
+  width: 100%;
+}
+
+.param-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
 }
 </style>
