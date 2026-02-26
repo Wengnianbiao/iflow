@@ -10,7 +10,7 @@ description:
 
 ## 目的
 
-接收HIS系统主动推送的账单收费通知，更新体检系统的账单支付状态和发票号。
+接收HIS系统主动推送的账单收费通知，更新Jarvis的账单支付状态。
 
 ---
 
@@ -47,7 +47,6 @@ HIS推送的通知类型：
 | HIS字段 | Jarvis字段 | 说明 |
 |---------|-----------|------|
 | data.hisOrderId | presId | HIS处方ID |
-| data.invono | invoiceNoFromHis | HIS发票号 |
 | data.settleUserId | - | 收费员ID（不传给Jarvis） |
 | data.settleUserName | - | 收费员姓名（不传给Jarvis） |
 | data.settleUserTime | - | 收费时间（不传给Jarvis） |
@@ -68,7 +67,6 @@ HIS推送数据在 `data` 对象内，需用EXPRESSION提取：
 | 目标 | 来源 | 映射规则 |
 |------|------|----------|
 | presId | `data.hisOrderId` | `#data[data][hisOrderId]` |
-| invoiceNoFromHis | `data.invono` | `#data[data][invono]` |
 
 ---
 
@@ -82,8 +80,7 @@ HIS推送数据在 `data` 对象内，需用EXPRESSION提取：
     "settleUserId": "8888",
     "settleUserName": "一卡通",
     "settleUserTime": "2026/1/14 13:43:01",
-    "hisOrderId": "35857670",
-    "invono": "YSYJ15558173"
+    "hisOrderId": "35857670"
   }
 }
 ```
@@ -91,7 +88,6 @@ HIS推送数据在 `data` 对象内，需用EXPRESSION提取：
 **关键字段**：
 - `chargeType` - 通知类型（CHARGED=收费）
 - `data.hisOrderId` - HIS处方ID（必填）
-- `data.invono` - HIS发票号（必填）
 - `data.settleUserId` - 收费员ID
 - `data.settleUserName` - 收费员姓名
 - `data.settleUserTime` - 收费时间
@@ -103,8 +99,7 @@ HIS推送数据在 `data` 对象内，需用EXPRESSION提取：
 
 ```json
 {
-  "presId": "35857670",
-  "invoiceNoFromHis": "YSYJ15558173"
+  "presId": "35857670"
 }
 ```
 
@@ -113,7 +108,6 @@ HIS推送数据在 `data` 对象内，需用EXPRESSION提取：
 | 字段 | 说明 | 必填 |
 |------|------|------|
 | presId | HIS处方ID | 是 |
-| invoiceNoFromHis | HIS发票号 | 是 |
 
 ---
 
@@ -162,7 +156,6 @@ HIS推送数据在 `data` 对象内，需用EXPRESSION提取：
 | HIS字段 | 源参数类型 | Jarvis字段 | 目标参数类型 | 映射类型 | 映射规则 |
 |---------|-----------|-------------|-------------|----------|----------|
 | data | OBJECT | presId | STRING | EXPRESSION | `#data[data][hisOrderId]` |
-| data | OBJECT | invoiceNoFromHis | STRING | EXPRESSION | `#data[data][invono]` |
 
 ### 后置处理映射（Jarvis → HIS）
 

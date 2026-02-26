@@ -10,7 +10,7 @@ description:
 
 ## 目的
 
-将体检系统的收费账单推送至HIS系统，完成患者收费流程，获取HIS返回的账单ID和明细ID，用于后续业务流程。
+将Jarvis的收费账单推送至HIS系统，完成患者收费流程，获取HIS返回的账单ID和明细ID，用于后续业务流程。
 
 ---
 
@@ -44,7 +44,7 @@ description:
 
 **关键字段**：`chagPatientSheet.idChagSync`
 
-**作用**：体检系统生成的账单版本号，HIS需存储并做幂等判断。
+**作用**：Jarvis生成的账单版本号，HIS需存储并做幂等判断。
 
 **AI处理**：
 1. 检查HIS入参是否有幂等ID字段（如 `orderId`、`billNo`、`syncId`）
@@ -269,7 +269,7 @@ Jarvis入参中部分字段在嵌套对象内，需用EXPRESSION提取：
   "patientId": "客户 ID",
   "clinicId": "门诊号",
   "patientCode": "体检编号",
-  "orderId": "体检系统账单 id",
+  "orderId": "Jarvis账单 id",
   "name": "张三",
   "age": "28",
   "sex": "男",
@@ -280,7 +280,7 @@ Jarvis入参中部分字段在嵌套对象内，需用EXPRESSION提取：
   "orderDeptId": "开单部门 ID",
   "orderDetails": [
     {
-      "orderDetailId": "体检系统账单明细 ID",
+      "orderDetailId": "Jarvis账单明细 ID",
       "itemName": "收费项名称",
       "itemId": "收费项 id",
       "itemPrice": "价格",
