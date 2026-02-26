@@ -1,8 +1,8 @@
-package com.helianhealth.agent.log.controller;
+package com.helianhealth.agent.console.controller;
 
 import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.common.base.ResultData;
-import com.helianhealth.agent.log.model.InterfaceInvokeLogDO;
+import com.helianhealth.agent.log.model.InvokeLogVO;
 import com.helianhealth.agent.log.model.InvokeStatsVO;
 import com.helianhealth.agent.log.service.InterfaceInvokeLogService;
 import com.helianhealth.agent.common.utils.ResponseRenderUtils;
@@ -23,17 +23,14 @@ public class ApiLogController {
 
     private final InterfaceInvokeLogService interfaceInvokeLogService;
 
-    /**
-     * 获取所有节点参数配置
-     */
     @GetMapping("/all")
-    public ResultData<PageList<InterfaceInvokeLogDO>> findAllInvokeLogs(
+    public ResultData<PageList<InvokeLogVO>> findAllInvokeLogs(
             @RequestParam(value = "nodeName", required = false) String nodeName,
             @RequestParam(value = "keyword", required = false) String keyword,
             @RequestParam(value = "pageNum", defaultValue = "1") int pageNum,
             @RequestParam(value = "pageSize", defaultValue = "10") int pageSize) {
         try {
-            PageList<InterfaceInvokeLogDO> pageList = interfaceInvokeLogService.findAllInvokeLogs(nodeName, keyword, pageNum, pageSize);
+            PageList<InvokeLogVO> pageList = interfaceInvokeLogService.findAllInvokeLogs(nodeName, keyword, pageNum, pageSize);
             return ResponseRenderUtils.render(pageList);
         } catch (Exception e) {
             log.error("获取节点参数配置列表失败", e);
@@ -41,9 +38,6 @@ public class ApiLogController {
         }
     }
 
-    /**
-     * 获取今日统计数据
-     */
     @GetMapping("/stats/today")
     public ResultData<List<InvokeStatsVO>> getTodayStats() {
         try {
@@ -55,9 +49,6 @@ public class ApiLogController {
         }
     }
 
-    /**
-     * 获取最近7天统计数据
-     */
     @GetMapping("/stats/last7days")
     public ResultData<List<InvokeStatsVO>> getLast7DaysStats() {
         try {

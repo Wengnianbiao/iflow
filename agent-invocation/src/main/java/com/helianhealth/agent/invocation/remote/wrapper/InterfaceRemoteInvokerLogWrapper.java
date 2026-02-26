@@ -5,6 +5,7 @@ import com.helianhealth.agent.invocation.context.LogContext;
 import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
 import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
 import com.helianhealth.agent.invocation.remote.model.Invocation;
+import com.helianhealth.agent.log.model.InvokeLogDTO;
 import com.helianhealth.agent.log.service.InterfaceInvokeLogService;
 import com.helianhealth.agent.common.utils.JsonUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -107,15 +108,16 @@ public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker 
      */
     private void saveAllCollectedLogs(LogContext context) {
         try {
-            interfaceInvokeLogService.saveInvokeLog(
-                    context.getNodeName(),
-                    context.getKeyword(),
-                    context.getBusinessData(),
-                    context.getParamBeforeInvoke(),
-                    context.getRemoteInvokeResponse(),
-                    context.getParamAfterInvoke(),
-                    context.getInvokeTime()
-            );
+            InvokeLogDTO dto = InvokeLogDTO.builder()
+                    .nodeName(context.getNodeName())
+                    .keyword(context.getKeyword())
+                    .businessData(context.getBusinessData())
+                    .paramBeforeInvoke(context.getParamBeforeInvoke())
+                    .remoteInvokeResponse(context.getRemoteInvokeResponse())
+                    .paramAfterInvoke(context.getParamAfterInvoke())
+                    .invokeTime(context.getInvokeTime())
+                    .build();
+            interfaceInvokeLogService.saveInvokeLog(dto);
         } catch (Exception e) {
             log.error("保存接口调用日志失败", e);
         }

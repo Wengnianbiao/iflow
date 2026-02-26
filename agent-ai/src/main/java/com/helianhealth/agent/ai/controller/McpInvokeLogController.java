@@ -3,7 +3,7 @@ package com.helianhealth.agent.ai.controller;
 import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.common.utils.ResponseRenderUtils;
-import com.helianhealth.agent.log.model.InterfaceInvokeLogDO;
+import com.helianhealth.agent.log.model.InvokeLogVO;
 import com.helianhealth.agent.log.service.InterfaceInvokeLogService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +36,7 @@ public class McpInvokeLogController {
      * @return 日志列表，包含前置映射结果、远程响应、后置映射结果
      */
     @GetMapping("/list")
-    public ResultData<PageList<InterfaceInvokeLogDO>> listInvokeLogs(
+    public ResultData<PageList<InvokeLogVO>> listInvokeLogs(
             @RequestParam(value = "nodeName", required = false) String nodeName,
             @RequestParam(value = "keyword", required = false) String keyword,
             @RequestParam(value = "pageNum", defaultValue = "1") int pageNum,
@@ -44,7 +44,7 @@ public class McpInvokeLogController {
         try {
             log.info("MCP查询调用日志: nodeName={}, keyword={}, pageNum={}, pageSize={}", 
                     nodeName, keyword, pageNum, pageSize);
-            PageList<InterfaceInvokeLogDO> logs = invokeLogService.findAllInvokeLogs(
+            PageList<InvokeLogVO> logs = invokeLogService.findAllInvokeLogs(
                     nodeName, keyword, pageNum, pageSize);
             return ResponseRenderUtils.render(logs);
         } catch (Exception e) {
@@ -61,11 +61,11 @@ public class McpInvokeLogController {
      * @return 最新的日志列表
      */
     @GetMapping("/latest")
-    public ResultData<PageList<InterfaceInvokeLogDO>> getLatestLogs(
+    public ResultData<PageList<InvokeLogVO>> getLatestLogs(
             @RequestParam(value = "limit", defaultValue = "5") int limit) {
         try {
             log.info("MCP查询最新调用日志: limit={}", limit);
-            PageList<InterfaceInvokeLogDO> logs = invokeLogService.findAllInvokeLogs(
+            PageList<InvokeLogVO> logs = invokeLogService.findAllInvokeLogs(
                     null, null, 1, limit);
             return ResponseRenderUtils.render(logs);
         } catch (Exception e) {
@@ -83,12 +83,12 @@ public class McpInvokeLogController {
      * @return 匹配的日志列表
      */
     @GetMapping("/by-keyword/{keyword}")
-    public ResultData<PageList<InterfaceInvokeLogDO>> getLogsByKeyword(
+    public ResultData<PageList<InvokeLogVO>> getLogsByKeyword(
             @PathVariable String keyword,
             @RequestParam(value = "limit", defaultValue = "10") int limit) {
         try {
             log.info("MCP根据关键字查询日志: keyword={}, limit={}", keyword, limit);
-            PageList<InterfaceInvokeLogDO> logs = invokeLogService.findAllInvokeLogs(
+            PageList<InvokeLogVO> logs = invokeLogService.findAllInvokeLogs(
                     null, keyword, 1, limit);
             return ResponseRenderUtils.render(logs);
         } catch (Exception e) {
@@ -107,14 +107,14 @@ public class McpInvokeLogController {
      * @return 该节点的日志列表
      */
     @GetMapping("/by-node/{nodeName}")
-    public ResultData<PageList<InterfaceInvokeLogDO>> getLogsByNode(
+    public ResultData<PageList<InvokeLogVO>> getLogsByNode(
             @PathVariable String nodeName,
             @RequestParam(value = "pageNum", defaultValue = "1") int pageNum,
             @RequestParam(value = "pageSize", defaultValue = "10") int pageSize) {
         try {
             log.info("MCP根据节点查询日志: nodeName={}, pageNum={}, pageSize={}", 
                     nodeName, pageNum, pageSize);
-            PageList<InterfaceInvokeLogDO> logs = invokeLogService.findAllInvokeLogs(
+            PageList<InvokeLogVO> logs = invokeLogService.findAllInvokeLogs(
                     nodeName, null, pageNum, pageSize);
             return ResponseRenderUtils.render(logs);
         } catch (Exception e) {
