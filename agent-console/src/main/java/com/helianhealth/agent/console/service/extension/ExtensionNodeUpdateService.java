@@ -135,7 +135,9 @@ public class ExtensionNodeUpdateService {
                         Map<String, String> parsed = JsonUtils.fromJsonStringToMap(existingParam);
                         extensionParam.putAll(parsed);
                     } catch (Exception e) {
-                        log.warn("Failed to parse existing extension_param for node {}: {}", nodeId, existingParam, e);
+                        log.error("Failed to parse existing extension_param for node {}, using empty map. Node data: {}", nodeId, existingParam, e);
+                        // 解析失败时抛出异常，避免丢失原有配置
+                        throw new RuntimeException("解析节点扩展参数失败，可能存在配置损坏", e);
                     }
                 }
 
