@@ -19,9 +19,8 @@ bin/
 *.ipr
 out/
 
-# ===========================
-# IDE - Eclipse
-# ===========================
+.vscode/
+.qoder/
 .metadata/
 .settings/
 .classpath
