@@ -211,7 +211,7 @@
             <el-option label="固定值" value="CONSTANT"></el-option>
             <el-option label="值映射" value="NAME"></el-option>
             <el-option label="表达式" value="EXPRESSION"></el-option>
-            <el-option label="函数表达式" value="BEAN_EXPRESSION"></el-option>
+            <el-option label="Bean表达式" value="BEAN_EXPRESSION"></el-option>
             <el-option label="单值映射" value="SINGLE_MAP"></el-option>
           </el-select>
         </el-form-item>
@@ -334,7 +334,7 @@ export default {
           const pageList = response.data.rsp;
           configList.value = pageList.rows || [];
           pagination.total.value = pageList.total || 0;
-          
+
           loadMissingParentConfigs();
         }
       });
@@ -352,7 +352,7 @@ export default {
             map.set(node.nodeId, node.nodeName);
           });
           nodeMap.value = map;
-          
+
           await fetchAllParentConfigs();
           await fetchData();
         }
@@ -482,7 +482,7 @@ export default {
           cancelButtonText: '取消',
           type: 'warning'
         });
-        
+
         await deleteNodeParam(row.configId);
         await fetchData();
         await fetchAllParentConfigs();
@@ -564,7 +564,7 @@ export default {
       if (!searchForm.nodeId) {
         return;
       }
-      
+
       // 获取当前节点的所有配置(不分页)
       try {
         const response = await getNodeParamsUnpaged({ nodeId: searchForm.nodeId });

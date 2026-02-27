@@ -13,7 +13,7 @@
         <el-radio-button label="PRE_PROCESS">前置处理</el-radio-button>
         <el-radio-button label="POST_PROCESS">后置处理</el-radio-button>
       </el-radio-group>
-      
+
       <div class="info-text">
         <span v-if="activeProcessType === 'PRE_PROCESS'">
           <i class="el-icon-info"></i> 前置处理: 上游入参 → 下游入参
@@ -22,7 +22,7 @@
           <i class="el-icon-info"></i> 后置处理: 下游响应 → 上游响应
         </span>
       </div>
-      
+
       <div class="view-controls">
         <el-button size="small" @click="handleAddRoot" icon="el-icon-plus">新增配置</el-button>
         <el-button size="small" @click="expandAll" icon="el-icon-sort">展开全部</el-button>
@@ -38,7 +38,7 @@
       <el-empty v-if="treeMappings.length === 0" description="暂无参数映射配置">
         <el-button type="primary" size="small" @click="handleAddRoot">新增配置</el-button>
       </el-empty>
-      
+
       <!-- 树形结构展示 -->
       <div class="mapping-tree-wrapper" :style="{ transform: `scale(${zoomLevel})`, transformOrigin: 'left top' }">
         <mapping-node
@@ -176,7 +176,7 @@
             <el-option label="固定值" value="CONSTANT"></el-option>
             <el-option label="值映射" value="NAME"></el-option>
             <el-option label="表达式" value="EXPRESSION"></el-option>
-            <el-option label="函数表达式" value="BEAN_EXPRESSION"></el-option>
+            <el-option label="Bean表达式" value="BEAN_EXPRESSION"></el-option>
             <el-option label="单值映射" value="SINGLE_MAP"></el-option>
           </el-select>
         </el-form-item>
@@ -243,14 +243,14 @@ export default {
     const loading = ref(false);
     const expandedNodes = ref(new Set());
     const zoomLevel = ref(1);
-    
+
     // 编辑对话框相关
     const editDialogVisible = ref(false);
     const editDialogTitle = ref('新增参数配置');
     const editFormRef = ref(null);
     const submitLoading = ref(false);
     const parentOptions = ref([]);
-    
+
     // 本地配置列表（用于刷新后更新）
     const localConfigList = ref([]);
 
@@ -315,7 +315,7 @@ export default {
 
     // 过滤当前处理类型的配置
     const currentConfigs = computed(() => {
-      return localConfigList.value.filter(config => 
+      return localConfigList.value.filter(config =>
         config.processType === activeProcessType.value &&
         config.nodeId === props.nodeId
       );
@@ -327,7 +327,7 @@ export default {
     const buildTreeMappings = () => {
       const configs = currentConfigs.value;
       const configMap = new Map();
-      
+
       // 构建配置映射
       configs.forEach(config => {
         configMap.set(config.configId, {
@@ -360,7 +360,7 @@ export default {
 
       rootNodes.forEach(node => sortChildren(node));
       rootNodes.sort((a, b) => (a.sort || 0) - (b.sort || 0));
-      
+
       treeMappings.value = rootNodes;
     };
 
@@ -430,7 +430,7 @@ export default {
 
     // 更新父参数选项
     const updateParentOptions = () => {
-      parentOptions.value = localConfigList.value.filter(config => 
+      parentOptions.value = localConfigList.value.filter(config =>
         config.processType === editForm.processType &&
         config.nodeId === props.nodeId &&
         (!editForm.configId || config.configId !== editForm.configId) &&
@@ -561,7 +561,7 @@ export default {
     // 提交编辑表单
     const submitEditForm = async () => {
       if (!editFormRef.value) return;
-      
+
       const valid = await editFormRef.value.validate().catch(() => false);
       if (!valid) return;
 
@@ -658,7 +658,7 @@ export default {
         'NAME': '值映射',
         'CONSTANT': '固定值',
         'EXPRESSION': '表达式',
-        'BEAN_EXPRESSION': '函数表达式',
+        'BEAN_EXPRESSION': 'Bean表达式',
         'SINGLE_MAP': '单值映射'
       };
       return labelMap[type] || type;
