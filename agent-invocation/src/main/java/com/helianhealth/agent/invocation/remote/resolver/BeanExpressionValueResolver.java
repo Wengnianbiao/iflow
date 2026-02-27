@@ -2,7 +2,7 @@ package com.helianhealth.agent.invocation.remote.resolver;
 
 import com.helianhealth.agent.invocation.remote.model.NodeParamConfig;
 import com.helianhealth.agent.common.enums.MappingType;
-import com.helianhealth.agent.invocation.utils.ExpressionMapperUtils;
+import com.helianhealth.agent.common.utils.SpelUtils;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -15,7 +15,7 @@ public class BeanExpressionValueResolver implements ValueResolver {
 
     @Override
     public Object resolveValue(NodeParamConfig config, Map<String, Object> businessData, Map<String, Object> parentBusinessData, Map<String, Object> sourceBusinessData) {
-        return ExpressionMapperUtils.parserWithBeanAccess(config.getMappingRule(),
+        return SpelUtils.parserWithBeanAccess(config.getMappingRule(),
                 config.getSourceParamKey() == null ? businessData : businessData.get(config.getSourceParamKey()),
                 parentBusinessData,
                 sourceBusinessData);

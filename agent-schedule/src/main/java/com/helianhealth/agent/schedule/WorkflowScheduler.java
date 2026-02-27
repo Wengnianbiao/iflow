@@ -9,7 +9,7 @@ import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
 import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.Invocation;
 import com.helianhealth.agent.invocation.remote.wrapper.WrapperFactory;
-import com.helianhealth.agent.invocation.utils.ExpressionMapperUtils;
+import com.helianhealth.agent.common.utils.SpelUtils;
 import com.helianhealth.agent.schedule.builder.WorkFlowNodeBuilder;
 import com.helianhealth.agent.schedule.convert.NodeParamConfigConvert;
 import com.helianhealth.agent.schedule.processor.BusinessDataSplitter;
@@ -188,32 +188,13 @@ public class WorkflowScheduler {
         return preFlowNodeResponse;
     }
 
-    @SuppressWarnings("unchecked")
     private List<Integer> determineNextNode(String scheduleExpr, Map<String, Object> preFlowNodeResponse) {
-        if (StringUtils.isEmpty(scheduleExpr)) {
-            return null;
-        }
-        // 根据表达式获取下个流转节点,一定是根据上个节点的调用结果去处理的
-        // 并且规定流转的结果是List<Integer>或者为null
-        // 这里会在页面后台进行配置不会涉及到人工导致的错误
-        Object parser = ExpressionMapperUtils.parser(scheduleExpr, preFlowNodeResponse, null, null);
-
-        if (parser != null && !(parser instanceof List)) {
-            log.error("表达式解析结果类型错误，期望List<Integer>，实际类型: {}", parser.getClass().getSimpleName());
+        try {
+            return SpelUtils.parseScheduleExpression(scheduleExpr, preFlowNodeResponse);
+        } catch (IllegalArgumentException e) {
+            log.error("调度表达式[{}]解析异常：", scheduleExpr, e);
             throw WorkflowBusinessException.EXPRESSION_PARSING_ERROR.toException();
         }
-
-        if (parser != null) {
-            List<?> resultList = (List<?>) parser;
-            for (Object item : resultList) {
-                if (!(item instanceof Integer)) {
-                    log.error("表达式解析结果元素类型错误，Integer，实际类型: {}", item != null ? item.getClass().getSimpleName() : "null");
-                    throw WorkflowBusinessException.EXPRESSION_PARSING_ERROR.toException();
-                }
-            }
-        }
-
-        return (List<Integer>) parser;
     }
 
     private Map<String, Object> processParallelNode(List<InterfaceWorkflowNode> nodes, Map<String, Object> businessData) {

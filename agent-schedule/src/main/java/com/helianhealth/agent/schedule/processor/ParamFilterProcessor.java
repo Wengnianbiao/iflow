@@ -1,6 +1,6 @@
 package com.helianhealth.agent.schedule.processor;
 
-import com.helianhealth.agent.invocation.utils.ExpressionMapperUtils;
+import com.helianhealth.agent.common.utils.SpelUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -15,6 +15,6 @@ public class ParamFilterProcessor {
         if (StringUtils.isEmpty(paramFilterExpr)) {
             return businessData;
         }
-        return ExpressionMapperUtils.businessDataFilter(paramFilterExpr, businessData);
+        return SpelUtils.businessDataFilter(paramFilterExpr, businessData);
     }
 }
