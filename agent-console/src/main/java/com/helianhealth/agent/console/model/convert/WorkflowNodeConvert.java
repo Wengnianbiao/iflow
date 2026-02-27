@@ -1,10 +1,10 @@
 package com.helianhealth.agent.console.model.convert;
 
-import com.helianhealth.agent.console.controller.reponse.InterfaceWorkflowNodeView;
+import com.helianhealth.agent.repository.model.dto.InterfaceWorkflowNodeView;
 import com.helianhealth.agent.common.enums.NodeType;
 import com.helianhealth.agent.console.model.dto.NodeConfigImportDTO;
 import com.helianhealth.agent.console.model.dto.NodeParamConfigImportDTO;
-import com.helianhealth.agent.console.model.po.InterfaceWorkflowNodePO;
+import com.helianhealth.agent.repository.model.po.InterfaceWorkflowNodePO;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;

@@ -2,7 +2,7 @@ package com.helianhealth.agent.invocation.remote;
 
 import com.helianhealth.agent.common.enums.MappingSource;
 import com.helianhealth.agent.common.enums.ParamType;
-import com.helianhealth.agent.invocation.remote.model.NodeParamConfig;
+import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.invocation.remote.model.PostBuildContext;
 import com.helianhealth.agent.invocation.remote.model.PreBuildContext;

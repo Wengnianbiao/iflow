@@ -5,8 +5,8 @@ import com.helianhealth.agent.common.utils.JsonUtils;
 import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
 import com.helianhealth.agent.mock.model.MockConfigDO;
 import com.helianhealth.agent.mock.service.MockConfigService;
-import com.helianhealth.agent.console.controller.reponse.InterfaceWorkflowNodeView;
-import com.helianhealth.agent.console.service.InterfaceWorkflowNodeService;
+import com.helianhealth.agent.repository.model.dto.InterfaceWorkflowNodeView;
+import com.helianhealth.agent.repository.service.WorkflowNodeQueryService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -19,7 +19,7 @@ import java.util.Map;
 @AllArgsConstructor
 public class WorkFlowNodeBuilder {
 
-    private final InterfaceWorkflowNodeService flowNodeService;
+    private final WorkflowNodeQueryService flowNodeService;
     private final MockConfigService mockConfigService;
 
     public List<InterfaceWorkflowNode> build(List<Integer> workFlowNodeIds) {

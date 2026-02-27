@@ -1,5 +1,6 @@
 package com.helianhealth.agent.invocation.remote.model;
 
+import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 import lombok.Builder;
 import lombok.Data;
 

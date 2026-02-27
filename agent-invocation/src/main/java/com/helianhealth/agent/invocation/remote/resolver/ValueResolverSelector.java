@@ -1,7 +1,6 @@
 package com.helianhealth.agent.invocation.remote.resolver;
 
-import com.helianhealth.agent.invocation.remote.model.NodeParamConfig;
-import com.helianhealth.agent.console.model.domain.NodeParamConfigDO;
+import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 

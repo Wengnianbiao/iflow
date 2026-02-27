@@ -2,8 +2,8 @@ package com.helianhealth.agent.console.service.extension;
 
 import com.helianhealth.agent.common.utils.JsonUtils;
 import com.helianhealth.agent.console.enums.ExtensionType;
-import com.helianhealth.agent.console.mapper.agent.InterfaceFlowNodeMapper;
-import com.helianhealth.agent.console.model.po.InterfaceWorkflowNodePO;
+import com.helianhealth.agent.repository.mapper.InterfaceFlowNodeMapper;
+import com.helianhealth.agent.repository.model.po.InterfaceWorkflowNodePO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;

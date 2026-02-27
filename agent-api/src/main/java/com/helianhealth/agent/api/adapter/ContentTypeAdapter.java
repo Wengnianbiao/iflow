@@ -1,7 +1,7 @@
 package com.helianhealth.agent.api.adapter;
 
 import com.helianhealth.agent.common.enums.WorkflowContentType;
-import com.helianhealth.agent.console.model.domain.InterfaceWorkflowDO;
+import com.helianhealth.agent.repository.model.domain.Workflow;
 import com.helianhealth.agent.common.utils.JsonUtils;
 import com.helianhealth.agent.common.utils.XmlUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +27,7 @@ public class ContentTypeAdapter {
      * @param requestBody 原始请求体字符串
      * @return 转换后的 Map，如果请求体为空则返回空 Map
      */
-    public Map<String, Object> adaptRequest(InterfaceWorkflowDO workflow, String requestBody) {
+    public Map<String, Object> adaptRequest(Workflow workflow, String requestBody) {
         if (requestBody == null || requestBody.trim().isEmpty()) {
             return new HashMap<>();
         }
@@ -54,7 +54,7 @@ public class ContentTypeAdapter {
      * @param responseData 内部响应数据 Map
      * @return 协议格式的响应字符串
      */
-    public String adaptResponse(InterfaceWorkflowDO workflow, Map<String, Object> responseData) {
+    public String adaptResponse(Workflow workflow, Map<String, Object> responseData) {
         WorkflowContentType contentType = workflow.getContentType();
         if (WorkflowContentType.JSON.equals(contentType)) {
             // 如果 Map 只有一个 key 且 key 为保留字 "data"，且该 value 是数组类型，直接返回数组的 JSON

@@ -1,8 +1,8 @@
 package com.helianhealth.agent.ai.service;
 
 import com.alibaba.fastjson2.JSON;
-import com.helianhealth.agent.console.model.domain.InterfaceWorkflowDO;
-import com.helianhealth.agent.console.model.domain.NodeParamConfigDO;
+import com.helianhealth.agent.repository.model.po.InterfaceWorkflowDO;
+import com.helianhealth.agent.repository.model.po.NodeParamConfigDO;
 import com.helianhealth.agent.console.service.InterfaceWorkflowNodeService;
 import com.helianhealth.agent.console.service.InterfaceWorkflowService;
 import com.helianhealth.agent.console.service.NodeParamConfigService;

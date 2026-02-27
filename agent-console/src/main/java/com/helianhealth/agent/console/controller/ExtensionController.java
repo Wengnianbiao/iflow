@@ -1,7 +1,7 @@
 package com.helianhealth.agent.console.controller;
 
 import com.helianhealth.agent.console.enums.ExtensionType;
-import com.helianhealth.agent.console.model.domain.NodeExtensionConfigDO;
+import com.helianhealth.agent.repository.model.po.NodeExtensionConfigDO;
 import com.helianhealth.agent.console.model.dto.NodeExtensionConfigCreateReq;
 import com.helianhealth.agent.console.model.dto.NodeExtensionConfigDetailResponse;
 import com.helianhealth.agent.console.model.dto.NodeExtensionConfigUpdateReq;

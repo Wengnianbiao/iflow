@@ -3,17 +3,17 @@ package com.helianhealth.agent.console.service.impl;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.helianhealth.agent.common.base.PageList;
-import com.helianhealth.agent.console.controller.reponse.InterfaceWorkflowNodeView;
+import com.helianhealth.agent.repository.model.dto.InterfaceWorkflowNodeView;
 import com.helianhealth.agent.console.controller.reponse.WorkflowFullExportRsp;
 import com.helianhealth.agent.console.controller.request.WorkflowNodeCreateReq;
-import com.helianhealth.agent.console.mapper.agent.InterfaceWorkflowMapper;
-import com.helianhealth.agent.console.model.domain.InterfaceWorkflowDO;
-import com.helianhealth.agent.console.model.domain.NodeParamConfigDO;
+import com.helianhealth.agent.repository.mapper.InterfaceWorkflowMapper;
+import com.helianhealth.agent.repository.model.po.InterfaceWorkflowDO;
+import com.helianhealth.agent.repository.model.po.NodeParamConfigDO;
 import com.helianhealth.agent.console.model.dto.NodeParamConfigImportDTO;
 import com.helianhealth.agent.console.service.InterfaceWorkflowNodeService;
 import com.helianhealth.agent.console.service.InterfaceWorkflowService;
 import com.helianhealth.agent.console.service.NodeParamConfigService;
-import lombok.RequiredArgsConstructor;
+import com.helianhealth.agent.repository.service.impl.WorkflowQueryServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,21 +22,21 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Component
-@RequiredArgsConstructor
 @Slf4j
-public class InterfaceWorkflowServiceImpl implements InterfaceWorkflowService {
+public class InterfaceWorkflowServiceImpl extends WorkflowQueryServiceImpl implements InterfaceWorkflowService {
 
-    private final InterfaceWorkflowMapper workflowMapper;
     private final InterfaceWorkflowNodeService workflowNodeService;
     private final NodeParamConfigService nodeParamConfigService;
 
-    @Override
-    public Optional<InterfaceWorkflowDO> findByInterfaceUri(String apiUri) {
-        return Optional.ofNullable(workflowMapper.selectByInterfaceUri(apiUri));
+    public InterfaceWorkflowServiceImpl(InterfaceWorkflowMapper workflowMapper,
+                                        InterfaceWorkflowNodeService workflowNodeService,
+                                        NodeParamConfigService nodeParamConfigService) {
+        super(workflowMapper);
+        this.workflowNodeService = workflowNodeService;
+        this.nodeParamConfigService = nodeParamConfigService;
     }
 
     @Override
@@ -46,15 +46,14 @@ public class InterfaceWorkflowServiceImpl implements InterfaceWorkflowService {
             throw new IllegalArgumentException("参数不能为空");
         }
 
-        return workflowMapper.createWorkflow(workflow);
+        return createWorkflow(workflow);
     }
 
     @Override
     public PageList<InterfaceWorkflowDO> getAllWorkflows(int pageNum, int pageSize) {
         try {
             PageHelper.startPage(pageNum, pageSize);
-            // 将查询结果转换为 PageInfo 对象
-            List<InterfaceWorkflowDO> workflows = workflowMapper.selectAllWorkflows();
+            List<InterfaceWorkflowDO> workflows = selectAllWorkflows();
             PageInfo<InterfaceWorkflowDO> pageInfo = new PageInfo<>(workflows);
 
             // 构建 PageList 对象
@@ -72,12 +71,12 @@ public class InterfaceWorkflowServiceImpl implements InterfaceWorkflowService {
 
     @Override
     public List<InterfaceWorkflowDO> getAllWorkflowsWithoutPaged() {
-        return workflowMapper.selectAllWorkflows();
+        return selectAllWorkflows();
     }
 
     @Override
     public int update(InterfaceWorkflowDO interfaceInstanceDO) {
-        return workflowMapper.updateByPrimaryKeySelective(interfaceInstanceDO);
+        return updateWorkflow(interfaceInstanceDO);
     }
 
     @Override
@@ -89,7 +88,7 @@ public class InterfaceWorkflowServiceImpl implements InterfaceWorkflowService {
             }
 
             // 执行删除操作
-            workflowMapper.deleteByPrimaryKey(flowId);
+            deleteWorkflow(flowId);
         } catch (Exception e) {
             log.error("删除工作流失败", e);
             throw new RuntimeException("删除工作流失败: " + e.getMessage());
@@ -97,14 +96,8 @@ public class InterfaceWorkflowServiceImpl implements InterfaceWorkflowService {
     }
 
     @Override
-    public InterfaceWorkflowDO selectByFlowId(Integer flowId) {
-        return workflowMapper.selectByPrimaryKey(flowId);
-    }
-
-    @Override
     public WorkflowFullExportRsp exportWorkflowFull(Integer flowId) {
-        // 1. 查询工作流
-        InterfaceWorkflowDO workflow = workflowMapper.selectByPrimaryKey(flowId);
+        InterfaceWorkflowDO workflow = selectWorkflowEntity(flowId);
         if (workflow == null) {
             throw new IllegalArgumentException("工作流不存在: " + flowId);
         }
@@ -211,7 +204,7 @@ public class InterfaceWorkflowServiceImpl implements InterfaceWorkflowService {
                 .firstFlowNodes(new ArrayList<>())
                 .status(workflowInfo.getStatus())
                 .build();
-        workflowMapper.createWorkflow(workflow);
+        createWorkflow(workflow);
         Integer flowId = workflow.getFlowId();
 
         // 2. 创建节点并记录新nodeId
@@ -255,7 +248,7 @@ public class InterfaceWorkflowServiceImpl implements InterfaceWorkflowService {
                     .collect(Collectors.toList());
             workflow.setFlowId(flowId);
             workflow.setFirstFlowNodes(firstFlowNodes);
-            workflowMapper.updateByPrimaryKeySelective(workflow);
+            updateWorkflow(workflow);
         }
 
         return flowId;

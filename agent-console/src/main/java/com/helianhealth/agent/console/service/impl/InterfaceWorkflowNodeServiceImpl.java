@@ -4,21 +4,22 @@ import com.alibaba.fastjson2.JSON;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.helianhealth.agent.common.base.PageList;
-import com.helianhealth.agent.console.controller.reponse.InterfaceWorkflowNodeView;
+import com.helianhealth.agent.repository.model.dto.InterfaceWorkflowNodeView;
 import com.helianhealth.agent.console.controller.reponse.NodeConfigExportRsp;
 import com.helianhealth.agent.console.controller.reponse.NodeParamConfigExportRsp;
 import com.helianhealth.agent.console.controller.request.WorkflowNodeCreateReq;
 import com.helianhealth.agent.console.controller.request.WorkflowNodeUpdateReq;
 import com.helianhealth.agent.common.enums.NodeType;
 import com.helianhealth.agent.common.enums.ScheduleParamSourceType;
-import com.helianhealth.agent.console.mapper.agent.InterfaceFlowNodeMapper;
+import com.helianhealth.agent.repository.mapper.InterfaceFlowNodeMapper;
 import com.helianhealth.agent.console.model.convert.WorkflowNodeConvert;
-import com.helianhealth.agent.console.model.domain.NodeParamConfigDO;
+import com.helianhealth.agent.repository.model.po.NodeParamConfigDO;
 import com.helianhealth.agent.console.model.dto.NodeConfigImportDTO;
 import com.helianhealth.agent.console.model.dto.NodeParamConfigImportDTO;
-import com.helianhealth.agent.console.model.po.InterfaceWorkflowNodePO;
+import com.helianhealth.agent.repository.model.po.InterfaceWorkflowNodePO;
 import com.helianhealth.agent.console.service.InterfaceWorkflowNodeService;
 import com.helianhealth.agent.console.service.NodeParamConfigService;
+import com.helianhealth.agent.repository.service.impl.WorkflowNodeQueryServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -33,9 +34,8 @@ import java.util.stream.Collectors;
 
 @Component
 @Slf4j
-public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeService {
+public class InterfaceWorkflowNodeServiceImpl extends WorkflowNodeQueryServiceImpl implements InterfaceWorkflowNodeService {
 
-    private final InterfaceFlowNodeMapper flowNodeMapper;
     private final WorkflowNodeConvert nodeConvert;
     private final NodeParamConfigService nodeParamConfigService;
 
@@ -44,16 +44,9 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
             InterfaceFlowNodeMapper flowNodeMapper,
             WorkflowNodeConvert nodeConvert,
             NodeParamConfigService nodeParamConfigService) {
-        this.flowNodeMapper = flowNodeMapper;
+        super(flowNodeMapper);
         this.nodeConvert = nodeConvert;
         this.nodeParamConfigService = nodeParamConfigService;
-    }
-
-
-    @Override
-    public InterfaceWorkflowNodeView selectByNodeId(Integer flowId) {
-        InterfaceWorkflowNodePO workflowNodePO = flowNodeMapper.selectByNodeId(flowId);
-        return nodeConvert.poConvertToView(workflowNodePO);
     }
 
     @Override
@@ -61,7 +54,7 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
         try {
             PageHelper.startPage(pageNum, pageSize);
             // 将查询结果转换为 PageInfo 对象
-            List<InterfaceWorkflowNodePO> flowNodes = flowNodeMapper.selectAllNodes(flowId);
+            List<InterfaceWorkflowNodePO> flowNodes = selectAllNodes(flowId);
 
             PageInfo<InterfaceWorkflowNodePO> pageInfo = new PageInfo<>(flowNodes);
 
@@ -84,7 +77,7 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
 
     @Override
     public List<InterfaceWorkflowNodeView> getAllNodesWithoutPaged() {
-        List<InterfaceWorkflowNodePO> interfaceWorkflowNodePOS = flowNodeMapper.selectAllNodes(null);
+        List<InterfaceWorkflowNodePO> interfaceWorkflowNodePOS = selectAllNodes(null);
 
         return interfaceWorkflowNodePOS.stream().
                 map(nodeConvert::poConvertToView).
@@ -108,8 +101,7 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
                 .scheduleParamSourceType(scheduleParamSourceType == null || scheduleParamSourceType.isEmpty() ?
                         null : ScheduleParamSourceType.valueOf(scheduleParamSourceType)).build();
 
-        flowNodeMapper.createNode(workflowNodePO);
-        // 返回自动生成的nodeId，而不是影响行数
+        createNode(workflowNodePO);
         return workflowNodePO.getNodeId();
     }
 
@@ -129,19 +121,17 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
                 .scheduleExpr(nodeUpdateReq.getScheduleExpr())
                 .scheduleParamSourceType(scheduleParamSourceType == null || scheduleParamSourceType.isEmpty() ?
                         null : ScheduleParamSourceType.valueOf(scheduleParamSourceType)).build();
-        return flowNodeMapper.updateNode(workflowNodePO);
+        return updateNode(workflowNodePO);
     }
 
     @Override
     @Transactional("workflowAgentTransactionManager")
     public void deleteByNodeId(Integer nodeId) {
         try {
-            // 验证参数
             if (nodeId == null) {
                 throw new IllegalArgumentException("参数不能为空，nodeId 必须存在");
             }
-            // 执行删除操作
-            flowNodeMapper.deleteByPrimaryKey(nodeId);
+            deleteNode(nodeId);
             List<NodeParamConfigDO> nodeParamConfigs = nodeParamConfigService.findAllNodeParamConfigsUnpaged(nodeId, null);
             nodeParamConfigs.forEach(nodeParamConfigDO -> nodeParamConfigService.deleteById(nodeParamConfigDO.getConfigId()));
         } catch (Exception e) {
@@ -153,7 +143,7 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
     @Override
     @Transactional("workflowAgentTransactionManager")
     public void deleteAllConfigByNodeId(Integer nodeId) {
-        InterfaceWorkflowNodePO interfaceWorkflowNodeDO = flowNodeMapper.selectByNodeId(nodeId);
+        InterfaceWorkflowNodePO interfaceWorkflowNodeDO = selectNodeEntity(nodeId);
         List<NodeParamConfigDO> allNodeParamConfigsUnpaged = nodeParamConfigService.findAllNodeParamConfigsUnpaged(nodeId, null);
         allNodeParamConfigsUnpaged.forEach(nodeParamConfigDO -> nodeParamConfigService.deleteById(nodeParamConfigDO.getConfigId()));
         log.info("删除节点参数配置成功，节点名称：{}，共删除{}条配置项.", interfaceWorkflowNodeDO.getNodeName(), allNodeParamConfigsUnpaged.size());
@@ -192,10 +182,9 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
 
             // 3. 设置节点信息
             NodeParamConfigExportRsp.NodeInfo nodeInfo = new NodeParamConfigExportRsp.NodeInfo();
-            InterfaceWorkflowNodePO workflowNodePO = flowNodeMapper.selectByNodeId(nodeId);
+            InterfaceWorkflowNodePO workflowNodePO = selectNodeEntity(nodeId);
             nodeInfo.setNodeName(workflowNodePO.getNodeName());
             nodeInfo.setNodeType(workflowNodePO.getNodeType().name());
-            // 注意：如果需要完整的节点信息（如节点名称等），需要从其他服务或表中获取
             response.setNodeInfo(nodeInfo);
 
             // 4. 构建树形结构
@@ -221,7 +210,7 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
             NodeConfigExportRsp response = new NodeConfigExportRsp();
 
             NodeConfigExportRsp.NodeInfo nodeInfo = new NodeConfigExportRsp.NodeInfo();
-            InterfaceWorkflowNodePO workflowNodePO = flowNodeMapper.selectByNodeId(nodeId);
+            InterfaceWorkflowNodePO workflowNodePO = selectNodeEntity(nodeId);
             nodeInfo.setNodeName(workflowNodePO.getNodeName());
             nodeInfo.setNodeType(workflowNodePO.getNodeType().name());
             nodeInfo.setMetaInfo(workflowNodePO.getMetaInfo());
@@ -285,7 +274,7 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
             // 3.1 先创建节点
             NodeConfigImportDTO.NodeInfo nodeInfo = importNodeDTO.getNodeInfo();
             InterfaceWorkflowNodePO workflowNodePO = nodeConvert.importNodeToPo(nodeInfo);
-            flowNodeMapper.createNode(workflowNodePO);
+            createNode(workflowNodePO);
             Integer nodeId = workflowNodePO.getNodeId();
 
             List<NodeConfigImportDTO.NodeParamConfigDTO> sourceParams = importNodeDTO.getParamsConfig();
@@ -355,7 +344,7 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
         // 1. 创建节点
         NodeConfigImportDTO.NodeInfo nodeInfo = importNodeDTO.getNodeInfo();
         InterfaceWorkflowNodePO workflowNodePO = nodeConvert.importNodeToPo(nodeInfo);
-        flowNodeMapper.createNode(workflowNodePO);
+        createNode(workflowNodePO);
         Integer nodeId = workflowNodePO.getNodeId();
 
         List<NodeConfigImportDTO.NodeParamConfigDTO> sourceParams = importNodeDTO.getParamsConfig();

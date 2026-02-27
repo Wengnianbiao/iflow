@@ -11,6 +11,7 @@
 
     <modules>
         <module>agent-common</module>
+        <module>agent-repository</module>
         <module>agent-console</module>
         <module>agent-invocation</module>
         <module>agent-schedule</module>

@@ -7,7 +7,7 @@ import com.helianhealth.agent.common.enums.MappingType;
 import com.helianhealth.agent.common.enums.ParamType;
 import com.helianhealth.agent.common.enums.ProcessType;
 import com.helianhealth.agent.console.controller.reponse.NodeParamConfigExportRsp;
-import com.helianhealth.agent.console.model.domain.NodeParamConfigDO;
+import com.helianhealth.agent.repository.model.po.NodeParamConfigDO;
 import com.helianhealth.agent.console.model.dto.NodeParamConfigImportDTO;
 
 import java.util.ArrayList;

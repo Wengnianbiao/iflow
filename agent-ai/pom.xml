@@ -23,6 +23,12 @@
         <!-- 工作流模块 -->
         <dependency>
             <groupId>com.helianhealth</groupId>
+            <artifactId>agent-repository</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.helianhealth</groupId>
             <artifactId>agent-console</artifactId>
             <version>${project.version}</version>
         </dependency>

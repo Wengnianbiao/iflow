@@ -3,15 +3,14 @@ package com.helianhealth.agent.schedule;
 import com.helianhealth.agent.common.enums.ScheduleParamSourceType;
 import com.helianhealth.agent.common.exception.WorkflowBusinessException;
 import com.helianhealth.agent.common.extension.AgentExtensionLoader;
-import com.helianhealth.agent.console.model.domain.NodeParamConfigDO;
-import com.helianhealth.agent.console.service.NodeParamConfigService;
+import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
+import com.helianhealth.agent.repository.service.NodeParamConfigQueryService;
 import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
 import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.Invocation;
 import com.helianhealth.agent.invocation.remote.wrapper.WrapperFactory;
 import com.helianhealth.agent.common.utils.SpelUtils;
 import com.helianhealth.agent.schedule.builder.WorkFlowNodeBuilder;
-import com.helianhealth.agent.schedule.convert.NodeParamConfigConvert;
 import com.helianhealth.agent.schedule.processor.BusinessDataSplitter;
 import com.helianhealth.agent.schedule.processor.ParamFilterProcessor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,7 +40,7 @@ public class WorkflowScheduler {
     private final WorkFlowNodeBuilder workFlowNodeBuilder;
     private final ParamFilterProcessor businessDataPostProcessor;
     private final BusinessDataSplitter splitBusinessDataPostProcessor;
-    private final NodeParamConfigService nodeParamConfigService;
+    private final NodeParamConfigQueryService nodeParamConfigService;
     private final ThreadPoolTaskExecutor taskExecutor;
 
     /**
@@ -52,7 +51,7 @@ public class WorkflowScheduler {
     public WorkflowScheduler(WorkFlowNodeBuilder workFlowNodeBuilder,
                            ParamFilterProcessor businessDataPostProcessor,
                            BusinessDataSplitter splitBusinessDataPostProcessor,
-                           NodeParamConfigService nodeParamConfigService,
+                           NodeParamConfigQueryService nodeParamConfigService,
                            @Qualifier("WorkFlowNodeExecutor") ThreadPoolTaskExecutor taskExecutor) {
         this.workFlowNodeBuilder = workFlowNodeBuilder;
         this.businessDataPostProcessor = businessDataPostProcessor;
@@ -135,16 +134,12 @@ public class WorkflowScheduler {
     }
 
     private Invocation buildInvocation(InterfaceWorkflowNode flowNode, Map<String, Object> businessData) {
-        List<NodeParamConfigDO> preParamConfigs = nodeParamConfigService.selectPreProcessConfigByNodeId(flowNode.getNodeId());
-        List<NodeParamConfigDO> postParamConfigs = nodeParamConfigService.selectPostProcessConfigByNodeId(flowNode.getNodeId());
+        List<NodeParamConfig> preParamConfigs = nodeParamConfigService.selectPreProcessConfigByNodeId(flowNode.getNodeId());
+        List<NodeParamConfig> postParamConfigs = nodeParamConfigService.selectPostProcessConfigByNodeId(flowNode.getNodeId());
 
         return Invocation.builder()
-                .preParamConfigs(preParamConfigs.stream()
-                        .map(NodeParamConfigConvert::convertToDomain)
-                        .collect(Collectors.toList()))
-                .postParamConfigs(postParamConfigs.stream()
-                        .map(NodeParamConfigConvert::convertToDomain)
-                        .collect(Collectors.toList()))
+                .preParamConfigs(preParamConfigs)
+                .postParamConfigs(postParamConfigs)
                 .businessData(businessData)
                 .build();
     }

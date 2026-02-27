@@ -4,11 +4,11 @@ import com.helianhealth.agent.api.model.request.JarvisRequest;
 import com.helianhealth.agent.api.adapter.ContentTypeAdapter;
 import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.common.exception.WorkflowBusinessException;
-import com.helianhealth.agent.console.model.domain.InterfaceWorkflowDO;
+import com.helianhealth.agent.repository.model.domain.Workflow;
 import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
 import com.helianhealth.agent.schedule.WorkflowScheduler;
 import com.helianhealth.agent.schedule.builder.WorkFlowNodeBuilder;
-import com.helianhealth.agent.console.service.InterfaceWorkflowService;
+import com.helianhealth.agent.repository.service.WorkflowQueryService;
 import com.helianhealth.agent.common.utils.JsonUtils;
 import com.helianhealth.agent.common.utils.ResponseRenderUtils;
 import lombok.AllArgsConstructor;
@@ -28,7 +28,7 @@ import java.util.Optional;
 @AllArgsConstructor
 public class WorkFlowOrchestrator {
 
-    private final InterfaceWorkflowService workflowService;
+    private final WorkflowQueryService workflowService;
     private final WorkflowScheduler workflowScheduler;
     private final WorkFlowNodeBuilder workFlowNodeBuilder;
     private final ContentTypeAdapter contentTypeAdapter;
@@ -38,7 +38,7 @@ public class WorkFlowOrchestrator {
      */
     public ResultData<Object> jarvisDispatch(JarvisRequest request) {
         try {
-            Optional<InterfaceWorkflowDO> workflowOptional = workflowService.findByInterfaceUri(request.getBusinessMethod());
+            Optional<Workflow> workflowOptional = workflowService.findByInterfaceUri(request.getBusinessMethod());
             if (workflowOptional.isPresent()) {
                 // 兼容jarvis的API调用入参,理论上jarvis应当统一入参格式
                 Map<String, Object> businessData = request.getBusinessMethod().equals("GetItemResult") ?
@@ -78,9 +78,9 @@ public class WorkFlowOrchestrator {
     public String dispatch(String request, String interfaceUri) {
         try {
             // 1、根据调用URI获取对应的工作流
-            Optional<InterfaceWorkflowDO> workflowOptional = workflowService.findByInterfaceUri(interfaceUri);
+            Optional<Workflow> workflowOptional = workflowService.findByInterfaceUri(interfaceUri);
             if (workflowOptional.isPresent()) {
-                InterfaceWorkflowDO workflow = workflowOptional.get();
+                Workflow workflow = workflowOptional.get();
                 // 2、参数预处理,根据contentType转化为Map
                 Map<String, Object> businessData = contentTypeAdapter.adaptRequest(workflow, request);
                 List<InterfaceWorkflowNode> workflowNodes = workFlowNodeBuilder.build(workflowOptional.get()

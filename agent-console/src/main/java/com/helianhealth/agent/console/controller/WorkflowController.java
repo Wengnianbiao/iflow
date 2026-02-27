@@ -4,7 +4,7 @@ import com.alibaba.fastjson2.JSON;
 import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.console.controller.reponse.WorkflowFullExportRsp;
-import com.helianhealth.agent.console.model.domain.InterfaceWorkflowDO;
+import com.helianhealth.agent.repository.model.po.InterfaceWorkflowDO;
 import com.helianhealth.agent.console.service.InterfaceWorkflowService;
 import com.helianhealth.agent.common.utils.ResponseRenderUtils;
 import lombok.AllArgsConstructor;

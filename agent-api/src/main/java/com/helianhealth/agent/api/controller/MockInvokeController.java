@@ -8,9 +8,8 @@ import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.Invocation;
 import com.helianhealth.agent.invocation.remote.wrapper.WrapperFactory;
 import com.helianhealth.agent.schedule.builder.WorkFlowNodeBuilder;
-import com.helianhealth.agent.schedule.convert.NodeParamConfigConvert;
-import com.helianhealth.agent.console.model.domain.NodeParamConfigDO;
-import com.helianhealth.agent.console.service.NodeParamConfigService;
+import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
+import com.helianhealth.agent.repository.service.NodeParamConfigQueryService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,7 +20,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * Mock测试接口控制器
@@ -34,7 +32,7 @@ import java.util.stream.Collectors;
 public class MockInvokeController {
 
     private final WorkFlowNodeBuilder workFlowNodeBuilder;
-    private final NodeParamConfigService nodeParamConfigService;
+    private final NodeParamConfigQueryService nodeParamConfigService;
 
     /**
      * 调用Mock工作流节点
@@ -47,15 +45,11 @@ public class MockInvokeController {
             @RequestBody Map<String, Object> businessData) {
         try {
             InterfaceWorkflowNode workflowNode = workFlowNodeBuilder.buildWithMock(nodeId, mockId);
-            List<NodeParamConfigDO> preParamConfigs = nodeParamConfigService.selectPreProcessConfigByNodeId(nodeId);
-            List<NodeParamConfigDO> postParamConfigs = nodeParamConfigService.selectPostProcessConfigByNodeId(nodeId);
+            List<NodeParamConfig> preParamConfigs = nodeParamConfigService.selectPreProcessConfigByNodeId(nodeId);
+            List<NodeParamConfig> postParamConfigs = nodeParamConfigService.selectPostProcessConfigByNodeId(nodeId);
             Invocation invocation = Invocation.builder()
-                    .preParamConfigs(preParamConfigs.stream()
-                            .map(NodeParamConfigConvert::convertToDomain)
-                            .collect(Collectors.toList()))
-                    .postParamConfigs(postParamConfigs.stream()
-                            .map(NodeParamConfigConvert::convertToDomain)
-                            .collect(Collectors.toList()))
+                    .preParamConfigs(preParamConfigs)
+                    .postParamConfigs(postParamConfigs)
                     .businessData(businessData)
                     .build();
 

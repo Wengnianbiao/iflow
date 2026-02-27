@@ -3,7 +3,7 @@ package com.helianhealth.agent.invocation.remote;
 import com.helianhealth.agent.common.extension.AgentAdaptive;
 import com.helianhealth.agent.common.extension.AgentSPI;
 import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
-import com.helianhealth.agent.invocation.remote.model.NodeParamConfig;
+import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.invocation.remote.model.PostBuildContext;
 import com.helianhealth.agent.invocation.remote.model.PreBuildContext;

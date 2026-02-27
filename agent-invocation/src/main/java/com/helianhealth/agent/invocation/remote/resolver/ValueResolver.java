@@ -1,7 +1,7 @@
 package com.helianhealth.agent.invocation.remote.resolver;
 
 import com.helianhealth.agent.common.enums.MappingType;
-import com.helianhealth.agent.invocation.remote.model.NodeParamConfig;
+import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 
 import java.util.Map;
 

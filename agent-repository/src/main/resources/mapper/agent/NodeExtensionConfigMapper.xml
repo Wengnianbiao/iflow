@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.helianhealth.agent.repository.mapper.NodeExtensionConfigMapper">
+
+    <resultMap id="BaseResultMap" type="com.helianhealth.agent.repository.model.po.NodeExtensionConfigDO">
+        <id column="code_id" property="codeId" />
+        <result column="node_id" property="nodeId" 
+                typeHandler="com.helianhealth.agent.common.typehandler.ListIntegerTypeHandler" />
+        <result column="spi_interface" property="spiInterface" />
+        <result column="extension_name" property="extensionName" />
+        <result column="class_name" property="className" />
+        <result column="source_code" property="sourceCode" />
+        <result column="description" property="description" />
+        <result column="enabled" property="enabled" />
+        <result column="extension_mode" property="extensionMode" />
+    </resultMap>
+
+    <!-- 根据启用状态查询 -->
+    <select id="selectByEnabled" resultMap="BaseResultMap">
+        SELECT * FROM node_extension_config
+        WHERE enabled = #{enabled}
+        ORDER BY code_id DESC
+    </select>
+
+    <!-- 根据ID查询 -->
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT * FROM node_extension_config
+        WHERE code_id = #{codeId}
+    </select>
+
+    <!-- 根据SPI接口和扩展名称查询 -->
+    <select id="selectBySpiInterfaceAndExtension" resultMap="BaseResultMap">
+        SELECT * FROM node_extension_config
+        WHERE spi_interface = #{spiInterface}
+        AND extension_name = #{extensionName}
+    </select>
+
+    <!-- 插入新记录 -->
+    <insert id="insert"
+            parameterType="com.helianhealth.agent.repository.model.po.NodeExtensionConfigDO"
+            useGeneratedKeys="true"
+            keyProperty="codeId"
+            keyColumn="code_id">
+        INSERT INTO node_extension_config (
+            node_id,
+            spi_interface,
+            extension_name,
+            class_name,
+            source_code,
+            description,
+            enabled,
+            extension_mode
+        ) VALUES (
+            #{nodeId, typeHandler=com.helianhealth.agent.common.typehandler.ListIntegerTypeHandler},
+            #{spiInterface},
+            #{extensionName},
+            #{className},
+            #{sourceCode},
+            #{description},
+            #{enabled},
+            #{extensionMode}
+        )
+    </insert>
+
+    <!-- 更新记录 -->
+    <update id="update" parameterType="com.helianhealth.agent.repository.model.po.NodeExtensionConfigDO">
+        UPDATE node_extension_config
+        SET node_id = #{nodeId, typeHandler=com.helianhealth.agent.common.typehandler.ListIntegerTypeHandler},
+            class_name = #{className},
+            source_code = #{sourceCode},
+            description = #{description},
+            enabled = #{enabled},
+            extension_name = #{extensionName},
+            extension_mode = #{extensionMode}
+        WHERE code_id = #{codeId}
+    </update>
+
+    <!-- 根据ID删除 -->
+    <delete id="deleteById">
+        DELETE FROM node_extension_config
+        WHERE code_id = #{codeId}
+    </delete>
+
+    <!-- 根据SPI接口和扩展名称删除 -->
+    <delete id="deleteBySpiInterfaceAndExtension">
+        DELETE FROM node_extension_config
+        WHERE spi_interface = #{spiInterface}
+        AND extension_name = #{extensionName}
+    </delete>
+
+    <!-- 根据SPI接口查询所有配置 -->
+    <select id="selectBySpiInterface" resultMap="BaseResultMap">
+        SELECT * FROM node_extension_config
+        WHERE spi_interface = #{spiInterface}
+        ORDER BY code_id DESC
+    </select>
+
+</mapper>

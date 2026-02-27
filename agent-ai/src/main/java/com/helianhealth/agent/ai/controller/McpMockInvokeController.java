@@ -8,8 +8,7 @@ import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.Invocation;
 import com.helianhealth.agent.invocation.remote.wrapper.WrapperFactory;
 import com.helianhealth.agent.schedule.builder.WorkFlowNodeBuilder;
-import com.helianhealth.agent.schedule.convert.NodeParamConfigConvert;
-import com.helianhealth.agent.console.model.domain.NodeParamConfigDO;
+import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 import com.helianhealth.agent.console.service.NodeParamConfigService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -57,17 +56,13 @@ public class McpMockInvokeController {
             InterfaceWorkflowNode workflowNode = workFlowNodeBuilder.buildWithMock(nodeId, mockId);
 
             // 2. 获取前置和后置参数配置
-            List<NodeParamConfigDO> preParamConfigs = nodeParamConfigService.selectPreProcessConfigByNodeId(nodeId);
-            List<NodeParamConfigDO> postParamConfigs = nodeParamConfigService.selectPostProcessConfigByNodeId(nodeId);
+            List<NodeParamConfig> preParamConfigs = nodeParamConfigService.selectPreProcessConfigByNodeId(nodeId);
+            List<NodeParamConfig> postParamConfigs = nodeParamConfigService.selectPostProcessConfigByNodeId(nodeId);
 
             // 3. 构建调用上下文
             Invocation invocation = Invocation.builder()
-                    .preParamConfigs(preParamConfigs.stream()
-                            .map(NodeParamConfigConvert::convertToDomain)
-                            .collect(Collectors.toList()))
-                    .postParamConfigs(postParamConfigs.stream()
-                            .map(NodeParamConfigConvert::convertToDomain)
-                            .collect(Collectors.toList()))
+                    .preParamConfigs(preParamConfigs)
+                    .postParamConfigs(postParamConfigs)
                     .businessData(businessData)
                     .build();
 

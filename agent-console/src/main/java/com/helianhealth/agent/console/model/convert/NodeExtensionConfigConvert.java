@@ -1,6 +1,6 @@
 package com.helianhealth.agent.console.model.convert;
 
-import com.helianhealth.agent.console.model.domain.NodeExtensionConfigDO;
+import com.helianhealth.agent.repository.model.po.NodeExtensionConfigDO;
 import com.helianhealth.agent.console.model.dto.NodeExtensionConfigDetailResponse;
 import org.springframework.stereotype.Repository;
 

@@ -22,7 +22,7 @@
 
         <dependency>
             <groupId>com.helianhealth</groupId>
-            <artifactId>agent-console</artifactId>
+            <artifactId>agent-repository</artifactId>
             <version>${project.version}</version>
         </dependency>
 

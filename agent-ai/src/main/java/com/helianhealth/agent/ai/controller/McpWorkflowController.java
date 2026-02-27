@@ -2,7 +2,8 @@ package com.helianhealth.agent.ai.controller;
 
 import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.common.utils.ResponseRenderUtils;
-import com.helianhealth.agent.console.model.domain.InterfaceWorkflowDO;
+import com.helianhealth.agent.repository.model.domain.Workflow;
+import com.helianhealth.agent.repository.model.po.InterfaceWorkflowDO;
 import com.helianhealth.agent.console.service.InterfaceWorkflowService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,10 +49,10 @@ public class McpWorkflowController {
      * 根据flowId查询单个工作流
      */
     @GetMapping("/get/{flowId}")
-    public ResultData<InterfaceWorkflowDO> getWorkflow(@PathVariable Integer flowId) {
+    public ResultData<Workflow> getWorkflow(@PathVariable Integer flowId) {
         try {
             log.info("MCP查询工作流: flowId={}", flowId);
-            InterfaceWorkflowDO workflow = interfaceWorkflowService.selectByFlowId(flowId);
+            Workflow workflow = interfaceWorkflowService.selectByFlowId(flowId);
             if (workflow == null) {
                 return ResponseRenderUtils.error("工作流不存在");
             }

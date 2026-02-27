@@ -6,11 +6,11 @@ import com.github.pagehelper.PageInfo;
 import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.common.enums.ParamType;
 import com.helianhealth.agent.common.enums.ProcessType;
-import com.helianhealth.agent.console.mapper.agent.NodeParamConfigMapper;
-import com.helianhealth.agent.console.model.domain.NodeParamConfigDO;
+import com.helianhealth.agent.repository.mapper.NodeParamConfigMapper;
+import com.helianhealth.agent.repository.model.po.NodeParamConfigDO;
 import com.helianhealth.agent.console.model.dto.NodeParamConfigImportDTO;
 import com.helianhealth.agent.console.service.NodeParamConfigService;
-import lombok.AllArgsConstructor;
+import com.helianhealth.agent.repository.service.impl.NodeParamConfigQueryServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -21,11 +21,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @Component
-@AllArgsConstructor
 @Slf4j
-public class NodeParamConfigServiceImpl implements NodeParamConfigService {
+public class NodeParamConfigServiceImpl extends NodeParamConfigQueryServiceImpl implements NodeParamConfigService {
 
-    private final NodeParamConfigMapper nodeParamConfigMapper;
+    public NodeParamConfigServiceImpl(NodeParamConfigMapper nodeParamConfigMapper) {
+        super(nodeParamConfigMapper);
+    }
 
     @Override
     public PageList<NodeParamConfigDO> findAllNodeParamConfigs(Integer nodeId, ProcessType processType, String targetParam, int pageNum, int pageSize) {
@@ -35,7 +36,7 @@ public class NodeParamConfigServiceImpl implements NodeParamConfigService {
 
             // 查询数据
             String processTypeName = processType != null ? processType.name() : null;
-            List<NodeParamConfigDO> configs = nodeParamConfigMapper.selectAllParamConfig(nodeId, processTypeName,targetParam);
+            List<NodeParamConfigDO> configs = selectAllConfigs(nodeId, processTypeName, targetParam);
 
             // 将查询结果转换为 PageInfo 对象
             PageInfo<NodeParamConfigDO> pageInfo = new PageInfo<>(configs);
@@ -59,7 +60,7 @@ public class NodeParamConfigServiceImpl implements NodeParamConfigService {
         // 查询数据
         String processTypeName = processType != null ? processType.name() : null;
 
-        return nodeParamConfigMapper.selectAllParamConfig(nodeId, processTypeName, null);
+        return selectAllConfigs(nodeId, processTypeName, null);
     }
 
     @Override
@@ -79,11 +80,10 @@ public class NodeParamConfigServiceImpl implements NodeParamConfigService {
             }
 
             // 执行更新操作
-            int result = nodeParamConfigMapper.updateNodeParamConfig(config);
+            int result = updateConfig(config);
 
             if (result > 0) {
-                // 查询更新后的数据
-                return nodeParamConfigMapper.selectByPrimaryKey(config.getConfigId());
+                return selectConfigById(config.getConfigId());
             } else {
                 log.warn("更新节点参数配置失败，未找到对应记录: configId={}", config.getConfigId());
                 return null;
@@ -107,7 +107,7 @@ public class NodeParamConfigServiceImpl implements NodeParamConfigService {
             }
 
             // 执行插入操作
-            int result = nodeParamConfigMapper.insertNodeParamConfig(config);
+            int result = insertConfig(config);
 
             if (result > 0) {
                 // 如果使用自增主键，MyBatis会自动将生成的ID设置到config对象中
@@ -131,7 +131,7 @@ public class NodeParamConfigServiceImpl implements NodeParamConfigService {
             }
 
             // 执行删除操作
-            nodeParamConfigMapper.deleteByPrimaryKey(configId);
+            deleteConfig(configId);
         } catch (Exception e) {
             log.error("删除节点参数配置失败", e);
             throw new RuntimeException("删除节点参数配置失败: " + e.getMessage());
@@ -204,16 +204,6 @@ public class NodeParamConfigServiceImpl implements NodeParamConfigService {
             log.error("导入节点参数配置失败", e);
             throw new RuntimeException("导入节点参数配置失败: " + e.getMessage());
         }
-    }
-
-    @Override
-    public List<NodeParamConfigDO> selectPreProcessConfigByNodeId(Integer nodeId) {
-        return nodeParamConfigMapper.selectPreProcessConfigByNodeId(nodeId);
-    }
-
-    @Override
-    public List<NodeParamConfigDO> selectPostProcessConfigByNodeId(Integer nodeId) {
-        return nodeParamConfigMapper.selectPostProcessConfigByNodeId(nodeId);
     }
 
     /**
