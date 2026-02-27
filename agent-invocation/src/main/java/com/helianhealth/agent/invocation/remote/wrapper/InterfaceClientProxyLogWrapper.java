@@ -4,7 +4,7 @@ import com.helianhealth.agent.invocation.context.InvocationLogContextHolder;
 import com.helianhealth.agent.invocation.context.LogContext;
 import com.helianhealth.agent.invocation.remote.InterfaceClientProxy;
 import com.helianhealth.agent.common.utils.JsonUtils;
-import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 
 
@@ -23,7 +23,7 @@ public class InterfaceClientProxyLogWrapper implements InterfaceClientProxy {
     }
 
     @Override
-    public Map<String, Object> doInvoke(InterfaceWorkflowNode flowNode, List<ParamTreeNode> params) {
+    public Map<String, Object> doInvoke(WorkflowNode flowNode, List<ParamTreeNode> params) {
         LogContext context = InvocationLogContextHolder.getContext();
         if (context == null) {
             // 如果上下文不存在，直接执行方法

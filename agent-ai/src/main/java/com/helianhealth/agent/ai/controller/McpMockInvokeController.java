@@ -4,7 +4,7 @@ import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.common.extension.AgentExtensionLoader;
 import com.helianhealth.agent.common.utils.ResponseRenderUtils;
 import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
-import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.Invocation;
 import com.helianhealth.agent.invocation.remote.wrapper.WrapperFactory;
 import com.helianhealth.agent.schedule.builder.WorkFlowNodeBuilder;
@@ -53,7 +53,7 @@ public class McpMockInvokeController {
             log.info("MCP执行Mock调用验证: nodeId={}, mockId={}", nodeId, mockId);
 
             // 1. 构建包含Mock配置的工作流节点
-            InterfaceWorkflowNode workflowNode = workFlowNodeBuilder.buildWithMock(nodeId, mockId);
+            WorkflowNode workflowNode = workFlowNodeBuilder.buildWithMock(nodeId, mockId);
 
             // 2. 获取前置和后置参数配置
             List<NodeParamConfig> preParamConfigs = nodeParamConfigService.selectPreProcessConfigByNodeId(nodeId);

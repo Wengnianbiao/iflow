@@ -3,7 +3,7 @@ package com.helianhealth.agent.invocation.remote.wrapper;
 import com.helianhealth.agent.common.extension.AgentExtensionLoader;
 import com.helianhealth.agent.invocation.remote.InterfaceClientProxy;
 import com.helianhealth.agent.invocation.remote.filter.AgentFilter;
-import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 
 import java.util.Collections;
@@ -22,7 +22,7 @@ public class InterfaceClientProxyFilterChainWrapper implements InterfaceClientPr
     }
 
     @Override
-    public Map<String, Object> doInvoke(InterfaceWorkflowNode flowNode, List<ParamTreeNode> params) {
+    public Map<String, Object> doInvoke(WorkflowNode flowNode, List<ParamTreeNode> params) {
         return buildFilterChain(proxy, flowNode.getExtensionParam()).doInvoke(flowNode, params);
     }
 

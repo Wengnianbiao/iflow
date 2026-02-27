@@ -1,6 +1,6 @@
 package com.helianhealth.agent.invocation.remote;
 
-import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.invocation.utils.ParamNodeUtils;
@@ -17,7 +17,7 @@ public class ProxyConvertHelper {
 
     private static final String RESPONSE_TYPE_KEY = "responseType";
 
-    public static Map<String, Object> convertResponse(InterfaceWorkflowNode flowNode, List<ParamTreeNode> paramTree) {
+    public static Map<String, Object> convertResponse(WorkflowNode flowNode, List<ParamTreeNode> paramTree) {
         // 获取节点的元信息
         String metaInfo = flowNode.getMetaInfo();
         if (StringUtils.isEmpty(metaInfo)) {

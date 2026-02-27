@@ -4,7 +4,7 @@ import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.common.extension.AgentExtensionLoader;
 import com.helianhealth.agent.common.utils.ResponseRenderUtils;
 import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
-import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.Invocation;
 import com.helianhealth.agent.invocation.remote.wrapper.WrapperFactory;
 import com.helianhealth.agent.schedule.builder.WorkFlowNodeBuilder;
@@ -44,7 +44,7 @@ public class MockInvokeController {
             @RequestParam("mockId") Integer mockId,
             @RequestBody Map<String, Object> businessData) {
         try {
-            InterfaceWorkflowNode workflowNode = workFlowNodeBuilder.buildWithMock(nodeId, mockId);
+            WorkflowNode workflowNode = workFlowNodeBuilder.buildWithMock(nodeId, mockId);
             List<NodeParamConfig> preParamConfigs = nodeParamConfigService.selectPreProcessConfigByNodeId(nodeId);
             List<NodeParamConfig> postParamConfigs = nodeParamConfigService.selectPostProcessConfigByNodeId(nodeId);
             Invocation invocation = Invocation.builder()

@@ -3,7 +3,7 @@ package com.helianhealth.agent.invocation.remote.wrapper;
 import com.helianhealth.agent.common.utils.SpringContextHolder;
 import com.helianhealth.agent.invocation.remote.InterfaceClientProxy;
 import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
-import com.helianhealth.agent.log.service.InterfaceInvokeLogService;
+import com.helianhealth.agent.repository.service.InterfaceInvokeLogService;
 
 /**
  * 包装器工厂类，用于显式创建包装链

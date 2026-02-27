@@ -1,6 +1,6 @@
 package com.helianhealth.agent.invocation.remote;
 
-import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 
 import java.util.List;
@@ -17,5 +17,5 @@ public interface ParamResolver {
      * @param params 参数树节点列表
      * @return 解析后的字符串（JSON、SQL、XML等）
      */
-    String resolveParamNodes(InterfaceWorkflowNode flowNode, List<ParamTreeNode> params);
+    String resolveParamNodes(WorkflowNode flowNode, List<ParamTreeNode> params);
 }

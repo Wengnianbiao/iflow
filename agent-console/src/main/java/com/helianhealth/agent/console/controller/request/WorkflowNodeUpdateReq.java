@@ -64,4 +64,9 @@ public class WorkflowNodeUpdateReq {
      * SPI拓展字段
      */
     private String remoteExtension;
+
+    /**
+     * 扩展参数
+     */
+    private String extensionParam;
 }

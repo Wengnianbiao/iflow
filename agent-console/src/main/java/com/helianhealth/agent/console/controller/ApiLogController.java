@@ -2,9 +2,9 @@ package com.helianhealth.agent.console.controller;
 
 import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.common.base.ResultData;
-import com.helianhealth.agent.log.model.InvokeLogVO;
-import com.helianhealth.agent.log.model.InvokeStatsVO;
-import com.helianhealth.agent.log.service.InterfaceInvokeLogService;
+import com.helianhealth.agent.repository.model.dto.InvokeLogVO;
+import com.helianhealth.agent.repository.model.dto.InvokeStatsVO;
+import com.helianhealth.agent.repository.service.InterfaceInvokeLogService;
 import com.helianhealth.agent.common.utils.ResponseRenderUtils;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

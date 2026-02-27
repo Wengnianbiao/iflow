@@ -1,6 +1,6 @@
 package com.helianhealth.agent.invocation.remote.database;
 
-import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.invocation.remote.InterfaceClientProxy;
 import lombok.Setter;
@@ -37,7 +37,7 @@ public class DatabaseProtocolAdapter implements InterfaceClientProxy {
     }
 
     @Override
-    public Map<String, Object> doInvoke(InterfaceWorkflowNode flowNode, List<ParamTreeNode> params) {
+    public Map<String, Object> doInvoke(WorkflowNode flowNode, List<ParamTreeNode> params) {
         try {
             // 构建SQL语句
             String sql = databaseSqlHandler.resolveParamNodes(flowNode, params);

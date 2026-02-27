@@ -2,6 +2,7 @@ package com.helianhealth.agent.ai.controller;
 
 import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.common.utils.ResponseRenderUtils;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.repository.model.dto.InterfaceWorkflowNodeView;
 import com.helianhealth.agent.console.controller.request.WorkflowNodeCreateReq;
 import com.helianhealth.agent.console.controller.request.WorkflowNodeUpdateReq;
@@ -50,10 +51,10 @@ public class McpWorkflowNodeController {
      * 根据nodeId查询单个工作流节点
      */
     @GetMapping("/get/{nodeId}")
-    public ResultData<InterfaceWorkflowNodeView> getNode(@PathVariable Integer nodeId) {
+    public ResultData<WorkflowNode> getNode(@PathVariable Integer nodeId) {
         try {
             log.info("MCP查询工作流节点: nodeId={}", nodeId);
-            InterfaceWorkflowNodeView node = interfaceWorkflowNodeService.selectByNodeId(nodeId);
+            WorkflowNode node = interfaceWorkflowNodeService.selectByNodeId(nodeId);
             if (node == null) {
                 return ResponseRenderUtils.error("工作流节点不存在");
             }

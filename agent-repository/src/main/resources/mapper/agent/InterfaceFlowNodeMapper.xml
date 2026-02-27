@@ -112,20 +112,33 @@
         </where>
     </select>
 
-    <update id="updateNode" parameterType="com.helianhealth.agent.repository.model.po.InterfaceWorkflowNodePO">
+    <update id="updateNodeSelective" parameterType="com.helianhealth.agent.repository.model.po.InterfaceWorkflowNodePO">
         UPDATE interface_workflow_node
-        SET
-            node_name = #{nodeName,jdbcType=VARCHAR},
-            flow_id = #{flowId,jdbcType=INTEGER},
-            param_filter_expr = #{paramFilterExpr,jdbcType=VARCHAR},
-            node_type = #{nodeType,jdbcType=VARCHAR},
-            meta_info = #{metaInfo,jdbcType=VARCHAR},
-            schedule_expr = #{scheduleExpr,jdbcType=VARCHAR},
-            schedule_param_source_type = #{scheduleParamSourceType,jdbcType=VARCHAR},
-            keyword_field = #{keywordField,jdbcType=VARCHAR},
-            remote_extension = #{remoteExtension,jdbcType=VARCHAR},
-            split_field = #{splitField,jdbcType=VARCHAR},
-            extension_param = #{extensionParam,jdbcType=VARCHAR}
+        <set>
+            <if test="nodeName != null">node_name = #{nodeName,jdbcType=VARCHAR},</if>
+            <if test="flowId != null">flow_id = #{flowId,jdbcType=INTEGER},</if>
+            <if test="paramFilterExpr != null">param_filter_expr = #{paramFilterExpr,jdbcType=VARCHAR},</if>
+            <if test="nodeType != null">node_type = #{nodeType,jdbcType=VARCHAR},</if>
+            <if test="metaInfo != null">meta_info = #{metaInfo,jdbcType=VARCHAR},</if>
+            <if test="scheduleExpr != null">schedule_expr = #{scheduleExpr,jdbcType=VARCHAR},</if>
+            <if test="scheduleParamSourceType != null">schedule_param_source_type = #{scheduleParamSourceType,jdbcType=VARCHAR},</if>
+            <if test="keywordField != null">keyword_field = #{keywordField,jdbcType=VARCHAR},</if>
+            <if test="remoteExtension != null">remote_extension = #{remoteExtension,jdbcType=VARCHAR},</if>
+            <if test="splitField != null">split_field = #{splitField,jdbcType=VARCHAR},</if>
+            <if test="extensionParam != null">extension_param = #{extensionParam,jdbcType=VARCHAR},</if>
+        </set>
+        WHERE node_id = #{nodeId}
+    </update>
+
+    <update id="updateRemoteExtension">
+        UPDATE interface_workflow_node
+        SET remote_extension = #{remoteExtension,jdbcType=VARCHAR}
+        WHERE node_id = #{nodeId}
+    </update>
+
+    <update id="updateExtensionParam">
+        UPDATE interface_workflow_node
+        SET extension_param = #{extensionParam,jdbcType=VARCHAR}
         WHERE node_id = #{nodeId}
     </update>
 </mapper>

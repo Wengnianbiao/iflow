@@ -2,7 +2,7 @@ package com.helianhealth.agent.invocation.remote;
 
 import com.helianhealth.agent.common.extension.AgentAdaptive;
 import com.helianhealth.agent.common.extension.AgentSPI;
-import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.invocation.remote.model.PostBuildContext;
@@ -26,7 +26,7 @@ public interface ParamTree {
      * @return 构建好的参数树节点列表
      */
     @AgentAdaptive("node")
-    List<ParamTreeNode> buildPreParamTree(InterfaceWorkflowNode flowNode,
+    List<ParamTreeNode> buildPreParamTree(WorkflowNode flowNode,
                                           List<NodeParamConfig> configs,
                                           Integer parentId,
                                           PreBuildContext buildContext);
@@ -40,7 +40,7 @@ public interface ParamTree {
      * @return 构建好的参数树节点列表
      */
     @AgentAdaptive("node")
-    List<ParamTreeNode> buildPostParamTree(InterfaceWorkflowNode flowNode,
+    List<ParamTreeNode> buildPostParamTree(WorkflowNode flowNode,
                                            List<NodeParamConfig> configs,
                                            Integer parentId,
                                            PostBuildContext buildContext);

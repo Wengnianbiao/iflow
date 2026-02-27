@@ -1,7 +1,7 @@
 package com.helianhealth.agent.invocation.remote;
 
 import com.helianhealth.agent.common.extension.AgentExtensionLoader;
-import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.Invocation;
 import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
@@ -29,7 +29,7 @@ public class DefaultInterfaceRemoteInvoker implements InterfaceRemoteInvoker {
 
 
     @Override
-    public Map<String, Object> remoteInvoke(InterfaceWorkflowNode flowNode, Invocation invocation) {
+    public Map<String, Object> remoteInvoke(WorkflowNode flowNode, Invocation invocation) {
         // 1. 参数前处理
         List<ParamTreeNode> paramBeforeInvoke = preProcess(flowNode, invocation);
 
@@ -48,7 +48,7 @@ public class DefaultInterfaceRemoteInvoker implements InterfaceRemoteInvoker {
      * @param invocation 调用上下文
      * @return 处理后的参数
      */
-    protected List<ParamTreeNode> preProcess(InterfaceWorkflowNode flowNode, Invocation invocation) {
+    protected List<ParamTreeNode> preProcess(WorkflowNode flowNode, Invocation invocation) {
         List<NodeParamConfig> nodeConfigs = invocation.getPreParamConfigs();
         if (CollectionUtils.isEmpty(nodeConfigs)) {
             return new ArrayList<>();
@@ -70,7 +70,7 @@ public class DefaultInterfaceRemoteInvoker implements InterfaceRemoteInvoker {
      * @param invocation 调用上下文
      * @return 处理后的结果
      */
-    public Map<String, Object> postProcess(InterfaceWorkflowNode flowNode, Map<String, Object> response, Invocation invocation) {
+    public Map<String, Object> postProcess(WorkflowNode flowNode, Map<String, Object> response, Invocation invocation) {
         // 从 invocation 获取后置参数配置
         List<NodeParamConfig> nodeConfigs = invocation.getPostParamConfigs();
         if (CollectionUtils.isEmpty(nodeConfigs)) {

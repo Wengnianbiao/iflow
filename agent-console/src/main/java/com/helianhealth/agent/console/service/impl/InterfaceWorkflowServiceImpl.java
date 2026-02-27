@@ -3,7 +3,7 @@ package com.helianhealth.agent.console.service.impl;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.helianhealth.agent.common.base.PageList;
-import com.helianhealth.agent.repository.model.dto.InterfaceWorkflowNodeView;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.console.controller.reponse.WorkflowFullExportRsp;
 import com.helianhealth.agent.console.controller.request.WorkflowNodeCreateReq;
 import com.helianhealth.agent.repository.mapper.InterfaceWorkflowMapper;
@@ -13,6 +13,7 @@ import com.helianhealth.agent.console.model.dto.NodeParamConfigImportDTO;
 import com.helianhealth.agent.console.service.InterfaceWorkflowNodeService;
 import com.helianhealth.agent.console.service.InterfaceWorkflowService;
 import com.helianhealth.agent.console.service.NodeParamConfigService;
+import com.helianhealth.agent.repository.service.WorkflowCommandService;
 import com.helianhealth.agent.repository.service.impl.WorkflowQueryServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -28,13 +29,16 @@ import java.util.stream.Collectors;
 @Slf4j
 public class InterfaceWorkflowServiceImpl extends WorkflowQueryServiceImpl implements InterfaceWorkflowService {
 
+    private final WorkflowCommandService workflowCommandService;
     private final InterfaceWorkflowNodeService workflowNodeService;
     private final NodeParamConfigService nodeParamConfigService;
 
     public InterfaceWorkflowServiceImpl(InterfaceWorkflowMapper workflowMapper,
+                                        WorkflowCommandService workflowCommandService,
                                         InterfaceWorkflowNodeService workflowNodeService,
                                         NodeParamConfigService nodeParamConfigService) {
         super(workflowMapper);
+        this.workflowCommandService = workflowCommandService;
         this.workflowNodeService = workflowNodeService;
         this.nodeParamConfigService = nodeParamConfigService;
     }
@@ -46,14 +50,14 @@ public class InterfaceWorkflowServiceImpl extends WorkflowQueryServiceImpl imple
             throw new IllegalArgumentException("参数不能为空");
         }
 
-        return createWorkflow(workflow);
+        return workflowCommandService.createWorkflow(workflow);
     }
 
     @Override
     public PageList<InterfaceWorkflowDO> getAllWorkflows(int pageNum, int pageSize) {
         try {
             PageHelper.startPage(pageNum, pageSize);
-            List<InterfaceWorkflowDO> workflows = selectAllWorkflows();
+            List<InterfaceWorkflowDO> workflows = workflowCommandService.selectAllWorkflows();
             PageInfo<InterfaceWorkflowDO> pageInfo = new PageInfo<>(workflows);
 
             // 构建 PageList 对象
@@ -71,12 +75,12 @@ public class InterfaceWorkflowServiceImpl extends WorkflowQueryServiceImpl imple
 
     @Override
     public List<InterfaceWorkflowDO> getAllWorkflowsWithoutPaged() {
-        return selectAllWorkflows();
+        return workflowCommandService.selectAllWorkflows();
     }
 
     @Override
     public int update(InterfaceWorkflowDO interfaceInstanceDO) {
-        return updateWorkflow(interfaceInstanceDO);
+        return workflowCommandService.updateWorkflow(interfaceInstanceDO);
     }
 
     @Override
@@ -88,7 +92,7 @@ public class InterfaceWorkflowServiceImpl extends WorkflowQueryServiceImpl imple
             }
 
             // 执行删除操作
-            deleteWorkflow(flowId);
+            workflowCommandService.deleteWorkflow(flowId);
         } catch (Exception e) {
             log.error("删除工作流失败", e);
             throw new RuntimeException("删除工作流失败: " + e.getMessage());
@@ -97,7 +101,7 @@ public class InterfaceWorkflowServiceImpl extends WorkflowQueryServiceImpl imple
 
     @Override
     public WorkflowFullExportRsp exportWorkflowFull(Integer flowId) {
-        InterfaceWorkflowDO workflow = selectWorkflowEntity(flowId);
+        InterfaceWorkflowDO workflow = workflowCommandService.selectWorkflowEntity(flowId);
         if (workflow == null) {
             throw new IllegalArgumentException("工作流不存在: " + flowId);
         }
@@ -126,7 +130,7 @@ public class InterfaceWorkflowServiceImpl extends WorkflowQueryServiceImpl imple
         Map<Integer, Integer> nodeIdToIndex = new HashMap<>();
 
         for (Integer nodeId : firstFlowNodes) {
-            InterfaceWorkflowNodeView node = workflowNodeService.selectByNodeId(nodeId);
+            WorkflowNode node = workflowNodeService.selectByNodeId(nodeId);
             if (node != null) {
                 WorkflowFullExportRsp.NodeFullConfig nodeConfig = new WorkflowFullExportRsp.NodeFullConfig();
                 nodeConfig.setNodeName(node.getNodeName());
@@ -204,7 +208,7 @@ public class InterfaceWorkflowServiceImpl extends WorkflowQueryServiceImpl imple
                 .firstFlowNodes(new ArrayList<>())
                 .status(workflowInfo.getStatus())
                 .build();
-        createWorkflow(workflow);
+        workflowCommandService.createWorkflow(workflow);
         Integer flowId = workflow.getFlowId();
 
         // 2. 创建节点并记录新nodeId
@@ -248,7 +252,7 @@ public class InterfaceWorkflowServiceImpl extends WorkflowQueryServiceImpl imple
                     .collect(Collectors.toList());
             workflow.setFlowId(flowId);
             workflow.setFirstFlowNodes(firstFlowNodes);
-            updateWorkflow(workflow);
+            workflowCommandService.updateWorkflow(workflow);
         }
 
         return flowId;

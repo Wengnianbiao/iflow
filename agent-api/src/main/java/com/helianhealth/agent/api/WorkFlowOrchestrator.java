@@ -5,7 +5,7 @@ import com.helianhealth.agent.api.adapter.ContentTypeAdapter;
 import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.common.exception.WorkflowBusinessException;
 import com.helianhealth.agent.repository.model.domain.Workflow;
-import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.schedule.WorkflowScheduler;
 import com.helianhealth.agent.schedule.builder.WorkFlowNodeBuilder;
 import com.helianhealth.agent.repository.service.WorkflowQueryService;
@@ -43,7 +43,7 @@ public class WorkFlowOrchestrator {
                 // 兼容jarvis的API调用入参,理论上jarvis应当统一入参格式
                 Map<String, Object> businessData = request.getBusinessMethod().equals("GetItemResult") ?
                         JsonUtils.toMap(request) : JsonUtils.toMap(request.getData());
-                List<InterfaceWorkflowNode> workflowNodes = workFlowNodeBuilder.build(workflowOptional.get()
+                List<WorkflowNode> workflowNodes = workFlowNodeBuilder.build(workflowOptional.get()
                         .getFirstFlowNodes());
                 Map<String, Object> scheduleRsp = workflowScheduler.schedule(workflowNodes,
                         businessData);
@@ -83,7 +83,7 @@ public class WorkFlowOrchestrator {
                 Workflow workflow = workflowOptional.get();
                 // 2、参数预处理,根据contentType转化为Map
                 Map<String, Object> businessData = contentTypeAdapter.adaptRequest(workflow, request);
-                List<InterfaceWorkflowNode> workflowNodes = workFlowNodeBuilder.build(workflowOptional.get()
+                List<WorkflowNode> workflowNodes = workFlowNodeBuilder.build(workflowOptional.get()
                         .getFirstFlowNodes());
                 // 3、调度工作流
                 Map<String, Object> scheduleRsp = workflowScheduler.schedule(workflowNodes,

@@ -26,18 +26,6 @@
             <version>${project.version}</version>
         </dependency>
 
-        <dependency>
-            <groupId>com.helianhealth</groupId>
-            <artifactId>agent-log</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.helianhealth</groupId>
-            <artifactId>agent-mock</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
         <!-- HTTP Client -->
         <dependency>
             <groupId>org.apache.httpcomponents.client5</groupId>

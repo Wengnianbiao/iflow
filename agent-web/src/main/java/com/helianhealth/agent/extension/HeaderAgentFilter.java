@@ -5,7 +5,7 @@ import com.helianhealth.agent.common.extension.AgentActivate;
 import com.helianhealth.agent.common.utils.JsonUtils;
 import com.helianhealth.agent.invocation.remote.InterfaceClientProxy;
 import com.helianhealth.agent.invocation.remote.filter.AgentFilter;
-import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import lombok.extern.slf4j.Slf4j;
 
@@ -25,7 +25,7 @@ public class HeaderAgentFilter implements AgentFilter {
 
     @Override
     @SuppressWarnings("unchecked")
-    public Map<String, Object> doInvoke(InterfaceClientProxy next, InterfaceWorkflowNode flowNode, List<ParamTreeNode> params) {
+    public Map<String, Object> doInvoke(InterfaceClientProxy next, WorkflowNode flowNode, List<ParamTreeNode> params) {
         Map<String, String> extensionParam = flowNode.getExtensionParam();
         if (extensionParam == null || !extensionParam.containsKey(ExtensionConstants.EXTENSION_PARAM_KEY_HEADER)) {
             return next.doInvoke(flowNode, params);

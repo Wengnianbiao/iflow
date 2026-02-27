@@ -1,7 +1,7 @@
 package com.helianhealth.agent.invocation.remote.http;
 
 import com.helianhealth.agent.common.enums.NodeType;
-import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.invocation.remote.InterfaceClientProxy;
 import com.helianhealth.agent.common.utils.JsonUtils;
@@ -25,7 +25,7 @@ public class HttpProtocolAdapter implements InterfaceClientProxy {
 
     @Override
     @SuppressWarnings("unchecked")
-    public Map<String, Object> doInvoke(InterfaceWorkflowNode flowNode, List<ParamTreeNode> params) {
+    public Map<String, Object> doInvoke(WorkflowNode flowNode, List<ParamTreeNode> params) {
         try {
             // 1. 检查节点类型是否为HTTP
             if (flowNode.getNodeType() != NodeType.HTTP) {

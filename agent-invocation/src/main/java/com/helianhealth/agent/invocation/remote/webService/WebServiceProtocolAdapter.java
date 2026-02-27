@@ -1,7 +1,7 @@
 package com.helianhealth.agent.invocation.remote.webService;
 
 import com.helianhealth.agent.invocation.remote.InterfaceClientProxy;
-import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import lombok.extern.slf4j.Slf4j;
 
@@ -35,7 +35,7 @@ public class WebServiceProtocolAdapter implements InterfaceClientProxy {
     }
 
     @Override
-    public Map<String, Object> doInvoke(InterfaceWorkflowNode flowNode, List<ParamTreeNode> params) {
+    public Map<String, Object> doInvoke(WorkflowNode flowNode, List<ParamTreeNode> params) {
         try {
             String soapMessage = soapRequestHandler.resolveParamNodes(flowNode, params);
             String soapResponse = soapRequestHandler.sendSoapRequest(flowNode, soapMessage);

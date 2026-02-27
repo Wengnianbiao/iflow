@@ -4,7 +4,7 @@ import com.alibaba.fastjson2.JSONArray;
 import com.helianhealth.agent.common.enums.ParamType;
 import com.helianhealth.agent.common.exception.DatabaseRemoteBusinessException;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
-import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.ParamResolver;
 import com.helianhealth.agent.invocation.remote.manager.DatabaseApiClientManager;
 import com.helianhealth.agent.common.utils.JsonUtils;
@@ -33,7 +33,7 @@ public class DatabaseSqlHandler implements ParamResolver {
     }
 
     @Override
-    public String resolveParamNodes(InterfaceWorkflowNode flowNode, List<ParamTreeNode> params) {
+    public String resolveParamNodes(WorkflowNode flowNode, List<ParamTreeNode> params) {
         Map<String, Object> metaInfo = JsonUtils.toMap(flowNode.getMetaInfo());
         String sqlTemplate = (String) metaInfo.get("sqlTemplate");
         String operation = (String) metaInfo.get("operation");
@@ -267,7 +267,7 @@ public class DatabaseSqlHandler implements ParamResolver {
                 .replace("\"", "'");
     }
 
-    public Map<String, Object> invokeSqlAndConvertResult(InterfaceWorkflowNode flowNode, String sql) {
+    public Map<String, Object> invokeSqlAndConvertResult(WorkflowNode flowNode, String sql) {
         Connection connection = null;
         PreparedStatement ps = null;
         ResultSet rs = null;

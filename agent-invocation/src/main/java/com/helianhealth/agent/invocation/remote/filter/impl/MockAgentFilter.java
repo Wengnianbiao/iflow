@@ -6,10 +6,10 @@ import com.helianhealth.agent.invocation.remote.InterfaceClientProxy;
 import com.helianhealth.agent.invocation.remote.database.DatabaseSqlHandler;
 import com.helianhealth.agent.invocation.remote.filter.AgentFilter;
 import com.helianhealth.agent.invocation.remote.http.HttpRequestHandler;
-import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.invocation.remote.webService.SoapRequestHandler;
-import com.helianhealth.agent.mock.service.MockConfigService;
+import com.helianhealth.agent.repository.service.MockConfigService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
@@ -67,7 +67,7 @@ public class MockAgentFilter implements AgentFilter {
     }
 
     @Override
-    public Map<String, Object> doInvoke(InterfaceClientProxy next, InterfaceWorkflowNode flowNode, List<ParamTreeNode> params) {
+    public Map<String, Object> doInvoke(InterfaceClientProxy next, WorkflowNode flowNode, List<ParamTreeNode> params) {
 
         // 检查节点配置中是否包含mockId，如果配置了mockId，则直接获取对应的Mock响应数据
         Map<String, String> extensionParam = flowNode.getExtensionParam();
@@ -98,7 +98,7 @@ public class MockAgentFilter implements AgentFilter {
     }
 
 
-    private void resolveParamNodesByType(InterfaceWorkflowNode flowNode, List<ParamTreeNode> params) {
+    private void resolveParamNodesByType(WorkflowNode flowNode, List<ParamTreeNode> params) {
         switch (flowNode.getNodeType()) {
             case HTTP:
                 httpRequestHandler.resolveParamNodes(flowNode, params);

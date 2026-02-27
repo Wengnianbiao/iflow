@@ -3,24 +3,20 @@ package com.helianhealth.agent.repository.service.impl;
 import com.helianhealth.agent.repository.mapper.InterfaceWorkflowMapper;
 import com.helianhealth.agent.repository.model.domain.Workflow;
 import com.helianhealth.agent.repository.model.po.InterfaceWorkflowDO;
-import com.helianhealth.agent.repository.service.WorkflowCommandService;
 import com.helianhealth.agent.repository.service.WorkflowQueryService;
 
-import java.util.List;
 import java.util.Optional;
 
 /**
- * 工作流数据访问基础实现（查询 + 写操作）
+ * 工作流查询服务基础实现
  */
-public class WorkflowQueryServiceImpl implements WorkflowQueryService, WorkflowCommandService {
+public class WorkflowQueryServiceImpl implements WorkflowQueryService {
 
     protected final InterfaceWorkflowMapper workflowMapper;
 
     public WorkflowQueryServiceImpl(InterfaceWorkflowMapper workflowMapper) {
         this.workflowMapper = workflowMapper;
     }
-
-    // ========== Query ==========
 
     @Override
     public Optional<Workflow> findByInterfaceUri(String interfaceUri) {
@@ -32,35 +28,6 @@ public class WorkflowQueryServiceImpl implements WorkflowQueryService, WorkflowC
     public Workflow selectByFlowId(Integer flowId) {
         return toWorkflow(workflowMapper.selectByPrimaryKey(flowId));
     }
-
-    // ========== Command ==========
-
-    @Override
-    public int createWorkflow(InterfaceWorkflowDO workflow) {
-        return workflowMapper.createWorkflow(workflow);
-    }
-
-    @Override
-    public List<InterfaceWorkflowDO> selectAllWorkflows() {
-        return workflowMapper.selectAllWorkflows();
-    }
-
-    @Override
-    public int updateWorkflow(InterfaceWorkflowDO workflow) {
-        return workflowMapper.updateByPrimaryKeySelective(workflow);
-    }
-
-    @Override
-    public void deleteWorkflow(Integer flowId) {
-        workflowMapper.deleteByPrimaryKey(flowId);
-    }
-
-    @Override
-    public InterfaceWorkflowDO selectWorkflowEntity(Integer flowId) {
-        return workflowMapper.selectByPrimaryKey(flowId);
-    }
-
-    // ========== Convert ==========
 
     protected Workflow toWorkflow(InterfaceWorkflowDO entity) {
         if (entity == null) {

@@ -1,6 +1,6 @@
 package com.helianhealth.agent.invocation.remote;
 
-import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import lombok.extern.slf4j.Slf4j;
 
@@ -11,7 +11,7 @@ import java.util.Map;
 public class DefaultApiClientProxy implements InterfaceClientProxy {
 
     @Override
-    public Map<String, Object> doInvoke(InterfaceWorkflowNode flowNode, List<ParamTreeNode> params) {
+    public Map<String, Object> doInvoke(WorkflowNode flowNode, List<ParamTreeNode> params) {
         // 没有三方调用的API直接返回参数
         return new HashMap<>();
     }

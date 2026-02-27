@@ -1,7 +1,7 @@
 package com.helianhealth.agent.invocation.remote;
 
 import com.helianhealth.agent.common.enums.MappingSource;
-import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.invocation.remote.model.PostBuildContext;
@@ -52,7 +52,7 @@ public abstract class AbstractParamTreeBuilder implements ParamTree {
     }
 
     @Override
-    public List<ParamTreeNode> buildPreParamTree(InterfaceWorkflowNode flowNode,
+    public List<ParamTreeNode> buildPreParamTree(WorkflowNode flowNode,
                                                  List<NodeParamConfig> configs,
                                                  Integer parentId,
                                                  PreBuildContext buildContext) {
@@ -146,7 +146,7 @@ public abstract class AbstractParamTreeBuilder implements ParamTree {
                                                     ParamTreeNode node);
 
     @Override
-    public List<ParamTreeNode> buildPostParamTree(InterfaceWorkflowNode flowNode,
+    public List<ParamTreeNode> buildPostParamTree(WorkflowNode flowNode,
                                                   List<NodeParamConfig> configs,
                                                   Integer parentId,
                                                   PostBuildContext buildContext){

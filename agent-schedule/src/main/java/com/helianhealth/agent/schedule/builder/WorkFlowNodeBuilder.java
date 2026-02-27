@@ -1,11 +1,9 @@
 package com.helianhealth.agent.schedule.builder;
 
 import com.helianhealth.agent.common.base.ExtensionConstants;
-import com.helianhealth.agent.common.utils.JsonUtils;
-import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
-import com.helianhealth.agent.mock.model.MockConfigDO;
-import com.helianhealth.agent.mock.service.MockConfigService;
-import com.helianhealth.agent.repository.model.dto.InterfaceWorkflowNodeView;
+import com.helianhealth.agent.repository.model.domain.MockConfig;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
+import com.helianhealth.agent.repository.service.MockConfigQueryService;
 import com.helianhealth.agent.repository.service.WorkflowNodeQueryService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -20,40 +18,20 @@ import java.util.Map;
 public class WorkFlowNodeBuilder {
 
     private final WorkflowNodeQueryService flowNodeService;
-    private final MockConfigService mockConfigService;
+    private final MockConfigQueryService mockConfigQueryService;
 
-    public List<InterfaceWorkflowNode> build(List<Integer> workFlowNodeIds) {
-        List<InterfaceWorkflowNode> nodes = new ArrayList<>();
+    public List<WorkflowNode> build(List<Integer> workFlowNodeIds) {
+        List<WorkflowNode> nodes = new ArrayList<>();
         workFlowNodeIds.forEach(nodeId -> {
-            InterfaceWorkflowNode build = doBuild(nodeId);
+            WorkflowNode build = doBuild(nodeId);
             nodes.add(build);
         });
 
         return nodes;
     }
 
-    private InterfaceWorkflowNode doBuild(Integer workFlowNodeId) {
-        InterfaceWorkflowNodeView view = flowNodeService.selectByNodeId(workFlowNodeId);
-
-        Map<String, String> extensionParam = null;
-        if (view.getExtensionParam() != null && !view.getExtensionParam().isEmpty()) {
-            extensionParam = JsonUtils.fromJsonStringToMap(view.getExtensionParam());
-        }
-
-        return InterfaceWorkflowNode.builder()
-                .nodeId(view.getNodeId())
-                .nodeName(view.getNodeName())
-                .flowId(view.getFlowId())
-                .paramFilterExpr(view.getParamFilterExpr())
-                .nodeType(view.getNodeType())
-                .metaInfo(view.getMetaInfo())
-                .splitField(view.getSplitField())
-                .scheduleExpr(view.getScheduleExpr())
-                .scheduleParamSourceType(view.getScheduleParamSourceType())
-                .keywordField(view.getKeywordField())
-                .remoteExtension(view.getRemoteExtension())
-                .extensionParam(extensionParam)
-                .build();
+    private WorkflowNode doBuild(Integer workFlowNodeId) {
+        return flowNodeService.selectByNodeId(workFlowNodeId);
     }
 
     /**
@@ -62,9 +40,9 @@ public class WorkFlowNodeBuilder {
      * @param mockId Mock配置ID
      * @return 带Mock配置的工作流节点
      */
-    public InterfaceWorkflowNode buildWithMock(Integer workFlowNodeId, Integer mockId) {
+    public WorkflowNode buildWithMock(Integer workFlowNodeId, Integer mockId) {
         // 1. 验证Mock配置是否存在
-        MockConfigDO mockConfig = mockConfigService.findById(mockId);
+        MockConfig mockConfig = mockConfigQueryService.findById(mockId);
         if (mockConfig == null) {
             throw new IllegalArgumentException("Mock配置不存在，mockId=" + mockId);
         }
@@ -74,26 +52,25 @@ public class WorkFlowNodeBuilder {
             throw new IllegalArgumentException("Mock配置不属于该节点，mockId=" + mockId + ", nodeId=" + workFlowNodeId);
         }
 
-        // 3. 构建基础节点
-        InterfaceWorkflowNodeView view = flowNodeService.selectByNodeId(workFlowNodeId);
+        WorkflowNode node = flowNodeService.selectByNodeId(workFlowNodeId);
         Map<String, String> extensionParam = new HashMap<>();
-        if (view.getExtensionParam() != null && !view.getExtensionParam().isEmpty()) {
-            extensionParam.putAll(JsonUtils.fromJsonStringToMap(view.getExtensionParam()));
+        if (node.getExtensionParam() != null) {
+            extensionParam.putAll(node.getExtensionParam());
         }
         extensionParam.put(ExtensionConstants.EXTENSION_PARAM_KEY_MOCK, mockId.toString());
 
-        // 4. 构建带Mock标记的节点
-        return InterfaceWorkflowNode.builder()
-                .nodeId(view.getNodeId())
-                .nodeName(view.getNodeName())
-                .flowId(view.getFlowId())
-                .paramFilterExpr(view.getParamFilterExpr())
-                .nodeType(view.getNodeType())
-                .metaInfo(view.getMetaInfo())
-                .splitField(view.getSplitField())
-                .scheduleExpr(view.getScheduleExpr())
-                .scheduleParamSourceType(view.getScheduleParamSourceType())
-                .keywordField(view.getKeywordField())
+        return WorkflowNode.builder()
+                .nodeId(node.getNodeId())
+                .nodeName(node.getNodeName())
+                .flowId(node.getFlowId())
+                .paramFilterExpr(node.getParamFilterExpr())
+                .nodeType(node.getNodeType())
+                .metaInfo(node.getMetaInfo())
+                .splitField(node.getSplitField())
+                .scheduleExpr(node.getScheduleExpr())
+                .scheduleParamSourceType(node.getScheduleParamSourceType())
+                .keywordField(node.getKeywordField())
+                .remoteExtension(node.getRemoteExtension())
                 .extensionParam(extensionParam)
                 .build();
     }

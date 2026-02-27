@@ -10,6 +10,7 @@ import com.helianhealth.agent.repository.mapper.NodeParamConfigMapper;
 import com.helianhealth.agent.repository.model.po.NodeParamConfigDO;
 import com.helianhealth.agent.console.model.dto.NodeParamConfigImportDTO;
 import com.helianhealth.agent.console.service.NodeParamConfigService;
+import com.helianhealth.agent.repository.service.NodeParamConfigCommandService;
 import com.helianhealth.agent.repository.service.impl.NodeParamConfigQueryServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -24,8 +25,12 @@ import java.util.List;
 @Slf4j
 public class NodeParamConfigServiceImpl extends NodeParamConfigQueryServiceImpl implements NodeParamConfigService {
 
-    public NodeParamConfigServiceImpl(NodeParamConfigMapper nodeParamConfigMapper) {
+    private final NodeParamConfigCommandService nodeParamConfigCommandService;
+
+    public NodeParamConfigServiceImpl(NodeParamConfigMapper nodeParamConfigMapper,
+                                      NodeParamConfigCommandService nodeParamConfigCommandService) {
         super(nodeParamConfigMapper);
+        this.nodeParamConfigCommandService = nodeParamConfigCommandService;
     }
 
     @Override
@@ -36,7 +41,7 @@ public class NodeParamConfigServiceImpl extends NodeParamConfigQueryServiceImpl 
 
             // 查询数据
             String processTypeName = processType != null ? processType.name() : null;
-            List<NodeParamConfigDO> configs = selectAllConfigs(nodeId, processTypeName, targetParam);
+            List<NodeParamConfigDO> configs = nodeParamConfigCommandService.selectAllConfigs(nodeId, processTypeName, targetParam);
 
             // 将查询结果转换为 PageInfo 对象
             PageInfo<NodeParamConfigDO> pageInfo = new PageInfo<>(configs);
@@ -60,7 +65,7 @@ public class NodeParamConfigServiceImpl extends NodeParamConfigQueryServiceImpl 
         // 查询数据
         String processTypeName = processType != null ? processType.name() : null;
 
-        return selectAllConfigs(nodeId, processTypeName, null);
+        return nodeParamConfigCommandService.selectAllConfigs(nodeId, processTypeName, null);
     }
 
     @Override
@@ -80,10 +85,10 @@ public class NodeParamConfigServiceImpl extends NodeParamConfigQueryServiceImpl 
             }
 
             // 执行更新操作
-            int result = updateConfig(config);
+            int result = nodeParamConfigCommandService.updateConfig(config);
 
             if (result > 0) {
-                return selectConfigById(config.getConfigId());
+                return nodeParamConfigCommandService.selectConfigById(config.getConfigId());
             } else {
                 log.warn("更新节点参数配置失败，未找到对应记录: configId={}", config.getConfigId());
                 return null;
@@ -107,7 +112,7 @@ public class NodeParamConfigServiceImpl extends NodeParamConfigQueryServiceImpl 
             }
 
             // 执行插入操作
-            int result = insertConfig(config);
+            int result = nodeParamConfigCommandService.insertConfig(config);
 
             if (result > 0) {
                 // 如果使用自增主键，MyBatis会自动将生成的ID设置到config对象中
@@ -131,7 +136,7 @@ public class NodeParamConfigServiceImpl extends NodeParamConfigQueryServiceImpl 
             }
 
             // 执行删除操作
-            deleteConfig(configId);
+            nodeParamConfigCommandService.deleteConfig(configId);
         } catch (Exception e) {
             log.error("删除节点参数配置失败", e);
             throw new RuntimeException("删除节点参数配置失败: " + e.getMessage());

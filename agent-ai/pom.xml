@@ -33,13 +33,6 @@
             <version>${project.version}</version>
         </dependency>
 
-        <!-- Mock模块 -->
-        <dependency>
-            <groupId>com.helianhealth</groupId>
-            <artifactId>agent-mock</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
         <!-- 调度模块 -->
         <dependency>
             <groupId>com.helianhealth</groupId>
@@ -51,13 +44,6 @@
         <dependency>
             <groupId>com.helianhealth</groupId>
             <artifactId>agent-invocation</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <!-- 日志模块 -->
-        <dependency>
-            <groupId>com.helianhealth</groupId>
-            <artifactId>agent-log</artifactId>
             <version>${project.version}</version>
         </dependency>
 

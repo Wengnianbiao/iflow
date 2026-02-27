@@ -3,7 +3,7 @@ package com.helianhealth.agent.invocation.remote.http;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.helianhealth.agent.common.enums.ParamType;
-import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.invocation.remote.ParamResolver;
 import com.helianhealth.agent.invocation.remote.manager.HttpApiClientManager;
@@ -34,7 +34,7 @@ public class HttpRequestHandler implements ParamResolver {
     /**
      * http参数解析
      */
-    public String resolveParamNodes(InterfaceWorkflowNode flowNode, List<ParamTreeNode> params) {
+    public String resolveParamNodes(WorkflowNode flowNode, List<ParamTreeNode> params) {
         if (params == null || params.isEmpty()) {
             return "";
         }

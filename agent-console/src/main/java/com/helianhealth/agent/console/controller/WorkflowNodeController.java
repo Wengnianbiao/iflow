@@ -3,6 +3,7 @@ package com.helianhealth.agent.console.controller;
 import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.common.utils.ResponseRenderUtils;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.repository.model.dto.InterfaceWorkflowNodeView;
 import com.helianhealth.agent.console.controller.reponse.NodeConfigExportRsp;
 import com.helianhealth.agent.console.controller.reponse.NodeParamConfigExportRsp;
@@ -83,9 +84,9 @@ public class WorkflowNodeController {
      * 根据节点ID获取工作流节点
      */
     @GetMapping("/{nodeId}")
-    public ResultData<InterfaceWorkflowNodeView> getNodeById(@PathVariable Integer nodeId) {
+    public ResultData<WorkflowNode> getNodeById(@PathVariable Integer nodeId) {
         try {
-            InterfaceWorkflowNodeView node = interfaceFlowNodeService.selectByNodeId(nodeId);
+            WorkflowNode node = interfaceFlowNodeService.selectByNodeId(nodeId);
             if (node == null) {
                 return ResponseRenderUtils.error("工作流节点不存在");
             }

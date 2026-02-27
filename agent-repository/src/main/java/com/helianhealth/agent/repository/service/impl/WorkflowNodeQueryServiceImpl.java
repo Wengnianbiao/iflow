@@ -1,17 +1,17 @@
 package com.helianhealth.agent.repository.service.impl;
 
+import com.helianhealth.agent.common.utils.JsonUtils;
 import com.helianhealth.agent.repository.mapper.InterfaceFlowNodeMapper;
-import com.helianhealth.agent.repository.model.dto.InterfaceWorkflowNodeView;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.repository.model.po.InterfaceWorkflowNodePO;
-import com.helianhealth.agent.repository.service.WorkflowNodeCommandService;
 import com.helianhealth.agent.repository.service.WorkflowNodeQueryService;
 
-import java.util.List;
+import java.util.Map;
 
 /**
- * 工作流节点数据访问基础实现（查询 + 写操作）
+ * 工作流节点查询服务基础实现
  */
-public class WorkflowNodeQueryServiceImpl implements WorkflowNodeQueryService, WorkflowNodeCommandService {
+public class WorkflowNodeQueryServiceImpl implements WorkflowNodeQueryService {
 
     protected final InterfaceFlowNodeMapper flowNodeMapper;
 
@@ -19,60 +19,33 @@ public class WorkflowNodeQueryServiceImpl implements WorkflowNodeQueryService, W
         this.flowNodeMapper = flowNodeMapper;
     }
 
-    // ========== Query ==========
-
     @Override
-    public InterfaceWorkflowNodeView selectByNodeId(Integer nodeId) {
+    public WorkflowNode selectByNodeId(Integer nodeId) {
         InterfaceWorkflowNodePO po = flowNodeMapper.selectByNodeId(nodeId);
-        return toView(po);
+        return toWorkflowNode(po);
     }
 
-    // ========== Command ==========
-
-    @Override
-    public void createNode(InterfaceWorkflowNodePO node) {
-        flowNodeMapper.createNode(node);
-    }
-
-    @Override
-    public int updateNode(InterfaceWorkflowNodePO node) {
-        return flowNodeMapper.updateNode(node);
-    }
-
-    @Override
-    public void deleteNode(Integer nodeId) {
-        flowNodeMapper.deleteByPrimaryKey(nodeId);
-    }
-
-    @Override
-    public List<InterfaceWorkflowNodePO> selectAllNodes(Integer flowId) {
-        return flowNodeMapper.selectAllNodes(flowId);
-    }
-
-    @Override
-    public InterfaceWorkflowNodePO selectNodeEntity(Integer nodeId) {
-        return flowNodeMapper.selectByNodeId(nodeId);
-    }
-
-    // ========== Convert ==========
-
-    protected InterfaceWorkflowNodeView toView(InterfaceWorkflowNodePO po) {
+    protected WorkflowNode toWorkflowNode(InterfaceWorkflowNodePO po) {
         if (po == null) {
             return null;
         }
-        InterfaceWorkflowNodeView view = new InterfaceWorkflowNodeView();
-        view.setNodeId(po.getNodeId());
-        view.setNodeName(po.getNodeName());
-        view.setFlowId(po.getFlowId());
-        view.setParamFilterExpr(po.getParamFilterExpr());
-        view.setNodeType(po.getNodeType());
-        view.setMetaInfo(po.getMetaInfo());
-        view.setSplitField(po.getSplitField());
-        view.setScheduleExpr(po.getScheduleExpr());
-        view.setScheduleParamSourceType(po.getScheduleParamSourceType());
-        view.setKeywordField(po.getKeywordField());
-        view.setRemoteExtension(po.getRemoteExtension());
-        view.setExtensionParam(po.getExtensionParam());
-        return view;
+        Map<String, String> extensionParam = null;
+        if (po.getExtensionParam() != null && !po.getExtensionParam().isEmpty()) {
+            extensionParam = JsonUtils.fromJsonStringToMap(po.getExtensionParam());
+        }
+        return WorkflowNode.builder()
+                .nodeId(po.getNodeId())
+                .nodeName(po.getNodeName())
+                .flowId(po.getFlowId())
+                .paramFilterExpr(po.getParamFilterExpr())
+                .nodeType(po.getNodeType())
+                .metaInfo(po.getMetaInfo())
+                .splitField(po.getSplitField())
+                .scheduleExpr(po.getScheduleExpr())
+                .scheduleParamSourceType(po.getScheduleParamSourceType())
+                .keywordField(po.getKeywordField())
+                .remoteExtension(po.getRemoteExtension())
+                .extensionParam(extensionParam)
+                .build();
     }
 }

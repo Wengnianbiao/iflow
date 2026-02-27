@@ -2,7 +2,7 @@ package com.helianhealth.agent.invocation.remote;
 
 import com.helianhealth.agent.common.extension.AgentAdaptive;
 import com.helianhealth.agent.common.extension.AgentSPI;
-import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.Invocation;
 
 import java.util.Map;
@@ -21,5 +21,5 @@ public interface InterfaceRemoteInvoker {
      * @return 调用结果
      */
     @AgentAdaptive("remoteExtension")
-    Map<String, Object> remoteInvoke(InterfaceWorkflowNode flowNode, Invocation invocation);
+    Map<String, Object> remoteInvoke(WorkflowNode flowNode, Invocation invocation);
 }

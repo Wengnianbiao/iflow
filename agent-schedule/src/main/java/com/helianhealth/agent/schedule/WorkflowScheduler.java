@@ -6,7 +6,7 @@ import com.helianhealth.agent.common.extension.AgentExtensionLoader;
 import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 import com.helianhealth.agent.repository.service.NodeParamConfigQueryService;
 import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
-import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.Invocation;
 import com.helianhealth.agent.invocation.remote.wrapper.WrapperFactory;
 import com.helianhealth.agent.common.utils.SpelUtils;
@@ -84,7 +84,7 @@ public class WorkflowScheduler {
      * @param businessData 业务数据,业务数据一定是Map<String, Object>结构,而且这个Object得是JSON格式
      * @return 统一出参，出参怎么适配是工作流节点自己的事情，你只需要帮我处理好返回统一出参即可
      */
-    public Map<String, Object> schedule(List<InterfaceWorkflowNode> flowNodes, Map<String, Object> businessData) {
+    public Map<String, Object> schedule(List<WorkflowNode> flowNodes, Map<String, Object> businessData) {
         Map<String, Object> flowNodeResponse;
         if (flowNodes != null && flowNodes.size() == 1) {
             // 单节点处理
@@ -99,7 +99,7 @@ public class WorkflowScheduler {
         return flowNodeResponse;
     }
 
-    private Map<String, Object> processSingleNode(InterfaceWorkflowNode flowNode, Map<String, Object> businessData) {
+    private Map<String, Object> processSingleNode(WorkflowNode flowNode, Map<String, Object> businessData) {
         // 1、根据规则表达式对入参进行预处理
         Map<String, Object> businessDataAfterPost = businessDataPostProcessor.paramFilterPostProcess(
                 flowNode.getParamFilterExpr(), businessData);
@@ -124,7 +124,7 @@ public class WorkflowScheduler {
         if (nextNodes == null || nextNodes.isEmpty()) {
             return nodeResponse;
         }
-        List<InterfaceWorkflowNode> workflowNodes = workFlowNodeBuilder.build(nextNodes);
+        List<WorkflowNode> workflowNodes = workFlowNodeBuilder.build(nextNodes);
 
         // 4、调度节点的入参来源
         Map<String, Object> nextNodeParam = determineNextNodeParam(flowNode.getScheduleParamSourceType(),
@@ -133,7 +133,7 @@ public class WorkflowScheduler {
         return schedule(workflowNodes, nextNodeParam);
     }
 
-    private Invocation buildInvocation(InterfaceWorkflowNode flowNode, Map<String, Object> businessData) {
+    private Invocation buildInvocation(WorkflowNode flowNode, Map<String, Object> businessData) {
         List<NodeParamConfig> preParamConfigs = nodeParamConfigService.selectPreProcessConfigByNodeId(flowNode.getNodeId());
         List<NodeParamConfig> postParamConfigs = nodeParamConfigService.selectPostProcessConfigByNodeId(flowNode.getNodeId());
 
@@ -144,9 +144,7 @@ public class WorkflowScheduler {
                 .build();
     }
 
-
-
-    private Map<String, Object> parallelSplitNodeProcess(InterfaceWorkflowNode flowNode, Map<String, Object> businessData) {
+    private Map<String, Object> parallelSplitNodeProcess(WorkflowNode flowNode, Map<String, Object> businessData) {
         // 1. 拆分业务数据
         List<Map<String, Object>> listBusinessData = splitBusinessDataPostProcessor.split(flowNode.getSplitField(), businessData);
         if (listBusinessData.isEmpty()) {
@@ -192,7 +190,7 @@ public class WorkflowScheduler {
         }
     }
 
-    private Map<String, Object> processParallelNode(List<InterfaceWorkflowNode> nodes, Map<String, Object> businessData) {
+    private Map<String, Object> processParallelNode(List<WorkflowNode> nodes, Map<String, Object> businessData) {
         // 1. 并行执行任务并收集Future
         List<CompletableFuture<Map<String, Object>>> futures = nodes.stream()
                 .map(map -> CompletableFuture.supplyAsync(
