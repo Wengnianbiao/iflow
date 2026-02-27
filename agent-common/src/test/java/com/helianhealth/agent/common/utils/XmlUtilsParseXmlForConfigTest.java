@@ -1,10 +1,14 @@
 package com.helianhealth.agent.common.utils;
 
 import com.helianhealth.agent.common.base.XmlConstants;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -16,7 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * XmlUtils.parseXmlForConfig 方法测试用例
+ * XmlUtils 测试用例
+ * 覆盖场景：XML解析、Map转XML、业务数据处理
  */
 public class XmlUtilsParseXmlForConfigTest {
 
@@ -495,5 +500,248 @@ public class XmlUtilsParseXmlForConfigTest {
         assertEquals(2, itemHisIds.size());
         assertEquals("80000055973", itemHisIds.get(0));
         assertEquals("80000055975", itemHisIds.get(1));
+    }
+
+    // ==================== 12. Map转XML场景（buildResponseXml） ====================
+
+    @Nested
+    @DisplayName("Map转XML场景")
+    class BuildResponseXmlTests {
+
+        @Test
+        @DisplayName("简单Map转XML")
+        void buildSimpleXml() {
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("code", "200");
+            data.put("message", "成功");
+
+            Map<String, Object> root = new LinkedHashMap<>();
+            root.put("Response", data);
+
+            String xml = XmlUtils.buildResponseXml(root, "{}");
+
+            assertNotNull(xml);
+            assertTrue(xml.contains("<Response>"));
+            assertTrue(xml.contains("<code>200</code>"));
+            assertTrue(xml.contains("<message>成功</message>"));
+        }
+
+        @Test
+        @DisplayName("嵌套Map转XML")
+        void buildNestedXml() {
+            Map<String, Object> patient = new LinkedHashMap<>();
+            patient.put("code", "P001");
+            patient.put("name", "张三");
+
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("patient", patient);
+
+            Map<String, Object> root = new LinkedHashMap<>();
+            root.put("Response", data);
+
+            String xml = XmlUtils.buildResponseXml(root, "{}");
+
+            assertTrue(xml.contains("<patient>"));
+            assertTrue(xml.contains("<code>P001</code>"));
+            assertTrue(xml.contains("<name>张三</name>"));
+        }
+
+        @Test
+        @DisplayName("包含数组的Map转XML")
+        void buildXmlWithList() {
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("items", Arrays.asList("item1", "item2", "item3"));
+
+            Map<String, Object> root = new LinkedHashMap<>();
+            root.put("Response", data);
+
+            String xml = XmlUtils.buildResponseXml(root, "{}");
+
+            assertTrue(xml.contains("<items>item1</items>"));
+            assertTrue(xml.contains("<items>item2</items>"));
+            assertTrue(xml.contains("<items>item3</items>"));
+        }
+
+        @Test
+        @DisplayName("包含Map数组的转换")
+        void buildXmlWithMapList() {
+            Map<String, Object> item1 = new LinkedHashMap<>();
+            item1.put("id", "1");
+            item1.put("name", "A");
+
+            Map<String, Object> item2 = new LinkedHashMap<>();
+            item2.put("id", "2");
+            item2.put("name", "B");
+
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("item", Arrays.asList(item1, item2));
+
+            Map<String, Object> root = new LinkedHashMap<>();
+            root.put("Response", data);
+
+            String xml = XmlUtils.buildResponseXml(root, "{}");
+
+            // 验证两个item元素
+            assertTrue(xml.contains("<id>1</id>"));
+            assertTrue(xml.contains("<name>A</name>"));
+            assertTrue(xml.contains("<id>2</id>"));
+            assertTrue(xml.contains("<name>B</name>"));
+        }
+
+        @Test
+        @DisplayName("带命名空间的XML生成")
+        void buildXmlWithNamespace() {
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("code", "200");
+
+            Map<String, Object> root = new LinkedHashMap<>();
+            root.put("Response", data);
+
+            String metaInfo = "{\"responseNamespace\":\"http://example.com/ws\"}";
+            String xml = XmlUtils.buildResponseXml(root, metaInfo);
+
+            assertTrue(xml.contains("xmlns=\"http://example.com/ws\""));
+        }
+
+        @Test
+        @DisplayName("指定resultElementName")
+        void buildXmlWithResultElementName() {
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("code", "200");
+
+            Map<String, Object> root = new LinkedHashMap<>();
+            root.put("CustomResponse", data);
+
+            String metaInfo = "{\"resultElementName\":\"CustomResponse\"}";
+            String xml = XmlUtils.buildResponseXml(root, metaInfo);
+
+            assertTrue(xml.contains("<CustomResponse>"));
+        }
+
+        @Test
+        @DisplayName("null值生成空标签")
+        void buildXmlWithNullValue() {
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("code", "200");
+            data.put("remark", null);
+
+            Map<String, Object> root = new LinkedHashMap<>();
+            root.put("Response", data);
+
+            String xml = XmlUtils.buildResponseXml(root, "{}");
+
+            assertTrue(xml.contains("<remark></remark>") || xml.contains("<remark/>"));
+        }
+
+        @Test
+        @DisplayName("带属性的Map转XML")
+        void buildXmlWithAttributes() {
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("#version", "1.0");  // # 前缀表示属性
+            data.put("code", "200");
+
+            Map<String, Object> root = new LinkedHashMap<>();
+            root.put("Response", data);
+
+            String xml = XmlUtils.buildResponseXml(root, "{}");
+
+            assertTrue(xml.contains("version=\"1.0\""));
+            assertTrue(xml.contains("<code>200</code>"));
+        }
+
+        @Test
+        @DisplayName("空Map抛出异常")
+        void buildXml_EmptyMap() {
+            assertThrows(RuntimeException.class, () ->
+                    XmlUtils.buildResponseXml(new HashMap<>(), "{}"));
+        }
+
+        @Test
+        @DisplayName("null Map抛出异常")
+        void buildXml_NullMap() {
+            assertThrows(RuntimeException.class, () ->
+                    XmlUtils.buildResponseXml(null, "{}"));
+        }
+    }
+
+    // ==================== 13. 业务响应场景 ====================
+
+    @Nested
+    @DisplayName("业务响应场景")
+    class BusinessResponseTests {
+
+        @Test
+        @DisplayName("档案创建响应：HIS返回患者ID")
+        void archivesCreationResponse() {
+            String xml = "<CreateArchivesResponse>" +
+                    "<returnCode>1</returnCode>" +
+                    "<returnMsg>成功</returnMsg>" +
+                    "<hisPatientId>HIS001</hisPatientId>" +
+                    "</CreateArchivesResponse>";
+            Map<String, Object> metaMap = new HashMap<>();
+
+            Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
+
+            assertEquals("1", result.get("returnCode"));
+            assertEquals("成功", result.get("returnMsg"));
+            assertEquals("HIS001", result.get("hisPatientId"));
+        }
+
+        @Test
+        @DisplayName("账单创建响应：HIS返回账单ID")
+        void orderCreationResponse() {
+            String xml = "<ChargeOrderResponse>" +
+                    "<resultCode>SUCCESS</resultCode>" +
+                    "<hisOrderId>ORD12345</hisOrderId>" +
+                    "<chargeTime>2026-01-01 10:00:00</chargeTime>" +
+                    "</ChargeOrderResponse>";
+            Map<String, Object> metaMap = new HashMap<>();
+
+            Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
+
+            assertEquals("SUCCESS", result.get("resultCode"));
+            assertEquals("ORD12345", result.get("hisOrderId"));
+        }
+
+        @Test
+        @DisplayName("检验申请单响应：包含多个项目")
+        void labRequestResponse() {
+            String xml = "<LabRequestResponse>" +
+                    "<returnCode>1</returnCode>" +
+                    "<items>" +
+                    "<item><itemCode>BLD001</itemCode><status>SUCCESS</status></item>" +
+                    "<item><itemCode>BLD002</itemCode><status>SUCCESS</status></item>" +
+                    "</items>" +
+                    "</LabRequestResponse>";
+            Map<String, Object> metaMap = new HashMap<>();
+
+            Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
+
+            assertEquals("1", result.get("returnCode"));
+            assertInstanceOf(Map.class, result.get("items"));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> items = (Map<String, Object>) result.get("items");
+            assertInstanceOf(List.class, items.get("item"));
+        }
+
+        @Test
+        @DisplayName("WebService SOAP响应解析")
+        void soapResponseParsing() {
+            String xml = "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">" +
+                    "<soap:Body>" +
+                    "<GetPatientResponse>" +
+                    "<Result><![CDATA[{\"code\":\"200\",\"patientId\":\"P001\"}]]></Result>" +
+                    "</GetPatientResponse>" +
+                    "</soap:Body>" +
+                    "</soap:Envelope>";
+            Map<String, Object> metaMap = new HashMap<>();
+            metaMap.put(XmlConstants.ELEMENT_NAME_KEY, "Result");
+            metaMap.put(XmlConstants.DATA_TYPE_KEY, "json");
+
+            Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
+
+            assertEquals("200", result.get("code"));
+            assertEquals("P001", result.get("patientId"));
+        }
     }
 }
