@@ -48,7 +48,8 @@ public class XmlUtils {
         DocumentBuilder builder = parserFactory.getDocumentBuilder();
 
         // 转义字符全量处理配置
-        boolean useEscape = Boolean.parseBoolean((String) metaMap.get(XmlConstants.USE_ESCAPE_KEY));
+        Boolean useEscapeObj = (Boolean) metaMap.get(XmlConstants.USE_ESCAPE_KEY);
+        boolean useEscape = useEscapeObj != null && useEscapeObj;
         if (useEscape) {
             xml = unescapeXml(xml);
         }
@@ -93,9 +94,9 @@ public class XmlUtils {
 
         Node targetNode = bizDataNodes.item(0);
 
-        // 1. 获取业务数据内容（根据 isCDATA 配置）
-        boolean isCDATA = metaMap.get(XmlConstants.IS_CDATA_KEY) == null ||
-                Boolean.parseBoolean((String) metaMap.get(XmlConstants.IS_CDATA_KEY));
+        // 1. 获取业务数据内容 (根据 isCDATA 配置)
+        Boolean isCDATAObj = (Boolean) metaMap.get(XmlConstants.IS_CDATA_KEY);
+        boolean isCDATA = isCDATAObj == null || isCDATAObj;
 
         String dataContent;
         if (isCDATA) {
@@ -169,8 +170,7 @@ public class XmlUtils {
     private static Element locateInnerElement(Document doc, String innerElementName) {
         NodeList nodes = doc.getElementsByTagName(innerElementName);
         if (nodes.getLength() == 0) {
-            log.warn("内层标签[{}]未找到，使用根元素", innerElementName);
-            return doc.getDocumentElement();
+            throw new RuntimeException("内层标签[" + innerElementName + "]未找到，请检查innerElementName配置是否正确");
         }
         if (nodes.getLength() > 1) {
             log.warn("内层标签[{}]对应节点数量为{}，使用第一个", innerElementName, nodes.getLength());
@@ -196,19 +196,16 @@ public class XmlUtils {
     }
 
     /**
-     * 清洗XML字符串：移除换行、制表符、标签间的多余空格
-     * 保留标签内的有效文本（如CDATA、业务值）
+     * 清洗XML字符串：移除标签间的多余空白
+     * 注意：不做全局换行符清理，避免破坏 CDATA 内容
      */
     private static String cleanXmlString(String xml) {
         if (xml == null || xml.isEmpty()) {
             return xml;
         }
-        // 1. 移除所有换行符(\n)、回车符(\r)、制表符(\t)
-        xml = xml.replaceAll("\\r|\\n|\\t", "");
-        // 2. 移除标签之间的多余空格（保留标签内的空格）
-        // 正则说明：匹配 "><" 之间的任意空格，替换为 "><"
-        xml = xml.replaceAll(">\\s+<", "><");
-        return xml;
+        // 只移除标签之间的空白（换行、空格、制表符）
+        // 这样不会影响 CDATA 内部的内容
+        return xml.replaceAll(">\\s+<", "><");
     }
 
     /**

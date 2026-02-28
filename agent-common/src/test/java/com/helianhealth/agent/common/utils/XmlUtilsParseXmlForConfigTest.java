@@ -164,20 +164,46 @@ public class XmlUtilsParseXmlForConfigTest {
     }
 
     @Test
-    public void testInnerElementName_NotFound_FallbackToRoot() {
-        // innerElementName 不存在，降级到根元素
+    public void testInnerElementName_NotFound_ThrowException() {
+        // innerElementName 不存在，抛出异常
         String xml = "<Body><Result><![CDATA[<data><id>003</id></data>]]></Result></Body>";
         Map<String, Object> metaMap = new HashMap<>();
         metaMap.put(XmlConstants.ELEMENT_NAME_KEY, "Result");
         metaMap.put(XmlConstants.INNER_ELEMENT_NAME_KEY, "notExist");
 
+        RuntimeException exception = assertThrows(RuntimeException.class,
+                () -> XmlUtils.parseResponseXml(xml, metaMap));
+        assertTrue(exception.getMessage().contains("内层标签[notExist]未找到"));
+    }
+
+    @Test
+    public void testInnerElementName_CdataWithXmlDeclaration() {
+        // 场景：CDATA 内容包含 XML 声明（<?xml version="1.0"?>），使用 innerElementName 定位业务数据
+        // 这是 WebService 调用常见的响应格式
+        String xml = "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">" +
+                "<soap:Body>" +
+                "<GetDataResponse>" +
+                "<Result><![CDATA[<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+                "<response>" +
+                "<header><code>0</code><message>success</message></header>" +
+                "<body><patient><id>P001</id><name>张三</name></patient></body>" +
+                "</response>]]></Result>" +
+                "</GetDataResponse>" +
+                "</soap:Body>" +
+                "</soap:Envelope>";
+
+        Map<String, Object> metaMap = new HashMap<>();
+        metaMap.put(XmlConstants.ELEMENT_NAME_KEY, "Result");         // 定位外层 CDATA 容器
+        metaMap.put(XmlConstants.INNER_ELEMENT_NAME_KEY, "body");     // 定位内层业务数据节点
+
         Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 
-        // 降级到根元素 <data>，data 下只有 id 一种标签 → 数组
-        assertTrue(result.get("id") instanceof List);
+        // 验证：从 body 节点开始解析，跳过 header
+        assertInstanceOf(List.class, result.get("patient"));
         @SuppressWarnings("unchecked")
-        List<Object> ids = (List<Object>) result.get("id");
-        assertEquals("003", ids.get(0));
+        List<Map<String, Object>> patients = (List<Map<String, Object>>) result.get("patient");
+        assertEquals("P001", patients.get(0).get("id"));
+        assertEquals("张三", patients.get(0).get("name"));
     }
 
     // ==================== 4. isCDATA 配置场景 ====================
@@ -188,7 +214,7 @@ public class XmlUtilsParseXmlForConfigTest {
         String xml = "<Body><Result><patient><code>P002</code></patient></Result></Body>";
         Map<String, Object> metaMap = new HashMap<>();
         metaMap.put(XmlConstants.ELEMENT_NAME_KEY, "Result");
-        metaMap.put(XmlConstants.IS_CDATA_KEY, "false");
+        metaMap.put(XmlConstants.IS_CDATA_KEY, false);
 
         Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 
@@ -252,7 +278,7 @@ public class XmlUtilsParseXmlForConfigTest {
         // 转义字符处理
         String xml = "&lt;Response&gt;&lt;data&gt;test&lt;/data&gt;&lt;/Response&gt;";
         Map<String, Object> metaMap = new HashMap<>();
-        metaMap.put(XmlConstants.USE_ESCAPE_KEY, "true");
+        metaMap.put(XmlConstants.USE_ESCAPE_KEY, true);
 
         Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 
