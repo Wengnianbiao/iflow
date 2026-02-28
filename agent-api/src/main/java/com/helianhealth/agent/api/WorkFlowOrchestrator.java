@@ -64,8 +64,8 @@ public class WorkFlowOrchestrator {
         String message = (String) flowNodeResponse.get("message");
         Object rsp = flowNodeResponse.get("rsp");
 
-        // 200或者空(没有数据而已)都表示调用成功
-        if ("200".equals(code) || code == null) {
+        // 只有200才是真的成功
+        if ("200".equals(code)) {
             return ResponseRenderUtils.render(rsp);
         } else {
             return ResponseRenderUtils.error(message);

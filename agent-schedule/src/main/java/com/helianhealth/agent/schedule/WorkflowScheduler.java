@@ -3,13 +3,13 @@ package com.helianhealth.agent.schedule;
 import com.helianhealth.agent.common.enums.ScheduleParamSourceType;
 import com.helianhealth.agent.common.exception.WorkflowBusinessException;
 import com.helianhealth.agent.common.extension.AgentExtensionLoader;
-import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
-import com.helianhealth.agent.repository.service.NodeParamConfigQueryService;
+import com.helianhealth.agent.common.utils.SpelUtils;
 import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
-import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.Invocation;
 import com.helianhealth.agent.invocation.remote.wrapper.WrapperFactory;
-import com.helianhealth.agent.common.utils.SpelUtils;
+import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
+import com.helianhealth.agent.repository.service.NodeParamConfigQueryService;
 import com.helianhealth.agent.schedule.builder.WorkFlowNodeBuilder;
 import com.helianhealth.agent.schedule.processor.BusinessDataSplitter;
 import com.helianhealth.agent.schedule.processor.ParamFilterProcessor;
@@ -17,7 +17,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -194,21 +193,24 @@ public class WorkflowScheduler {
     }
 
     private Map<String, Object> processParallelNode(List<WorkflowNode> nodes, Map<String, Object> businessData) {
-        // 1. 并行执行任务并收集Future
+        // 1. 并行执行任务，单个失败不影响整体
         List<CompletableFuture<Map<String, Object>>> futures = nodes.stream()
-                .map(map -> CompletableFuture.supplyAsync(
-                        () -> processSingleNode(map, businessData),
+                .map(node -> CompletableFuture.supplyAsync(
+                        () -> processSingleNode(node, businessData),
                         taskExecutor
-                ))
+                ).handle((result, ex) -> {
+                    if (ex != null) {
+                        log.error("节点[{}]并行执行失败，跳过该节点", node.getNodeName(), ex);
+                        return Collections.<String, Object>emptyMap();
+                    }
+                    return result;
+                }))
                 .collect(Collectors.toList());
 
-        // 2. 等待所有任务完成，并收集结果
-        CompletableFuture<Void> allFutures = CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
-        List<Map<String, Object>> nodeResultList = allFutures.thenApply(v ->
-                futures.stream()
-                        .map(CompletableFuture::join)
-                        .collect(Collectors.toList())
-        ).join();
+        // 2. 等待所有任务完成并收集结果
+        List<Map<String, Object>> nodeResultList = futures.stream()
+                .map(CompletableFuture::join)
+                .collect(Collectors.toList());
 
         // 3. 合并所有结果：相同key的值合并（支持List合并，非List类型转为List）
         return mergeResults(nodeResultList);
