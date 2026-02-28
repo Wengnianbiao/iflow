@@ -57,6 +57,7 @@
       :raw-content="jsonViewer.rawContent.value"
       :parsed-json="jsonViewer.parsedJson.value"
       :is-xml="jsonViewer.isXml.value"
+      :is-plain-text="jsonViewer.isPlainText.value"
       @close="jsonViewer.close"
       @copy="jsonViewer.copy"
     />

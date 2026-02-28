@@ -1,18 +1,16 @@
 package com.helianhealth.agent.invocation.remote.wrapper;
 
-import com.helianhealth.agent.invocation.context.InvocationLogContextHolder;
-import com.helianhealth.agent.invocation.context.LogContext;
+import com.helianhealth.agent.invocation.context.LogCollector;
 import com.helianhealth.agent.invocation.remote.InterfaceClientProxy;
-import com.helianhealth.agent.common.utils.JsonUtils;
-import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
-
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 
 import java.util.List;
 import java.util.Map;
 
 /**
- * 日志记录wrapper，记录调用时间和响应结果
+ * 日志记录wrapper，记录调用耗时
+ * 注：paramBeforeInvoke 和 remoteInvokeResponse 已在 AbstractProtocolAdapter 中收集
  */
 public class InterfaceClientProxyLogWrapper implements InterfaceClientProxy {
 
@@ -24,24 +22,13 @@ public class InterfaceClientProxyLogWrapper implements InterfaceClientProxy {
 
     @Override
     public Map<String, Object> doInvoke(WorkflowNode flowNode, List<ParamTreeNode> params) {
-        LogContext context = InvocationLogContextHolder.getContext();
-        if (context == null) {
-            // 如果上下文不存在，直接执行方法
-            return interfaceClientProxy.doInvoke(flowNode, params);
-        }
-
-        // 记录doInvoke方法开始时间
         long doInvokeStartTime = System.currentTimeMillis();
         try {
-            // 执行doInvoke方法
-            Map<String, Object> stringObjectMap = interfaceClientProxy.doInvoke(flowNode, params);
-            // 记录响应结果
-            context.setRemoteInvokeResponse(JsonUtils.toJsonString(stringObjectMap));
-            return stringObjectMap;
+            return interfaceClientProxy.doInvoke(flowNode, params);
         } finally {
-            // 计算doInvoke方法执行耗时
+            // 计算并记录doInvoke方法执行耗时
             long doInvokeTime = System.currentTimeMillis() - doInvokeStartTime;
-            context.setInvokeTime(Long.toString(doInvokeTime));
+            LogCollector.collectInvokeTime(doInvokeTime);
         }
     }
 }

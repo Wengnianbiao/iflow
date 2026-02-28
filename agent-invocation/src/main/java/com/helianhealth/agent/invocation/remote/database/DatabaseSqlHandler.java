@@ -267,6 +267,14 @@ public class DatabaseSqlHandler implements ParamResolver {
                 .replace("\"", "'");
     }
 
+    /**
+     * 执行SQL并返回原始JSON响应
+     */
+    public String executeSqlAndGetRawResponse(WorkflowNode flowNode, String sql) {
+        Map<String, Object> result = invokeSqlAndConvertResult(flowNode, sql);
+        return JsonUtils.toJsonString(result);
+    }
+
     public Map<String, Object> invokeSqlAndConvertResult(WorkflowNode flowNode, String sql) {
         Connection connection = null;
         PreparedStatement ps = null;

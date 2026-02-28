@@ -16,9 +16,13 @@ export function useJsonViewer() {
     return content.trim().startsWith('<') && content.trim().endsWith('>');
   });
 
+  // 纯文本模式（非JSON非XML，如SQL）
+  const isPlainText = ref(false);
+
   const open = (content, dialogTitle = 'JSON详情') => {
     title.value = dialogTitle;
     rawContent.value = content || '';
+    isPlainText.value = false;
     
     if (!content) {
       parsedJson.value = null;
@@ -28,7 +32,9 @@ export function useJsonViewer() {
       try {
         parsedJson.value = JSON.parse(content);
       } catch (e) {
-        parsedJson.value = { error: 'Invalid JSON format', content };
+        // 非JSON格式，使用纯文本模式展示
+        isPlainText.value = true;
+        parsedJson.value = null;
       }
     }
     
@@ -40,6 +46,7 @@ export function useJsonViewer() {
     rawContent.value = '';
     parsedJson.value = null;
     title.value = '';
+    isPlainText.value = false;
   };
 
   const copy = async () => {
@@ -108,6 +115,7 @@ export function useJsonViewer() {
     rawContent,
     parsedJson,
     isXml,
+    isPlainText,
     open,
     close,
     copy,

@@ -9,7 +9,11 @@
     <div class="json-detail-container">
       <!-- XML 内容展示 -->
       <div v-if="isXml">
-        <pre class="xml-preview">{{ rawContent }}</pre>
+        <pre class="text-preview">{{ rawContent }}</pre>
+      </div>
+      <!-- 纯文本内容展示（如SQL） -->
+      <div v-else-if="isPlainText">
+        <pre class="text-preview">{{ rawContent }}</pre>
       </div>
       <!-- JSON 内容展示 -->
       <div v-else>
@@ -57,6 +61,10 @@ export default {
     isXml: {
       type: Boolean,
       default: false
+    },
+    isPlainText: {
+      type: Boolean,
+      default: false
     }
   },
   computed: {
@@ -96,11 +104,10 @@ export default {
   margin: 0 !important;
 }
 
-.xml-preview {
+.text-preview {
   white-space: pre-wrap;
   word-wrap: break-word;
   margin: 0;
-  background-color: #f5f5f5;
   padding: 10px;
   border-radius: 4px;
   font-size: 13px;

@@ -1,17 +1,17 @@
 package com.helianhealth.agent.invocation.remote.database;
 
-import com.helianhealth.agent.repository.model.domain.WorkflowNode;
+import com.helianhealth.agent.common.utils.JsonUtils;
+import com.helianhealth.agent.invocation.remote.AbstractProtocolAdapter;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
-import com.helianhealth.agent.invocation.remote.InterfaceClientProxy;
-import lombok.Setter;
-import lombok.extern.slf4j.Slf4j;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 
 import java.util.List;
 import java.util.Map;
 
-
-@Slf4j
-public class DatabaseProtocolAdapter implements InterfaceClientProxy {
+/**
+ * 数据库协议适配器
+ */
+public class DatabaseProtocolAdapter extends AbstractProtocolAdapter {
 
     private DatabaseSqlHandler databaseSqlHandler;
 
@@ -37,16 +37,17 @@ public class DatabaseProtocolAdapter implements InterfaceClientProxy {
     }
 
     @Override
-    public Map<String, Object> doInvoke(WorkflowNode flowNode, List<ParamTreeNode> params) {
-        try {
-            // 构建SQL语句
-            String sql = databaseSqlHandler.resolveParamNodes(flowNode, params);
-            // 执行SQL并转化为Map
-            return databaseSqlHandler.invokeSqlAndConvertResult(flowNode, sql);
-        } catch (Exception e) {
-            log.error("数据库调用失败", e);
-            throw new RuntimeException("数据库调用失败: " + e.getMessage(), e);
-        }
+    protected String resolveParams(WorkflowNode flowNode, List<ParamTreeNode> params) {
+        return databaseSqlHandler.resolveParamNodes(flowNode, params);
     }
 
+    @Override
+    protected String executeInvoke(WorkflowNode flowNode, String resolvedParam) {
+        return databaseSqlHandler.executeSqlAndGetRawResponse(flowNode, resolvedParam);
+    }
+
+    @Override
+    protected Map<String, Object> parseResponse(WorkflowNode flowNode, String rawResponse) {
+        return JsonUtils.toMap(rawResponse);
+    }
 }

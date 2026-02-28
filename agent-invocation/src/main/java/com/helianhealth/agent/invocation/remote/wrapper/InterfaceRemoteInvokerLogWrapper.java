@@ -1,6 +1,6 @@
 package com.helianhealth.agent.invocation.remote.wrapper;
 
-import com.helianhealth.agent.invocation.context.InvocationLogContextHolder;
+import com.helianhealth.agent.invocation.context.LogCollector;
 import com.helianhealth.agent.invocation.context.LogContext;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
@@ -29,21 +29,21 @@ public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker 
 
     @Override
     public Map<String, Object> remoteInvoke(WorkflowNode flowNode, Invocation invocation) {
-        // 获取方法参数
         long startTime = System.currentTimeMillis();
 
-        LogContext context = new LogContext();
-        InvocationLogContextHolder.setContext(context);
-        context.setNodeName(flowNode.getNodeName());
+        // 使用门面初始化日志上下文
+        LogCollector.init();
+        LogCollector.collectNodeName(flowNode.getNodeName());
+        
         Map<String, Object> businessData = invocation.getBusinessData();
         // 提取关键字
         if (businessData != null && flowNode.getKeywordField() != null) {
             Object keywordObj = getNestedValue(businessData, flowNode.getKeywordField());
             if (keywordObj != null) {
-                context.setKeyword(String.valueOf(keywordObj));
+                LogCollector.collectKeyword(String.valueOf(keywordObj));
             }
         }
-        context.setBusinessData(JsonUtils.toJsonString(businessData));
+        LogCollector.collectBusinessData(JsonUtils.toJsonString(businessData));
 
         try {
             log.info("开始执行工作流节点: [{}]", flowNode.getNodeName());
@@ -52,21 +52,23 @@ public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker 
             Map<String, Object> stringObjectMap = interfaceRemoteInvoker.remoteInvoke(flowNode, invocation);
 
             // 记录调用结果
-            context.setParamAfterInvoke(JsonUtils.toJsonString(stringObjectMap));
+            LogCollector.collectParamAfterInvoke(JsonUtils.toJsonString(stringObjectMap));
 
             return stringObjectMap;
         } catch (Exception e) {
             log.error("工作流节点执行异常", e);
+            // 记录异常信息
+            LogCollector.collectError(e.getMessage());
             throw e;
         } finally {
             try {
-                saveAllCollectedLogs(context);
+                saveAllCollectedLogs(LogCollector.getContext());
                 log.info("工作流节点: [{}] 执行结束, 耗时: [{}]ms", flowNode.getNodeName(), System.currentTimeMillis() - startTime);
             } catch (Exception e) {
                 log.error("日志保存失败", e);
             } finally {
                 // 清除ThreadLocal数据，防止内存泄漏
-                InvocationLogContextHolder.clearContext();
+                LogCollector.clear();
             }
         }
     }
@@ -116,6 +118,8 @@ public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker 
                     .remoteInvokeResponse(context.getRemoteInvokeResponse())
                     .paramAfterInvoke(context.getParamAfterInvoke())
                     .invokeTime(context.getInvokeTime())
+                    .errorMessage(context.getErrorMessage())
+                    .success(context.isSuccess())
                     .build();
             interfaceInvokeLogService.saveInvokeLog(dto);
         } catch (Exception e) {

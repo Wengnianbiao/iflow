@@ -27,4 +27,8 @@ public class InvokeLogDTO {
     private String paramAfterInvoke;
 
     private String invokeTime;
+
+    private String errorMessage;
+
+    private boolean success = true;
 }

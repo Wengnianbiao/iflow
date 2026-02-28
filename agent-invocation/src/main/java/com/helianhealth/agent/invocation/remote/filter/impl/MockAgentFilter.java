@@ -2,6 +2,8 @@ package com.helianhealth.agent.invocation.remote.filter.impl;
 
 import com.helianhealth.agent.common.base.ExtensionConstants;
 import com.helianhealth.agent.common.extension.AgentActivate;
+import com.helianhealth.agent.common.utils.JsonUtils;
+import com.helianhealth.agent.invocation.context.LogCollector;
 import com.helianhealth.agent.invocation.remote.InterfaceClientProxy;
 import com.helianhealth.agent.invocation.remote.database.DatabaseSqlHandler;
 import com.helianhealth.agent.invocation.remote.filter.AgentFilter;
@@ -80,12 +82,16 @@ public class MockAgentFilter implements AgentFilter {
         if (mock != null) {
             try {
                 Integer mockId = Integer.parseInt(mock);
-                // todo 耦合，待优化重构
                 // 根据 NodeType 选择对应的 handler 来处理参数节点
-                resolveParamNodesByType(flowNode, params);
+                String resolvedParam = resolveParamNodesByType(flowNode, params);
+                // 通过门面收集调用前参数
+                LogCollector.collectParamBeforeInvoke(resolvedParam);
+                
                 Map<String, Object> mockResponse = mockConfigService.getMockResponseByMockId(mockId);
 
                 if (mockResponse != null) {
+                    // 通过门面收集Mock响应
+                    LogCollector.collectRemoteInvokeResponse(JsonUtils.toJsonString(mockResponse));
                     return mockResponse;
                 }
 
@@ -98,17 +104,14 @@ public class MockAgentFilter implements AgentFilter {
     }
 
 
-    private void resolveParamNodesByType(WorkflowNode flowNode, List<ParamTreeNode> params) {
+    private String resolveParamNodesByType(WorkflowNode flowNode, List<ParamTreeNode> params) {
         switch (flowNode.getNodeType()) {
             case HTTP:
-                httpRequestHandler.resolveParamNodes(flowNode, params);
-                break;
+                return httpRequestHandler.resolveParamNodes(flowNode, params);
             case DATABASE:
-                databaseSqlHandler.resolveParamNodes(flowNode, params);
-                break;
+                return databaseSqlHandler.resolveParamNodes(flowNode, params);
             case WEBSERVICE:
-                soapRequestHandler.resolveParamNodes(flowNode, params);
-                break;
+                return soapRequestHandler.resolveParamNodes(flowNode, params);
             default:
                 throw new UnsupportedOperationException("不支持的节点类型: " + flowNode.getNodeType());
         }
