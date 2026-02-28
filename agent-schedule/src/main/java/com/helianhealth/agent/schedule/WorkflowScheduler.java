@@ -151,21 +151,24 @@ public class WorkflowScheduler {
             return mergeResults(Collections.emptyList());
         }
 
-        // 2. 并行执行任务并收集Future
+        // 2. 并行执行任务，单个失败不影响整体
         List<CompletableFuture<Map<String, Object>>> futures = listBusinessData.stream()
                 .map(map -> CompletableFuture.supplyAsync(
                         () -> getInterfaceRemoteInvoker().remoteInvoke(flowNode, buildInvocation(flowNode, map)),
                         taskExecutor
-                ))
+                ).handle((result, ex) -> {
+                    if (ex != null) {
+                        log.error("节点[{}]并行执行失败，跳过该分片", flowNode.getNodeName(), ex);
+                        return Collections.<String, Object>emptyMap();
+                    }
+                    return result;
+                }))
                 .collect(Collectors.toList());
 
-        // 3. 等待所有任务完成，并收集结果
-        CompletableFuture<Void> allFutures = CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
-        List<Map<String, Object>> nodeResultList = allFutures.thenApply(v ->
-                futures.stream()
-                        .map(CompletableFuture::join)
-                        .collect(Collectors.toList())
-        ).join();
+        // 3. 等待所有任务完成并收集结果
+        List<Map<String, Object>> nodeResultList = futures.stream()
+                .map(CompletableFuture::join)
+                .collect(Collectors.toList());
 
         // 4. 合并结果并返回
         return mergeResults(nodeResultList);
