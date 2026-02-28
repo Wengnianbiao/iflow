@@ -6,7 +6,7 @@ import com.helianhealth.agent.repository.model.domain.MockConfig;
 import java.util.List;
 
 /**
- * Mock配置查询服务
+ * Mock配置服务
  */
 public interface MockConfigQueryService {
 
@@ -15,4 +15,9 @@ public interface MockConfigQueryService {
     MockConfig findById(Integer mockId);
 
     PageList<MockConfig> findByPage(Integer nodeId, int pageNum, int pageSize);
+
+    /**
+     * 根据mockId获取Mock原始响应字符串（JSON/XML等原始格式）
+     */
+    String getRawMockResponseByMockId(Integer mockId);
 }

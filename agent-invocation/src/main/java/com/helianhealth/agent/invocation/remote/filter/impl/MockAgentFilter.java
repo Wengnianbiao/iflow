@@ -11,7 +11,7 @@ import com.helianhealth.agent.invocation.remote.http.HttpRequestHandler;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.invocation.remote.webService.SoapRequestHandler;
-import com.helianhealth.agent.repository.service.MockConfigService;
+import com.helianhealth.agent.repository.service.MockConfigQueryService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
@@ -21,7 +21,7 @@ import java.util.Map;
 @Slf4j
 public class MockAgentFilter implements AgentFilter {
 
-    private MockConfigService mockConfigService;
+    private MockConfigQueryService mockConfigQueryService;
 
     private HttpRequestHandler httpRequestHandler;
 
@@ -39,11 +39,11 @@ public class MockAgentFilter implements AgentFilter {
     /**
      * 带参构造函数，支持手动注入依赖
      */
-    public MockAgentFilter(MockConfigService mockConfigService,
+    public MockAgentFilter(MockConfigQueryService mockConfigQueryService,
                           HttpRequestHandler httpRequestHandler,
                           DatabaseSqlHandler databaseSqlHandler,
                           SoapRequestHandler soapRequestHandler) {
-        this.mockConfigService = mockConfigService;
+        this.mockConfigQueryService = mockConfigQueryService;
         this.httpRequestHandler = httpRequestHandler;
         this.databaseSqlHandler = databaseSqlHandler;
         this.soapRequestHandler = soapRequestHandler;
@@ -52,8 +52,8 @@ public class MockAgentFilter implements AgentFilter {
     /**
      * Setter注入方法，用于ExtensionFactory自动注入
      */
-    public void setMockConfigService(MockConfigService mockConfigService) {
-        this.mockConfigService = mockConfigService;
+    public void setMockConfigQueryService(MockConfigQueryService mockConfigQueryService) {
+        this.mockConfigQueryService = mockConfigQueryService;
     }
 
     public void setHttpRequestHandler(HttpRequestHandler httpRequestHandler) {
@@ -87,12 +87,16 @@ public class MockAgentFilter implements AgentFilter {
                 // 通过门面收集调用前参数
                 LogCollector.collectParamBeforeInvoke(resolvedParam);
                 
-                Map<String, Object> mockResponse = mockConfigService.getMockResponseByMockId(mockId);
-
-                if (mockResponse != null) {
-                    // 通过门面收集Mock响应
-                    LogCollector.collectRemoteInvokeResponse(JsonUtils.toJsonString(mockResponse));
-                    return mockResponse;
+                // 获取原始响应字符串用于日志收集
+                String rawResponse = mockConfigQueryService.getRawMockResponseByMockId(mockId);
+                if (rawResponse != null) {
+                    // 通过门面收集Mock原始响应
+                    LogCollector.collectRemoteInvokeResponse(rawResponse);
+                    // 解析为Map返回给调用链
+                    Map<String, Object> mockResponse = JsonUtils.toMap(rawResponse);
+                    if (mockResponse != null) {
+                        return mockResponse;
+                    }
                 }
 
             } catch (NumberFormatException e) {

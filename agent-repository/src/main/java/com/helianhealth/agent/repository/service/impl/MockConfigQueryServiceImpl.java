@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Mock配置查询服务实现
+ * Mock配置服务实现
  */
 @Component
 public class MockConfigQueryServiceImpl implements MockConfigQueryService {
@@ -55,6 +55,12 @@ public class MockConfigQueryServiceImpl implements MockConfigQueryService {
         pageList.setPageNum(pageInfo.getPageNum());
         pageList.setPageSize(pageInfo.getPageSize());
         return pageList;
+    }
+
+    @Override
+    public String getRawMockResponseByMockId(Integer mockId) {
+        MockConfig mockConfig = findById(mockId);
+        return mockConfig != null ? mockConfig.getMockResponse() : null;
     }
 
     private MockConfig toMockConfig(MockConfigDO po) {
