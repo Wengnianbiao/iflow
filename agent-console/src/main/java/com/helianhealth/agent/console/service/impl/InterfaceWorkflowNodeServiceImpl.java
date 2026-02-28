@@ -28,8 +28,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.helianhealth.agent.common.utils.SpelUtils;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -428,5 +432,28 @@ public class InterfaceWorkflowNodeServiceImpl extends WorkflowNodeQueryServiceIm
         dto.setMappingRule(config.getMappingRule());
 
         return dto;
+    }
+
+    @Override
+    public List<InterfaceWorkflowNodeView> getDownstreamNodes(Integer nodeId) {
+        InterfaceWorkflowNodePO currentNode = workflowNodeCommandService.selectNodeEntity(nodeId);
+        if (currentNode == null || currentNode.getScheduleExpr() == null || currentNode.getScheduleExpr().trim().isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // 从调度表达式中提取所有可能的下游节点ID
+        List<Integer> downstreamNodeIds = SpelUtils.extractNodeIdsFromScheduleExpr(currentNode.getScheduleExpr());
+        if (downstreamNodeIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // 查询这些节点的详细信息
+        return downstreamNodeIds.stream()
+                .map(id -> {
+                    InterfaceWorkflowNodePO po = workflowNodeCommandService.selectNodeEntity(id);
+                    return po != null ? nodeConvert.poConvertToView(po) : null;
+                })
+                .filter(view -> view != null)
+                .collect(Collectors.toList());
     }
 }

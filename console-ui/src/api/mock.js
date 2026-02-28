@@ -75,15 +75,16 @@ export function deleteMockConfigsByNodeId(nodeId) {
 
 /**
  * 调用Mock接口
+ * @param {Array} mockConfigs - Mock配置数组，格式: [{nodeId, mockId}, ...]
+ * @param {Object} businessData - 业务参数
  */
-export function invokeMock(nodeId, mockId, businessData) {
+export function invokeMock(mockConfigs, businessData) {
   return request({
     url: '/v1/console/mock/invoke',
     method: 'post',
-    params: {
-      nodeId,
-      mockId
-    },
-    data: businessData
+    data: {
+      mockConfigs,
+      businessData
+    }
   })
 }

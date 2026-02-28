@@ -7,6 +7,7 @@
         ref="formRef" 
         label-width="120px"
       >
+        <!-- 节点配置 -->
         <el-form-item label="选择节点" prop="nodeId">
           <el-select 
             v-model="form.nodeId" 
@@ -20,7 +21,15 @@
               :key="node.nodeId"
               :label="node.nodeName"
               :value="node.nodeId"
-            ></el-option>
+            >
+              <span>{{ node.nodeName }}</span>
+              <el-tag 
+                v-if="node.scheduleExpr" 
+                size="mini" 
+                type="warning"
+                style="margin-left: 8px;"
+              >有调度</el-tag>
+            </el-option>
           </el-select>
         </el-form-item>
 
@@ -46,6 +55,44 @@
           </el-select>
         </el-form-item>
 
+        <!-- 调度节点配置 -->
+        <div class="schedule-section" v-if="scheduleChain.length > 0">
+          <div class="schedule-header">
+            <span class="schedule-label">调度节点Mock配置</span>
+            <el-tag size="mini" type="warning">当前节点有调度，请配置下游节点Mock场景</el-tag>
+          </div>
+
+          <div 
+            v-for="chainItem in scheduleChain" 
+            :key="chainItem.nodeId"
+            class="chain-item"
+          >
+            <el-row :gutter="20" type="flex" align="middle">
+              <el-col :span="8">
+                <span class="chain-node-name">{{ chainItem.nodeName }}</span>
+              </el-col>
+              <el-col :span="16">
+                <el-form-item label="Mock场景" label-width="80px" style="margin-bottom: 0;">
+                  <el-select 
+                    v-model="chainItem.mockId" 
+                    placeholder="请选择Mock场景"
+                    filterable
+                    style="width: 100%"
+                  >
+                    <el-option
+                      v-for="mock in chainItem.mockOptions"
+                      :key="mock.mockId"
+                      :label="mock.caseName"
+                      :value="mock.mockId"
+                    ></el-option>
+                  </el-select>
+                </el-form-item>
+              </el-col>
+            </el-row>
+          </div>
+        </div>
+
+        <!-- 请求参数 -->
         <el-form-item label="请求参数" prop="businessData">
           <div class="template-selector">
             <div class="template-cards">
@@ -183,7 +230,7 @@
 <script>
 import { ref, reactive, onMounted } from 'vue';
 import { Message } from 'element-ui';
-import { getNodeListUnpaged } from '@/api/workflownode';
+import { getNodeListUnpaged, getDownstreamNodes } from '@/api/workflownode';
 import { getMockConfigsByNodeId, invokeMock } from '@/api/mock';
 import { jarvisTemplates, templateNames, templateDirections } from '@/config/jarvisTemplates';
 import JsonViewer from 'vue-json-viewer';
@@ -213,6 +260,9 @@ export default {
       mockId: null,
       businessData: '{}'
     });
+
+    // 调度链配置（自动加载的下游节点）
+    const scheduleChain = ref([]);
 
     const validateJson = (rule, value, callback) => {
       if (!value || value.trim() === '') {
@@ -255,23 +305,53 @@ export default {
     const handleNodeChange = async (nodeId) => {
       form.mockId = null;
       mockOptions.value = [];
+      scheduleChain.value = [];
       
       if (!nodeId) return;
 
       try {
+        // 获取当前节点的Mock配置
         const response = await getMockConfigsByNodeId(nodeId);
         if (response.status === 200 && response.data.code === '200') {
           mockOptions.value = response.data.rsp || [];
         }
+        
+        // 获取下游调度节点
+        const downstreamResponse = await getDownstreamNodes(nodeId);
+        if (downstreamResponse.status === 200 && downstreamResponse.data.code === '200') {
+          const downstreamNodeList = downstreamResponse.data.rsp || [];
+          // 为每个下游节点加载Mock配置
+          for (const node of downstreamNodeList) {
+            const mockResponse = await getMockConfigsByNodeId(node.nodeId);
+            const mockList = mockResponse.status === 200 && mockResponse.data.code === '200' 
+              ? mockResponse.data.rsp || [] 
+              : [];
+            scheduleChain.value.push({
+              nodeId: node.nodeId,
+              nodeName: node.nodeName,
+              mockId: null,
+              mockOptions: mockList
+            });
+          }
+        }
       } catch (error) {
-        console.error('获取Mock配置失败:', error);
-        Message.error('获取Mock配置列表失败');
+        console.error('获取配置失败:', error);
+        Message.error('获取配置失败');
       }
     };
 
     const handleInvoke = async () => {
       const valid = await formRef.value.validate().catch(() => false);
       if (!valid) return;
+
+      // 验证调度链配置
+      for (let i = 0; i < scheduleChain.value.length; i++) {
+        const item = scheduleChain.value[i];
+        if (!item.mockId) {
+          Message.warning(`请为调度节点「${item.nodeName}」选择Mock场景`);
+          return;
+        }
+      }
 
       invoking.value = true;
       responseData.value = null;
@@ -280,7 +360,21 @@ export default {
 
       try {
         const businessData = JSON.parse(form.businessData);
-        const response = await invokeMock(form.nodeId, form.mockId, businessData);
+        
+        // 构建mockConfigs数组
+        const mockConfigs = [
+          { nodeId: form.nodeId, mockId: form.mockId }
+        ];
+        
+        // 添加调度链配置
+        for (const item of scheduleChain.value) {
+          mockConfigs.push({
+            nodeId: item.nodeId,
+            mockId: item.mockId
+          });
+        }
+        
+        const response = await invokeMock(mockConfigs, businessData);
         
         if (response.status === 200 && response.data.code === '200') {
           responseData.value = JSON.stringify(response.data.rsp, null, 2);
@@ -303,6 +397,7 @@ export default {
       form.mockId = null;
       form.businessData = '{}';
       mockOptions.value = [];
+      scheduleChain.value = [];
       responseData.value = null;
       parsedResponse.value = null;
       errorMessage.value = '';
@@ -407,6 +502,7 @@ export default {
       selectedTemplate,
       windowPosition,
       showExpandDialog,
+      scheduleChain,
       handleNodeChange,
       handleInvoke,
       handleReset,
@@ -615,5 +711,59 @@ h2 {
 
 .expand-content .el-textarea__inner {
   line-height: 1.6;
+}
+
+/* 调度节点配置区域 */
+.schedule-section {
+  margin: 15px 0;
+  padding: 15px;
+  background: #fdf6ec;
+  border: 1px solid #faecd8;
+  border-radius: 6px;
+}
+
+.schedule-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.schedule-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #e6a23c;
+}
+
+/* 调度链节点样式 */
+.chain-item {
+  background: #fff;
+  border: 1px solid #faecd8;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+.chain-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.chain-index {
+  font-size: 13px;
+  font-weight: 500;
+  color: #606266;
+}
+
+.chain-item .el-form-item {
+  margin-bottom: 0;
+}
+
+.chain-node-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #303133;
 }
 </style>

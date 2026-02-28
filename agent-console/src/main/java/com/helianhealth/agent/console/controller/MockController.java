@@ -3,6 +3,8 @@ package com.helianhealth.agent.console.controller;
 import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.common.utils.ResponseRenderUtils;
+import com.helianhealth.agent.console.model.dto.MockInvokeRequest;
+import com.helianhealth.agent.console.service.MockScheduleService;
 import com.helianhealth.agent.repository.model.domain.MockConfig;
 import com.helianhealth.agent.repository.model.po.MockConfigDO;
 import com.helianhealth.agent.repository.service.MockConfigCommandService;
@@ -12,9 +14,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
- * Mock参数管理控制器
+ * Mock配置管理控制器
+ * 提供Mock配置CRUD及Mock调用接口
  */
 @RestController
 @RequestMapping("/v1/console/mock")
@@ -24,6 +28,7 @@ public class MockController {
 
     private final MockConfigQueryService mockConfigQueryService;
     private final MockConfigCommandService mockConfigCommandService;
+    private final MockScheduleService mockScheduleService;
 
     @GetMapping("/list")
     public ResultData<PageList<MockConfig>> getMockConfigList(
@@ -123,6 +128,27 @@ public class MockController {
         } catch (Exception e) {
             log.error("删除Mock配置失败", e);
             return ResponseRenderUtils.error("删除Mock配置失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 执行Mock调度
+     * 支持多节点调度链路，每个节点配置对应的MockId
+     */
+    @PostMapping("/invoke")
+    public ResultData<Map<String, Object>> invokeMockNode(@RequestBody MockInvokeRequest request) {
+        try {
+            if (request.getMockConfigs() == null || request.getMockConfigs().isEmpty()) {
+                return ResponseRenderUtils.error("Mock配置不能为空");
+            }
+            Map<String, Object> result = mockScheduleService.mockSchedule(request);
+            return ResponseRenderUtils.render(result);
+        } catch (IllegalArgumentException e) {
+            log.error("调用Mock节点参数错误", e);
+            return ResponseRenderUtils.error(e.getMessage());
+        } catch (Exception e) {
+            log.error("调用Mock节点失败", e);
+            return ResponseRenderUtils.error("调用Mock节点失败: " + e.getMessage());
         }
     }
 }

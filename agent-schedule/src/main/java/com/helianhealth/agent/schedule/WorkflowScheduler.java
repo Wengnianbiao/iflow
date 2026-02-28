@@ -41,11 +41,7 @@ public class WorkflowScheduler {
     private final BusinessDataSplitter splitBusinessDataPostProcessor;
     private final NodeParamConfigQueryService nodeParamConfigService;
     private final ThreadPoolTaskExecutor taskExecutor;
-
-    /**
-     * 延迟初始化的InterfaceRemoteInvoker
-     */
-    private volatile InterfaceRemoteInvoker interfaceRemoteInvoker;
+    private final InterfaceRemoteInvoker interfaceRemoteInvoker;
 
     public WorkflowScheduler(WorkFlowNodeBuilder workFlowNodeBuilder,
                            ParamFilterProcessor businessDataPostProcessor,
@@ -57,24 +53,9 @@ public class WorkflowScheduler {
         this.splitBusinessDataPostProcessor = splitBusinessDataPostProcessor;
         this.nodeParamConfigService = nodeParamConfigService;
         this.taskExecutor = taskExecutor;
-    }
-
-    /**
-     * 获取InterfaceRemoteInvoker实例（延迟初始化）
-     */
-    private InterfaceRemoteInvoker getInterfaceRemoteInvoker() {
-        if (interfaceRemoteInvoker == null) {
-            synchronized (this) {
-                if (interfaceRemoteInvoker == null) {
-                    // 使用显式包装工厂创建包装链
-                    InterfaceRemoteInvoker rawInvoker = AgentExtensionLoader
-                        .getExtensionLoader(InterfaceRemoteInvoker.class)
-                        .getAdaptiveExtension();
-                    interfaceRemoteInvoker = WrapperFactory.createRemoteInvokerChain(rawInvoker);
-                }
-            }
-        }
-        return interfaceRemoteInvoker;
+        this.interfaceRemoteInvoker = WrapperFactory.createRemoteInvokerChain(
+                AgentExtensionLoader.getExtensionLoader(InterfaceRemoteInvoker.class).getAdaptiveExtension()
+        );
     }
 
     /**
@@ -115,7 +96,7 @@ public class WorkflowScheduler {
             nodeResponse = parallelSplitNodeProcess(flowNode, businessDataAfterPost);
         } else {
             // 单节点处理 - 直接调用远程调用器
-            nodeResponse = getInterfaceRemoteInvoker().remoteInvoke(flowNode, buildInvocation(flowNode, businessDataAfterPost));
+            nodeResponse = interfaceRemoteInvoker.remoteInvoke(flowNode, buildInvocation(flowNode, businessDataAfterPost));
         }
 
         // 3、根据表达式调度下一个节点
@@ -153,7 +134,7 @@ public class WorkflowScheduler {
         // 2. 并行执行任务，单个失败不影响整体
         List<CompletableFuture<Map<String, Object>>> futures = listBusinessData.stream()
                 .map(map -> CompletableFuture.supplyAsync(
-                        () -> getInterfaceRemoteInvoker().remoteInvoke(flowNode, buildInvocation(flowNode, map)),
+                        () -> interfaceRemoteInvoker.remoteInvoke(flowNode, buildInvocation(flowNode, map)),
                         taskExecutor
                 ).handle((result, ex) -> {
                     if (ex != null) {

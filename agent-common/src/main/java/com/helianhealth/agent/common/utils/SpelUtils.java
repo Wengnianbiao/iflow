@@ -6,8 +6,11 @@ import org.springframework.expression.BeanResolver;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * SpEL表达式解析工具类
@@ -159,5 +162,41 @@ public class SpelUtils {
             logger.error("调度表达式[{}]解析异常：", expression, e);
             return null;
         }
+    }
+
+    /**
+     * 从调度表达式中提取所有可能的节点ID
+     * 例如: "#data[code] == '-1' ? T(java.util.Arrays).asList(39) : T(java.util.Arrays).asList(40, 41)"
+     * 返回: [39, 40, 41]
+     * 
+     * @param scheduleExpr 调度表达式
+     * @return 所有可能的下游节点ID列表
+     */
+    public static List<Integer> extractNodeIdsFromScheduleExpr(String scheduleExpr) {
+        List<Integer> nodeIds = new ArrayList<>();
+        if (scheduleExpr == null || scheduleExpr.trim().isEmpty()) {
+            return nodeIds;
+        }
+
+        // 匹配 asList(...) 中的数字
+        // 模式: asList( 后跟着数字（可能有逗号分隔的多个数字）
+        Pattern pattern = Pattern.compile("asList\\s*\\(([^)]+)\\)");
+        Matcher matcher = pattern.matcher(scheduleExpr);
+
+        while (matcher.find()) {
+            String content = matcher.group(1);
+            // 提取其中的数字
+            Pattern numPattern = Pattern.compile("\\d+");
+            Matcher numMatcher = numPattern.matcher(content);
+            while (numMatcher.find()) {
+                try {
+                    nodeIds.add(Integer.parseInt(numMatcher.group()));
+                } catch (NumberFormatException e) {
+                    // 忽略解析失败的
+                }
+            }
+        }
+
+        return nodeIds;
     }
 }

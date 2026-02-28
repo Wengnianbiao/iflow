@@ -36,4 +36,11 @@ public interface InterfaceWorkflowNodeService extends WorkflowNodeQueryService {
     
     // 批量导入节点配置
     void batchImportNodeConfig(MultipartFile file);
+
+    /**
+     * 获取节点的下游调度节点信息
+     * @param nodeId 节点ID
+     * @return 下游节点列表
+     */
+    List<InterfaceWorkflowNodeView> getDownstreamNodes(Integer nodeId);
 }

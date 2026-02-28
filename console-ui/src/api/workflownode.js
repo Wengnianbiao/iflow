@@ -53,3 +53,13 @@ export function deleteNode(nodeId) {
     method: 'delete'
   })
 }
+
+/**
+ * 获取节点的下游调度节点
+ */
+export function getDownstreamNodes(nodeId) {
+  return request({
+    url: `/v1/console/node/${nodeId}/downstream`,
+    method: 'get'
+  })
+}

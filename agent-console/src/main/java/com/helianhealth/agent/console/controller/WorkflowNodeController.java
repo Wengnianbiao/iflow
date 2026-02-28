@@ -205,4 +205,18 @@ public class WorkflowNodeController {
             return ResponseRenderUtils.error("获取工作流节点失败: " + e.getMessage());
         }
     }
+
+    /**
+     * 获取节点的下游调度节点
+     */
+    @GetMapping("/{nodeId}/downstream")
+    public ResultData<List<InterfaceWorkflowNodeView>> getDownstreamNodes(@PathVariable Integer nodeId) {
+        try {
+            List<InterfaceWorkflowNodeView> downstreamNodes = interfaceFlowNodeService.getDownstreamNodes(nodeId);
+            return ResponseRenderUtils.render(downstreamNodes);
+        } catch (Exception e) {
+            log.error("获取下游节点失败", e);
+            return ResponseRenderUtils.error("获取下游节点失败: " + e.getMessage());
+        }
+    }
 }
