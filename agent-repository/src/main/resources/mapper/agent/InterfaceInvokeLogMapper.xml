@@ -92,4 +92,9 @@
         ORDER BY create_time
     </select>
 
+    <delete id="deleteLogsBefore">
+        DELETE FROM interface_invoke_log
+        WHERE create_time &lt; #{beforeTime}
+    </delete>
+
 </mapper>

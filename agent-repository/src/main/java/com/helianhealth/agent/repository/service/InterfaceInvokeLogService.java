@@ -5,6 +5,7 @@ import com.helianhealth.agent.repository.model.dto.InvokeLogDTO;
 import com.helianhealth.agent.repository.model.dto.InvokeLogVO;
 import com.helianhealth.agent.repository.model.dto.InvokeStatsVO;
 
+import java.util.Date;
 import java.util.List;
 
 public interface InterfaceInvokeLogService {
@@ -28,4 +29,11 @@ public interface InterfaceInvokeLogService {
      * 统计最近7天各接口调用情况
      */
     List<InvokeStatsVO> getLast7DaysStats();
+
+    /**
+     * 删除指定时间之前的日志
+     * @param beforeTime 截止时间，删除该时间之前的所有日志
+     * @return 删除的记录数
+     */
+    int deleteLogsBefore(Date beforeTime);
 }

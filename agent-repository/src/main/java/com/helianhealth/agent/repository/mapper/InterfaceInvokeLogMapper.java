@@ -13,4 +13,9 @@ public interface InterfaceInvokeLogMapper extends Mapper<InterfaceInvokeLogDO> {
     List<InterfaceInvokeLogDO> selectAllInvokeLogs(@Param("nodeName") String nodeName, @Param("keyword") String keyword);
 
     List<InterfaceInvokeLogDO> selectLogsByTimeRange(@Param("startTime") Date startTime);
+
+    /**
+     * 删除指定时间之前的日志
+     */
+    int deleteLogsBefore(@Param("beforeTime") Date beforeTime);
 }

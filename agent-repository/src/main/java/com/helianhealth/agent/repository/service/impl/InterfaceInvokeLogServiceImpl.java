@@ -168,4 +168,16 @@ public class InterfaceInvokeLogServiceImpl implements InterfaceInvokeLogService 
             return 0;
         }
     }
+
+    @Override
+    public int deleteLogsBefore(Date beforeTime) {
+        try {
+            int deletedCount = interfaceInvokeLogMapper.deleteLogsBefore(beforeTime);
+            log.info("删除{}之前的日志，共{}条", beforeTime, deletedCount);
+            return deletedCount;
+        } catch (Exception e) {
+            log.error("删除日志失败", e);
+            throw new RuntimeException("删除日志失败: " + e.getMessage());
+        }
+    }
 }
