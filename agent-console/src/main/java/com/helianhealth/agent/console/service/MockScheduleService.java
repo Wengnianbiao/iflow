@@ -7,8 +7,8 @@ import com.helianhealth.agent.common.extension.AgentExtensionLoader;
 import com.helianhealth.agent.common.utils.SpelUtils;
 import com.helianhealth.agent.console.model.dto.MockInvokeRequest;
 import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
-import com.helianhealth.agent.invocation.remote.model.Invocation;
-import com.helianhealth.agent.invocation.remote.wrapper.WrapperFactory;
+import com.helianhealth.agent.invocation.remote.param.model.Invocation;
+import com.helianhealth.agent.invocation.remote.chain.WrapperFactory;
 import com.helianhealth.agent.repository.model.domain.MockConfig;
 import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
@@ -34,7 +34,7 @@ public class MockScheduleService {
     private final InterfaceWorkflowNodeService flowNodeService;
     private final NodeParamConfigQueryService nodeParamConfigService;
     private final MockConfigQueryService mockConfigQueryService;
-    private final InterfaceRemoteInvoker interfaceRemoteInvoker;
+    private InterfaceRemoteInvoker interfaceRemoteInvoker;
 
     public MockScheduleService(InterfaceWorkflowNodeService flowNodeService,
                                NodeParamConfigQueryService nodeParamConfigService,
@@ -42,9 +42,18 @@ public class MockScheduleService {
         this.flowNodeService = flowNodeService;
         this.nodeParamConfigService = nodeParamConfigService;
         this.mockConfigQueryService = mockConfigQueryService;
-        this.interfaceRemoteInvoker = WrapperFactory.createRemoteInvokerChain(
-                AgentExtensionLoader.getExtensionLoader(InterfaceRemoteInvoker.class).getAdaptiveExtension()
-        );
+    }
+
+    /**
+     * 延迟获取 InterfaceRemoteInvoker（避免构造时 Spring 容器未初始化）
+     */
+    private InterfaceRemoteInvoker getInvoker() {
+        if (interfaceRemoteInvoker == null) {
+            interfaceRemoteInvoker = WrapperFactory.createRemoteInvokerChain(
+                    AgentExtensionLoader.getExtensionLoader(InterfaceRemoteInvoker.class).getAdaptiveExtension()
+            );
+        }
+        return interfaceRemoteInvoker;
     }
 
     /**
@@ -81,7 +90,7 @@ public class MockScheduleService {
                                                  Map<String, Object> businessData,
                                                  Map<Integer, Integer> mockIdMap) {
         // 1. 执行节点（会MockAgentFilter返回Mock响应）
-        Map<String, Object> nodeResponse = interfaceRemoteInvoker
+        Map<String, Object> nodeResponse = getInvoker()
                 .remoteInvoke(node, buildInvocation(node, businessData));
 
         // 2. 解析调度表达式，确定下游节点

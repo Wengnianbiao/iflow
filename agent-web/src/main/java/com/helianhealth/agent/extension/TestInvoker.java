@@ -2,9 +2,9 @@ package com.helianhealth.agent.extension;
 
 
 import com.helianhealth.agent.common.utils.JsonUtils;
-import com.helianhealth.agent.invocation.remote.DefaultInterfaceRemoteInvoker;
+import com.helianhealth.agent.invocation.remote.core.DefaultInterfaceRemoteInvoker;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
-import com.helianhealth.agent.invocation.remote.model.Invocation;
+import com.helianhealth.agent.invocation.remote.param.model.Invocation;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.HashMap;

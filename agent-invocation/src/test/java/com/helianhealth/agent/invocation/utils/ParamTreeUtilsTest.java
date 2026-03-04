@@ -1,7 +1,7 @@
 package com.helianhealth.agent.invocation.utils;
 
 import com.helianhealth.agent.common.enums.ParamType;
-import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
+import com.helianhealth.agent.invocation.remote.param.model.ParamTreeNode;
 
 import java.util.ArrayList;
 import java.util.List;

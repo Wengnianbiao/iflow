@@ -1,1 +1,1 @@
-default=com.helianhealth.agent.invocation.remote.DefaultParamTreeBuilder
+default=com.helianhealth.agent.invocation.remote.core.DefaultParamTreeBuilder

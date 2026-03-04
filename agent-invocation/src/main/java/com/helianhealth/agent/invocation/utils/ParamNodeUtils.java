@@ -3,7 +3,7 @@ package com.helianhealth.agent.invocation.utils;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.helianhealth.agent.common.enums.ParamType;
-import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
+import com.helianhealth.agent.invocation.remote.param.model.ParamTreeNode;
 import com.helianhealth.agent.common.utils.JsonUtils;
 
 

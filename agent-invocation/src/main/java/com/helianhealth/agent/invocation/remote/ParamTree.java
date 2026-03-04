@@ -4,9 +4,9 @@ import com.helianhealth.agent.common.extension.AgentAdaptive;
 import com.helianhealth.agent.common.extension.AgentSPI;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
-import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
-import com.helianhealth.agent.invocation.remote.model.PostBuildContext;
-import com.helianhealth.agent.invocation.remote.model.PreBuildContext;
+import com.helianhealth.agent.invocation.remote.param.model.ParamTreeNode;
+import com.helianhealth.agent.invocation.remote.param.model.PostBuildContext;
+import com.helianhealth.agent.invocation.remote.param.model.PreBuildContext;
 
 import java.util.List;
 
