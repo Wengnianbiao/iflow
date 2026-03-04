@@ -3,7 +3,7 @@ package com.helianhealth.agent.invocation.remote;
 import com.helianhealth.agent.common.extension.AgentAdaptive;
 import com.helianhealth.agent.common.extension.AgentSPI;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
-import com.helianhealth.agent.invocation.remote.param.model.Invocation;
+import com.helianhealth.agent.invocation.remote.model.Invocation;
 
 import java.util.Map;
 

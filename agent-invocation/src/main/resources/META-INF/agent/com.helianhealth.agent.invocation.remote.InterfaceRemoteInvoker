@@ -1,1 +1,1 @@
-default=com.helianhealth.agent.invocation.remote.core.DefaultInterfaceRemoteInvoker
+default=com.helianhealth.agent.invocation.remote.DefaultInterfaceRemoteInvoker

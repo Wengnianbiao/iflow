@@ -1,1 +1,1 @@
-mock=com.helianhealth.agent.invocation.remote.chain.filter.impl.MockAgentFilter
+mock=com.helianhealth.agent.invocation.remote.filter.impl.MockAgentFilter
