@@ -1,20 +1,19 @@
+---
+name: auto-config
+description: 通过 MCP 接口完成接口对接的自动化配置，支持创建节点、参数映射、工作流和Mock验证
+---
+
 # 自动化配置 Skill
 
 > 通过 MCP 接口完成接口对接的自动化配置
 
 ---
 
-## 触发条件
-
-- 用户要求配置接口
-- 可行性评估通过（能配置化）
-- 用户提供了上下游出入参
-
----
-
 ## 执行流程
 
 ```
+0. 前置校验 → 检查本地服务是否启动
+       ↓
 1. 分析出入参 → 确定字段映射关系
        ↓
 2. 创建节点 → 获取 nodeId
@@ -30,18 +29,47 @@
 
 ---
 
+## 步骤0：前置校验（必须）
+
+在调用任何 MCP 接口前，**必须先校验本地服务是否启动**。
+
+### 健康检查接口
+
+**GET http://localhost:8099/HLOpenApi/Hjk**
+
+### 校验逻辑
+
+```
+调用健康检查接口
+     ↓
+响应成功(200) → 继续执行后续步骤
+     ↓
+响应失败/超时 → 停止执行，提示用户启动服务,或者让用户告知端口是什么
+```
+
+### 服务未启动提示
+
+```
+⚠️ 本地服务未启动！
+
+请先启动 interface-agent 服务后再执行自动化配置。
+确认服务启动后，请重新发起配置请求。
+```
+
+---
+
 ## MCP 接口
 
 ### 基础路径
 
-| 模块 | 路径 |
+| 领域模型 | 路径 |
 |------|------|
-| 节点 | `/v1/ai/mcp/workflow-node` |
-| 参数映射 | `/v1/ai/mcp/node-param-config` |
-| 工作流 | `/v1/ai/mcp/workflow` |
-| Mock | `/v1/ai/mcp/mock-config` |
-| Mock调用 | `/v1/ai/mcp/mock-invoke` |
-| 日志 | `/v1/ai/mcp/invoke-log` |
+| Workflow | `/v1/ai/mcp/workflow` |
+| WorkflowNode | `/v1/ai/mcp/workflow-node` |
+| NodeParamConfig | `/v1/ai/mcp/node-param-config` |
+| MockConfig | `/v1/ai/mcp/mock-config` |
+| MockInvoke | `/v1/ai/mcp/mock-invoke` |
+| InvokeLog | `/v1/ai/mcp/invoke-log` |
 
 ---
 
@@ -138,7 +166,7 @@
   "targetParamType": "STRING",
   "mappingType": "EXPRESSION",
   "mappingSource": "RESPONSE",
-  "mappingRule": "#response['returnCode'] == '1' ? '200' : '-1'"
+  "mappingRule": "#response[returnCode] == '1' ? '200' : '-1'"
 }
 ```
 
@@ -247,7 +275,7 @@
 ```
 
 **interfaceUri 规则**：
-- Jarvis 上游 → 使用 BusinessMethod（如 CreateArchives）
+- Jarvis 上游 → 使用具体的业务名称，如 CreateArchives
 - 其他上游 → 使用 `/agent-open-api/**`
 
 ---

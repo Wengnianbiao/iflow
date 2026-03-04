@@ -1,10 +1,15 @@
+---
+name: spi-extension
+description: 为无法配置化的接口场景生成 SPI 扩展代码，支持动态签名、动态Token、特殊加密等场景
+---
+
 # SPI 扩展 Skill
 
 > 为无法配置化的接口场景生成 SPI 扩展代码
 
 ---
 
-## 触发条件
+## 使用场景
 
 - 可行性评估结果为"需要 SPI 扩展"
 - 用户要求编写扩展代码
@@ -40,13 +45,14 @@ public interface InterfaceRemoteInvoker {
 package com.helianhealth.agent.extension;
 
 import com.helianhealth.agent.invocation.remote.DefaultInterfaceRemoteInvoker;
-import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.Invocation;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.common.utils.JsonUtils;
 import lombok.extern.slf4j.Slf4j;
 
 import java.security.MessageDigest;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -58,7 +64,7 @@ import java.util.Map;
 public class DynamicSignInvoker extends DefaultInterfaceRemoteInvoker {
 
     @Override
-    public Map<String, Object> remoteInvoke(InterfaceWorkflowNode flowNode, Invocation invocation) {
+    public Map<String, Object> remoteInvoke(WorkflowNode flowNode, Invocation invocation) {
         // 1. 获取扩展参数（从节点 extensionParam 获取）
         Map<String, String> extParams = flowNode.getExtensionParam();
         String secretKey = extParams.getOrDefault("secretKey", "default_secret");
@@ -93,7 +99,8 @@ public class DynamicSignInvoker extends DefaultInterfaceRemoteInvoker {
         }
     }
     
-    private void addSignatureHeader(InterfaceWorkflowNode flowNode, String sign, long timestamp) {
+    @SuppressWarnings("unchecked")
+    private void addSignatureHeader(WorkflowNode flowNode, String sign, long timestamp) {
         // 解析并修改 metaInfo 中的 headers
         Map<String, Object> metaInfo = JsonUtils.toMap(flowNode.getMetaInfo());
         Map<String, String> headers = (Map<String, String>) metaInfo.getOrDefault("headers", new HashMap<>());
@@ -111,11 +118,11 @@ public class DynamicSignInvoker extends DefaultInterfaceRemoteInvoker {
 package com.helianhealth.agent.extension;
 
 import com.helianhealth.agent.invocation.remote.DefaultInterfaceRemoteInvoker;
-import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.invocation.remote.manager.HttpApiClientManager;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.Invocation;
 import com.helianhealth.agent.common.utils.JsonUtils;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -129,10 +136,9 @@ import java.util.concurrent.ConcurrentHashMap;
 public class DynamicTokenInvoker extends DefaultInterfaceRemoteInvoker {
 
     private static final Map<String, TokenInfo> tokenCache = new ConcurrentHashMap<>();
-    private final RestTemplate restTemplate = new RestTemplate();
 
     @Override
-    public Map<String, Object> remoteInvoke(InterfaceWorkflowNode flowNode, Invocation invocation) {
+    public Map<String, Object> remoteInvoke(WorkflowNode flowNode, Invocation invocation) {
         // 1. 获取扩展参数
         Map<String, String> extParams = flowNode.getExtensionParam();
         String tokenUrl = extParams.get("tokenUrl");
@@ -145,7 +151,7 @@ public class DynamicTokenInvoker extends DefaultInterfaceRemoteInvoker {
         // 3. 添加 Token 到请求头
         addTokenHeader(flowNode, token);
         
-        // 4. 执行实际请求
+        // 4. 执行实际请求（通过父类方法调用框架集成的 HTTP 客户端）
         return super.remoteInvoke(flowNode, invocation);
     }
     
@@ -158,22 +164,33 @@ public class DynamicTokenInvoker extends DefaultInterfaceRemoteInvoker {
             return cached.token;
         }
         
-        // 请求新 Token
-        Map<String, String> params = new HashMap<>();
-        params.put("client_id", clientId);
-        params.put("client_secret", clientSecret);
-        params.put("grant_type", "client_credentials");
-        
-        Map<String, Object> response = restTemplate.postForObject(tokenUrl, params, Map.class);
-        String token = (String) response.get("access_token");
-        int expiresIn = (Integer) response.getOrDefault("expires_in", 3600);
-        
-        // 缓存 Token
-        tokenCache.put(cacheKey, new TokenInfo(token, expiresIn));
-        return token;
+        // 使用框架集成的 HttpApiClientManager 请求新 Token
+        try {
+            Map<String, String> params = new HashMap<>();
+            params.put("client_id", clientId);
+            params.put("client_secret", clientSecret);
+            params.put("grant_type", "client_credentials");
+            
+            String responseStr = HttpApiClientManager.getInstance()
+                    .executePost(tokenUrl, null, JsonUtils.toJsonString(params));
+            Map<String, Object> response = JsonUtils.toMap(responseStr);
+            
+            String token = (String) response.get("access_token");
+            int expiresIn = response.get("expires_in") != null 
+                    ? ((Number) response.get("expires_in")).intValue() 
+                    : 3600;
+            
+            // 缓存 Token
+            tokenCache.put(cacheKey, new TokenInfo(token, expiresIn));
+            return token;
+        } catch (Exception e) {
+            log.error("获取 Token 失败, tokenUrl={}", tokenUrl, e);
+            throw new RuntimeException("获取 Token 失败", e);
+        }
     }
     
-    private void addTokenHeader(InterfaceWorkflowNode flowNode, String token) {
+    @SuppressWarnings("unchecked")
+    private void addTokenHeader(WorkflowNode flowNode, String token) {
         Map<String, Object> metaInfo = JsonUtils.toMap(flowNode.getMetaInfo());
         Map<String, String> headers = (Map<String, String>) metaInfo.getOrDefault("headers", new HashMap<>());
         headers.put("Authorization", "Bearer " + token);
@@ -203,7 +220,7 @@ public class DynamicTokenInvoker extends DefaultInterfaceRemoteInvoker {
 package com.helianhealth.agent.extension;
 
 import com.helianhealth.agent.invocation.remote.DefaultInterfaceRemoteInvoker;
-import com.helianhealth.agent.invocation.remote.model.InterfaceWorkflowNode;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.Invocation;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.common.utils.JsonUtils;
@@ -223,7 +240,7 @@ import java.util.Map;
 public class AesEncryptInvoker extends DefaultInterfaceRemoteInvoker {
 
     @Override
-    public Map<String, Object> remoteInvoke(InterfaceWorkflowNode flowNode, Invocation invocation) {
+    public Map<String, Object> remoteInvoke(WorkflowNode flowNode, Invocation invocation) {
         // 1. 获取加密密钥
         Map<String, String> extParams = flowNode.getExtensionParam();
         String aesKey = extParams.get("aesKey");
@@ -239,7 +256,7 @@ public class AesEncryptInvoker extends DefaultInterfaceRemoteInvoker {
         invocation.getBusinessData().clear();
         invocation.getBusinessData().put("encryptedData", encrypted);
         
-        // 5. 执行请求
+        // 5. 执行请求（通过父类方法调用框架集成的 HTTP 客户端）
         Map<String, Object> response = super.remoteInvoke(flowNode, invocation);
         
         // 6. 解密响应（如果需要）
