@@ -92,8 +92,8 @@ public class MockAgentFilter implements AgentFilter {
                 if (rawResponse != null) {
                     // 通过门面收集Mock原始响应
                     LogCollector.collectRemoteInvokeResponse(rawResponse);
-                    // 解析为Map返回给调用链
-                    Map<String, Object> mockResponse = JsonUtils.toMap(rawResponse);
+                    // 根据 NodeType 选择对应的解析方式
+                    Map<String, Object> mockResponse = parseResponseByType(flowNode, rawResponse);
                     if (mockResponse != null) {
                         return mockResponse;
                     }
@@ -116,6 +116,21 @@ public class MockAgentFilter implements AgentFilter {
                 return databaseSqlHandler.resolveParamNodes(flowNode, params);
             case WEBSERVICE:
                 return soapRequestHandler.resolveParamNodes(flowNode, params);
+            default:
+                throw new UnsupportedOperationException("不支持的节点类型: " + flowNode.getNodeType());
+        }
+    }
+
+    /**
+     * 根据 NodeType 选择对应的响应解析方式
+     */
+    private Map<String, Object> parseResponseByType(WorkflowNode flowNode, String rawResponse) {
+        switch (flowNode.getNodeType()) {
+            case HTTP:
+            case DATABASE:
+                return JsonUtils.toMap(rawResponse);
+            case WEBSERVICE:
+                return soapRequestHandler.parseSoapResponse(flowNode, rawResponse);
             default:
                 throw new UnsupportedOperationException("不支持的节点类型: " + flowNode.getNodeType());
         }
