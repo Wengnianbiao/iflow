@@ -56,7 +56,7 @@ public class LogCollector {
     }
 
     /**
-     * 收集远程调用响应
+     * 收集远程调用原始响应
      */
     public static void collectRemoteInvokeResponse(String responseJson) {
         LogContext context = InvocationLogContextHolder.getContext();

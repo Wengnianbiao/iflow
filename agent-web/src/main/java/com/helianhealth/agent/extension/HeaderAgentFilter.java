@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Header 处理过滤器
+ * Header 处理过滤器拓展示例
  * 根据节点的 extensionParam 中的配置动态增强 HTTP 请求头
  */
 @AgentActivate(order = 50)
