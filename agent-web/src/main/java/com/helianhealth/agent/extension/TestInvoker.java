@@ -18,7 +18,7 @@ import java.util.Map;
  * SPI接口拓展示例
  */
 @Slf4j
-public class CreateArchiveInvoker implements InterfaceRemoteInvoker {
+public class TestInvoker implements InterfaceRemoteInvoker {
 
     @Override
     public Map<String, Object> remoteInvoke(WorkflowNode interfaceWorkflowNode, Invocation invocation) {
