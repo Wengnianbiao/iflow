@@ -125,7 +125,7 @@
             v-model="form.mockResponse"
             type="textarea"
             :rows="8"
-            placeholder='请输入JSON格式的Mock响应数据'
+            placeholder='请输入JSON或XML格式的Mock响应数据'
           ></el-input>
         </el-form-item>
       </el-form>
@@ -187,17 +187,37 @@ export default {
       mockResponse: ''
     });
 
-    const validateJson = (rule, value, callback) => {
+    const isValidJson = (text) => {
+      try {
+        JSON.parse(text);
+        return true;
+      } catch (e) {
+        return false;
+      }
+    };
+
+    const isValidXml = (text) => {
+      try {
+        if (typeof DOMParser === 'undefined') return false;
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, 'application/xml');
+        return !doc.querySelector('parsererror');
+      } catch (e) {
+        return false;
+      }
+    };
+
+    const validateMockResponse = (rule, value, callback) => {
       if (!value || value.trim() === '') {
         callback();
         return;
       }
-      try {
-        JSON.parse(value);
+      const raw = value.trim();
+      if (isValidJson(raw) || isValidXml(raw)) {
         callback();
-      } catch (error) {
-        callback(new Error('请输入有效的JSON格式'));
+        return;
       }
+      callback(new Error('请输入有效的JSON或XML格式'));
     };
 
     const rules = {
@@ -209,7 +229,7 @@ export default {
       ],
       mockResponse: [
         { required: true, message: '请输入Mock响应数据', trigger: 'blur' },
-        { validator: validateJson, trigger: 'blur' }
+        { validator: validateMockResponse, trigger: 'blur' }
       ]
     };
 
