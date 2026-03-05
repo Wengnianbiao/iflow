@@ -39,7 +39,7 @@ public class ExtensionNodeUpdateService {
      * @param extensionName 扩展名称
      * @param nodeIds 节点ID列表
      */
-    @Transactional(value = "workflowAgentTransactionManager", rollbackFor = Exception.class)
+    @Transactional(value = "repositoryAgentTransactionManager", rollbackFor = Exception.class)
     public void updateNodeFields(ExtensionType extensionType, String extensionName, List<Integer> nodeIds) {
         updateNodeFields(extensionType, extensionName, nodeIds, null);
     }
@@ -52,7 +52,7 @@ public class ExtensionNodeUpdateService {
      * @param nodeIds 节点ID列表
      * @param extensionParamValue 扩展参数值（可选，Filter类型使用，null则默认为"true"）
      */
-    @Transactional(value = "workflowAgentTransactionManager", rollbackFor = Exception.class)
+    @Transactional(value = "repositoryAgentTransactionManager", rollbackFor = Exception.class)
     public void updateNodeFields(ExtensionType extensionType, String extensionName, List<Integer> nodeIds, String extensionParamValue) {
         if (nodeIds == null || nodeIds.isEmpty()) {
             log.debug("节点ID列表为空，跳过节点字段更新");
@@ -78,7 +78,7 @@ public class ExtensionNodeUpdateService {
      * @param extensionName 扩展名称
      * @param nodeIds 节点ID列表
      */
-    @Transactional(value = "workflowAgentTransactionManager", rollbackFor = Exception.class)
+    @Transactional(value = "repositoryAgentTransactionManager", rollbackFor = Exception.class)
     public void clearNodeFields(ExtensionType extensionType, String extensionName, List<Integer> nodeIds) {
         if (nodeIds == null || nodeIds.isEmpty()) {
             log.debug("节点ID列表为空，跳过节点字段清理");

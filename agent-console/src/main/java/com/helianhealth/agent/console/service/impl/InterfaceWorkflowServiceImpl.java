@@ -195,7 +195,7 @@ public class InterfaceWorkflowServiceImpl extends WorkflowQueryServiceImpl imple
     }
 
     @Override
-    @Transactional("workflowAgentTransactionManager")
+    @Transactional("repositoryAgentTransactionManager")
     public Integer importWorkflowFull(WorkflowFullExportRsp importData) {
         // 1. 创建工作流
         WorkflowFullExportRsp.WorkflowInfo workflowInfo = importData.getWorkflowInfo();

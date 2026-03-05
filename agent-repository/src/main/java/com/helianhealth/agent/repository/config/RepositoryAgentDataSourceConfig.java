@@ -23,18 +23,18 @@ import javax.sql.DataSource;
 @Configuration
 @MapperScan(
     basePackages = {"com.helianhealth.agent.repository.mapper"},
-    sqlSessionTemplateRef = "workflowAgentSqlSessionTemplate"
+    sqlSessionTemplateRef = "repositoryAgentSqlSessionTemplate"
 )
 public class RepositoryAgentDataSourceConfig {
 
-    @Bean(name = "workflowAgentDataSource")
+    @Bean(name = "repositoryAgentDataSource")
     @ConfigurationProperties(prefix = "spring.datasource.agent")
     public DataSource dataSource() {
         return DruidDataSourceBuilder.create().build();
     }
 
-    @Bean(name = "workflowAgentSqlSessionFactory")
-    public SqlSessionFactory sqlSessionFactory(@Qualifier("workflowAgentDataSource") DataSource dataSource) throws Exception {
+    @Bean(name = "repositoryAgentSqlSessionFactory")
+    public SqlSessionFactory sqlSessionFactory(@Qualifier("repositoryAgentDataSource") DataSource dataSource) throws Exception {
         SqlSessionFactoryBean bean = new SqlSessionFactoryBean();
         bean.setDataSource(dataSource);
         bean.setMapperLocations(new PathMatchingResourcePatternResolver()
@@ -45,13 +45,13 @@ public class RepositoryAgentDataSourceConfig {
         return bean.getObject();
     }
 
-    @Bean(name = "workflowAgentSqlSessionTemplate")
-    public SqlSessionTemplate sqlSessionTemplate(@Qualifier("workflowAgentSqlSessionFactory") SqlSessionFactory sqlSessionFactory) {
+    @Bean(name = "repositoryAgentSqlSessionTemplate")
+    public SqlSessionTemplate sqlSessionTemplate(@Qualifier("repositoryAgentSqlSessionFactory") SqlSessionFactory sqlSessionFactory) {
         return new SqlSessionTemplate(sqlSessionFactory);
     }
 
-    @Bean(name = "workflowAgentTransactionManager")
-    public DataSourceTransactionManager transactionManager(@Qualifier("workflowAgentDataSource") DataSource ds) {
+    @Bean(name = "repositoryAgentTransactionManager")
+    public DataSourceTransactionManager transactionManager(@Qualifier("repositoryAgentDataSource") DataSource ds) {
         return new DataSourceTransactionManager(ds);
     }
 

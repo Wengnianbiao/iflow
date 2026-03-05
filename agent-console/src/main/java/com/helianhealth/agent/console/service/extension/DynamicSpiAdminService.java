@@ -52,7 +52,7 @@ public class DynamicSpiAdminService {
     /**
      * 注册扩展（完整流程：更新节点字段 + 持久化 + 注册SPI）
      */
-    @Transactional(value = "workflowAgentTransactionManager", rollbackFor = Exception.class)
+    @Transactional(value = "repositoryAgentTransactionManager", rollbackFor = Exception.class)
     public void registerExtension(ExtensionType type, NodeExtensionConfigCreateReq request) {
         try {
             // 转换Request为DO
@@ -87,7 +87,7 @@ public class DynamicSpiAdminService {
     /**
      * 更新扩展（完整流程：清理旧节点 + 更新新节点 + 持久化 + 刷新SPI）
      */
-    @Transactional(value = "workflowAgentTransactionManager", rollbackFor = Exception.class)
+    @Transactional(value = "repositoryAgentTransactionManager", rollbackFor = Exception.class)
     public void updateExtension(ExtensionType type, NodeExtensionConfigUpdateReq request) {
         try {
             // 转换Request为DO
@@ -132,7 +132,7 @@ public class DynamicSpiAdminService {
     /**
      * 保存扩展配置并注册SPI（不包含节点字段更新）
      */
-    @Transactional(value = "workflowAgentTransactionManager", rollbackFor = Exception.class)
+    @Transactional(value = "repositoryAgentTransactionManager", rollbackFor = Exception.class)
     public void saveAndRegisterExtension(NodeExtensionConfigDO configDO) {
         try {
             // Step 1: 插入扩展配置到数据库
@@ -156,7 +156,7 @@ public class DynamicSpiAdminService {
     /**
      * 更新扩展配置并刷新SPI
      */
-    @Transactional(value = "workflowAgentTransactionManager", rollbackFor = Exception.class)
+    @Transactional(value = "repositoryAgentTransactionManager", rollbackFor = Exception.class)
     public void updateAndRefreshExtension(NodeExtensionConfigDO oldConfig, NodeExtensionConfigDO newConfig) {
         try {
             // Step 1: 更新数据库
@@ -252,7 +252,7 @@ public class DynamicSpiAdminService {
     /**
      * Disable and unregister runtime implementation
      */
-    @Transactional(value = "workflowAgentTransactionManager", rollbackFor = Exception.class)
+    @Transactional(value = "repositoryAgentTransactionManager", rollbackFor = Exception.class)
     public void disableAndUnregister(Integer codeId) {
         try {
             NodeExtensionConfigDO configDO = extensionMapper.selectById(codeId);

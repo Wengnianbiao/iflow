@@ -134,7 +134,7 @@ public class InterfaceWorkflowNodeServiceImpl extends WorkflowNodeQueryServiceIm
     }
 
     @Override
-    @Transactional("workflowAgentTransactionManager")
+    @Transactional("repositoryAgentTransactionManager")
     public void deleteByNodeId(Integer nodeId) {
         try {
             if (nodeId == null) {
@@ -150,7 +150,7 @@ public class InterfaceWorkflowNodeServiceImpl extends WorkflowNodeQueryServiceIm
     }
 
     @Override
-    @Transactional("workflowAgentTransactionManager")
+    @Transactional("repositoryAgentTransactionManager")
     public void deleteAllConfigByNodeId(Integer nodeId) {
         InterfaceWorkflowNodePO interfaceWorkflowNodeDO = workflowNodeCommandService.selectNodeEntity(nodeId);
         List<NodeParamConfigDO> allNodeParamConfigsUnpaged = nodeParamConfigService.findAllNodeParamConfigsUnpaged(nodeId, null);
@@ -159,7 +159,7 @@ public class InterfaceWorkflowNodeServiceImpl extends WorkflowNodeQueryServiceIm
     }
 
     @Override
-    @Transactional("workflowAgentTransactionManager")
+    @Transactional("repositoryAgentTransactionManager")
     public int batchDeleteByNodeIds(List<Integer> nodeIds) {
         if (nodeIds == null || nodeIds.isEmpty()) {
             throw new IllegalArgumentException("节点ID列表不能为空");

@@ -34,7 +34,7 @@ public class McpConfigService {
     /**
      * 从配置文件创建完整的工作流（工作流+节点+参数配置）
      */
-    @Transactional("workflowAgentTransactionManager")
+    @Transactional("repositoryAgentTransactionManager")
     public WorkflowCreationResult createFromConfigFile(String configFileName) {
         try {
             log.info("开始从配置文件创建工作流: {}", configFileName);
