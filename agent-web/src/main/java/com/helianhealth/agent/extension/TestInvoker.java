@@ -15,7 +15,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * SPI接口拓展示例
+ * 使用场景:
+ * 对于厂商接口无法通过框架配置化完成调用
+ * 可以自定义调用逻辑
+ * 框架会通过节点的remoteExtension字段+SPI机制路由到该拓展类
  */
 @Slf4j
 public class TestInvoker implements InterfaceRemoteInvoker {
