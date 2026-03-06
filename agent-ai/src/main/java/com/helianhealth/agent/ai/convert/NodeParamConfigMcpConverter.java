@@ -6,9 +6,7 @@ import com.helianhealth.agent.common.enums.MappingSource;
 import com.helianhealth.agent.common.enums.MappingType;
 import com.helianhealth.agent.common.enums.ParamType;
 import com.helianhealth.agent.common.enums.ProcessType;
-import com.helianhealth.agent.console.controller.reponse.NodeParamConfigExportRsp;
 import com.helianhealth.agent.repository.model.po.NodeParamConfigDO;
-import com.helianhealth.agent.console.model.dto.NodeParamConfigImportDTO;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -161,47 +159,6 @@ public class NodeParamConfigMcpConverter {
     // ==================== 转换方法 ====================
 
     /**
-     * MCP视图 -> 导入DTO（包含枚举转换）
-     */
-    public static NodeParamConfigImportDTO.NodeParamConfigDTO toImportDTO(NodeParamConfigMcpView view) {
-        if (view == null) {
-            return null;
-        }
-        NodeParamConfigImportDTO.NodeParamConfigDTO dto = new NodeParamConfigImportDTO.NodeParamConfigDTO();
-        dto.setProcessType(parseProcessType(view.getProcessType()));
-        dto.setSourceParamKey(view.getSourceParamKey());
-        dto.setSourceParamType(parseParamType(view.getSourceParamType(), "sourceParamType"));
-        dto.setParamDesc(view.getParamDesc());
-        dto.setTargetParamKey(view.getTargetParamKey());
-        dto.setTargetParamType(parseParamType(view.getTargetParamType(), "targetParamType"));
-        dto.setKeepSingleElementKey(view.getKeepSingleElementKey());
-        dto.setSort(view.getSort());
-        dto.setMappingType(parseMappingType(view.getMappingType()));
-        dto.setMappingSource(parseMappingSource(view.getMappingSource()));
-        dto.setMappingRule(view.getMappingRule());
-        
-        // 递归转换子参数
-        if (view.getChildParams() != null && !view.getChildParams().isEmpty()) {
-            dto.setChildParam(view.getChildParams().stream()
-                    .map(NodeParamConfigMcpConverter::toImportDTO)
-                    .collect(Collectors.toList()));
-        }
-        return dto;
-    }
-
-    /**
-     * MCP视图列表 -> 导入DTO列表
-     */
-    public static List<NodeParamConfigImportDTO.NodeParamConfigDTO> toImportDTOList(List<NodeParamConfigMcpView> views) {
-        if (views == null) {
-            return new ArrayList<>();
-        }
-        return views.stream()
-                .map(NodeParamConfigMcpConverter::toImportDTO)
-                .collect(Collectors.toList());
-    }
-
-    /**
      * DO -> MCP视图（枚举转字符串）
      */
     public static NodeParamConfigMcpView toMcpView(NodeParamConfigDO config) {
@@ -236,39 +193,13 @@ public class NodeParamConfigMcpConverter {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * 导出响应 -> MCP响应
-     */
-    public static NodeParamConfigMcpResponse toMcpResponse(Integer nodeId, NodeParamConfigExportRsp exportRsp) {
-        if (exportRsp == null) {
-            return NodeParamConfigMcpResponse.builder()
-                    .nodeId(nodeId)
-                    .totalCount(0)
-                    .build();
-        }
-        
-        List<NodeParamConfigExportRsp.NodeParamConfigExportDTO> allParams = exportRsp.getParamsConfig();
-        
-        // 按处理类型分组
-        List<NodeParamConfigMcpView> preParams = new ArrayList<>();
-        List<NodeParamConfigMcpView> postParams = new ArrayList<>();
-        
-        if (allParams != null) {
-            for (NodeParamConfigExportRsp.NodeParamConfigExportDTO param : allParams) {
-                NodeParamConfigMcpView view = convertExportParam(param);
-                if (param.getProcessType() == ProcessType.PRE_PROCESS) {
-                    preParams.add(view);
-                } else if (param.getProcessType() == ProcessType.POST_PROCESS) {
-                    postParams.add(view);
-                }
-            }
-        }
-        
+    public static NodeParamConfigMcpResponse toMcpResponse(Integer nodeId, String nodeName,
+                                                          List<NodeParamConfigMcpView> preParams,
+                                                          List<NodeParamConfigMcpView> postParams) {
         int totalCount = countParams(preParams) + countParams(postParams);
-        
         return NodeParamConfigMcpResponse.builder()
                 .nodeId(nodeId)
-                .nodeName(exportRsp.getNodeInfo() != null ? exportRsp.getNodeInfo().getNodeName() : null)
+                .nodeName(nodeName)
                 .preProcessParams(preParams)
                 .postProcessParams(postParams)
                 .totalCount(totalCount)
@@ -276,48 +207,9 @@ public class NodeParamConfigMcpConverter {
     }
 
     /**
-     * 转换导出的参数配置
-     */
-    private static List<NodeParamConfigMcpView> convertExportParams(List<NodeParamConfigExportRsp.NodeParamConfigExportDTO> params) {
-        if (params == null) {
-            return new ArrayList<>();
-        }
-        return params.stream()
-                .map(NodeParamConfigMcpConverter::convertExportParam)
-                .collect(Collectors.toList());
-    }
-
-    private static NodeParamConfigMcpView convertExportParam(NodeParamConfigExportRsp.NodeParamConfigExportDTO param) {
-        if (param == null) {
-            return null;
-        }
-        NodeParamConfigMcpView view = NodeParamConfigMcpView.builder()
-                .processType(param.getProcessType() != null ? param.getProcessType().name() : null)
-                .sourceParamKey(param.getSourceParamKey())
-                .sourceParamType(param.getSourceParamType() != null ? param.getSourceParamType().name() : null)
-                .paramDesc(param.getParamDesc())
-                .targetParamKey(param.getTargetParamKey())
-                .targetParamType(param.getTargetParamType() != null ? param.getTargetParamType().name() : null)
-                .keepSingleElementKey(param.getKeepSingleElementKey())
-                .sort(param.getSort())
-                .mappingType(param.getMappingType() != null ? param.getMappingType().name() : null)
-                .mappingSource(param.getMappingSource() != null ? param.getMappingSource().name() : null)
-                .mappingRule(param.getMappingRule())
-                .build();
-        
-        // 递归转换子参数
-        if (param.getChildParam() != null && !param.getChildParam().isEmpty()) {
-            view.setChildParams(param.getChildParam().stream()
-                    .map(NodeParamConfigMcpConverter::convertExportParam)
-                    .collect(Collectors.toList()));
-        }
-        return view;
-    }
-
-    /**
      * 统计参数数量（包括嵌套）
      */
-    private static int countParams(List<NodeParamConfigMcpView> params) {
+    public static int countParams(List<NodeParamConfigMcpView> params) {
         if (params == null) {
             return 0;
         }
@@ -340,6 +232,27 @@ public class NodeParamConfigMcpConverter {
         return NodeParamConfigDO.builder()
                 .configId(view.getConfigId())
                 .processType(parseProcessType(view.getProcessType()))
+                .sourceParamKey(view.getSourceParamKey())
+                .sourceParamType(parseParamType(view.getSourceParamType(), "sourceParamType"))
+                .paramDesc(view.getParamDesc())
+                .targetParamKey(view.getTargetParamKey())
+                .targetParamType(parseParamType(view.getTargetParamType(), "targetParamType"))
+                .keepSingleElementKey(view.getKeepSingleElementKey())
+                .sort(view.getSort())
+                .mappingType(parseMappingType(view.getMappingType()))
+                .mappingSource(parseMappingSource(view.getMappingSource()))
+                .mappingRule(view.getMappingRule())
+                .build();
+    }
+
+    public static NodeParamConfigDO toDO(NodeParamConfigMcpView view, Integer nodeId, Integer parentId) {
+        if (view == null) {
+            return null;
+        }
+        return NodeParamConfigDO.builder()
+                .processType(parseProcessType(view.getProcessType()))
+                .nodeId(nodeId)
+                .parentId(parentId)
                 .sourceParamKey(view.getSourceParamKey())
                 .sourceParamType(parseParamType(view.getSourceParamType(), "sourceParamType"))
                 .paramDesc(view.getParamDesc())

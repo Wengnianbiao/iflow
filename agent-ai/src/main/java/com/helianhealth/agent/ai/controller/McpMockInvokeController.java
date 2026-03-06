@@ -9,7 +9,7 @@ import com.helianhealth.agent.invocation.remote.model.Invocation;
 import com.helianhealth.agent.invocation.remote.wrapper.WrapperFactory;
 import com.helianhealth.agent.schedule.builder.WorkFlowNodeBuilder;
 import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
-import com.helianhealth.agent.console.service.NodeParamConfigService;
+import com.helianhealth.agent.ai.service.AiNodeParamConfigService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
 public class McpMockInvokeController {
 
     private final WorkFlowNodeBuilder workFlowNodeBuilder;
-    private final NodeParamConfigService nodeParamConfigService;
+    private final AiNodeParamConfigService nodeParamConfigService;
 
     /**
      * 执行Mock调用验证
@@ -56,8 +56,8 @@ public class McpMockInvokeController {
             WorkflowNode workflowNode = workFlowNodeBuilder.buildWithMock(nodeId, mockId);
 
             // 2. 获取前置和后置参数配置
-            List<NodeParamConfig> preParamConfigs = nodeParamConfigService.selectPreProcessConfigByNodeId(nodeId);
-            List<NodeParamConfig> postParamConfigs = nodeParamConfigService.selectPostProcessConfigByNodeId(nodeId);
+            List<NodeParamConfig> preParamConfigs = nodeParamConfigService.findPreProcessDomainConfigs(nodeId);
+            List<NodeParamConfig> postParamConfigs = nodeParamConfigService.findPostProcessDomainConfigs(nodeId);
 
             // 3. 构建调用上下文
             Invocation invocation = Invocation.builder()

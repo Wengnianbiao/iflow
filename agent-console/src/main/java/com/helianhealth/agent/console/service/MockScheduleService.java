@@ -14,13 +14,19 @@ import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.repository.service.MockConfigQueryService;
 import com.helianhealth.agent.repository.service.NodeParamConfigQueryService;
+import com.helianhealth.agent.schedule.processor.BusinessDataSplitter;
+import com.helianhealth.agent.schedule.processor.ParamFilterProcessor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 /**
@@ -34,14 +40,23 @@ public class MockScheduleService {
     private final InterfaceWorkflowNodeService flowNodeService;
     private final NodeParamConfigQueryService nodeParamConfigService;
     private final MockConfigQueryService mockConfigQueryService;
+    private final ParamFilterProcessor businessDataPostProcessor;
+    private final BusinessDataSplitter splitBusinessDataPostProcessor;
+    private final ThreadPoolTaskExecutor taskExecutor;
     private InterfaceRemoteInvoker interfaceRemoteInvoker;
 
     public MockScheduleService(InterfaceWorkflowNodeService flowNodeService,
                                NodeParamConfigQueryService nodeParamConfigService,
-                               MockConfigQueryService mockConfigQueryService) {
+                               MockConfigQueryService mockConfigQueryService,
+                               ParamFilterProcessor businessDataPostProcessor,
+                               BusinessDataSplitter splitBusinessDataPostProcessor,
+                               @Qualifier("WorkFlowNodeExecutor") ThreadPoolTaskExecutor taskExecutor) {
         this.flowNodeService = flowNodeService;
         this.nodeParamConfigService = nodeParamConfigService;
         this.mockConfigQueryService = mockConfigQueryService;
+        this.businessDataPostProcessor = businessDataPostProcessor;
+        this.splitBusinessDataPostProcessor = splitBusinessDataPostProcessor;
+        this.taskExecutor = taskExecutor;
     }
 
     /**
@@ -89,17 +104,29 @@ public class MockScheduleService {
     private Map<String, Object> processMockNode(WorkflowNode node,
                                                  Map<String, Object> businessData,
                                                  Map<Integer, Integer> mockIdMap) {
-        // 1. 执行节点（会MockAgentFilter返回Mock响应）
-        Map<String, Object> nodeResponse = getInvoker()
-                .remoteInvoke(node, buildInvocation(node, businessData));
+        Map<String, Object> filteredBusinessData = businessData;
+        String paramFilterExpr = node.getParamFilterExpr();
+        if (paramFilterExpr != null && !paramFilterExpr.trim().isEmpty()) {
+            filteredBusinessData = businessDataPostProcessor.paramFilterPostProcess(paramFilterExpr, businessData);
+            if (filteredBusinessData == null || filteredBusinessData.isEmpty()) {
+                return new HashMap<>();
+            }
+        }
 
-        // 2. 解析调度表达式，确定下游节点
+        Map<String, Object> nodeResponse;
+        String splitField = node.getSplitField();
+        if (splitField != null && !splitField.isEmpty()) {
+            nodeResponse = parallelSplitNodeProcess(node, filteredBusinessData);
+        } else {
+            nodeResponse = getInvoker()
+                    .remoteInvoke(node, buildInvocation(node, filteredBusinessData));
+        }
+
         List<Integer> nextNodeIds = determineNextNode(node.getScheduleExpr(), nodeResponse);
         if (nextNodeIds == null || nextNodeIds.isEmpty()) {
             return nodeResponse;
         }
 
-        // 3. 验证下游节点都有Mock配置
         for (Integer nextNodeId : nextNodeIds) {
             if (!mockIdMap.containsKey(nextNodeId)) {
                 throw new IllegalArgumentException(
@@ -107,16 +134,13 @@ public class MockScheduleService {
             }
         }
 
-        // 4. 确定下游节点的入参来源
         Map<String, Object> nextNodeParam = determineNextNodeParam(
                 node.getScheduleParamSourceType(), businessData, nodeResponse);
 
-        // 5. 递归调度下游节点（支持并行）
         if (nextNodeIds.size() == 1) {
             WorkflowNode nextNode = buildMockNode(nextNodeIds.get(0), mockIdMap.get(nextNodeIds.get(0)));
             return processMockNode(nextNode, nextNodeParam, mockIdMap);
         } else {
-            // 多个下游节点，合并结果
             Map<String, Object> mergedResult = new HashMap<>();
             for (Integer nextNodeId : nextNodeIds) {
                 WorkflowNode nextNode = buildMockNode(nextNodeId, mockIdMap.get(nextNodeId));
@@ -202,5 +226,74 @@ public class MockScheduleService {
             return businessData;
         }
         return nodeResponse;
+    }
+
+    private Map<String, Object> parallelSplitNodeProcess(WorkflowNode node, Map<String, Object> businessData) {
+        List<Map<String, Object>> listBusinessData = splitBusinessDataPostProcessor.split(node.getSplitField(), businessData);
+        if (listBusinessData.isEmpty()) {
+            return mergeResults(Collections.emptyList());
+        }
+
+        List<CompletableFuture<Map<String, Object>>> futures = listBusinessData.stream()
+                .map(map -> CompletableFuture.supplyAsync(
+                        () -> getInvoker().remoteInvoke(node, buildInvocation(node, map)),
+                        taskExecutor
+                ).handle((result, ex) -> {
+                    if (ex != null) {
+                        log.error("节点[{}]并行执行失败，跳过该分片", node.getNodeName(), ex);
+                        return Collections.<String, Object>emptyMap();
+                    }
+                    return result;
+                }))
+                .collect(Collectors.toList());
+
+        List<Map<String, Object>> nodeResultList = futures.stream()
+                .map(CompletableFuture::join)
+                .collect(Collectors.toList());
+
+        return mergeResults(nodeResultList);
+    }
+
+    private Map<String, Object> mergeResults(List<Map<String, Object>> resultList) {
+        Map<String, Object> merged = new HashMap<>();
+        for (Map<String, Object> nodeResult : resultList) {
+            mergeMap(nodeResult, merged);
+        }
+        return merged;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void mergeMap(Map<String, Object> source, Map<String, Object> target) {
+        for (Map.Entry<String, Object> entry : source.entrySet()) {
+            String key = entry.getKey();
+            Object value = entry.getValue();
+
+            if (target.containsKey(key)) {
+                Object existingValue = target.get(key);
+                if (existingValue instanceof List) {
+                    List<Object> mergedValue = mergeValues(existingValue, value);
+                    target.put(key, mergedValue);
+                } else if (existingValue instanceof Map && value instanceof Map) {
+                    mergeMap((Map<String, Object>) value, (Map<String, Object>) existingValue);
+                }
+            } else {
+                target.put(key, value);
+            }
+        }
+    }
+
+    private List<Object> mergeValues(Object existingValue, Object newValue) {
+        List<Object> merged = new ArrayList<>();
+        if (existingValue instanceof List) {
+            merged.addAll((List<?>) existingValue);
+        } else {
+            merged.add(existingValue);
+        }
+        if (newValue instanceof List) {
+            merged.addAll((List<?>) newValue);
+        } else {
+            merged.add(newValue);
+        }
+        return merged;
     }
 }

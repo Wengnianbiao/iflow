@@ -4,14 +4,11 @@ import com.helianhealth.agent.ai.convert.NodeParamConfigMcpConverter;
 import com.helianhealth.agent.ai.model.NodeParamConfigImportMcpRequest;
 import com.helianhealth.agent.ai.model.NodeParamConfigMcpResponse;
 import com.helianhealth.agent.ai.model.NodeParamConfigMcpView;
+import com.helianhealth.agent.ai.service.AiNodeParamConfigService;
 import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.common.enums.ProcessType;
 import com.helianhealth.agent.common.utils.ResponseRenderUtils;
-import com.helianhealth.agent.console.controller.reponse.NodeParamConfigExportRsp;
 import com.helianhealth.agent.repository.model.po.NodeParamConfigDO;
-import com.helianhealth.agent.console.model.dto.NodeParamConfigImportDTO;
-import com.helianhealth.agent.console.service.InterfaceWorkflowNodeService;
-import com.helianhealth.agent.console.service.NodeParamConfigService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -41,8 +38,7 @@ import java.util.List;
 @AllArgsConstructor
 public class McpNodeParamConfigController {
 
-    private final NodeParamConfigService nodeParamConfigService;
-    private final InterfaceWorkflowNodeService interfaceWorkflowNodeService;
+    private final AiNodeParamConfigService nodeParamConfigService;
 
     /**
      * 查询节点参数配置列表（扁平化）
@@ -77,8 +73,7 @@ public class McpNodeParamConfigController {
             if (nodeId == null) {
                 return ResponseRenderUtils.error("nodeId不能为空");
             }
-            NodeParamConfigExportRsp exportRsp = interfaceWorkflowNodeService.exportNodeParamConfig(nodeId);
-            NodeParamConfigMcpResponse mcpResponse = NodeParamConfigMcpConverter.toMcpResponse(nodeId, exportRsp);
+            NodeParamConfigMcpResponse mcpResponse = nodeParamConfigService.exportNodeParamConfigs(nodeId);
             return ResponseRenderUtils.render(mcpResponse);
         } catch (Exception e) {
             log.error("MCP导出节点参数配置失败", e);
@@ -106,7 +101,7 @@ public class McpNodeParamConfigController {
             }
             
             // 校验节点是否存在
-            if (interfaceWorkflowNodeService.selectByNodeId(request.getNodeId()) == null) {
+            if (!nodeParamConfigService.nodeExists(request.getNodeId())) {
                 return ResponseRenderUtils.error("节点不存在，nodeId=" + request.getNodeId());
             }
             
@@ -115,13 +110,15 @@ public class McpNodeParamConfigController {
             
             // 默认清空旧配置
             if (request.getClearBeforeImport() == null || request.getClearBeforeImport()) {
-                interfaceWorkflowNodeService.deleteAllConfigByNodeId(request.getNodeId());
+                nodeParamConfigService.deleteAllNodeParamConfigs(request.getNodeId());
             }
             
             // 转换并导入
-            List<NodeParamConfigImportDTO.NodeParamConfigDTO> importDTOs = 
-                    NodeParamConfigMcpConverter.toImportDTOList(request.getParams());
-            nodeParamConfigService.importNodeParamConfig(request.getNodeId(), importDTOs);
+            nodeParamConfigService.importNodeParamConfigs(
+                    request.getNodeId(),
+                    request.getParams(),
+                    false
+            );
             
             return ResponseRenderUtils.render("导入节点参数配置成功，共" + request.getParams().size() + "条");
         } catch (IllegalArgumentException e) {
@@ -145,7 +142,7 @@ public class McpNodeParamConfigController {
             if (nodeId == null) {
                 return ResponseRenderUtils.error("nodeId不能为空");
             }
-            interfaceWorkflowNodeService.deleteAllConfigByNodeId(nodeId);
+            nodeParamConfigService.deleteAllNodeParamConfigs(nodeId);
             return ResponseRenderUtils.render("全量删除节点参数配置成功");
         } catch (Exception e) {
             log.error("MCP全量删除节点参数配置失败", e);
@@ -163,8 +160,7 @@ public class McpNodeParamConfigController {
             if (config == null || config.getConfigId() == null) {
                 return ResponseRenderUtils.error("参数不能为空，configId必须存在");
             }
-            NodeParamConfigDO configDO = NodeParamConfigMcpConverter.toDO(config);
-            NodeParamConfigDO updatedConfig = nodeParamConfigService.update(configDO);
+            NodeParamConfigDO updatedConfig = nodeParamConfigService.updateNodeParamConfig(config);
             if (updatedConfig != null) {
                 return ResponseRenderUtils.render(NodeParamConfigMcpConverter.toMcpView(updatedConfig));
             } else {
@@ -186,7 +182,7 @@ public class McpNodeParamConfigController {
     public ResultData<String> deleteNodeParamConfig(@PathVariable Integer configId) {
         try {
             log.info("MCP删除节点参数配置: configId={}", configId);
-            nodeParamConfigService.deleteById(configId);
+            nodeParamConfigService.deleteNodeParamConfig(configId);
             return ResponseRenderUtils.render("节点参数配置删除成功");
         } catch (Exception e) {
             log.error("MCP删除节点参数配置失败", e);
@@ -194,4 +190,3 @@ public class McpNodeParamConfigController {
         }
     }
 }
-
