@@ -528,6 +528,52 @@ public class XmlUtilsParseXmlForConfigTest {
         assertEquals("80000055975", itemHisIds.get(1));
     }
 
+    @Test
+    public void testDirectXmlParsing_NoMetadata() {
+        // 直接解析 XML，不带任何元信息配置
+        // 检验报告系统推送状态到 LIS 系统的 XML 格式
+        String xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +
+                "<body>" +
+                "<head>" +
+                "<userid>zhrmyy</userid>" +
+                "<password>123</password>" +
+                "<trans_no>assay_to_hltj</trans_no>" +
+                "</head>" +
+                "<state_to_hltj>" +
+                "<APPLY_NO>2026030650159</APPLY_NO>" +
+                "<PATIENTCODE>259038</PATIENTCODE>" +
+                "<OPERATENAME>刘晶</OPERATENAME>" +
+                "<OPERATETIME>2026-03-06 11:24:50</OPERATETIME>" +
+                "<STATE>90</STATE>" +
+                "<CHECK_TYPE>assay</CHECK_TYPE>" +
+                "</state_to_hltj>" +
+                "</body>";
+        Map<String, Object> metaMap = new HashMap<>();
+
+        Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
+
+        // body 下有 head 和 state_to_hltj 两种标签 → 各自作为对象属性
+        assertInstanceOf(Map.class, result.get("head"));
+        assertInstanceOf(Map.class, result.get("state_to_hltj"));
+
+        // 验证 head 内容：有三种子标签，各字段直接是字符串值
+        @SuppressWarnings("unchecked")
+        Map<String, Object> head = (Map<String, Object>) result.get("head");
+        assertEquals("zhrmyy", head.get("userid"));
+        assertEquals("123", head.get("password"));
+        assertEquals("assay_to_hltj", head.get("trans_no"));
+
+        // 验证 state_to_hltj 内容：有六种子标签，各字段直接是字符串值
+        @SuppressWarnings("unchecked")
+        Map<String, Object> stateToHltj = (Map<String, Object>) result.get("state_to_hltj");
+        assertEquals("2026030650159", stateToHltj.get("APPLY_NO"));
+        assertEquals("259038", stateToHltj.get("PATIENTCODE"));
+        assertEquals("刘晶", stateToHltj.get("OPERATENAME"));
+        assertEquals("2026-03-06 11:24:50", stateToHltj.get("OPERATETIME"));
+        assertEquals("90", stateToHltj.get("STATE"));
+        assertEquals("assay", stateToHltj.get("CHECK_TYPE"));
+    }
+
     // ==================== 12. Map转XML场景（buildResponseXml） ====================
 
     @Nested
