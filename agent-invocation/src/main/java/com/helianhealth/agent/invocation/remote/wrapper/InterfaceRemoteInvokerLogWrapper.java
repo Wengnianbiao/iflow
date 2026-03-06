@@ -34,7 +34,7 @@ public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker 
         // 使用门面初始化日志上下文
         LogCollector.init();
         LogCollector.collectNodeName(flowNode.getNodeName());
-        
+
         Map<String, Object> businessData = invocation.getBusinessData();
         // 提取关键字
         if (businessData != null && flowNode.getKeywordField() != null) {
@@ -62,7 +62,11 @@ public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker 
             throw e;
         } finally {
             try {
-                saveAllCollectedLogs(LogCollector.getContext());
+                LogContext context = LogCollector.getContext();
+                if (context != null && context.getInvokeTime() == null) {
+                    context.setInvokeTime(String.valueOf(System.currentTimeMillis() - startTime));
+                }
+                saveAllCollectedLogs(context);
                 log.info("工作流节点: [{}] 执行结束, 耗时: [{}]ms", flowNode.getNodeName(), System.currentTimeMillis() - startTime);
             } catch (Exception e) {
                 log.error("日志保存失败", e);
