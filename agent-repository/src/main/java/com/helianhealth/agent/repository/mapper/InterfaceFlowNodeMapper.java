@@ -42,4 +42,8 @@ public interface InterfaceFlowNodeMapper extends Mapper<InterfaceWorkflowNodePO>
      */
     int updateExtensionParam(@Param("nodeId") Integer nodeId, 
                              @Param("extensionParam") String extensionParam);
+
+    int updateScheduleFields(@Param("nodeId") Integer nodeId,
+                             @Param("scheduleParamSourceType") String scheduleParamSourceType,
+                             @Param("scheduleExpr") String scheduleExpr);
 }

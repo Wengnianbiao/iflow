@@ -45,28 +45,8 @@ public class WorkflowNodeUpdateReq {
     private String splitField;
 
     /**
-     * 调度规则表达式
-     */
-    private String scheduleExpr;
-
-    /**
-     * 调度参数来源类型
-     */
-    private String scheduleParamSourceType;
-
-    /**
      * 业务关键字字段名配置
      * 用于指定从businessData中提取哪个字段作为关键字
      */
     private String keywordField;
-
-    /**
-     * SPI拓展字段
-     */
-    private String remoteExtension;
-
-    /**
-     * 扩展参数
-     */
-    private String extensionParam;
 }

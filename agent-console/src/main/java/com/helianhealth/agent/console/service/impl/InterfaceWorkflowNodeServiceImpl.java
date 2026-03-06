@@ -8,6 +8,7 @@ import com.helianhealth.agent.repository.model.dto.InterfaceWorkflowNodeView;
 import com.helianhealth.agent.console.controller.reponse.NodeConfigExportRsp;
 import com.helianhealth.agent.console.controller.reponse.NodeParamConfigExportRsp;
 import com.helianhealth.agent.console.controller.request.WorkflowNodeCreateReq;
+import com.helianhealth.agent.console.controller.request.WorkflowNodeScheduleUpdateReq;
 import com.helianhealth.agent.console.controller.request.WorkflowNodeUpdateReq;
 import com.helianhealth.agent.common.enums.NodeType;
 import com.helianhealth.agent.common.enums.ScheduleParamSourceType;
@@ -115,22 +116,35 @@ public class InterfaceWorkflowNodeServiceImpl extends WorkflowNodeQueryServiceIm
 
     @Override
     public int update(WorkflowNodeUpdateReq nodeUpdateReq) {
-        String scheduleParamSourceType = nodeUpdateReq.getScheduleParamSourceType();
+        NodeType nodeType = StringUtils.hasText(nodeUpdateReq.getNodeType())
+                ? NodeType.valueOf(nodeUpdateReq.getNodeType())
+                : null;
         InterfaceWorkflowNodePO workflowNodePO = InterfaceWorkflowNodePO.builder()
                 .nodeId(nodeUpdateReq.getNodeId())
                 .nodeName(nodeUpdateReq.getNodeName())
                 .flowId(nodeUpdateReq.getFlowId())
                 .paramFilterExpr(nodeUpdateReq.getParamFilterExpr())
-                .nodeType(NodeType.valueOf(nodeUpdateReq.getNodeType()))
+                .nodeType(nodeType)
                 .metaInfo(nodeUpdateReq.getMetaInfo())
                 .keywordField(nodeUpdateReq.getKeywordField())
                 .splitField(nodeUpdateReq.getSplitField())
-                .remoteExtension(nodeUpdateReq.getRemoteExtension())
-                .extensionParam(nodeUpdateReq.getExtensionParam())
-                .scheduleExpr(nodeUpdateReq.getScheduleExpr())
-                .scheduleParamSourceType(scheduleParamSourceType == null || scheduleParamSourceType.isEmpty() ?
-                        null : ScheduleParamSourceType.valueOf(scheduleParamSourceType)).build();
+                .build();
         return workflowNodeCommandService.updateNodeSelective(workflowNodePO);
+    }
+
+    @Override
+    public int updateSchedule(WorkflowNodeScheduleUpdateReq scheduleUpdateReq) {
+        String scheduleParamSourceType = StringUtils.hasText(scheduleUpdateReq.getScheduleParamSourceType())
+                ? scheduleUpdateReq.getScheduleParamSourceType()
+                : null;
+        String scheduleExpr = StringUtils.hasText(scheduleUpdateReq.getScheduleExpr())
+                ? scheduleUpdateReq.getScheduleExpr()
+                : null;
+        return workflowNodeCommandService.updateScheduleFields(
+                scheduleUpdateReq.getNodeId(),
+                scheduleParamSourceType,
+                scheduleExpr
+        );
     }
 
     @Override

@@ -5,6 +5,7 @@ import com.helianhealth.agent.repository.model.dto.InterfaceWorkflowNodeView;
 import com.helianhealth.agent.console.controller.reponse.NodeConfigExportRsp;
 import com.helianhealth.agent.console.controller.reponse.NodeParamConfigExportRsp;
 import com.helianhealth.agent.console.controller.request.WorkflowNodeCreateReq;
+import com.helianhealth.agent.console.controller.request.WorkflowNodeScheduleUpdateReq;
 import com.helianhealth.agent.console.controller.request.WorkflowNodeUpdateReq;
 import com.helianhealth.agent.repository.service.WorkflowNodeQueryService;
 import org.springframework.web.multipart.MultipartFile;
@@ -20,6 +21,8 @@ public interface InterfaceWorkflowNodeService extends WorkflowNodeQueryService {
     int save(WorkflowNodeCreateReq nodeCreateReq);
 
     int update(WorkflowNodeUpdateReq nodeUpdateReq);
+
+    int updateSchedule(WorkflowNodeScheduleUpdateReq scheduleUpdateReq);
 
     void deleteByNodeId(Integer nodeId);
 

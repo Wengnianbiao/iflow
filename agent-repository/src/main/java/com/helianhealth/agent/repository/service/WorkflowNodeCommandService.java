@@ -30,6 +30,8 @@ public interface WorkflowNodeCommandService {
      */
     int updateExtensionParam(Integer nodeId, String extensionParam);
 
+    int updateScheduleFields(Integer nodeId, String scheduleParamSourceType, String scheduleExpr);
+
     void deleteNode(Integer nodeId);
 
     List<InterfaceWorkflowNodePO> selectAllNodes(Integer flowId);

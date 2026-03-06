@@ -40,6 +40,11 @@ public class WorkflowNodeCommandServiceImpl implements WorkflowNodeCommandServic
     }
 
     @Override
+    public int updateScheduleFields(Integer nodeId, String scheduleParamSourceType, String scheduleExpr) {
+        return flowNodeMapper.updateScheduleFields(nodeId, scheduleParamSourceType, scheduleExpr);
+    }
+
+    @Override
     public void deleteNode(Integer nodeId) {
         flowNodeMapper.deleteByPrimaryKey(nodeId);
     }

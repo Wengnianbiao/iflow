@@ -8,6 +8,7 @@ import com.helianhealth.agent.repository.model.dto.InterfaceWorkflowNodeView;
 import com.helianhealth.agent.console.controller.reponse.NodeConfigExportRsp;
 import com.helianhealth.agent.console.controller.reponse.NodeParamConfigExportRsp;
 import com.helianhealth.agent.console.controller.request.WorkflowNodeCreateReq;
+import com.helianhealth.agent.console.controller.request.WorkflowNodeScheduleUpdateReq;
 import com.helianhealth.agent.console.controller.request.WorkflowNodeUpdateReq;
 import com.helianhealth.agent.console.service.InterfaceWorkflowNodeService;
 import com.helianhealth.agent.console.service.NodeParamConfigService;
@@ -108,6 +109,17 @@ public class WorkflowNodeController {
         } catch (Exception e) {
             log.error("更新工作流节点失败", e);
             return ResponseRenderUtils.error("更新工作流节点失败: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/update-schedule")
+    public ResultData<Integer> updateNodeSchedule(@RequestBody WorkflowNodeScheduleUpdateReq updateRequest) {
+        try {
+            int result = interfaceFlowNodeService.updateSchedule(updateRequest);
+            return ResponseRenderUtils.render(result);
+        } catch (Exception e) {
+            log.error("更新节点调度配置失败", e);
+            return ResponseRenderUtils.error("更新节点调度配置失败: " + e.getMessage());
         }
     }
 
