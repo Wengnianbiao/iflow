@@ -323,7 +323,7 @@
 </template>
 
 <script>
-import { getNodeList, updateNode } from '@/api/workflownode';
+import { getNodeList, updateNodeSchedule } from '@/api/workflownode';
 import { getNodeParams } from '@/api/nodeParam';
 
 export default {
@@ -550,8 +550,8 @@ export default {
           type: 'warning'
         });
 
-        await updateNode({
-          ...row,
+        await updateNodeSchedule({
+          nodeId: row.nodeId,
           scheduleExpr: '',
           scheduleParamSourceType: null
         });
@@ -639,8 +639,8 @@ export default {
               scheduleExpr = this.scheduleForm.scheduleExpr;
             }
 
-            await updateNode({
-              ...node,
+            await updateNodeSchedule({
+              nodeId: node.nodeId,
               scheduleExpr: scheduleExpr,
               scheduleParamSourceType: this.scheduleForm.scheduleParamSourceType
             });

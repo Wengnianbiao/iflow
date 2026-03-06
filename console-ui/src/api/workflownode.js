@@ -44,6 +44,14 @@ export function updateNode(data) {
   })
 }
 
+export function updateNodeSchedule(data) {
+  return request({
+    url: '/v1/console/node/update-schedule',
+    method: 'post',
+    data
+  })
+}
+
 /**
  * 删除节点
  */
