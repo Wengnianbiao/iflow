@@ -3,12 +3,12 @@ package com.helianhealth.agent.repository.service.impl;
 import com.helianhealth.agent.repository.mapper.MockConfigMapper;
 import com.helianhealth.agent.repository.model.po.MockConfigDO;
 import com.helianhealth.agent.repository.service.MockConfigCommandService;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 /**
  * Mock配置写操作服务实现
  */
-@Component
+@Service
 public class MockConfigCommandServiceImpl implements MockConfigCommandService {
 
     private final MockConfigMapper mockConfigMapper;

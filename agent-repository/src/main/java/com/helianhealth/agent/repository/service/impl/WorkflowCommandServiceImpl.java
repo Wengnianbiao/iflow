@@ -3,14 +3,14 @@ package com.helianhealth.agent.repository.service.impl;
 import com.helianhealth.agent.repository.mapper.InterfaceWorkflowMapper;
 import com.helianhealth.agent.repository.model.po.InterfaceWorkflowDO;
 import com.helianhealth.agent.repository.service.WorkflowCommandService;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 /**
  * 工作流写操作服务实现
  */
-@Component
+@Service
 public class WorkflowCommandServiceImpl implements WorkflowCommandService {
 
     private final InterfaceWorkflowMapper workflowMapper;

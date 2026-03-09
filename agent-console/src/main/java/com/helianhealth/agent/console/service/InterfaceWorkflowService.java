@@ -3,11 +3,10 @@ package com.helianhealth.agent.console.service;
 import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.console.controller.reponse.WorkflowFullExportRsp;
 import com.helianhealth.agent.repository.model.po.InterfaceWorkflowDO;
-import com.helianhealth.agent.repository.service.WorkflowQueryService;
 
 import java.util.List;
 
-public interface InterfaceWorkflowService extends WorkflowQueryService {
+public interface InterfaceWorkflowService {
 
     int save(InterfaceWorkflowDO interfaceInstanceDO);
 

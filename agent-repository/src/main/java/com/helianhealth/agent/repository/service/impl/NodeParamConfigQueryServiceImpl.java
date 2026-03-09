@@ -4,6 +4,7 @@ import com.helianhealth.agent.repository.mapper.NodeParamConfigMapper;
 import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 import com.helianhealth.agent.repository.model.po.NodeParamConfigDO;
 import com.helianhealth.agent.repository.service.NodeParamConfigQueryService;
+import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -11,6 +12,7 @@ import java.util.stream.Collectors;
 /**
  * 节点参数配置查询服务基础实现
  */
+@Service
 public class NodeParamConfigQueryServiceImpl implements NodeParamConfigQueryService {
 
     protected final NodeParamConfigMapper nodeParamConfigMapper;

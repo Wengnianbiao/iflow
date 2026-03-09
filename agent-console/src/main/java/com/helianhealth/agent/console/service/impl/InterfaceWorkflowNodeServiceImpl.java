@@ -4,24 +4,25 @@ import com.alibaba.fastjson2.JSON;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.helianhealth.agent.common.base.PageList;
-import com.helianhealth.agent.repository.model.dto.InterfaceWorkflowNodeView;
+import com.helianhealth.agent.common.enums.NodeType;
+import com.helianhealth.agent.common.enums.ScheduleParamSourceType;
+import com.helianhealth.agent.common.utils.SpelUtils;
 import com.helianhealth.agent.console.controller.reponse.NodeConfigExportRsp;
 import com.helianhealth.agent.console.controller.reponse.NodeParamConfigExportRsp;
 import com.helianhealth.agent.console.controller.request.WorkflowNodeCreateReq;
 import com.helianhealth.agent.console.controller.request.WorkflowNodeScheduleUpdateReq;
 import com.helianhealth.agent.console.controller.request.WorkflowNodeUpdateReq;
-import com.helianhealth.agent.common.enums.NodeType;
-import com.helianhealth.agent.common.enums.ScheduleParamSourceType;
-import com.helianhealth.agent.repository.mapper.InterfaceFlowNodeMapper;
 import com.helianhealth.agent.console.model.convert.WorkflowNodeConvert;
-import com.helianhealth.agent.repository.model.po.NodeParamConfigDO;
 import com.helianhealth.agent.console.model.dto.NodeConfigImportDTO;
 import com.helianhealth.agent.console.model.dto.NodeParamConfigImportDTO;
-import com.helianhealth.agent.repository.model.po.InterfaceWorkflowNodePO;
 import com.helianhealth.agent.console.service.InterfaceWorkflowNodeService;
 import com.helianhealth.agent.console.service.NodeParamConfigService;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
+import com.helianhealth.agent.repository.model.dto.InterfaceWorkflowNodeView;
+import com.helianhealth.agent.repository.model.po.InterfaceWorkflowNodePO;
+import com.helianhealth.agent.repository.model.po.NodeParamConfigDO;
 import com.helianhealth.agent.repository.service.WorkflowNodeCommandService;
-import com.helianhealth.agent.repository.service.impl.WorkflowNodeQueryServiceImpl;
+import com.helianhealth.agent.repository.service.WorkflowNodeQueryService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -29,33 +30,36 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.helianhealth.agent.common.utils.SpelUtils;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Component
 @Slf4j
-public class InterfaceWorkflowNodeServiceImpl extends WorkflowNodeQueryServiceImpl implements InterfaceWorkflowNodeService {
+public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeService {
 
+    private final WorkflowNodeQueryService workflowNodeQueryService;
     private final WorkflowNodeCommandService workflowNodeCommandService;
     private final WorkflowNodeConvert nodeConvert;
     private final NodeParamConfigService nodeParamConfigService;
 
     @Autowired
     public InterfaceWorkflowNodeServiceImpl(
-            InterfaceFlowNodeMapper flowNodeMapper,
+            WorkflowNodeQueryService workflowNodeQueryService,
             WorkflowNodeCommandService workflowNodeCommandService,
             WorkflowNodeConvert nodeConvert,
             NodeParamConfigService nodeParamConfigService) {
-        super(flowNodeMapper);
+        this.workflowNodeQueryService = workflowNodeQueryService;
         this.workflowNodeCommandService = workflowNodeCommandService;
         this.nodeConvert = nodeConvert;
         this.nodeParamConfigService = nodeParamConfigService;
+    }
+
+    @Override
+    public WorkflowNode selectByNodeId(Integer nodeId) {
+        return workflowNodeQueryService.selectByNodeId(nodeId);
     }
 
     @Override

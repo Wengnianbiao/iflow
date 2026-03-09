@@ -3,14 +3,14 @@ package com.helianhealth.agent.repository.service.impl;
 import com.helianhealth.agent.repository.mapper.NodeParamConfigMapper;
 import com.helianhealth.agent.repository.model.po.NodeParamConfigDO;
 import com.helianhealth.agent.repository.service.NodeParamConfigCommandService;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 /**
  * 节点参数配置写操作服务实现
  */
-@Component
+@Service
 public class NodeParamConfigCommandServiceImpl implements NodeParamConfigCommandService {
 
     private final NodeParamConfigMapper nodeParamConfigMapper;

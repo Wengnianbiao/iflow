@@ -3,18 +3,16 @@ package com.helianhealth.agent.console.service.impl;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.helianhealth.agent.common.base.PageList;
-import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.console.controller.reponse.WorkflowFullExportRsp;
 import com.helianhealth.agent.console.controller.request.WorkflowNodeCreateReq;
-import com.helianhealth.agent.repository.mapper.InterfaceWorkflowMapper;
-import com.helianhealth.agent.repository.model.po.InterfaceWorkflowDO;
-import com.helianhealth.agent.repository.model.po.NodeParamConfigDO;
 import com.helianhealth.agent.console.model.dto.NodeParamConfigImportDTO;
 import com.helianhealth.agent.console.service.InterfaceWorkflowNodeService;
 import com.helianhealth.agent.console.service.InterfaceWorkflowService;
 import com.helianhealth.agent.console.service.NodeParamConfigService;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
+import com.helianhealth.agent.repository.model.po.InterfaceWorkflowDO;
+import com.helianhealth.agent.repository.model.po.NodeParamConfigDO;
 import com.helianhealth.agent.repository.service.WorkflowCommandService;
-import com.helianhealth.agent.repository.service.impl.WorkflowQueryServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,17 +25,15 @@ import java.util.stream.Collectors;
 
 @Component
 @Slf4j
-public class InterfaceWorkflowServiceImpl extends WorkflowQueryServiceImpl implements InterfaceWorkflowService {
+public class InterfaceWorkflowServiceImpl implements InterfaceWorkflowService {
 
     private final WorkflowCommandService workflowCommandService;
     private final InterfaceWorkflowNodeService workflowNodeService;
     private final NodeParamConfigService nodeParamConfigService;
 
-    public InterfaceWorkflowServiceImpl(InterfaceWorkflowMapper workflowMapper,
-                                        WorkflowCommandService workflowCommandService,
+    public InterfaceWorkflowServiceImpl(WorkflowCommandService workflowCommandService,
                                         InterfaceWorkflowNodeService workflowNodeService,
                                         NodeParamConfigService nodeParamConfigService) {
-        super(workflowMapper);
         this.workflowCommandService = workflowCommandService;
         this.workflowNodeService = workflowNodeService;
         this.nodeParamConfigService = nodeParamConfigService;

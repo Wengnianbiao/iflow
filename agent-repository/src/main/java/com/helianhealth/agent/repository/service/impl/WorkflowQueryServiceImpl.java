@@ -4,12 +4,14 @@ import com.helianhealth.agent.repository.mapper.InterfaceWorkflowMapper;
 import com.helianhealth.agent.repository.model.domain.Workflow;
 import com.helianhealth.agent.repository.model.po.InterfaceWorkflowDO;
 import com.helianhealth.agent.repository.service.WorkflowQueryService;
+import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 
 /**
  * 工作流查询服务基础实现
  */
+@Service
 public class WorkflowQueryServiceImpl implements WorkflowQueryService {
 
     protected final InterfaceWorkflowMapper workflowMapper;

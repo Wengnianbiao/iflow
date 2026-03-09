@@ -5,12 +5,14 @@ import com.helianhealth.agent.repository.mapper.InterfaceFlowNodeMapper;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.repository.model.po.InterfaceWorkflowNodePO;
 import com.helianhealth.agent.repository.service.WorkflowNodeQueryService;
+import org.springframework.stereotype.Service;
 
 import java.util.Map;
 
 /**
  * 工作流节点查询服务基础实现
  */
+@Service
 public class WorkflowNodeQueryServiceImpl implements WorkflowNodeQueryService {
 
     protected final InterfaceFlowNodeMapper flowNodeMapper;

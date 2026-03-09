@@ -22,11 +22,14 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class InterfaceInvokeLogServiceImpl implements InterfaceInvokeLogService {
 
     private final InterfaceInvokeLogMapper interfaceInvokeLogMapper;
+
+    public InterfaceInvokeLogServiceImpl (InterfaceInvokeLogMapper interfaceInvokeLogMapper) {
+        this.interfaceInvokeLogMapper = interfaceInvokeLogMapper;
+    }
 
     @Override
     public void saveInvokeLog(InvokeLogDTO dto) {

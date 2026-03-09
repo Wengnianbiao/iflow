@@ -6,12 +6,12 @@ import com.github.pagehelper.PageInfo;
 import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.common.enums.ParamType;
 import com.helianhealth.agent.common.enums.ProcessType;
-import com.helianhealth.agent.repository.mapper.NodeParamConfigMapper;
-import com.helianhealth.agent.repository.model.po.NodeParamConfigDO;
 import com.helianhealth.agent.console.model.dto.NodeParamConfigImportDTO;
 import com.helianhealth.agent.console.service.NodeParamConfigService;
+import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
+import com.helianhealth.agent.repository.model.po.NodeParamConfigDO;
 import com.helianhealth.agent.repository.service.NodeParamConfigCommandService;
-import com.helianhealth.agent.repository.service.impl.NodeParamConfigQueryServiceImpl;
+import com.helianhealth.agent.repository.service.NodeParamConfigQueryService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -23,14 +23,25 @@ import java.util.List;
 
 @Component
 @Slf4j
-public class NodeParamConfigServiceImpl extends NodeParamConfigQueryServiceImpl implements NodeParamConfigService {
+public class NodeParamConfigServiceImpl implements NodeParamConfigService {
 
+    private final NodeParamConfigQueryService nodeParamConfigQueryService;
     private final NodeParamConfigCommandService nodeParamConfigCommandService;
 
-    public NodeParamConfigServiceImpl(NodeParamConfigMapper nodeParamConfigMapper,
+    public NodeParamConfigServiceImpl(NodeParamConfigQueryService nodeParamConfigQueryService,
                                       NodeParamConfigCommandService nodeParamConfigCommandService) {
-        super(nodeParamConfigMapper);
+        this.nodeParamConfigQueryService = nodeParamConfigQueryService;
         this.nodeParamConfigCommandService = nodeParamConfigCommandService;
+    }
+
+    @Override
+    public List<NodeParamConfig> selectPreProcessConfigByNodeId(Integer nodeId) {
+        return nodeParamConfigQueryService.selectPreProcessConfigByNodeId(nodeId);
+    }
+
+    @Override
+    public List<NodeParamConfig> selectPostProcessConfigByNodeId(Integer nodeId) {
+        return nodeParamConfigQueryService.selectPostProcessConfigByNodeId(nodeId);
     }
 
     @Override

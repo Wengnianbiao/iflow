@@ -7,7 +7,7 @@ import com.helianhealth.agent.repository.mapper.MockConfigMapper;
 import com.helianhealth.agent.repository.model.domain.MockConfig;
 import com.helianhealth.agent.repository.model.po.MockConfigDO;
 import com.helianhealth.agent.repository.service.MockConfigQueryService;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.List;
@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 /**
  * Mock配置服务实现
  */
-@Component
+@Service
 public class MockConfigQueryServiceImpl implements MockConfigQueryService {
 
     private final MockConfigMapper mockConfigMapper;

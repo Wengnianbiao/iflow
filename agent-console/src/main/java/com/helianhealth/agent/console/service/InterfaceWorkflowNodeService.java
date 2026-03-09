@@ -2,17 +2,19 @@ package com.helianhealth.agent.console.service;
 
 import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.repository.model.dto.InterfaceWorkflowNodeView;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.console.controller.reponse.NodeConfigExportRsp;
 import com.helianhealth.agent.console.controller.reponse.NodeParamConfigExportRsp;
 import com.helianhealth.agent.console.controller.request.WorkflowNodeCreateReq;
 import com.helianhealth.agent.console.controller.request.WorkflowNodeScheduleUpdateReq;
 import com.helianhealth.agent.console.controller.request.WorkflowNodeUpdateReq;
-import com.helianhealth.agent.repository.service.WorkflowNodeQueryService;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
-public interface InterfaceWorkflowNodeService extends WorkflowNodeQueryService {
+public interface InterfaceWorkflowNodeService {
+
+    WorkflowNode selectByNodeId(Integer nodeId);
 
     PageList<InterfaceWorkflowNodeView> getAllNodes(Integer flowId, int pageNum, int pageSize);
 

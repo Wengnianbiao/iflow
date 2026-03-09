@@ -2,14 +2,18 @@ package com.helianhealth.agent.console.service;
 
 import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.common.enums.ProcessType;
+import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 import com.helianhealth.agent.repository.model.po.NodeParamConfigDO;
 import com.helianhealth.agent.console.model.dto.NodeParamConfigImportDTO;
-import com.helianhealth.agent.repository.service.NodeParamConfigQueryService;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
-public interface NodeParamConfigService extends NodeParamConfigQueryService {
+public interface NodeParamConfigService {
+
+    List<NodeParamConfig> selectPreProcessConfigByNodeId(Integer nodeId);
+
+    List<NodeParamConfig> selectPostProcessConfigByNodeId(Integer nodeId);
 
     PageList<NodeParamConfigDO> findAllNodeParamConfigs(Integer nodeId, ProcessType processType, String targetParam, int pageNum, int pageSize);
 
