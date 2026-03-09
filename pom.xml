@@ -27,19 +27,20 @@
         <maven.compiler.target>1.8</maven.compiler.target>
 
         <!-- 项目版本统一管理 -->
-        <revision>1.1.6</revision>
-        <spring-boot.version>2.3.2.RELEASE</spring-boot.version>
-        <spring.version>5.2.8.RELEASE</spring.version>
-        <spring-cloud-config-client.version>2.2.5.RELEASE</spring-cloud-config-client.version>
-        <tk.mybatis.start.version>2.1.5</tk.mybatis.start.version>
-        <mybatis.version>3.5.9</mybatis.version>
-        <mybatis-spring-boot.version>2.2.2</mybatis-spring-boot.version>
+        <revision>1.1.7</revision>
+        <spring-boot.version>2.7.18</spring-boot.version>
+        <spring.version>5.3.31</spring.version>
+        <tk.mybatis.start.version>4.2.3</tk.mybatis.start.version>
+        <mybatis.version>3.5.13</mybatis.version>
+        <mybatis-spring-boot.version>2.3.1</mybatis-spring-boot.version>
         <pagehelper.version>1.4.6</pagehelper.version>
         <com.alibaba.fastjson2.version>2.0.32</com.alibaba.fastjson2.version>
         <druid.version>1.2.18</druid.version>
         <dom4j.version>2.1.4</dom4j.version>
         <httpclient5.version>5.1</httpclient5.version>
         <lombok.version>1.18.24</lombok.version>
+        <maven-javadoc-plugin.version>3.3.1</maven-javadoc-plugin.version>
+        <maven-deploy-plugin.version>2.8.2</maven-deploy-plugin.version>
 
         <!-- 数据库驱动版本 -->
         <mysql.version>8.0.25</mysql.version>

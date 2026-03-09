@@ -23,7 +23,7 @@ public class ApplicationStartupListener implements ApplicationListener<Applicati
         Environment env = event.getApplicationContext().getEnvironment();
         String port = env.getProperty("server.port", "8099");
         String contextPath = env.getProperty("server.servlet.context-path", "");
-        String version = env.getProperty("interface-agent.version", "1.0.1");
+        String version = env.getProperty("interface-agent.version", "1.1.7");
 
         String localUrl = "http://localhost:" + port + contextPath;
         String externalUrl = null;
@@ -51,7 +51,7 @@ public class ApplicationStartupListener implements ApplicationListener<Applicati
                     break;
                 }
             }
-            
+
             if (hostAddress != null) {
                 externalUrl = "http://" + hostAddress + ":" + port + contextPath;
             }
@@ -67,7 +67,7 @@ public class ApplicationStartupListener implements ApplicationListener<Applicati
                 " |___|_| |_|\\__\\___|_|  |_|  \\__,_|\\___\\___\\____/    \\__, |\\___|_| |_|\\__|\n" +
                 "                                                           |___/                \n" +
                 "                                          :: Interface Agent :: (v" + version + ")\n");
-                
+
         logger.info("\n----------------------------------------------------------\n" +
                 "  配置后台访问地址：\n" +
                 "    本地访问: {}\n" +

@@ -21,6 +21,13 @@
             <version>${project.version}</version>
         </dependency>
 
+        <!-- 控制台模块 -->
+        <dependency>
+            <groupId>com.helianhealth</groupId>
+            <artifactId>agent-console</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <!-- AI模块 -->
         <dependency>
             <groupId>com.helianhealth</groupId>
@@ -54,7 +61,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
-                <version>3.3.1</version>
+                <version>${maven-javadoc-plugin.version}</version>
                 <configuration>
                     <encoding>UTF-8</encoding>
                     <charset>UTF-8</charset>
