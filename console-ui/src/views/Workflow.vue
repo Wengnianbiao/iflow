@@ -16,7 +16,7 @@
         </el-dropdown-menu>
       </el-dropdown>
       <el-button type="success" @click="handleAdd">新增</el-button>
-      
+
       <!-- 隐藏的文件上传 -->
       <el-upload
         ref="importUploadRef"
@@ -29,10 +29,10 @@
     </div>
 
     <!-- 工作流表格 -->
-    <el-table 
-      :data="workflows" 
-      style="width: 100%" 
-      v-loading="loading" 
+    <el-table
+      :data="workflows"
+      style="width: 100%"
+      v-loading="loading"
       fit="true"
     >
       <el-table-column prop="flowName" label="工作流名称" min-width="200"></el-table-column>
@@ -40,10 +40,10 @@
       <el-table-column prop="contentType" label="入参类型" min-width="150"></el-table-column>
       <el-table-column label="首节点" min-width="200">
         <template #default="scope">
-          <el-tag 
-            v-for="nodeName in scope.row.firstFlowNodeNames" 
-            :key="nodeName" 
-            size="small" 
+          <el-tag
+            v-for="nodeName in scope.row.firstFlowNodeNames"
+            :key="nodeName"
+            size="small"
             style="margin-right: 5px;"
           >
             {{ nodeName }}
@@ -57,7 +57,7 @@
           </el-tag>
         </template>
       </el-table-column>
-      
+
       <el-table-column label="操作" width="350">
         <template #default="scope">
           <el-button size="small" type="warning" @click="handleExport(scope.row)">导出</el-button>
@@ -85,62 +85,90 @@
     <el-dialog
       :title="dialog.title.value"
       :visible.sync="dialog.visible.value"
-      width="600px"
+      :width="form.contentType === 'XML' ? '900px' : '600px'"
       @close="resetForm"
     >
-      <el-form
-        :model="form"
-        :rules="rules"
-        ref="formRef"
-        label-width="120px"
-      >
-        <el-form-item label="工作流名称" prop="flowName">
-          <el-input v-model="form.flowName" placeholder="请输入工作流名称"></el-input>
-        </el-form-item>
-
-        <el-form-item label="接口URI" prop="interfaceUri">
-          <el-input v-model="form.interfaceUri" placeholder="请输入接口URI"></el-input>
-        </el-form-item>
-
-        <el-form-item label="入参类型" prop="contentType">
-          <el-select v-model="form.contentType" placeholder="请选择入参类型">
-            <el-option label="JSON" value="JSON"></el-option>
-            <el-option label="XML" value="XML"></el-option>
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="入参元信息" prop="contentMetaInfo">
-          <el-input 
-            v-model="form.contentMetaInfo" 
-            type="textarea"
-            :rows="3"
-            placeholder="请输入入参元信息">
-          </el-input>
-        </el-form-item>
-
-        <el-form-item label="首节点" prop="firstFlowNodes">
-          <el-select
-            v-model="form.firstFlowNodes"
-            multiple
-            placeholder="请选择首节点"
-            style="width: 100%"
+      <el-row :gutter="30">
+        <!-- 左侧：基础配置 -->
+        <el-col :span="form.contentType === 'XML' ? 12 : 24">
+          <el-form
+            :model="form"
+            :rules="rules"
+            ref="formRef"
+            label-width="100px"
           >
-            <el-option
-              v-for="node in nodeOptions"
-              :key="node.nodeId"
-              :label="node.nodeName"
-              :value="node.nodeId"
-            ></el-option>
-          </el-select>
-        </el-form-item>
+            <el-form-item label="工作流名称" prop="flowName">
+              <el-input v-model="form.flowName" placeholder="请输入工作流名称"></el-input>
+            </el-form-item>
 
-        <el-form-item label="状态" prop="status">
-          <el-radio-group v-model="form.status">
-            <el-radio :label="1">启用</el-radio>
-            <el-radio :label="0">禁用</el-radio>
-          </el-radio-group>
-        </el-form-item>
-      </el-form>
+            <el-form-item label="接口URI" prop="interfaceUri">
+              <el-input v-model="form.interfaceUri" placeholder="请输入接口URI"></el-input>
+            </el-form-item>
+
+            <el-form-item label="入参类型" prop="contentType">
+              <el-select v-model="form.contentType" placeholder="请选择入参类型" @change="handleContentTypeChange">
+                <el-option label="JSON" value="JSON"></el-option>
+                <el-option label="XML" value="XML"></el-option>
+              </el-select>
+            </el-form-item>
+
+            <el-form-item label="首节点" prop="firstFlowNodes">
+              <el-select
+                v-model="form.firstFlowNodes"
+                multiple
+                placeholder="请选择首节点"
+                style="width: 100%"
+              >
+                <el-option
+                  v-for="node in nodeOptions"
+                  :key="node.nodeId"
+                  :label="node.nodeName"
+                  :value="node.nodeId"
+                ></el-option>
+              </el-select>
+            </el-form-item>
+
+            <el-form-item label="状态" prop="status">
+              <el-radio-group v-model="form.status">
+                <el-radio :label="1">启用</el-radio>
+                <el-radio :label="0">禁用</el-radio>
+              </el-radio-group>
+            </el-form-item>
+          </el-form>
+        </el-col>
+
+        <!-- 右侧：XML模式下的元信息配置 -->
+        <el-col v-if="form.contentType === 'XML'" :span="12">
+          <!-- 请求解析配置 -->
+          <el-divider content-position="left">请求解析配置</el-divider>
+          <el-form label-width="110px">
+            <el-form-item label="业务数据标签名">
+              <el-input v-model="form.requestElementName" placeholder="根据标签名定位业务数据"></el-input>
+            </el-form-item>
+            <el-form-item label="业务数据类型">
+              <el-select v-model="form.dataType" placeholder="请选择业务数据类型" clearable style="width: 100%;">
+                <el-option label="JSON" value="json"></el-option>
+                <el-option label="XML" value="xml"></el-option>
+              </el-select>
+            </el-form-item>
+            <el-form-item label="使用CDATA">
+              <el-switch v-model="form.isCDATA"></el-switch>
+            </el-form-item>
+            <el-form-item label="是否转义">
+              <el-switch v-model="form.escape"></el-switch>
+            </el-form-item>
+            <el-form-item label="对象标签">
+              <el-input v-model="form.objectTagStr" placeholder="多个标签用逗号分隔"></el-input>
+            </el-form-item>
+
+            <!-- 响应格式化配置 -->
+            <el-divider content-position="left">响应格式化配置</el-divider>
+            <el-form-item label="SOAP响应模板">
+              <el-input v-model="form.soapRspTemplate" type="textarea" :rows="4" placeholder="${outputParam}"></el-input>
+            </el-form-item>
+          </el-form>
+        </el-col>
+      </el-row>
 
       <span slot="footer" class="dialog-footer">
         <el-button @click="dialog.visible.value = false">取 消</el-button>
@@ -199,7 +227,14 @@ export default {
       flowName: '',
       interfaceUri: '',
       contentType: 'JSON',
-      contentMetaInfo: '',
+      // XML模式下的结构化字段
+      requestElementName: '',
+      dataType: '',
+      isCDATA: true,
+      escape: false,
+      objectTagStr: '',
+      soapRspTemplate: '',
+      resultElementName: '',
       firstFlowNodes: [],
       status: 1
     });
@@ -213,11 +248,11 @@ export default {
       ],
       contentType: [
         { required: true, message: '请选择入参类型', trigger: 'change' },
-        { 
-          type: 'enum', 
-          enum: ['JSON', 'XML'], 
-          message: '入参类型只能是 JSON 或 XML', 
-          trigger: 'change' 
+        {
+          type: 'enum',
+          enum: ['JSON', 'XML'],
+          message: '入参类型只能是 JSON 或 XML',
+          trigger: 'change'
         }
       ]
     };
@@ -229,12 +264,12 @@ export default {
           pageSize: pagination.pageSize.value
         };
         const response = await getWorkflows(params);
-        
+
         if (response.status === 200 && response.data.code === '200') {
           const pageList = response.data.rsp;
           workflows.value = (pageList.rows || []).map(workflow => ({
             ...workflow,
-            firstFlowNodeNames: workflow.firstFlowNodes.map(id => 
+            firstFlowNodeNames: workflow.firstFlowNodes.map(id =>
               nodeMap.value.get(id)
             )
           }));
@@ -268,11 +303,40 @@ export default {
     };
 
     const handleEdit = (row) => {
+      // 解析 contentMetaInfo 中的结构化字段
+      let requestElementName = '';
+      let dataType = '';
+      let isCDATA = true;
+      let escape = false;
+      let objectTagStr = '';
+      let soapRspTemplate = '';
+      let resultElementName = '';
+
+      if (row.contentMetaInfo) {
+        try {
+          const metaInfo = JSON.parse(row.contentMetaInfo);
+          requestElementName = metaInfo.elementName || '';
+          dataType = metaInfo.dataType || '';
+          isCDATA = metaInfo.isCDATA !== undefined ? metaInfo.isCDATA : true;
+          escape = metaInfo.escape || false;
+          objectTagStr = (metaInfo.objectTag || []).join(',');
+          soapRspTemplate = metaInfo.soapRspTemplate || '';
+          resultElementName = metaInfo.resultElementName || '';
+        } catch (e) {
+          console.warn('解析contentMetaInfo失败:', e);
+        }
+      }
       Object.assign(form, {
         flowName: row.flowName,
         interfaceUri: row.interfaceUri,
         contentType: row.contentType,
-        contentMetaInfo: row.contentMetaInfo,
+        requestElementName: requestElementName,
+        dataType: dataType,
+        isCDATA: isCDATA,
+        escape: escape,
+        objectTagStr: objectTagStr,
+        soapRspTemplate: soapRspTemplate,
+        resultElementName: resultElementName,
         firstFlowNodes: row.firstFlowNodes,
         status: row.status
       });
@@ -281,11 +345,40 @@ export default {
     };
 
     const handleCopy = (row) => {
+      // 解析 contentMetaInfo 中的结构化字段
+      let requestElementName = '';
+      let dataType = '';
+      let isCDATA = true;
+      let escape = false;
+      let objectTagStr = '';
+      let soapRspTemplate = '';
+      let resultElementName = '';
+
+      if (row.contentMetaInfo) {
+        try {
+          const metaInfo = JSON.parse(row.contentMetaInfo);
+          requestElementName = metaInfo.elementName || '';
+          dataType = metaInfo.dataType || '';
+          isCDATA = metaInfo.isCDATA !== undefined ? metaInfo.isCDATA : true;
+          escape = metaInfo.escape || false;
+          objectTagStr = (metaInfo.objectTag || []).join(',');
+          soapRspTemplate = metaInfo.soapRspTemplate || '';
+          resultElementName = metaInfo.resultElementName || '';
+        } catch (e) {
+          console.warn('解析contentMetaInfo失败:', e);
+        }
+      }
       Object.assign(form, {
         flowName: row.flowName + '（副本）',
         interfaceUri: row.interfaceUri,
         contentType: row.contentType,
-        contentMetaInfo: row.contentMetaInfo,
+        requestElementName: requestElementName,
+        dataType: dataType,
+        isCDATA: isCDATA,
+        escape: escape,
+        objectTagStr: objectTagStr,
+        soapRspTemplate: soapRspTemplate,
+        resultElementName: resultElementName,
         firstFlowNodes: row.firstFlowNodes,
         status: row.status
       });
@@ -304,7 +397,7 @@ export default {
             type: 'warning'
           }
         );
-        
+
         await deleteWorkflow(row.flowId);
         proxy.$message.success('删除成功');
         await fetchData();
@@ -399,11 +492,30 @@ export default {
         flowName: '',
         interfaceUri: '',
         contentType: 'JSON',
-        contentMetaInfo: '',
+        requestElementName: '',
+        dataType: '',
+        isCDATA: true,
+        escape: false,
+        objectTagStr: '',
+        soapRspTemplate: '',
+        resultElementName: '',
         firstFlowNodes: [],
         status: 1
       });
       currentEditingFlowId.value = null;
+    };
+
+    const handleContentTypeChange = () => {
+      // 切换入参类型时清空XML相关字段
+      if (form.contentType !== 'XML') {
+        form.requestElementName = '';
+        form.dataType = '';
+        form.isCDATA = true;
+        form.escape = false;
+        form.objectTagStr = '';
+        form.soapRspTemplate = '';
+        form.resultElementName = '';
+      }
     };
 
     const submitForm = async () => {
@@ -411,12 +523,39 @@ export default {
       if (!valid) return;
 
       try {
+        // 构建提交数据
+        const submitData = {
+          flowName: form.flowName,
+          interfaceUri: form.interfaceUri,
+          contentType: form.contentType,
+          firstFlowNodes: form.firstFlowNodes,
+          status: form.status
+        };
+
+        // XML模式下，将结构化字段构建为 contentMetaInfo JSON
+        if (form.contentType === 'XML') {
+          const metaInfo = {};
+          if (form.requestElementName) metaInfo.elementName = form.requestElementName;
+          if (form.dataType) metaInfo.dataType = form.dataType;
+          metaInfo.isCDATA = form.isCDATA;
+          metaInfo.escape = form.escape;
+          if (form.objectTagStr) {
+            metaInfo.objectTag = form.objectTagStr.split(',').map(s => s.trim()).filter(s => s);
+          }
+          if (form.soapRspTemplate) metaInfo.soapRspTemplate = form.soapRspTemplate;
+          if (form.resultElementName) metaInfo.resultElementName = form.resultElementName;
+
+          if (Object.keys(metaInfo).length > 0) {
+            submitData.contentMetaInfo = JSON.stringify(metaInfo);
+          }
+        }
+
         let response;
         if (currentEditingFlowId.value) {
-          const formData = { ...form, flowId: currentEditingFlowId.value };
+          const formData = { ...submitData, flowId: currentEditingFlowId.value };
           response = await updateWorkflow(formData);
         } else {
-          response = await createWorkflow(form);
+          response = await createWorkflow(submitData);
         }
 
         if (response.status === 200 && response.data.code === '200') {
@@ -450,6 +589,7 @@ export default {
       handleImportCommand,
       handleImportUpload,
       handleJsonImport,
+      handleContentTypeChange,
       importUploadRef,
       resetForm,
       submitForm

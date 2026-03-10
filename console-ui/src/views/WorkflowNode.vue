@@ -254,10 +254,10 @@
                   <el-option label="XML" value="xml"></el-option>
                 </el-select>
               </el-form-item>
-              
+
               <!-- 响应数据解析分割线 -->
               <el-divider content-position="left">响应数据解析</el-divider>
-              
+
               <el-form-item label="业务数据标签名">
                 <el-input v-model="metaFields.elementName" placeholder="根据标签名定位业务数据" style="width: 40%;"></el-input>
               </el-form-item>

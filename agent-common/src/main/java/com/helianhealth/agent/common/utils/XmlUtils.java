@@ -299,11 +299,16 @@ public class XmlUtils {
     }
 
     /**
-        /**
-     * 将Map转换为XML字符串，支持自定义根元素名称
+     * SOAP响应模板占位符
+     */
+    private static final String SOAP_RSP_TEMPLATE_KEY = "soapRspTemplate";
+    private static final String SOAP_RSP_PLACEHOLDER = "${outputParam}";
+
+    /**
+     * 将Map转换为XML字符串，支持自定义根元素名称和SOAP响应模板
      *
      * @param scheduleRsp 需要转换的Map数据
-     * @param metaInfo    元信息（包含命名空间等配置）
+     * @param metaInfo    元信息（包含命名空间、响应模板等配置）
      * @return 生成的XML字符串
      */
     public static String buildResponseXml(Map<String, Object> scheduleRsp, String metaInfo) {
@@ -318,63 +323,80 @@ public class XmlUtils {
                 metaMap = JSON.parseObject(metaInfo, Map.class);
             }
 
-            // 获取配置信息
-            String namespaceURI = (String) metaMap.get("responseNamespace");
-            String resultElementName = (String) metaMap.get("resultElementName");
+            // 构建业务数据XML
+            String businessXml = buildBusinessXml(scheduleRsp, metaMap);
 
-            // 如果配置中没有指定根元素名称，则使用scheduleRsp的第一个key作为根元素名称
-            if (resultElementName == null || resultElementName.isEmpty()) {
-                resultElementName = scheduleRsp.keySet().iterator().next();
+            // 检查是否配置了SOAP响应模板
+            String soapRspTemplate = (String) metaMap.get(SOAP_RSP_TEMPLATE_KEY);
+            if (soapRspTemplate != null && !soapRspTemplate.trim().isEmpty()) {
+                // 使用模板包装响应
+                return soapRspTemplate.replace(SOAP_RSP_PLACEHOLDER, businessXml);
             }
 
-            // 创建文档
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            Document doc = builder.newDocument();
-
-            // 创建根元素
-            Element rootElement;
-            if (namespaceURI != null && !namespaceURI.isEmpty()) {
-                // 使用命名空间创建根元素
-                rootElement = doc.createElementNS(namespaceURI, resultElementName);
-            } else {
-                // 不使用命名空间创建根元素
-                rootElement = doc.createElement(resultElementName);
-            }
-            doc.appendChild(rootElement);
-
-            // 获取根元素对应的数据并转换为XML元素
-            Object rootData = scheduleRsp.get(resultElementName);
-            if (rootData instanceof Map) {
-                mapToElement((Map<String, Object>) rootData, rootElement, doc);
-            } else {
-                // 即使值为null，也创建标签
-                String textContent = rootData == null ? "" : rootData.toString();
-                rootElement.appendChild(doc.createTextNode(textContent));
-            }
-
-            // 创建XML输出
-            TransformerFactory transformerFactory = TransformerFactory.newInstance();
-            Transformer transformer = transformerFactory.newTransformer();
-
-            // 设置输出属性
-            transformer.setOutputProperty(OutputKeys.INDENT, "yes");
-            transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
-            transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
-
-            // 关键：设置不输出XML声明
-            transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
-
-            StringWriter writer = new StringWriter();
-            StreamResult result = new StreamResult(writer);
-            DOMSource source = new DOMSource(doc);
-            transformer.transform(source, result);
-
-            return writer.toString();
+            return businessXml;
         } catch (Exception e) {
             log.error("构建SOAP响应XML失败", e);
             throw new RuntimeException("构建SOAP响应XML失败: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * 构建业务数据XML
+     */
+    private static String buildBusinessXml(Map<String, Object> scheduleRsp, Map<String, Object> metaMap) throws Exception {
+        // 获取配置信息
+        String namespaceURI = (String) metaMap.get("responseNamespace");
+        String resultElementName = (String) metaMap.get("resultElementName");
+
+        // 如果配置中没有指定根元素名称，则使用scheduleRsp的第一个key作为根元素名称
+        if (resultElementName == null || resultElementName.isEmpty()) {
+            resultElementName = scheduleRsp.keySet().iterator().next();
+        }
+
+        // 创建文档
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        Document doc = builder.newDocument();
+
+        // 创建根元素
+        Element rootElement;
+        if (namespaceURI != null && !namespaceURI.isEmpty()) {
+            // 使用命名空间创建根元素
+            rootElement = doc.createElementNS(namespaceURI, resultElementName);
+        } else {
+            // 不使用命名空间创建根元素
+            rootElement = doc.createElement(resultElementName);
+        }
+        doc.appendChild(rootElement);
+
+        // 获取根元素对应的数据并转换为XML元素
+        Object rootData = scheduleRsp.get(resultElementName);
+        if (rootData instanceof Map) {
+            mapToElement((Map<String, Object>) rootData, rootElement, doc);
+        } else {
+            // 即使值为null，也创建标签
+            String textContent = rootData == null ? "" : rootData.toString();
+            rootElement.appendChild(doc.createTextNode(textContent));
+        }
+
+        // 创建XML输出
+        TransformerFactory transformerFactory = TransformerFactory.newInstance();
+        Transformer transformer = transformerFactory.newTransformer();
+
+        // 设置输出属性
+        transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+        transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
+        transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
+
+        // 关键：设置不输出XML声明
+        transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
+
+        StringWriter writer = new StringWriter();
+        StreamResult result = new StreamResult(writer);
+        DOMSource source = new DOMSource(doc);
+        transformer.transform(source, result);
+
+        return writer.toString();
     }
 
     /**
