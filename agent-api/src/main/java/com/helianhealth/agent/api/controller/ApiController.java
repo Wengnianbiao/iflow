@@ -45,7 +45,7 @@ public class ApiController {
             produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE}
     )
     @ResponseBody
-    public String invokeOpenApi(@RequestBody String request, HttpServletRequest httpRequest) {
+    public String invokeOpenApi(@RequestBody(required = false) String request, HttpServletRequest httpRequest) {
         String interfaceUri = httpRequest.getRequestURI();
         return apiService.invokeOpenApi(request, interfaceUri);
     }
