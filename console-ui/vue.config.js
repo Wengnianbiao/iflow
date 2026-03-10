@@ -3,6 +3,7 @@ const path = require('path')
 
 module.exports = defineConfig({
   transpileDependencies: true,
+  publicPath: './',
   
   // Build output directory - to agent-console resources/static (Spring Boot convention)
   outputDir: path.resolve(__dirname, '../agent-console/src/main/resources/static'),
