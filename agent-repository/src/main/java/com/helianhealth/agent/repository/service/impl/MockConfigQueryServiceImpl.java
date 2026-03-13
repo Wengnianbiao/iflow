@@ -3,7 +3,7 @@ package com.helianhealth.agent.repository.service.impl;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.helianhealth.agent.common.base.PageList;
-import com.helianhealth.agent.repository.mapper.MockConfigMapper;
+import com.helianhealth.agent.repository.mapper.agent.MockConfigMapper;
 import com.helianhealth.agent.repository.model.domain.MockConfig;
 import com.helianhealth.agent.repository.model.po.MockConfigDO;
 import com.helianhealth.agent.repository.service.MockConfigQueryService;

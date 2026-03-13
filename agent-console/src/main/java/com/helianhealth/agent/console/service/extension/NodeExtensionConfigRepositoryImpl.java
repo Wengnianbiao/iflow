@@ -2,10 +2,9 @@ package com.helianhealth.agent.console.service.extension;
 
 import com.helianhealth.agent.common.extension.model.DynamicSpiDefinition;
 import com.helianhealth.agent.common.extension.config.DynamicSpiConfigSource;
-import com.helianhealth.agent.repository.mapper.NodeExtensionConfigMapper;
+import com.helianhealth.agent.repository.mapper.agent.NodeExtensionConfigMapper;
 import com.helianhealth.agent.repository.model.po.NodeExtensionConfigDO;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 

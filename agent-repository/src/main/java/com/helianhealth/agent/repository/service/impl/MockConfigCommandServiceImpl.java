@@ -1,6 +1,6 @@
 package com.helianhealth.agent.repository.service.impl;
 
-import com.helianhealth.agent.repository.mapper.MockConfigMapper;
+import com.helianhealth.agent.repository.mapper.agent.MockConfigMapper;
 import com.helianhealth.agent.repository.model.po.MockConfigDO;
 import com.helianhealth.agent.repository.service.MockConfigCommandService;
 import org.springframework.stereotype.Service;

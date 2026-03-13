@@ -1,6 +1,6 @@
 package com.helianhealth.agent.repository.service.impl;
 
-import com.helianhealth.agent.repository.mapper.InterfaceFlowNodeMapper;
+import com.helianhealth.agent.repository.mapper.agent.InterfaceFlowNodeMapper;
 import com.helianhealth.agent.repository.model.po.InterfaceWorkflowNodePO;
 import com.helianhealth.agent.repository.service.WorkflowNodeCommandService;
 import org.springframework.stereotype.Service;

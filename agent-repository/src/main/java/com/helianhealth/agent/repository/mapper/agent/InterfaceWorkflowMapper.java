@@ -1,4 +1,4 @@
-package com.helianhealth.agent.repository.mapper;
+package com.helianhealth.agent.repository.mapper.agent;
 
 import com.helianhealth.agent.repository.model.po.InterfaceWorkflowDO;
 import tk.mybatis.mapper.common.Mapper;

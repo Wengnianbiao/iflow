@@ -1,4 +1,4 @@
-package com.helianhealth.agent.repository.mapper;
+package com.helianhealth.agent.repository.mapper.agent;
 
 import com.helianhealth.agent.repository.model.po.InterfaceWorkflowNodePO;
 import org.apache.ibatis.annotations.Param;
@@ -31,7 +31,7 @@ public interface InterfaceFlowNodeMapper extends Mapper<InterfaceWorkflowNodePO>
      * @param remoteExtension 远程扩展名称（可为null表示清空）
      * @return 更新记录数
      */
-    int updateRemoteExtension(@Param("nodeId") Integer nodeId, 
+    int updateRemoteExtension(@Param("nodeId") Integer nodeId,
                               @Param("remoteExtension") String remoteExtension);
 
     /**
@@ -40,7 +40,7 @@ public interface InterfaceFlowNodeMapper extends Mapper<InterfaceWorkflowNodePO>
      * @param extensionParam 扩展参数JSON字符串
      * @return 更新记录数
      */
-    int updateExtensionParam(@Param("nodeId") Integer nodeId, 
+    int updateExtensionParam(@Param("nodeId") Integer nodeId,
                              @Param("extensionParam") String extensionParam);
 
     int updateScheduleFields(@Param("nodeId") Integer nodeId,

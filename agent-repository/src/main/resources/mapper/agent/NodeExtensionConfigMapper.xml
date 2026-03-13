@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.helianhealth.agent.repository.mapper.NodeExtensionConfigMapper">
+<mapper namespace="com.helianhealth.agent.repository.mapper.agent.NodeExtensionConfigMapper">
 
     <resultMap id="BaseResultMap" type="com.helianhealth.agent.repository.model.po.NodeExtensionConfigDO">
         <id column="code_id" property="codeId" />
-        <result column="node_id" property="nodeId" 
+        <result column="node_id" property="nodeId"
                 typeHandler="com.helianhealth.agent.common.typehandler.ListIntegerTypeHandler" />
         <result column="spi_interface" property="spiInterface" />
         <result column="extension_name" property="extensionName" />

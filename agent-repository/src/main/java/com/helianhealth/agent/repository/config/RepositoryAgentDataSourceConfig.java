@@ -22,7 +22,7 @@ import javax.sql.DataSource;
  */
 @Configuration
 @MapperScan(
-    basePackages = {"com.helianhealth.agent.repository.mapper"},
+    basePackages = {"com.helianhealth.agent.repository.mapper.agent"},
     sqlSessionTemplateRef = "repositoryAgentSqlSessionTemplate"
 )
 public class RepositoryAgentDataSourceConfig {

@@ -1,6 +1,6 @@
 package com.helianhealth.agent.repository.service.impl;
 
-import com.helianhealth.agent.repository.mapper.NodeParamConfigMapper;
+import com.helianhealth.agent.repository.mapper.agent.NodeParamConfigMapper;
 import com.helianhealth.agent.repository.model.po.NodeParamConfigDO;
 import com.helianhealth.agent.repository.service.NodeParamConfigCommandService;
 import org.springframework.stereotype.Service;

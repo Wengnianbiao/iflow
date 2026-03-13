@@ -1,4 +1,4 @@
-package com.helianhealth.agent.repository.mapper;
+package com.helianhealth.agent.repository.mapper.agent;
 
 import com.helianhealth.agent.repository.model.po.InterfaceInvokeLogDO;
 import org.apache.ibatis.annotations.Param;

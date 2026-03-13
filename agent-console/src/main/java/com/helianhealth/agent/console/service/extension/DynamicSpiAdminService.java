@@ -4,8 +4,8 @@ import com.helianhealth.agent.common.extension.AgentExtensionLoader;
 import com.helianhealth.agent.common.extension.model.DynamicSpiDefinition;
 import com.helianhealth.agent.common.utils.JsonUtils;
 import com.helianhealth.agent.console.enums.ExtensionType;
-import com.helianhealth.agent.repository.mapper.InterfaceFlowNodeMapper;
-import com.helianhealth.agent.repository.mapper.NodeExtensionConfigMapper;
+import com.helianhealth.agent.repository.mapper.agent.InterfaceFlowNodeMapper;
+import com.helianhealth.agent.repository.mapper.agent.NodeExtensionConfigMapper;
 import com.helianhealth.agent.console.model.convert.NodeExtensionConfigConvert;
 import com.helianhealth.agent.repository.model.po.NodeExtensionConfigDO;
 import com.helianhealth.agent.console.model.dto.NodeExtensionConfigCreateReq;
@@ -57,7 +57,7 @@ public class DynamicSpiAdminService {
         try {
             // 转换Request为DO
             NodeExtensionConfigDO configDO = convertCreateReqToDO(request);
-            
+
             // Step 1: 更新节点字段（传递extensionParamValue）
             extensionNodeUpdateService.updateNodeFields(
                 type,
@@ -92,7 +92,7 @@ public class DynamicSpiAdminService {
         try {
             // 转换Request为DO
             NodeExtensionConfigDO configDO = convertUpdateReqToDO(request);
-            
+
             // Step 1: 查询旧配置,清理旧节点字段
             NodeExtensionConfigDO oldConfig = extensionMapper.selectById(configDO.getCodeId());
             if (oldConfig != null && oldConfig.getNodeId() != null) {
@@ -187,7 +187,7 @@ public class DynamicSpiAdminService {
     /**
      * 查询扩展配置详情（带节点参数值）
      * 从关联节点的 extension_param 中提取该 filter 的实际配置值
-     * 
+     *
      * @param codeId 扩展配置ID
      * @return 扩展配置详情响应对象
      */
@@ -196,7 +196,7 @@ public class DynamicSpiAdminService {
         if (configDO == null) {
             return null;
         }
-        
+
         // 只有 Filter 类型才需要从节点提取参数
         if ("com.helianhealth.agent.invocation.remote.filter.AgentFilter".equals(configDO.getSpiInterface())) {
             List<Integer> nodeIds = configDO.getNodeId();
@@ -217,7 +217,7 @@ public class DynamicSpiAdminService {
                 }
             }
         }
-        
+
         // 转换为 Response 对象
         return extensionConfigConvert.doConvertToDetailResponse(configDO);
     }
@@ -315,13 +315,13 @@ public class DynamicSpiAdminService {
                     @SuppressWarnings("unchecked")
                     AgentExtensionLoader<Object> loader = (AgentExtensionLoader<Object>)
                             AgentExtensionLoader.getExtensionLoader(interfaceClass);
-                    
+
                     loader.registerDynamicExtension(
                             definition.getExtensionName(),
                             definition.getClassName(),
                             definition.getSourceCode()
                     );
-                    
+
                     log.info("Successfully registered dynamic SPI after commit: interface={}, extension={}",
                             definition.getSpiInterface(), definition.getExtensionName());
                 } catch (Exception e) {
@@ -348,7 +348,7 @@ public class DynamicSpiAdminService {
                         AgentExtensionLoader<Object> oldLoader = (AgentExtensionLoader<Object>)
                                 AgentExtensionLoader.getExtensionLoader(oldInterfaceClass);
                         oldLoader.removeDynamicExtension(oldExtensionName);
-                        
+
                         log.debug("Removed old SPI: interface={}, extension={}",
                                 oldSpiInterface, oldExtensionName);
                     }
@@ -363,7 +363,7 @@ public class DynamicSpiAdminService {
                             newDefinition.getClassName(),
                             newDefinition.getSourceCode()
                     );
-                    
+
                     log.info("Successfully updated dynamic SPI after commit: interface={}, extension={}",
                             newDefinition.getSpiInterface(), newDefinition.getExtensionName());
                 } catch (Exception e) {
@@ -389,7 +389,7 @@ public class DynamicSpiAdminService {
                     AgentExtensionLoader<Object> loader = (AgentExtensionLoader<Object>)
                             AgentExtensionLoader.getExtensionLoader(interfaceClass);
                     loader.removeDynamicExtension(extensionName);
-                    
+
                     log.info("Successfully unregistered dynamic SPI after commit: interface={}, extension={}",
                             spiInterface, extensionName);
                 } catch (Exception e) {

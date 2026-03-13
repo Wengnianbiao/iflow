@@ -2,7 +2,7 @@ package com.helianhealth.agent.console.service.extension;
 
 import com.helianhealth.agent.common.utils.JsonUtils;
 import com.helianhealth.agent.console.enums.ExtensionType;
-import com.helianhealth.agent.repository.mapper.InterfaceFlowNodeMapper;
+import com.helianhealth.agent.repository.mapper.agent.InterfaceFlowNodeMapper;
 import com.helianhealth.agent.repository.model.po.InterfaceWorkflowNodePO;
 import com.helianhealth.agent.repository.service.WorkflowNodeCommandService;
 import lombok.extern.slf4j.Slf4j;
@@ -123,10 +123,10 @@ public class ExtensionNodeUpdateService {
      */
     private void updateExtensionParamField(String extensionName, List<Integer> nodeIds, String extensionParamValue) {
         // 确定参数值：如果没有传入自定义值，默认为 "true"
-        String paramValue = (extensionParamValue != null && !extensionParamValue.trim().isEmpty()) 
-                ? extensionParamValue 
+        String paramValue = (extensionParamValue != null && !extensionParamValue.trim().isEmpty())
+                ? extensionParamValue
                 : "true";
-        
+
         for (Integer nodeId : nodeIds) {
             InterfaceWorkflowNodePO node = nodeMapper.selectByPrimaryKey(nodeId);
             if (node != null) {

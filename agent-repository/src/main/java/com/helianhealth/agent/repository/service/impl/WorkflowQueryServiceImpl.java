@@ -1,6 +1,6 @@
 package com.helianhealth.agent.repository.service.impl;
 
-import com.helianhealth.agent.repository.mapper.InterfaceWorkflowMapper;
+import com.helianhealth.agent.repository.mapper.agent.InterfaceWorkflowMapper;
 import com.helianhealth.agent.repository.model.domain.Workflow;
 import com.helianhealth.agent.repository.model.po.InterfaceWorkflowDO;
 import com.helianhealth.agent.repository.service.WorkflowQueryService;

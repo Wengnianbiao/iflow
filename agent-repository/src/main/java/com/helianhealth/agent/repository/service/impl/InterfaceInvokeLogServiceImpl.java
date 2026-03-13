@@ -3,13 +3,12 @@ package com.helianhealth.agent.repository.service.impl;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.helianhealth.agent.common.base.PageList;
-import com.helianhealth.agent.repository.mapper.InterfaceInvokeLogMapper;
+import com.helianhealth.agent.repository.mapper.agent.InterfaceInvokeLogMapper;
 import com.helianhealth.agent.repository.model.po.InterfaceInvokeLogDO;
 import com.helianhealth.agent.repository.model.dto.InvokeLogDTO;
 import com.helianhealth.agent.repository.model.dto.InvokeLogVO;
 import com.helianhealth.agent.repository.model.dto.InvokeStatsVO;
 import com.helianhealth.agent.repository.service.InterfaceInvokeLogService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
