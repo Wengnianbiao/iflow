@@ -94,12 +94,15 @@ public class SpelUtils {
     }
 
     /**
-     * 解析表达式并返回结果（支持通过 @beanName 访问任意 Spring Bean）
+     * 解析前置处理 Bean 表达式并返回结果（支持通过 @beanName 访问任意 Spring Bean）
+     * 前置处理上下文变量：#data, #parent, #source
      * @param expression SpEL表达式（如："@hemsMapper.selectPatientCodeByVisitNo(#data.visitNo)"）
-     * @param businessData 业务数据
+     * @param businessData 当前层级业务数据
+     * @param parentBusinessData 父层业务数据
+     * @param sourceBusinessData 根业务数据
      * @return 表达式执行结果
      */
-    public static Object parserWithBeanAccess(String expression, Object businessData, Object parentBusinessData, Map<String, Object> sourceBusinessData) {
+    public static Object parserPreNodeWithBeanAccess(String expression, Object businessData, Object parentBusinessData, Map<String, Object> sourceBusinessData) {
         try {
             StandardEvaluationContext context = new StandardEvaluationContext();
             context.setVariable("data", businessData);
@@ -109,7 +112,31 @@ public class SpelUtils {
 
             return PARSER.parseExpression(expression).getValue(context);
         } catch (Exception e) {
-            logger.error("Bean表达式[{}]解析异常：", expression, e);
+            logger.error("前置处理Bean表达式[{}]解析异常：", expression, e);
+            return null;
+        }
+    }
+
+    /**
+     * 解析后置处理 Bean 表达式并返回结果（支持通过 @beanName 访问任意 Spring Bean）
+     * 后置处理上下文变量：#data, #input, #response
+     * @param expression SpEL表达式（如："@hemsMapper.selectPatientCodeByVisitNo(#data.visitNo)"）
+     * @param businessData 当前层级数据
+     * @param inputBusinessData 输入参数（原始请求数据）
+     * @param responseBusinessData 输出参数（响应数据）
+     * @return 表达式执行结果
+     */
+    public static Object parserPostNodeWithBeanAccess(String expression, Object businessData, Map<String, Object> inputBusinessData, Map<String, Object> responseBusinessData) {
+        try {
+            StandardEvaluationContext context = new StandardEvaluationContext();
+            context.setVariable("data", businessData);
+            context.setVariable("input", inputBusinessData);
+            context.setVariable("response", responseBusinessData);
+            context.setBeanResolver(BEAN_RESOLVER);
+
+            return PARSER.parseExpression(expression).getValue(context);
+        } catch (Exception e) {
+            logger.error("后置处理Bean表达式[{}]解析异常：", expression, e);
             return null;
         }
     }

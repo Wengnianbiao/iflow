@@ -442,9 +442,16 @@ public class SpelUtilsTest {
         }
 
         @Test
-        @DisplayName("Bean 访问：Bean 不存在时返回 null")
-        void beanAccessWithoutContext() {
-            Object result = SpelUtils.parserWithBeanAccess("@missingBean.toString()", new HashMap<>(), null, null);
+        @DisplayName("Bean 访问：前置处理 Bean 不存在时返回 null")
+        void beanAccessPreProcessBeanNotFound() {
+            Object result = SpelUtils.parserPreNodeWithBeanAccess("@missingBean.toString()", new HashMap<>(), null, null);
+            assertNull(result);
+        }
+
+        @Test
+        @DisplayName("Bean 访问：后置处理 Bean 不存在时返回 null")
+        void beanAccessPostProcessBeanNotFound() {
+            Object result = SpelUtils.parserPostNodeWithBeanAccess("@missingBean.toString()", new HashMap<>(), null, null);
             assertNull(result);
         }
 
@@ -452,6 +459,134 @@ public class SpelUtilsTest {
         @DisplayName("表达式解析异常时返回 null")
         void expressionParseError() {
             Object result = SpelUtils.parserPreNode("#data[nonExistent].unknownMethod()", new HashMap<>(), null, null);
+            assertNull(result);
+        }
+    }
+
+    // ==================== Bean表达式前置处理场景 ====================
+
+    @Nested
+    @DisplayName("Bean表达式前置处理场景")
+    class BeanExpressionPreProcessTests {
+
+        @Test
+        @DisplayName("前置处理：使用 #data 访问当前数据")
+        void preProcessWithData() {
+            Map<String, Object> data = new HashMap<>();
+            data.put("visitNo", "V001");
+
+            // 由于无法访问真实Bean，测试表达式语法解析和上下文变量设置
+            Object result = SpelUtils.parserPreNodeWithBeanAccess("#data[visitNo]", data, null, null);
+
+            assertEquals("V001", result);
+        }
+
+        @Test
+        @DisplayName("前置处理：使用 #parent 访问父级数据")
+        void preProcessWithParent() {
+            Map<String, Object> data = new HashMap<>();
+            Map<String, Object> parent = new HashMap<>();
+            parent.put("patientCode", "P001");
+
+            Object result = SpelUtils.parserPreNodeWithBeanAccess("#parent[patientCode]", data, parent, null);
+
+            assertEquals("P001", result);
+        }
+
+        @Test
+        @DisplayName("前置处理：使用 #source 访问源数据")
+        void preProcessWithSource() {
+            Map<String, Object> data = new HashMap<>();
+            Map<String, Object> source = new HashMap<>();
+            source.put("traceId", "TRACE-001");
+
+            Object result = SpelUtils.parserPreNodeWithBeanAccess("#source[traceId]", data, null, source);
+
+            assertEquals("TRACE-001", result);
+        }
+
+        @Test
+        @DisplayName("前置处理：Bean不存在时返回null")
+        void preProcessBeanNotFound() {
+            Object result = SpelUtils.parserPreNodeWithBeanAccess("@nonExistentBean.method()", new HashMap<>(), null, null);
+            assertNull(result);
+        }
+
+        @Test
+        @DisplayName("前置处理：表达式解析异常时返回null")
+        void preProcessExpressionError() {
+            Object result = SpelUtils.parserPreNodeWithBeanAccess("#data[invalid", new HashMap<>(), null, null);
+            assertNull(result);
+        }
+    }
+
+    // ==================== Bean表达式后置处理场景 ====================
+
+    @Nested
+    @DisplayName("Bean表达式后置处理场景")
+    class BeanExpressionPostProcessTests {
+
+        @Test
+        @DisplayName("后置处理：使用 #data 访问当前数据")
+        void postProcessWithData() {
+            Map<String, Object> data = new HashMap<>();
+            data.put("recordId", "R001");
+
+            Object result = SpelUtils.parserPostNodeWithBeanAccess("#data[recordId]", data, null, null);
+
+            assertEquals("R001", result);
+        }
+
+        @Test
+        @DisplayName("后置处理：使用 #input 访问输入数据")
+        void postProcessWithInput() {
+            Map<String, Object> data = new HashMap<>();
+            Map<String, Object> input = new HashMap<>();
+            input.put("requestId", "REQ-001");
+
+            Object result = SpelUtils.parserPostNodeWithBeanAccess("#input[requestId]", data, input, null);
+
+            assertEquals("REQ-001", result);
+        }
+
+        @Test
+        @DisplayName("后置处理：使用 #response 访问响应数据")
+        void postProcessWithResponse() {
+            Map<String, Object> data = new HashMap<>();
+            Map<String, Object> response = new HashMap<>();
+            response.put("resultCode", "SUCCESS");
+
+            Object result = SpelUtils.parserPostNodeWithBeanAccess("#response[resultCode]", data, null, response);
+
+            assertEquals("SUCCESS", result);
+        }
+
+        @Test
+        @DisplayName("后置处理：联合 #input 和 #response 处理")
+        void postProcessCombineInputAndResponse() {
+            Map<String, Object> data = new HashMap<>();
+            Map<String, Object> input = new HashMap<>();
+            input.put("orderId", "ORD-001");
+            Map<String, Object> response = new HashMap<>();
+            response.put("status", "COMPLETED");
+
+            Object result = SpelUtils.parserPostNodeWithBeanAccess(
+                    "#input[orderId] + '-' + #response[status]", data, input, response);
+
+            assertEquals("ORD-001-COMPLETED", result);
+        }
+
+        @Test
+        @DisplayName("后置处理：Bean不存在时返回null")
+        void postProcessBeanNotFound() {
+            Object result = SpelUtils.parserPostNodeWithBeanAccess("@nonExistentBean.method()", new HashMap<>(), null, null);
+            assertNull(result);
+        }
+
+        @Test
+        @DisplayName("后置处理：表达式解析异常时返回null")
+        void postProcessExpressionError() {
+            Object result = SpelUtils.parserPostNodeWithBeanAccess("#data[invalid", new HashMap<>(), null, null);
             assertNull(result);
         }
     }
