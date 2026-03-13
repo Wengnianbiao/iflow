@@ -13,4 +13,9 @@ public interface HemsMapper {
             "inner join VocaPatient as vp on vp.ID_Patient = vpfi.ID_Patient " +
             "where vpfi.applyId = #{applyId}")
     String selectPatientCodeByApplyId(String applyId);
+
+    @Select("select id_patientfeeitem " +
+            "from VocaPatientFeeItem " +
+            "where applyId = #{applyId}")
+    String selectPatientFeeItemIdByApplyId(String applyId);
 }
