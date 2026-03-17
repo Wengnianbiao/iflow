@@ -14,15 +14,15 @@
 
 ```
 interface-agent/
-├── agent-common              # 基础设施层
-├── agent-workflow            # 工作流管理
-├── agent-invocation          # 远程调用
-├── agent-schedule            # 调度引擎
-├── agent-api                 # 开放接口
-├── agent-log                 # 日志管理
-├── agent-mock                # Mock 管理
-├── agent-spring-boot-starter # Spring Boot Starter
-└── agent-web                 # Web 应用入口
+├── agent-common              # 基础设施层（通用工具类、枚举、异常定义）
+├── agent-repository          # 数据访问层（MyBatis Mapper、DAO、领域模型）
+├── agent-invocation          # 远程调用层（协议支持、参数处理、调用执行链）
+├── agent-schedule            # 调度引擎（定时任务、工作流调度）
+├── agent-api                 # 开放接口层（REST API、JSON响应处理）
+├── agent-console             # 控制台服务层（后台管理接口）
+├── agent-ai                  # AI智能代理层（MCP接口、AI配置专家）
+├── agent-spring-boot-starter # Spring Boot Starter（自动配置、属性绑定）
+└── agent-web                 # Web应用入口（主启动类、静态资源配置）
 ```
 
 ## 🚀 快速开始
@@ -79,24 +79,25 @@ spring:
 ```
 agent-common (基础层)
     ↑
-    ├── agent-workflow
+    ├── agent-repository
     ├── agent-invocation
     │       ↑
     │       └── agent-schedule
-    │       └── agent-mock
     ├── agent-api
-    └── agent-log
+    ├── agent-console
+    ├── agent-ai
+    └── agent-spring-boot-starter
             ↑
-            └── agent-spring-boot-starter
-                    ↑
-                    └── agent-web (应用层)
+            └── agent-web (应用层)
 ```
 
 ### 核心特性
 
-- **模块化分层**：基础层 → 核心层（workflow、invocation、schedule）→ 功能层（api、log、mock）→ 应用层
+- **模块化分层架构**：基础层（common）→ 数据层（repository）→ 核心层（invocation、schedule）→ 服务层（api、console、ai）→ 应用层（web）
 - **SPI动态扩展机制**：支持SPI动态注册扩展，可插拔调用客户端，支持 HTTP、WebService、JDBC 等协议
 - **配置化驱动**：工作流配置存储在数据库，支持动态修改无需重启，参数映射支持 SpEL 表达式
+- **AI智能协作**：内置MCP接口，支持AI Agent自动理解接口文档并生成配置
+- **可视化管理**：提供Vue.js前端控制台，支持工作流可视化编排和参数配置
 
 ## 🤖 AI 协作配置
 

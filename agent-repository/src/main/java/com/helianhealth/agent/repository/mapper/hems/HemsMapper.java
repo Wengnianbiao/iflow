@@ -18,4 +18,10 @@ public interface HemsMapper {
             "from VocaPatientFeeItem " +
             "where applyId = #{applyId}")
     String selectPatientFeeItemIdByApplyId(String applyId);
+
+
+    @Select("select outReportId " +
+            "from VocaPatientFeeItem " +
+            "where applyId = #{applyId}")
+    String selectReportIdByApplyId(String applyId);
 }
