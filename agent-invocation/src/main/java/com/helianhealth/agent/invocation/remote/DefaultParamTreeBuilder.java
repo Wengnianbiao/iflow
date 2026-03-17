@@ -253,8 +253,11 @@ public class DefaultParamTreeBuilder extends AbstractParamTreeBuilder {
         List<ParamTreeNode> allArrayChildren = new ArrayList<>();
         if (sourceValue instanceof List) {
             List<?> sourceList = (List<?>) sourceValue;
+            if (sourceList.isEmpty()) {
+                return;
+            }
             Object o = sourceList.get(0);
-            // 数组可以是基础数据类型和对象
+            // 数组元素可以是基础数据类型和对象
             if (o instanceof Map) {
                 for (Object item : sourceList) {
                     List<ParamTreeNode> nestedArrayChildren = buildPreParamTree(allNodes,
