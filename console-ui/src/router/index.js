@@ -176,6 +176,28 @@ const routes = [
     }
   },
   {
+    path: '/invoke/tool',
+    name: 'ApiInvokeTool',
+    component: () => import('@/views/ApiInvokeTool.vue'),
+    meta: {
+      breadcrumb: [
+        { name: '调用工具', path: null, icon: 'el-icon-s-promotion' },
+        { name: 'HTTP调用', path: '/invoke/tool' }
+      ]
+    }
+  },
+  {
+    path: '/invoke/db',
+    name: 'DbInvokeTool',
+    component: () => import('@/views/DbInvokeTool.vue'),
+    meta: {
+      breadcrumb: [
+        { name: '调用工具', path: null, icon: 'el-icon-s-promotion' },
+        { name: '数据库查询', path: '/invoke/db' }
+      ]
+    }
+  },
+  {
     path: '/node/extension',
     name: 'NodeExtensionConfig',
     component: () => import('@/views/NodeExtensionConfig.vue'),

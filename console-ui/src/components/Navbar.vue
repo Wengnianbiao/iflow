@@ -44,6 +44,14 @@
         <i class="el-icon-document-copy"></i>
         <span slot="title">接口调用日志</span>
       </el-menu-item>
+      <el-submenu index="9">
+        <template slot="title">
+          <i class="el-icon-s-promotion"></i>
+          <span>调用工具</span>
+        </template>
+        <el-menu-item index="9-1">HTTP调用</el-menu-item>
+        <el-menu-item index="9-2">数据库查询</el-menu-item>
+      </el-submenu>
       <el-submenu index="4">
         <template slot="title">
           <i class="el-icon-set-up"></i>
@@ -134,6 +142,16 @@ export default {
             this.$router.push('/invoke/log');
           }
           break;
+        case '9-1':
+          if (currentPath !== '/invoke/tool') {
+            this.$router.push('/invoke/tool');
+          }
+          break;
+        case '9-2':
+          if (currentPath !== '/invoke/db') {
+            this.$router.push('/invoke/db');
+          }
+          break;
         case '4-0':
           if (currentPath !== '/mock/guide') {
             this.$router.push('/mock/guide');
@@ -202,6 +220,10 @@ export default {
       this.activeIndex = '6-1';
     } else if (currentPath === '/invoke/log') {
       this.activeIndex = '3';
+    } else if (currentPath === '/invoke/tool') {
+      this.activeIndex = '9-1';
+    } else if (currentPath === '/invoke/db') {
+      this.activeIndex = '9-2';
     } else if (currentPath === '/mock/guide') {
       this.activeIndex = '4-0';
     } else if (currentPath === '/mock/config') {
@@ -234,6 +256,10 @@ export default {
         this.activeIndex = '6-1';
       } else if (to.path === '/invoke/log') {
         this.activeIndex = '3';
+      } else if (to.path === '/invoke/tool') {
+        this.activeIndex = '9-1';
+      } else if (to.path === '/invoke/db') {
+        this.activeIndex = '9-2';
       } else if (to.path === '/mock/guide') {
         this.activeIndex = '4-0';
       } else if (to.path === '/mock/config') {
