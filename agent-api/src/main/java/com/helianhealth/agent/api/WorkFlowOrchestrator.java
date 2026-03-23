@@ -60,6 +60,9 @@ public class WorkFlowOrchestrator {
     }
 
     private ResultData<Object> processJarvisRsp(Map<String, Object> flowNodeResponse) {
+        if (flowNodeResponse.isEmpty()) {
+            return ResultData.ok();
+        }
         Object code = flowNodeResponse.get("code");
         String message = (String) flowNodeResponse.get("message");
         Object rsp = flowNodeResponse.get("rsp");
