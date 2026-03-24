@@ -1,5 +1,5 @@
 server:
-  port: 8088
+  port: 8099
 
 spring:
   profiles: dev-gauss
@@ -7,7 +7,7 @@ spring:
     agent:
       type: com.alibaba.druid.pool.DruidDataSource
       driver-class-name: org.opengauss.Driver
-      url: jdbc:opengauss://10.20.4.98:5433/mydb?currentSchema=interface_agent2
+      url: jdbc:opengauss://10.20.4.98:5433/mydb?currentSchema=interface_agent_gauss
       username: myuser
       password: Helian!123
       initial-size: 10
