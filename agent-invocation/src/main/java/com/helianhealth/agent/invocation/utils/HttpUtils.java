@@ -57,4 +57,18 @@ public class HttpUtils {
     public static String postForm(String url, Map<String, String> headers, Map<String, String> formParams) throws IOException, ParseException {
         return httpApiClientManager.executePostForm(url, headers, formParams);
     }
+
+    /**
+     * 下载二进制文件（如PDF、图片等）
+     * @param url 文件URL
+     * @return 文件的字节数组
+     * @throws IOException IO异常
+     */
+    public static byte[] getBytes(String url) throws IOException {
+        return httpApiClientManager.executeGetBytes(url, DEFAULT_HEADERS);
+    }
+
+    public static void close() {
+        httpApiClientManager.close();
+    }
 }

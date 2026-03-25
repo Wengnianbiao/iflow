@@ -219,6 +219,37 @@ public class HttpApiClientManager {
     }
 
     /**
+     * 执行HTTP GET请求并返回字节数组（用于下载二进制文件）
+     * @param url 请求URL
+     * @param headers 请求头
+     * @return 文件的字节数组
+     * @throws IOException IO异常
+     */
+    public byte[] executeGetBytes(String url, Map<String, String> headers) throws IOException {
+        logger.info("执行 GET 请求下载二进制文件，URL: [{}]", url);
+        HttpGet httpGet = new HttpGet(url);
+        // 设置请求头
+        if (headers != null && !headers.isEmpty()) {
+            headers.forEach(httpGet::setHeader);
+        }
+
+        try (CloseableHttpResponse response = httpClient.execute(httpGet)) {
+            int statusCode = response.getCode();
+            if (statusCode == 200) {
+                byte[] bytes = EntityUtils.toByteArray(response.getEntity());
+                logger.info("GET 请求下载成功，URL: [{}]，文件大小: {} bytes", url, bytes.length);
+                return bytes;
+            } else {
+                logger.error("GET 请求下载失败，URL: [{}]，状态码: [{}]", url, statusCode);
+                throw new IOException("下载文件失败，状态码: " + statusCode);
+            }
+        } catch (IOException e) {
+            logger.error("执行 GET 请求下载失败，URL: [{}]，异常: [{}]", url, e.getMessage(), e);
+            throw e;
+        }
+    }
+
+    /**
      * 获取连接池状态信息
      * @return 连接池状态字符串
      */
