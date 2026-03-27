@@ -120,6 +120,7 @@ public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker 
                     .businessData(context.getBusinessData())
                     .paramBeforeInvoke(context.getParamBeforeInvoke())
                     .remoteInvokeResponse(context.getRemoteInvokeResponse())
+                    .remoteInvokeResponseParsed(context.getRemoteInvokeResponseParsed())
                     .paramAfterInvoke(context.getParamAfterInvoke())
                     .invokeTime(context.getInvokeTime())
                     .errorMessage(context.getErrorMessage())

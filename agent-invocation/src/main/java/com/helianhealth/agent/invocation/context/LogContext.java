@@ -35,6 +35,11 @@ public class LogContext {
     private String remoteInvokeResponse = "{}";
 
     /**
+     * 远程调用响应转化
+     */
+    private String remoteInvokeResponseParsed = "{}";
+
+    /**
      * 调用后参数（JSON 格式）
      */
     private String paramAfterInvoke = "{}";

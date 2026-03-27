@@ -106,6 +106,8 @@ CREATE TABLE interface_invoke_log
     param_before_invoke    nvarchar(max),
     -- 远程调用结果
     remote_invoke_response nvarchar(max),
+    -- 远程调用结果解析后数据
+    remote_invoke_response_parsed nvarchar(max),
     -- 响应参数
     param_after_invoke     nvarchar(max),
     -- 调用时间
@@ -151,4 +153,3 @@ CREATE TABLE node_extension_config
     -- 扩展方式：PROJECT-项目扩展（业务项目中实现） ONLINE-在线扩展（页面编写） 必选
     extension_mode    VARCHAR(20)   NOT NULL DEFAULT 'ONLINE'
 );
-

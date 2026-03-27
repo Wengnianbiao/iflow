@@ -28,6 +28,11 @@ public class InvokeLogVO {
 
     private String remoteInvokeResponse;
 
+    /**
+     * 接口响应解析后数据
+     */
+    private String remoteInvokeResponseParsed;
+
     private String paramAfterInvoke;
 
     private String invokeTime;

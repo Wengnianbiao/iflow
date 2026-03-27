@@ -24,6 +24,8 @@ public class InvokeLogDTO {
 
     private String remoteInvokeResponse;
 
+    private String remoteInvokeResponseParsed;
+
     private String paramAfterInvoke;
 
     private String invokeTime;

@@ -1,9 +1,13 @@
 package com.helianhealth.agent.invocation.remote;
 
+import com.helianhealth.agent.common.utils.JsonUtils;
+import com.helianhealth.agent.common.utils.XmlUtils;
 import com.helianhealth.agent.invocation.context.LogCollector;
 import com.helianhealth.agent.invocation.remote.InterfaceClientProxy;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
@@ -14,6 +18,8 @@ import java.util.Map;
  * 子类只需实现具体的参数解析、调用执行、响应解析逻辑
  */
 public abstract class AbstractProtocolAdapter implements InterfaceClientProxy {
+
+    private static final Logger log = LoggerFactory.getLogger(AbstractProtocolAdapter.class);
 
     /**
      * 模板方法：定义统一的调用流程
@@ -33,7 +39,9 @@ public abstract class AbstractProtocolAdapter implements InterfaceClientProxy {
             LogCollector.collectRemoteInvokeResponse(rawResponse);
 
             // 3. 调用后响应解析
-            return parseResponse(flowNode, rawResponse);
+            Map<String, Object> parseResponse = parseResponse(flowNode, rawResponse);
+            LogCollector.collectRemoteInvokeResponseParsed(JsonUtils.toJsonString(parseResponse));
+            return parseResponse;
         } finally {
             LogCollector.collectInvokeTime(System.currentTimeMillis() - startTime);
         }

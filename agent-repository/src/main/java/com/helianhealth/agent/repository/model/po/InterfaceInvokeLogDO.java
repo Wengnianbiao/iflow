@@ -42,6 +42,9 @@ public class InterfaceInvokeLogDO {
     @Column(name = "remote_invoke_response")
     private String remoteInvokeResponse;
 
+    @Column(name = "remote_invoke_response_parsed")
+    private String remoteInvokeResponseParsed;
+
     @Column(name = "param_after_invoke")
     private String paramAfterInvoke;
 

@@ -36,61 +36,70 @@
 
     <!-- 日志表格 -->
     <el-table :data="logList" style="width: 100%" v-loading="loading">
-      <el-table-column label="接口名称" min-width="150">
+      <el-table-column label="接口名称" min-width="100">
         <template #default="scope">
           {{ scope.row.nodeName || scope.row.nodeId || '-' }}
         </template>
       </el-table-column>
 
-      <el-table-column label="关键字" min-width="150">
+      <el-table-column label="关键字" min-width="100">
         <template #default="scope">
           {{ scope.row.keyword || '-' }}
         </template>
       </el-table-column>
-      
-      <el-table-column label="上游业务数据" min-width="220">
+
+      <el-table-column label="上游业务数据" min-width="180">
         <template #default="scope">
-          <json-preview-cell 
-            :content="scope.row.businessData" 
+          <json-preview-cell
+            :content="scope.row.businessData"
             @click="jsonViewer.open($event, '上游业务数据')"
           />
         </template>
       </el-table-column>
 
-      <el-table-column label="接口调用入参" min-width="220">
+      <el-table-column label="接口调用入参" min-width="180">
         <template #default="scope">
-          <json-preview-cell 
-            :content="scope.row.paramBeforeInvoke" 
+          <json-preview-cell
+            :content="scope.row.paramBeforeInvoke"
             @click="jsonViewer.open($event, '接口调用入参')"
           />
         </template>
       </el-table-column>
 
-      <el-table-column label="接口原始响应" min-width="220">
+      <el-table-column label="接口原始响应" min-width="180">
         <template #default="scope">
-          <json-preview-cell 
-            :content="scope.row.remoteInvokeResponse" 
+          <json-preview-cell
+            :content="scope.row.remoteInvokeResponse"
             @click="jsonViewer.open($event, '接口原始响应')"
           />
         </template>
       </el-table-column>
 
-      <el-table-column label="响应上游数据" min-width="220">
+      <el-table-column label="接口原始响应解析" min-width="180">
         <template #default="scope">
-          <json-preview-cell 
-            :content="scope.row.paramAfterInvoke" 
-            @click="jsonViewer.open($event, '响应上游数据')"
+          <json-preview-cell
+            :content="scope.row.remoteInvokeResponseParsed"
+            @click="jsonViewer.open($event, '接口原始响应解析')"
           />
         </template>
       </el-table-column>
 
-      <el-table-column label="接口耗时" min-width="180">
+      <el-table-column label="响应上游出参" min-width="180">
+        <template #default="scope">
+          <json-preview-cell
+            :content="scope.row.paramAfterInvoke"
+            @click="jsonViewer.open($event, '响应上游出参')"
+          />
+        </template>
+      </el-table-column>
+
+      <el-table-column label="调用耗时" min-width="100">
         <template #default="scope">
           {{ scope.row.invokeTime }} ms
         </template>
       </el-table-column>
-      
-      <el-table-column label="调用时间" min-width="180">
+
+      <el-table-column label="接口调用时间" min-width="180">
         <template #default="scope">
           {{ formatDateTime(scope.row.createTime) }}
         </template>

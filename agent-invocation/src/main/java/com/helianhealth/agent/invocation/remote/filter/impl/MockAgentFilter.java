@@ -86,7 +86,7 @@ public class MockAgentFilter implements AgentFilter {
                 String resolvedParam = resolveParamNodesByType(flowNode, params);
                 // 通过门面收集调用前参数
                 LogCollector.collectParamBeforeInvoke(resolvedParam);
-                
+
                 // 获取原始响应字符串用于日志收集
                 String rawResponse = mockConfigQueryService.getRawMockResponseByMockId(mockId);
                 if (rawResponse != null) {
@@ -94,6 +94,7 @@ public class MockAgentFilter implements AgentFilter {
                     LogCollector.collectRemoteInvokeResponse(rawResponse);
                     // 根据 NodeType 选择对应的解析方式
                     Map<String, Object> mockResponse = parseResponseByType(flowNode, rawResponse);
+                    LogCollector.collectRemoteInvokeResponseParsed(JsonUtils.toJsonString(mockResponse));
                     if (mockResponse != null) {
                         return mockResponse;
                     }

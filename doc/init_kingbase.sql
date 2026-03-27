@@ -92,6 +92,8 @@ CREATE TABLE interface_invoke_log (
     param_before_invoke TEXT,
     -- 远程调用结果
     remote_invoke_response TEXT,
+    -- 远程调用结果解析后数据
+    remote_invoke_response_parsed TEXT,
     -- 响应参数
     param_after_invoke TEXT,
     -- 调用时间

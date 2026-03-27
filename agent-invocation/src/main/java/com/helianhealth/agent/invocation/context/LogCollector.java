@@ -66,6 +66,17 @@ public class LogCollector {
     }
 
     /**
+     * 收集远程调用原始响应转化后结果
+     */
+    public static void collectRemoteInvokeResponseParsed(String parsedResponseJson) {
+        LogContext context = InvocationLogContextHolder.getContext();
+        if (context != null) {
+
+            context.setRemoteInvokeResponseParsed(parsedResponseJson);
+        }
+    }
+
+    /**
      * 收集调用后参数（最终返回结果）
      */
     public static void collectParamAfterInvoke(String resultJson) {
