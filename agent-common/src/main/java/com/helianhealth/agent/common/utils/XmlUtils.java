@@ -487,8 +487,7 @@ public class XmlUtils {
         Map<String, List<Element>> childElements = groupChildElementsByTagName(element);
         addChildElementsToMap(metaContext, childElements, resultMap);
 
-        // 4. 简化纯容器节点（仅含一个子元素且无属性）
-        return simplifyContainerNode(element, resultMap, childElements);
+        return resultMap;
     }
 
     /**
@@ -663,25 +662,5 @@ public class XmlUtils {
 
         // 单个对象场景
         return parseElement(metaContext, elements.get(0));
-    }
-
-    /**
-     * 简化纯容器节点（消除冗余嵌套）
-     * 规则：只简化返回 Map 的情况，不简化数组
-     * 数组的简化在 addChildElementsToMap 中处理
-     */
-    private static Object simplifyContainerNode(Element element, Map<String, Object> map, Map<String, List<Element>> childElements) {
-        // 条件：无属性 + 只有一种子元素 + 无额外文本
-        if (element.getAttributes().getLength() == 0
-                && childElements.size() == 1
-                && !map.containsKey(element.getNodeName())) {
-            Object value = map.values().iterator().next();
-
-            // 只简化 Map，不简化 List（确保 parseXmlForConfig 总是返回 Map）
-            if (value instanceof Map) {
-                return value;
-            }
-        }
-        return map;
     }
 }

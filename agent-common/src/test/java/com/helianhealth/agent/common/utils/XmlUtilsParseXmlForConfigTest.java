@@ -815,5 +815,76 @@ public class XmlUtilsParseXmlForConfigTest {
             assertEquals("200", result.get("code"));
             assertEquals("P001", result.get("patientId"));
         }
+
+        @Test
+        @DisplayName("SOAP响应解析：成功时有Body和Head标签")
+        void soapResponseParsing_SuccessWithBodyAndHead() {
+            // 成功场景：响应数据包含 Body 和 Head
+            String xml = "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>" +
+                    "<SOAP-ENV:Envelope xmlns:SOAP-ENV='http://schemas.xmlsoap.org/soap/envelope/' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xmlns:s='http://www.w3.org/2001/XMLSchema'>" +
+                    "<SOAP-ENV:Body>" +
+                    "<MessageInResponse xmlns=\"http://herenit.com\">" +
+                    "<MessageInResult><![CDATA[<HrResponse><Body><PatientID>P0005845</PatientID><VisitNo>20260326003015</VisitNo></Body><Head><HipSessionId>215427605</HipSessionId><SystemCode>TJ</SystemCode><TradeCode>PAT202</TradeCode><TradeMessage>成功</TradeMessage><TradeStatus>AA</TradeStatus><TradeTime>2026-03-26 10:59:53</TradeTime></Head></HrResponse>]]></MessageInResult>" +
+                    "</MessageInResponse>" +
+                    "</SOAP-ENV:Body>" +
+                    "</SOAP-ENV:Envelope>";
+
+            Map<String, Object> metaMap = new HashMap<>();
+            metaMap.put(XmlConstants.ELEMENT_NAME_KEY, "MessageInResult");
+
+            Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
+
+            // 验证 Head 字段
+            assertInstanceOf(Map.class, result.get("Head"));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> head = (Map<String, Object>) result.get("Head");
+            assertEquals("215427605", head.get("HipSessionId"));
+            assertEquals("TJ", head.get("SystemCode"));
+            assertEquals("PAT202", head.get("TradeCode"));
+            assertEquals("成功", head.get("TradeMessage"));
+            assertEquals("AA", head.get("TradeStatus"));
+            assertEquals("2026-03-26 10:59:53", head.get("TradeTime"));
+
+            // 验证 Body 字段
+            assertInstanceOf(Map.class, result.get("Body"));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> body = (Map<String, Object>) result.get("Body");
+            assertEquals("P0005845", body.get("PatientID"));
+            assertEquals("20260326003015", body.get("VisitNo"));
+        }
+
+        @Test
+        @DisplayName("SOAP响应解析：失败时只有Head标签无Body")
+        void soapResponseParsing_FailureOnlyHead() {
+            // 失败场景：响应数据只有 Head，没有 Body
+            String xml = "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>" +
+                    "<SOAP-ENV:Envelope xmlns:SOAP-ENV='http://schemas.xmlsoap.org/soap/envelope/' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xmlns:s='http://www.w3.org/2001/XMLSchema'>" +
+                    "<SOAP-ENV:Body>" +
+                    "<MessageInResponse xmlns=\"http://herenit.com\">" +
+                    "<MessageInResult><![CDATA[<HrResponse><Head><HipSessionId>215468541</HipSessionId><SystemCode>TJ</SystemCode><TradeCode>PAT202</TradeCode><TradeMessage>与证件匹配的患者，姓名都不是测试!</TradeMessage><TradeStatus>AE</TradeStatus><TradeTime>2026-03-26 11:08:58</TradeTime></Head></HrResponse>]]></MessageInResult>" +
+                    "</MessageInResponse>" +
+                    "</SOAP-ENV:Body>" +
+                    "</SOAP-ENV:Envelope>";
+
+            Map<String, Object> metaMap = new HashMap<>();
+            metaMap.put(XmlConstants.ELEMENT_NAME_KEY, "MessageInResult");
+
+            metaMap.put(XmlConstants.OBJECT_TAG_KEY, Collections.singletonList("HrResponse"));
+
+            Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
+
+            // Head 始终是 Map 结构，与成功场景保持一致
+            assertTrue(result.containsKey("Head"));
+            assertInstanceOf(Map.class, result.get("Head"));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> head = (Map<String, Object>) result.get("Head");
+
+            assertEquals("215468541", head.get("HipSessionId"));
+            assertEquals("TJ", head.get("SystemCode"));
+            assertEquals("PAT202", head.get("TradeCode"));
+            assertEquals("与证件匹配的患者，姓名都不是测试!", head.get("TradeMessage"));
+            assertEquals("AE", head.get("TradeStatus"));
+            assertEquals("2026-03-26 11:08:58", head.get("TradeTime"));
+        }
     }
 }
