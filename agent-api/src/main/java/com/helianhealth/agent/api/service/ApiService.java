@@ -1,6 +1,6 @@
 package com.helianhealth.agent.api.service;
 
-import com.helianhealth.agent.common.base.ResultData;
+import com.helianhealth.agent.api.model.response.JarvisResultData;
 import com.helianhealth.agent.api.model.request.JarvisRequest;
 
 /**
@@ -14,7 +14,7 @@ public interface ApiService {
      * @param request Jarvis请求对象
      * @return 处理结果
      */
-    ResultData<Object> invokeJarvisApi(JarvisRequest request);
+    JarvisResultData<Object> invokeJarvisApi(JarvisRequest request);
 
     /**
      * 处理Open API请求

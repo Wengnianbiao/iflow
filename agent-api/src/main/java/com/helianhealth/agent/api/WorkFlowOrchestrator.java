@@ -1,8 +1,8 @@
 package com.helianhealth.agent.api;
 
 import com.helianhealth.agent.api.model.request.JarvisRequest;
+import com.helianhealth.agent.api.model.response.JarvisResultData;
 import com.helianhealth.agent.api.adapter.ContentTypeAdapter;
-import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.common.exception.WorkflowBusinessException;
 import com.helianhealth.agent.repository.model.domain.Workflow;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
@@ -10,7 +10,6 @@ import com.helianhealth.agent.schedule.WorkflowScheduler;
 import com.helianhealth.agent.schedule.builder.WorkFlowNodeBuilder;
 import com.helianhealth.agent.repository.service.WorkflowQueryService;
 import com.helianhealth.agent.common.utils.JsonUtils;
-import com.helianhealth.agent.common.utils.ResponseRenderUtils;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -36,7 +35,7 @@ public class WorkFlowOrchestrator {
     /**
      * 适配jarvis的参数解析调度
      */
-    public ResultData<Object> jarvisDispatch(JarvisRequest request) {
+    public JarvisResultData<Object> jarvisDispatch(JarvisRequest request) {
         try {
             Optional<Workflow> workflowOptional = workflowService.findByInterfaceUri(request.getBusinessMethod());
             if (workflowOptional.isPresent()) {
@@ -51,17 +50,17 @@ public class WorkFlowOrchestrator {
             } else {
                 log.error(WorkflowBusinessException.METHOD_NOT_SUPPORT.getMessage());
                 // 对于没有实现jarvis的接口,直接返回成功
-                return ResultData.ok();
+                return JarvisResultData.ok();
             }
         } catch (Exception e) {
             log.error("dispatch request error:", e);
-            return ResultData.fail();
+            return JarvisResultData.fail();
         }
     }
 
-    private ResultData<Object> processJarvisRsp(Map<String, Object> flowNodeResponse) {
+    private JarvisResultData<Object> processJarvisRsp(Map<String, Object> flowNodeResponse) {
         if (flowNodeResponse.isEmpty()) {
-            return ResultData.ok();
+            return JarvisResultData.ok();
         }
         Object code = flowNodeResponse.get("code");
         String message = (String) flowNodeResponse.get("message");
@@ -69,9 +68,9 @@ public class WorkFlowOrchestrator {
 
         // 只有200才是真的成功
         if ("200".equals(code)) {
-            return ResponseRenderUtils.render(rsp);
+            return JarvisResultData.ok(rsp);
         } else {
-            return ResponseRenderUtils.error(message);
+            return JarvisResultData.error(message);
         }
     }
 
