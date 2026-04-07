@@ -134,6 +134,7 @@
                 <el-option label="HTTP(S)" value="HTTP"></el-option>
                 <el-option label="WEBSERVICE" value="WEBSERVICE"></el-option>
                 <el-option label="数据库" value="DATABASE"></el-option>
+                <el-option label="空节点" value="NONE"></el-option>
               </el-select>
             </el-form-item>
 
@@ -323,6 +324,12 @@
                 </el-select>
               </el-form-item>
             </template>
+
+            <!-- NONE空节点提示 -->
+            <div v-if="form.nodeType === 'NONE'" class="empty-meta-tip">
+              <i class="el-icon-info"></i>
+              <span>空节点无需配置元信息，不会发起远程调用，可通过后置处理组装上游所需的响应数据</span>
+            </div>
 
             <!-- 空状态提示 -->
             <div v-if="!form.nodeType" class="empty-meta-tip">
