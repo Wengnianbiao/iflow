@@ -1,16 +1,13 @@
 package com.helianhealth.agent.invocation.remote;
 
 import com.helianhealth.agent.common.extension.AgentExtensionLoader;
-import com.helianhealth.agent.invocation.remote.InterfaceClientProxy;
-import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
-import com.helianhealth.agent.invocation.remote.ParamTree;
-import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.Invocation;
-import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.invocation.remote.model.PostBuildContext;
 import com.helianhealth.agent.invocation.remote.model.PreBuildContext;
 import com.helianhealth.agent.invocation.remote.wrapper.WrapperFactory;
+import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import org.springframework.util.CollectionUtils;
 
 import java.util.ArrayList;
@@ -22,7 +19,6 @@ public class DefaultInterfaceRemoteInvoker implements InterfaceRemoteInvoker {
     private final ParamTree paramNode;
 
     private final InterfaceClientProxy proxy;
-
 
     public DefaultInterfaceRemoteInvoker() {
         InterfaceClientProxy rawProxy = AgentExtensionLoader.getExtensionLoader(InterfaceClientProxy.class).getAdaptiveExtension();

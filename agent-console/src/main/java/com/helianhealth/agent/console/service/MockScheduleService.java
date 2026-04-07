@@ -1,6 +1,6 @@
 package com.helianhealth.agent.console.service;
 
-import com.helianhealth.agent.common.base.ExtensionConstants;
+import com.helianhealth.agent.common.base.ExtensionFilterConstants;
 import com.helianhealth.agent.common.enums.ScheduleParamSourceType;
 import com.helianhealth.agent.common.exception.WorkflowBusinessException;
 import com.helianhealth.agent.common.extension.AgentExtensionLoader;
@@ -176,7 +176,7 @@ public class MockScheduleService {
         if (node.getExtensionParam() != null) {
             extensionParam.putAll(node.getExtensionParam());
         }
-        extensionParam.put(ExtensionConstants.EXTENSION_PARAM_KEY_MOCK, mockId.toString());
+        extensionParam.put(ExtensionFilterConstants.EXTENSION_PARAM_KEY_MOCK, mockId.toString());
 
         return WorkflowNode.builder()
                 .nodeId(node.getNodeId())

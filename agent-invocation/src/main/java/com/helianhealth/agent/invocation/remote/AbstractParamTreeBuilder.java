@@ -1,15 +1,14 @@
 package com.helianhealth.agent.invocation.remote;
 
 import com.helianhealth.agent.common.enums.MappingSource;
-import com.helianhealth.agent.invocation.remote.ParamTree;
-import com.helianhealth.agent.repository.model.domain.WorkflowNode;
-import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.invocation.remote.model.PostBuildContext;
 import com.helianhealth.agent.invocation.remote.model.PreBuildContext;
 import com.helianhealth.agent.invocation.remote.resolver.ValueResolverSelector;
 import com.helianhealth.agent.invocation.remote.support.BasicTypeConversionHandler;
 import com.helianhealth.agent.invocation.remote.support.TypeHandler;
+import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
@@ -25,31 +24,12 @@ import java.util.stream.Collectors;
 @Slf4j
 public abstract class AbstractParamTreeBuilder implements ParamTree {
 
-    private ValueResolverSelector valueResolverSelector;
+    private final ValueResolverSelector valueResolverSelector;
     private final TypeHandler typeHandler;
 
-    /**
-     * 无参构造函数，用于SPI机制实例化
-     * ValueResolverSelector将通过ExtensionFactory自动注入（Setter注入）
-     */
-    public AbstractParamTreeBuilder() {
-        this.typeHandler = new BasicTypeConversionHandler();
-    }
-
-    /**
-     * 构造器注入，通过ExtensionFactory自动注入ValueResolverSelector（Spring Bean）
-     * ExtensionRegistry会自动调用此构造器并注入依赖
-     */
     public AbstractParamTreeBuilder(ValueResolverSelector valueResolverSelector) {
         this.valueResolverSelector = valueResolverSelector;
         this.typeHandler = new BasicTypeConversionHandler();
-    }
-
-    /**
-     * Setter注入，用于ExtensionFactory自动注入
-     */
-    public void setValueResolverSelector(ValueResolverSelector valueResolverSelector) {
-        this.valueResolverSelector = valueResolverSelector;
     }
 
     @Override

@@ -1,6 +1,6 @@
 package com.helianhealth.agent.schedule.builder;
 
-import com.helianhealth.agent.common.base.ExtensionConstants;
+import com.helianhealth.agent.common.base.ExtensionFilterConstants;
 import com.helianhealth.agent.repository.model.domain.MockConfig;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.repository.service.MockConfigQueryService;
@@ -57,7 +57,7 @@ public class WorkFlowNodeBuilder {
         if (node.getExtensionParam() != null) {
             extensionParam.putAll(node.getExtensionParam());
         }
-        extensionParam.put(ExtensionConstants.EXTENSION_PARAM_KEY_MOCK, mockId.toString());
+        extensionParam.put(ExtensionFilterConstants.EXTENSION_PARAM_KEY_MOCK, mockId.toString());
 
         return WorkflowNode.builder()
                 .nodeId(node.getNodeId())

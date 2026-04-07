@@ -1,6 +1,6 @@
 package com.helianhealth.agent.invocation.remote.filter;
 
-import com.helianhealth.agent.common.base.ExtensionConstants;
+import com.helianhealth.agent.common.base.ExtensionFilterConstants;
 import com.helianhealth.agent.common.base.MetaInfoKeys;
 import com.helianhealth.agent.common.utils.JsonUtils;
 import com.helianhealth.agent.invocation.remote.InterfaceClientProxy;
@@ -27,7 +27,7 @@ public abstract class AbstractHeaderAgentFilter implements AgentFilter {
             return next.doInvoke(flowNode, params);
         }
 
-        String headerConfig = extensionParam.get(ExtensionConstants.EXTENSION_PARAM_KEY_HEADER);
+        String headerConfig = extensionParam.get(ExtensionFilterConstants.EXTENSION_PARAM_KEY_HEADER);
         if (headerConfig == null || headerConfig.trim().isEmpty()) {
             return next.doInvoke(flowNode, params);
         }

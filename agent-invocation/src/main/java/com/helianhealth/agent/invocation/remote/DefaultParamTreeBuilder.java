@@ -19,17 +19,6 @@ import java.util.Map;
  */
 public class DefaultParamTreeBuilder extends AbstractParamTreeBuilder {
 
-    /**
-     * 无参构造函数，用于SPI机制实例化
-     * ValueResolverSelector将通过ExtensionFactory自动注入（Setter注入）
-     */
-    public DefaultParamTreeBuilder() {
-        super();
-    }
-
-    /**
-     * 带参构造函数，支持手动注入依赖
-     */
     public DefaultParamTreeBuilder(ValueResolverSelector valueResolverSelector) {
         super(valueResolverSelector);
     }
