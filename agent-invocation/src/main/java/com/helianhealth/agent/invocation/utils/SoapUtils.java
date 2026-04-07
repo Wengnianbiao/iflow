@@ -1,6 +1,7 @@
 package com.helianhealth.agent.invocation.utils;
 
 import com.alibaba.fastjson2.JSONObject;
+import com.helianhealth.agent.common.base.MetaInfoKeys;
 import com.helianhealth.agent.invocation.remote.manager.HttpApiClientManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,14 +24,14 @@ public class SoapUtils {
      */
     public static String sendSoapRequest(JSONObject metaInfo, String soapMessage) {
         try {
-            String endpointUrl = metaInfo.getString("url");
+            String endpointUrl = metaInfo.getString(MetaInfoKeys.URL);
             if (StringUtils.isEmpty(endpointUrl)) {
                 throw new IllegalArgumentException("metaInfo中未配置url");
             }
 
             // 设置自定义请求头
             Map<String, String> headers = new HashMap<>();
-            JSONObject headerConfig = metaInfo.getJSONObject("headers");
+            JSONObject headerConfig = metaInfo.getJSONObject(MetaInfoKeys.HEADERS);
             if (headerConfig != null) {
                 for (String key : headerConfig.keySet()) {
                     headers.put(key, headerConfig.getString(key));
@@ -57,7 +58,7 @@ public class SoapUtils {
     @SuppressWarnings("unchecked")
     public static String sendSoapRequest(Map<String, Object> metaInfo, String soapMessage) {
         try {
-            String endpointUrl = (String) metaInfo.get("url");
+            String endpointUrl = (String) metaInfo.get(MetaInfoKeys.URL);
             if (StringUtils.isEmpty(endpointUrl)) {
                 throw new IllegalArgumentException("metaInfo中未配置url");
             }
@@ -65,7 +66,7 @@ public class SoapUtils {
             // 构建请求头
             Map<String, String> headers = new HashMap<>();
             // 设置自定义请求头
-            Map<String, String> headerConfig = (Map<String, String>) metaInfo.get("headers");
+            Map<String, String> headerConfig = (Map<String, String>) metaInfo.get(MetaInfoKeys.HEADERS);
             if (headerConfig != null) {
                 headers.putAll(headerConfig);
             }

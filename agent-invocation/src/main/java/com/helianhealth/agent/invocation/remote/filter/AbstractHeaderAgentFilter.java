@@ -1,6 +1,7 @@
 package com.helianhealth.agent.invocation.remote.filter;
 
 import com.helianhealth.agent.common.base.ExtensionConstants;
+import com.helianhealth.agent.common.base.MetaInfoKeys;
 import com.helianhealth.agent.common.utils.JsonUtils;
 import com.helianhealth.agent.invocation.remote.InterfaceClientProxy;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
@@ -18,7 +19,6 @@ import java.util.Map;
 public abstract class AbstractHeaderAgentFilter implements AgentFilter {
 
     private static final Logger log = LoggerFactory.getLogger(AbstractHeaderAgentFilter.class);
-    private static final String META_INFO_HEADERS_KEY = "headers";
 
     @Override
     public final Map<String, Object> doInvoke(InterfaceClientProxy next, WorkflowNode flowNode, List<ParamTreeNode> params) {
@@ -38,9 +38,9 @@ public abstract class AbstractHeaderAgentFilter implements AgentFilter {
 
         try {
             Map<String, Object> metaInfo = JsonUtils.parseMetaInfo(flowNode.getMetaInfo());
-            Map<String, String> headers = extractHeaders(metaInfo.get(META_INFO_HEADERS_KEY));
+            Map<String, String> headers = extractHeaders(metaInfo.get(MetaInfoKeys.HEADERS));
             doFilter(headers);
-            metaInfo.put(META_INFO_HEADERS_KEY, headers);
+            metaInfo.put(MetaInfoKeys.HEADERS, headers);
             flowNode.setMetaInfo(JsonUtils.toJsonString(metaInfo));
         } catch (Exception e) {
             log.error("HeaderAgentFilter处理失败, nodeId={}", flowNode.getNodeId(), e);

@@ -1,7 +1,7 @@
 package com.helianhealth.agent.invocation.remote.webService;
 
 import com.alibaba.fastjson2.JSONObject;
-import com.helianhealth.agent.common.base.XmlConstants;
+import com.helianhealth.agent.common.base.MetaInfoKeys;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.invocation.remote.ParamResolver;
@@ -28,10 +28,6 @@ public class SoapRequestHandler implements ParamResolver {
     private final HttpApiClientManager httpApiClientManager;
 
     private static final String INPUT_PARAM_PLACEHOLDER_KEY = "${inputParam}";
-    private static final String URL_KEY = "url";
-    private static final String HEADERS_KEY = "headers";
-
-    private static final String SOAP_TEMPLATE_KEY = "soupTemplate";
 
     public SoapRequestHandler() {
         this.httpApiClientManager = HttpApiClientManager.getInstance();
@@ -47,8 +43,8 @@ public class SoapRequestHandler implements ParamResolver {
     public String resolveParamNodes(WorkflowNode flowNode, List<ParamTreeNode> paramNode) {
         try {
             JSONObject metaInfo = JsonUtils.parseMetaInfo2JsonObject(flowNode.getMetaInfo());
-            String dataType = metaInfo.getString(XmlConstants.DATA_TYPE_KEY);
-            if (XmlConstants.JSON_KEY.equalsIgnoreCase(dataType)) {
+            String dataType = metaInfo.getString(MetaInfoKeys.DATA_TYPE);
+            if (MetaInfoKeys.DATA_TYPE_JSON.equalsIgnoreCase(dataType)) {
                 // 业务数据为JSON
                 String paramJson = ParamNodeUtils.paramNode2Json(paramNode);
 
@@ -80,14 +76,14 @@ public class SoapRequestHandler implements ParamResolver {
         try {
             // 解析metaInfo
             JSONObject metaInfo = JsonUtils.parseMetaInfo2JsonObject(flowNode.getMetaInfo());
-            String endpointUrl = metaInfo.getString(URL_KEY);
+            String endpointUrl = metaInfo.getString(MetaInfoKeys.URL);
             if (StringUtils.isEmpty(endpointUrl)) {
                 throw new IllegalArgumentException("metaInfo中未配置url");
             }
 
             // 设置自定义请求头
             Map<String, String> headers = new HashMap<>();
-            JSONObject headerConfig = metaInfo.getJSONObject(HEADERS_KEY);
+            JSONObject headerConfig = metaInfo.getJSONObject(MetaInfoKeys.HEADERS);
             if (headerConfig != null) {
                 for (String key : headerConfig.keySet()) {
                     headers.put(key, headerConfig.getString(key));
@@ -128,7 +124,7 @@ public class SoapRequestHandler implements ParamResolver {
      * 根据配置构建SOAP消息
      */
     private String buildSoapFromConfig(JSONObject metaInfo, String paramXml) {
-        String soupTemplate = metaInfo.getString(SOAP_TEMPLATE_KEY);
+        String soupTemplate = metaInfo.getString(MetaInfoKeys.SOAP_TEMPLATE);
         // 没有模板说明不需要嵌套SOAP信封
         if (soupTemplate == null || soupTemplate.isEmpty()) {
             return paramXml;
@@ -140,7 +136,6 @@ public class SoapRequestHandler implements ParamResolver {
 
     /**
      * 将多个ParamTreeNode转换为XML字符串（无根标签包裹）
-     * 用于处理类似 <text>测试</text><mobiles>17826809811</mobiles><_source>tj</_source> 这种情况
      */
     private String buildXmlFromMultipleNodes(List<ParamTreeNode> paramNodes) {
         if (paramNodes == null || paramNodes.isEmpty()) {

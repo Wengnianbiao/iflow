@@ -1,13 +1,9 @@
 package com.helianhealth.agent.invocation.remote;
 
 import com.helianhealth.agent.common.utils.JsonUtils;
-import com.helianhealth.agent.common.utils.XmlUtils;
 import com.helianhealth.agent.invocation.context.LogCollector;
-import com.helianhealth.agent.invocation.remote.InterfaceClientProxy;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
@@ -19,8 +15,6 @@ import java.util.Map;
  */
 public abstract class AbstractProtocolAdapter implements InterfaceClientProxy {
 
-    private static final Logger log = LoggerFactory.getLogger(AbstractProtocolAdapter.class);
-
     /**
      * 模板方法：定义统一的调用流程
      * 1. 参数解析 -> 2. 执行调用 -> 3. 响应解析
@@ -31,7 +25,7 @@ public abstract class AbstractProtocolAdapter implements InterfaceClientProxy {
         long startTime = System.currentTimeMillis();
         try {
             // 1. 调用前参数解析
-            String resolvedParam = resolveParams(flowNode, params);
+            String resolvedParam = resolveParam(flowNode, params);
             LogCollector.collectParamBeforeInvoke(resolvedParam);
 
             // 2. 执行远程调用
@@ -42,6 +36,9 @@ public abstract class AbstractProtocolAdapter implements InterfaceClientProxy {
             Map<String, Object> parseResponse = parseResponse(flowNode, rawResponse);
             LogCollector.collectRemoteInvokeResponseParsed(JsonUtils.toJsonString(parseResponse));
             return parseResponse;
+        } catch (Exception e) {
+            LogCollector.collectError(e.getMessage());
+            throw e;
         } finally {
             LogCollector.collectInvokeTime(System.currentTimeMillis() - startTime);
         }
@@ -53,7 +50,7 @@ public abstract class AbstractProtocolAdapter implements InterfaceClientProxy {
      * @param params 参数树
      * @return 解析后的参数字符串（JSON/SQL/XML等）
      */
-    protected abstract String resolveParams(WorkflowNode flowNode, List<ParamTreeNode> params);
+    protected abstract String resolveParam(WorkflowNode flowNode, List<ParamTreeNode> params);
 
     /**
      * 执行调用：发起实际的远程调用

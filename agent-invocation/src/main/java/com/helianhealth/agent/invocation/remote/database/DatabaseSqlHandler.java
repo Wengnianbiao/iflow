@@ -1,6 +1,7 @@
 package com.helianhealth.agent.invocation.remote.database;
 
 import com.alibaba.fastjson2.JSONArray;
+import com.helianhealth.agent.common.base.MetaInfoKeys;
 import com.helianhealth.agent.common.enums.ParamType;
 import com.helianhealth.agent.common.exception.DatabaseRemoteBusinessException;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
@@ -34,9 +35,9 @@ public class DatabaseSqlHandler implements ParamResolver {
 
     @Override
     public String resolveParamNodes(WorkflowNode flowNode, List<ParamTreeNode> params) {
-        Map<String, Object> metaInfo = JsonUtils.toMap(flowNode.getMetaInfo());
-        String sqlTemplate = (String) metaInfo.get("sqlTemplate");
-        String operation = (String) metaInfo.get("operation");
+        Map<String, Object> metaInfo = JsonUtils.parseMetaInfo(flowNode.getMetaInfo());
+        String sqlTemplate = (String) metaInfo.get(MetaInfoKeys.DB_SQL_TEMPLATE);
+        String operation = (String) metaInfo.get(MetaInfoKeys.DB_OPERATION);
 
         // 检查是否有SQL模板
         if (!StringUtils.hasText(sqlTemplate)) {
@@ -47,13 +48,14 @@ public class DatabaseSqlHandler implements ParamResolver {
         }
 
         switch (operation.toUpperCase()) {
-            case "INSERT":
+            case DatabaseSqlConstants.OPERATION_INSERT:
+                // 构建INSERT语句一定是对象类型或数组类型包裹
                 return buildInsertSql(sqlTemplate, params.get(0));
-            case "UPDATE":
+            case DatabaseSqlConstants.OPERATION_UPDATE:
                 return buildUpdateSql(sqlTemplate, params);
-            case "DELETE":
+            case DatabaseSqlConstants.OPERATION_DELETE:
                 return buildDeleteSql(sqlTemplate, params);
-            case "SELECT":
+            case DatabaseSqlConstants.OPERATION_SELECT:
             default:
                 return buildSelectSql(sqlTemplate, params);
         }
@@ -66,21 +68,22 @@ public class DatabaseSqlHandler implements ParamResolver {
      */
     private String buildUpdateSql(String sqlTemplate, List<ParamTreeNode> params) {
         String finalSql = sqlTemplate;
-    
+
         // 遍历所有参数节点
         for (ParamTreeNode param : params) {
             // 只处理有参数值的节点
             if (param.getParamValue() != null) {
                 String formattedValue = formatValue(param.getParamValue());
-                finalSql = finalSql.replace("{" + param.getParamKey() + "}", formattedValue);
+                finalSql = finalSql.replace(DatabaseSqlConstants.PLACEHOLDER_START
+                        + param.getParamKey() + DatabaseSqlConstants.PLACEHOLDER_END, formattedValue);
             }
         }
-    
+
         // 检查是否还有未替换的占位符
-        if (finalSql.contains("{") && finalSql.contains("}")) {
+        if (finalSql.contains(DatabaseSqlConstants.PLACEHOLDER_START) && finalSql.contains(DatabaseSqlConstants.PLACEHOLDER_END)) {
             throw DatabaseRemoteBusinessException.DATABASE_PLACE_HOLDER_ERROR.toException();
         }
-    
+
         return finalSql;
     }
 
@@ -91,12 +94,13 @@ public class DatabaseSqlHandler implements ParamResolver {
             // 只处理有参数值的节点
             if (param.getParamValue() != null) {
                 String formattedValue = formatValue(param.getParamValue());
-                finalSql = finalSql.replace("{" + param.getParamKey() + "}", formattedValue);
+                finalSql = finalSql.replace(DatabaseSqlConstants.PLACEHOLDER_START
+                        + param.getParamKey() + DatabaseSqlConstants.PLACEHOLDER_END, formattedValue);
             }
         }
 
         // 检查是否还有未替换的占位符
-        if (finalSql.contains("{") && finalSql.contains("}")) {
+        if (finalSql.contains(DatabaseSqlConstants.PLACEHOLDER_START) && finalSql.contains(DatabaseSqlConstants.PLACEHOLDER_END)) {
             throw DatabaseRemoteBusinessException.DATABASE_PLACE_HOLDER_ERROR.toException();
         }
 
@@ -104,11 +108,11 @@ public class DatabaseSqlHandler implements ParamResolver {
     }
 
     /**
-     * 构建INSERT SQL语句(接口场景只存在对象和数组类型参数,单个数据的Insert不存在吧)
+     * 构建INSERT SQL语句(接口场景只存在对象和数组类型参数,单个字段的INSERT也需要封装成对象)
      */
     private String buildInsertSql(String sqlTemplate, ParamTreeNode paramNode) {
         // 检查是否包含ON DUPLICATE KEY UPDATE部分
-        int onUpdateIndex = sqlTemplate.toUpperCase().indexOf("ON DUPLICATE KEY UPDATE");
+        int onUpdateIndex = sqlTemplate.toUpperCase().indexOf(DatabaseSqlConstants.SQL_KEYWORD_ON_DUPLICATE_KEY_UPDATE);
         String valuesPart;
         String updatePart = "";
 
@@ -117,12 +121,12 @@ public class DatabaseSqlHandler implements ParamResolver {
             valuesPart = sqlTemplate.substring(0, onUpdateIndex).trim();
             updatePart = sqlTemplate.substring(onUpdateIndex);
         } else {
-            // 没有ON DUPLICATE KEY UPDATE部分，直接使用整个模板
+            // 没有ON DUPLICATE KEY UPDATE部分,直接使用整个模板
             valuesPart = sqlTemplate;
         }
 
         // 提取VALUES部分中的模板
-        int valuesStart = valuesPart.indexOf("VALUES") + "VALUES".length();
+        int valuesStart = valuesPart.indexOf(DatabaseSqlConstants.SQL_KEYWORD_VALUES) + DatabaseSqlConstants.SQL_KEYWORD_VALUES.length();
         String valueTemplate = valuesPart.substring(valuesStart).trim();
         String prefix = valuesPart.substring(0, valuesStart).trim();
 
@@ -163,13 +167,10 @@ public class DatabaseSqlHandler implements ParamResolver {
                 }
                 valuesBuilder.append(recordValues);
             }
-        }
-        // 不支持的类型
-        else {
-            throw new RuntimeException("不支持的参数类型：" + paramNode.getParamType());
+        } else {
+            throw new RuntimeException("Insert语句不支持的参数类型：" + paramNode.getParamType());
         }
 
-        // 没有记录时返回空字符串
         String result = hasRecords ? prefix + " " + valuesBuilder : "";
 
         // 如果存在ON DUPLICATE KEY UPDATE部分，直接附加到结果后面
@@ -200,11 +201,12 @@ public class DatabaseSqlHandler implements ParamResolver {
                 // 处理普通类型参数
                 formattedValue = formatValue(param.getParamValue());
             }
-            finalSql = finalSql.replace("{" + param.getParamKey() + "}", formattedValue);
+            finalSql = finalSql.replace(DatabaseSqlConstants.PLACEHOLDER_START +
+                    param.getParamKey() + DatabaseSqlConstants.PLACEHOLDER_END, formattedValue);
         }
 
         // 检查是否还有未替换的占位符
-        if (finalSql.contains("{") && finalSql.contains("}")) {
+        if (finalSql.contains(DatabaseSqlConstants.PLACEHOLDER_START) && finalSql.contains(DatabaseSqlConstants.PLACEHOLDER_END)) {
             throw DatabaseRemoteBusinessException.DATABASE_PLACE_HOLDER_ERROR.toException();
         }
 
@@ -238,10 +240,10 @@ public class DatabaseSqlHandler implements ParamResolver {
      */
     private String formatValue(Object value) {
         if (value == null) {
-            return "NULL";
+            return DatabaseSqlConstants.SQL_NULL;
         }
         if (value instanceof String || value instanceof Character) {
-            // 转义单引号，防止SQL注入
+            // 转义单引号,防止SQL注入
             return "'" + value.toString().replace("'", "''") + "'";
         }
         // 数字类型直接返回字符串表示
@@ -254,13 +256,13 @@ public class DatabaseSqlHandler implements ParamResolver {
      */
     private String formatArrayValue(Object value) {
         if (value == null) {
-            return "NULL";
+            return DatabaseSqlConstants.SQL_NULL;
         }
 
         // 直接将字符串形式的数组转换为SQL格式
         String stringValue = value.toString();
 
-        // 移除方括号并添加圆括号，将双引号转换为单引号
+        // 移除方括号并添加圆括号,将双引号转换为单引号
         return stringValue
                 .replace("[", "(")
                 .replace("]", ")")
@@ -276,50 +278,33 @@ public class DatabaseSqlHandler implements ParamResolver {
     }
 
     public Map<String, Object> invokeSqlAndConvertResult(WorkflowNode flowNode, String sql) {
-        Connection connection = null;
+        Connection connection;
         PreparedStatement ps = null;
         ResultSet rs = null;
 
         try {
             Map<String, Object> metaInfo = JsonUtils.parseMetaInfo(flowNode.getMetaInfo());
             connection = clientManager.getConnection(metaInfo);
+        } catch (SQLException e) {
+            throw new RuntimeException("Database connection failed: " + e.getMessage(), e);
+        }
+
+        try {
             ps = connection.prepareStatement(sql);
-            // 根据SQL类型选择执行方法
             String sqlType = sql.trim().toUpperCase();
-            if (sqlType.startsWith("SELECT")) {
+            if (sqlType.startsWith(DatabaseSqlConstants.SQL_KEYWORD_SELECT)) {
                 rs = ps.executeQuery();
                 return convertResultSetToMap(rs);
             } else {
-                // 处理INSERT, UPDATE, DELETE等更新操作
                 int affectedRows = ps.executeUpdate();
                 Map<String, Object> result = new HashMap<>();
-                result.put("affectedRows", affectedRows);
+                result.put(DatabaseSqlConstants.RESPONSE_FIELD_AFFECTED_ROWS, affectedRows);
                 return result;
             }
         } catch (SQLException e) {
-            throw new RuntimeException("SQL执行失败: " + e.getMessage() + ", SQL: " + sql, e);
+            throw new RuntimeException("SQL execution failed: " + e.getMessage() + ", SQL: " + sql, e);
         } finally {
-            if (rs != null) {
-                try {
-                    rs.close();
-                } catch (SQLException e) {
-                    log.warn("关闭ResultSet失败", e);
-                }
-            }
-            if (ps != null) {
-                try {
-                    ps.close();
-                } catch (SQLException e) {
-                    log.warn("关闭PreparedStatement失败", e);
-                }
-            }
-            if (connection != null) {
-                try {
-                    connection.close();
-                } catch (SQLException e) {
-                    log.warn("关闭Connection失败", e);
-                }
-            }
+            closeQuietly(rs, ps, connection);
         }
     }
 
@@ -328,7 +313,7 @@ public class DatabaseSqlHandler implements ParamResolver {
      */
     public Map<String, Object> convertResultSetToMap(ResultSet rs) throws SQLException {
 
-        // 用于存储所有行数据的列表
+        // 用于存储所有行数据
         List<Map<String, Object>> dataList = new ArrayList<>();
         ResultSetMetaData metaData = rs.getMetaData();
         int columnCount = metaData.getColumnCount();
@@ -344,10 +329,21 @@ public class DatabaseSqlHandler implements ParamResolver {
             dataList.add(rowMap);
         }
 
-        // 构建最终要返回的Map，包含数据列表和总行数
+        // 构建最终要返回的Map,包含数据列表和总行数
         Map<String, Object> resultMap = new HashMap<>();
-        resultMap.put("data", dataList);
-        resultMap.put("total", dataList.size());
+        resultMap.put(DatabaseSqlConstants.RESPONSE_FIELD_DATA, dataList);
+        resultMap.put(DatabaseSqlConstants.RESPONSE_FIELD_TOTAL, dataList.size());
         return resultMap;
+    }
+
+    private void closeQuietly(AutoCloseable... resources) {
+        for (AutoCloseable resource : resources) {
+            if (resource != null) {
+                try {
+                    resource.close();
+                } catch (Exception ignored) {
+                }
+            }
+        }
     }
 }

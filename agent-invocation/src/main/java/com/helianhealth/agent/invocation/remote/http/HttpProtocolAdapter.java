@@ -1,5 +1,6 @@
 package com.helianhealth.agent.invocation.remote.http;
 
+import com.helianhealth.agent.common.base.MetaInfoKeys;
 import com.helianhealth.agent.common.enums.NodeType;
 import com.helianhealth.agent.common.utils.JsonUtils;
 import com.helianhealth.agent.invocation.remote.AbstractProtocolAdapter;
@@ -17,20 +18,12 @@ public class HttpProtocolAdapter extends AbstractProtocolAdapter {
 
     private final HttpRequestHandler httpRequestHandler;
 
-    /**
-     * 带参构造函数
-     * HttpRequestHandler 通过 ExtensionFactory 自动注入（构造器注入）
-     */
     public HttpProtocolAdapter(HttpRequestHandler httpRequestHandler) {
         this.httpRequestHandler = httpRequestHandler;
     }
 
     @Override
-    protected String resolveParams(WorkflowNode flowNode, List<ParamTreeNode> params) {
-        // 检查节点类型是否为HTTP
-        if (flowNode.getNodeType() != NodeType.HTTP) {
-            throw new IllegalArgumentException("当前节点类型不是HTTP，无法进行HTTP远程调用");
-        }
+    protected String resolveParam(WorkflowNode flowNode, List<ParamTreeNode> params) {
         return httpRequestHandler.resolveParamNodes(flowNode, params);
     }
 
@@ -38,12 +31,12 @@ public class HttpProtocolAdapter extends AbstractProtocolAdapter {
     @SuppressWarnings("unchecked")
     protected String executeInvoke(WorkflowNode flowNode, String resolvedParam) {
         Map<String, Object> metaInfo = JsonUtils.toMap(flowNode.getMetaInfo());
-        if (metaInfo == null || !metaInfo.containsKey("url")) {
+        if (metaInfo == null || !metaInfo.containsKey(MetaInfoKeys.URL)) {
             throw new IllegalArgumentException("HTTP请求信息中缺少URL");
         }
-        String url = (String) metaInfo.get("url");
-        String method = (String) metaInfo.getOrDefault("method", "POST");
-        Map<String, String> headers = (Map<String, String>) metaInfo.getOrDefault("headers", new HashMap<>());
+        String url = (String) metaInfo.get(MetaInfoKeys.URL);
+        String method = (String) metaInfo.getOrDefault(MetaInfoKeys.HTTP_METHOD, "POST");
+        Map<String, String> headers = (Map<String, String>) metaInfo.getOrDefault(MetaInfoKeys.HEADERS, new HashMap<>());
 
         try {
             return httpRequestHandler.executeHttpRequest(url, method, headers, resolvedParam);

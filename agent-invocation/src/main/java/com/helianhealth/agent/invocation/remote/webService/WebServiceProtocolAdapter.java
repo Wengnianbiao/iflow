@@ -12,31 +12,14 @@ import java.util.Map;
  */
 public class WebServiceProtocolAdapter extends AbstractProtocolAdapter {
 
-    private SoapRequestHandler soapRequestHandler;
+    private final SoapRequestHandler soapRequestHandler;
 
-    /**
-     * 无参构造函数，用于SPI机制实例化
-     * SoapRequestHandler将通过ExtensionFactory自动注入（Setter注入）
-     */
-    public WebServiceProtocolAdapter() {
-    }
-
-    /**
-     * 带参构造函数，支持手动注入依赖
-     */
     public WebServiceProtocolAdapter(SoapRequestHandler soapRequestHandler) {
         this.soapRequestHandler = soapRequestHandler;
     }
 
-    /**
-     * Setter注入方法，用于ExtensionFactory自动注入
-     */
-    public void setSoapRequestHandler(SoapRequestHandler soapRequestHandler) {
-        this.soapRequestHandler = soapRequestHandler;
-    }
-
     @Override
-    protected String resolveParams(WorkflowNode flowNode, List<ParamTreeNode> params) {
+    protected String resolveParam(WorkflowNode flowNode, List<ParamTreeNode> params) {
         return soapRequestHandler.resolveParamNodes(flowNode, params);
     }
 

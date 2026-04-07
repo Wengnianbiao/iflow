@@ -1,5 +1,6 @@
 package com.helianhealth.agent.invocation.remote;
 
+import com.helianhealth.agent.common.base.MetaInfoKeys;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
@@ -15,12 +16,10 @@ import java.util.Map;
 @Slf4j
 public class ProxyConvertHelper {
 
-    private static final String RESPONSE_TYPE_KEY = "responseType";
-
     public static Map<String, Object> convertResponse(WorkflowNode flowNode, List<ParamTreeNode> paramTree) {
         // 获取节点的元信息
         String metaInfo = flowNode.getMetaInfo();
-        if (StringUtils.isEmpty(metaInfo)) {
+        if (metaInfo == null || metaInfo.isEmpty()) {
             // 如果没有元信息默认使用JSON
             return convertToJsonFormatMap(paramTree);
         }
@@ -28,8 +27,8 @@ public class ProxyConvertHelper {
         try {
             Map<String, Object> metaJson = JsonUtils.fromJsonStringToObjectMap(metaInfo);
             // 获取响应类型，默认为JSON
-            String responseType = (String) metaJson.get(RESPONSE_TYPE_KEY);
-            if (StringUtils.isEmpty(responseType)) {
+            String responseType = (String) metaJson.get(MetaInfoKeys.RESPONSE_TYPE);
+            if (responseType == null || responseType.isEmpty()) {
                 responseType = "json";
             }
 
@@ -53,7 +52,7 @@ public class ProxyConvertHelper {
     public static Object convertSourceValue(NodeParamConfig config, Map<String, Object> businessData) {
         String sourceParamKey = config.getSourceParamKey();
         // 如果源参数key为空，则说明不需要进行转化
-        if (StringUtils.isEmpty(sourceParamKey)) {
+        if (sourceParamKey == null || sourceParamKey.isEmpty()) {
             return businessData;
         }
         String[] keys = sourceParamKey.split("\\.");
@@ -78,7 +77,7 @@ public class ProxyConvertHelper {
     public static Object convertSourceValueForObjectNode(NodeParamConfig config, Map<String, Object> businessData) {
         String sourceParamKey = config.getSourceParamKey();
         // 如果源参数key为空，则说明不需要进行转化
-        if (StringUtils.isEmpty(sourceParamKey)) {
+        if (sourceParamKey == null || sourceParamKey.isEmpty()) {
             return businessData;
         }
         String[] keys = sourceParamKey.split("\\.");
