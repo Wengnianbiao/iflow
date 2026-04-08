@@ -1,5 +1,3 @@
-CREATE DATABASE `interface_agent` CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci';
-
 -- 接口规则工作流表
 CREATE TABLE `interface_workflow` (
     -- 工作流ID，自增主键，不允许为空、不可更新
@@ -40,8 +38,8 @@ CREATE TABLE `interface_workflow_node` (
    `split_field` VARCHAR(50) NULL,
 -- 关键字匹配,默认都用的patientCode
    `keyword_field` VARCHAR(50) NULL,
--- SPI扩展点映射配置，用于 Dubbo SPI 路由
-   `remote_extension` VARCHAR(100) NULL,
+-- SPI拓展字段
+   `remote_extension` VARCHAR(50) NULL,
 -- 扩展参数配置，存储JSON格式字符串
    `extension_param` TEXT NULL
 );
@@ -60,6 +58,8 @@ CREATE TABLE `node_param_config` (
     `target_param_type` VARCHAR(50) NULL,
     -- 三方接口需要的参数名称
     `target_param_key` VARCHAR(100) NULL,
+    -- 是否保留单元素键名
+    `keep_single_element_key` BIT NULL,
     -- 父节点ID（顶级节点为NULL）
     `parent_id` INT NULL,
     -- 排序号（控制参数顺序）
@@ -80,8 +80,8 @@ CREATE TABLE `node_param_config` (
 CREATE TABLE `interface_invoke_log` (
     -- 主键ID，自增，不允许为空和更新
     `log_id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    -- 节点id
-    `node_name` INT NOT NULL,
+    -- 节点名称
+    `node_name` VARCHAR(50) NOT NULL,
     -- 关键字匹配,默认都用的patientCode
     `keyword` VARCHAR(50) NULL,
     -- 业务数据
@@ -90,14 +90,20 @@ CREATE TABLE `interface_invoke_log` (
     `param_before_invoke` TEXT,
     -- 远程调用结果
     `remote_invoke_response` TEXT,
-    -- 远程调用结果解析后数据
-    `remote_invoke_response_parsed` TEXT,
     -- 响应参数
     `param_after_invoke` TEXT,
+    -- 远程调用响应解析后内容
+    `remote_invoke_response_parsed` TEXT,
     -- 调用时间
     `invoke_time` VARCHAR(20),
+    -- 异常信息
+    `error_message` TEXT ,
     -- 创建时间
-    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- 索引
+    INDEX `idx_create_time` (`create_time`),
+    INDEX `idx_node_name` (`node_name`),
+    INDEX `idx_keyword` (`keyword`)
 );
 
 -- Mock配置表

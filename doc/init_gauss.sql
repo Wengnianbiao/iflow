@@ -41,7 +41,7 @@ CREATE TABLE interface_workflow_node
     -- 关键字匹配,默认都用的patientCode
     keyword_field VARCHAR(50) NULL,
     -- SPI拓展字段
-    remote_extension VARCHAR(25) NULL,
+    remote_extension VARCHAR(50) NULL,
     -- 扩展参数配置，存储JSON格式字符串
     extension_param TEXT NULL
 );
@@ -96,15 +96,21 @@ CREATE TABLE interface_invoke_log
     param_before_invoke TEXT,
     -- 远程调用结果
     remote_invoke_response TEXT,
-    -- 远程调用结果解析后数据
-    remote_invoke_response_parsed TEXT,
     -- 响应参数
     param_after_invoke TEXT,
+    -- 远程调用响应解析后内容
+    remote_invoke_response_parsed TEXT,
     -- 调用时间
     invoke_time VARCHAR(20) NULL,
+    -- 异常信息
+    error_message TEXT,
     -- 创建时间
     create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX idx_invoke_log_create_time ON interface_invoke_log (create_time);
+CREATE INDEX idx_invoke_log_node_name ON interface_invoke_log (node_name);
+CREATE INDEX idx_invoke_log_keyword ON interface_invoke_log (keyword);
 
 -- Mock配置表
 CREATE TABLE mock_config
@@ -143,3 +149,5 @@ CREATE TABLE node_extension_config
     -- 扩展方式：PROJECT-项目扩展（业务项目中实现） ONLINE-在线扩展（页面编写） 必选
     extension_mode VARCHAR(20) NOT NULL DEFAULT 'ONLINE'
 );
+
+

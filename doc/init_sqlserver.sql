@@ -41,7 +41,7 @@ CREATE TABLE interface_workflow_node
     -- 拆分字段配置
     split_field                VARCHAR(50)   NULL,
     -- SPI拓展字段
-    remote_extension           VARCHAR(25)   NULL,
+    remote_extension           VARCHAR(50)   NULL,
     -- 扩展参数配置，存储JSON格式字符串
     extension_param            NVARCHAR(MAX) NULL
 );
@@ -106,15 +106,21 @@ CREATE TABLE interface_invoke_log
     param_before_invoke    nvarchar(max),
     -- 远程调用结果
     remote_invoke_response nvarchar(max),
-    -- 远程调用结果解析后数据
-    remote_invoke_response_parsed nvarchar(max),
     -- 响应参数
     param_after_invoke     nvarchar(max),
+    -- 远程调用响应解析后内容
+    remote_invoke_response_parsed nvarchar(max),
     -- 调用时间
     invoke_time            VARCHAR(20),
+    -- 异常信息
+    error_message          nvarchar(max),
     -- 创建时间
     create_time            datetime              NOT NULL DEFAULT GETDATE()
 );
+
+CREATE INDEX idx_invoke_log_create_time ON interface_invoke_log (create_time);
+CREATE INDEX idx_invoke_log_node_name ON interface_invoke_log (node_name);
+CREATE INDEX idx_invoke_log_keyword ON interface_invoke_log (keyword);
 
 -- Mock配置表
 CREATE TABLE mock_config
@@ -153,3 +159,4 @@ CREATE TABLE node_extension_config
     -- 扩展方式：PROJECT-项目扩展（业务项目中实现） ONLINE-在线扩展（页面编写） 必选
     extension_mode    VARCHAR(20)   NOT NULL DEFAULT 'ONLINE'
 );
+
