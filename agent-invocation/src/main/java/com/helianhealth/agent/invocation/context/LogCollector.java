@@ -103,7 +103,6 @@ public class LogCollector {
         LogContext context = InvocationLogContextHolder.getContext();
         if (context != null) {
             context.setErrorMessage(errorMessage);
-            context.setSuccess(false);
         }
     }
 

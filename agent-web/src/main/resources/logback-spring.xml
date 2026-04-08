@@ -18,7 +18,7 @@
 
     <!-- RollingFileInfo: INFO 级别滚动配置 -->
     <appender name="RollingFileInfo" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${fileNamePrefix}/${appName}_info.log</file>
+        <file>${fileNamePrefix}/${appName}-info.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <FileNamePattern>${fileNamePrefix}/info/${appName}-info-%d{yyyy-MM-dd}-%i.log.gz</FileNamePattern>
             <MaxHistory>30</MaxHistory>
@@ -37,7 +37,7 @@
 
     <!-- RollingFileError: ERROR 级别滚动配置 -->
     <appender name="RollingFileError" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${fileNamePrefix}/${appName}_error.log</file>
+        <file>${fileNamePrefix}/${appName}-error.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <FileNamePattern>${fileNamePrefix}/error/${appName}-error-%d{yyyy-MM-dd}-%i.log.gz</FileNamePattern>
             <MaxHistory>30</MaxHistory>

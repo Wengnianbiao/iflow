@@ -53,9 +53,4 @@ public class LogContext {
      * 异常信息
      */
     private String errorMessage;
-
-    /**
-     * 调用是否成功
-     */
-    private boolean success = true;
 }

@@ -13,6 +13,7 @@
         <result property="remoteInvokeResponseParsed" column="remote_invoke_response_parsed"/>
         <result property="paramAfterInvoke" column="param_after_invoke"/>
         <result property="invokeTime" column="invoke_time"/>
+        <result property="errorMessage" column="error_message"/>
         <result property="createTime" column="create_time"/>
     </resultMap>
 
@@ -43,6 +44,9 @@
             <if test="invokeTime != null">
                 invoke_time,
             </if>
+            <if test="errorMessage != null">
+                error_message,
+            </if>
             <if test="createTime != null">
                 create_time,
             </if>
@@ -71,6 +75,9 @@
             </if>
             <if test="invokeTime != null">
                 #{invokeTime,jdbcType=VARCHAR},
+            </if>
+            <if test="errorMessage != null">
+                #{errorMessage,jdbcType=VARCHAR},
             </if>
             <if test="createTime != null">
                 #{createTime,jdbcType=TIMESTAMP},

@@ -31,24 +31,33 @@
           <el-button type="primary" @click="handleSearch">查询</el-button>
           <el-button @click="handleReset">重置</el-button>
         </el-form-item>
+
+        <el-form-item>
+          <el-switch
+            v-model="debugMode"
+            active-text="调试模式"
+            inactive-text="标准模式"
+            active-color="#E6A23C"
+          ></el-switch>
+        </el-form-item>
       </el-form>
     </div>
 
     <!-- 日志表格 -->
     <el-table :data="logList" style="width: 100%" v-loading="loading">
-      <el-table-column label="接口名称" min-width="100">
+      <el-table-column key="nodeName" label="接口名称" min-width="100">
         <template #default="scope">
           {{ scope.row.nodeName || scope.row.nodeId || '-' }}
         </template>
       </el-table-column>
 
-      <el-table-column label="关键字" min-width="100">
+      <el-table-column key="keyword" label="关键字" min-width="100">
         <template #default="scope">
           {{ scope.row.keyword || '-' }}
         </template>
       </el-table-column>
 
-      <el-table-column label="上游业务数据" min-width="180">
+      <el-table-column key="businessData" label="上游业务数据" min-width="180">
         <template #default="scope">
           <json-preview-cell
             :content="scope.row.businessData"
@@ -57,7 +66,7 @@
         </template>
       </el-table-column>
 
-      <el-table-column label="接口调用入参" min-width="180">
+      <el-table-column key="paramBeforeInvoke" label="接口调用入参" min-width="180">
         <template #default="scope">
           <json-preview-cell
             :content="scope.row.paramBeforeInvoke"
@@ -66,7 +75,7 @@
         </template>
       </el-table-column>
 
-      <el-table-column label="接口原始响应" min-width="180">
+      <el-table-column key="remoteInvokeResponse" label="接口原始响应" min-width="180">
         <template #default="scope">
           <json-preview-cell
             :content="scope.row.remoteInvokeResponse"
@@ -75,7 +84,7 @@
         </template>
       </el-table-column>
 
-      <el-table-column label="接口原始响应解析" min-width="180">
+      <el-table-column key="remoteInvokeResponseParsed" label="接口原始响应解析" min-width="180" v-if="debugMode">
         <template #default="scope">
           <json-preview-cell
             :content="scope.row.remoteInvokeResponseParsed"
@@ -84,7 +93,7 @@
         </template>
       </el-table-column>
 
-      <el-table-column label="响应上游出参" min-width="180">
+      <el-table-column key="paramAfterInvoke" label="响应上游出参" min-width="180">
         <template #default="scope">
           <json-preview-cell
             :content="scope.row.paramAfterInvoke"
@@ -93,15 +102,24 @@
         </template>
       </el-table-column>
 
-      <el-table-column label="调用耗时" min-width="100">
+      <el-table-column key="invokeTime" label="调用耗时" min-width="100">
         <template #default="scope">
           {{ scope.row.invokeTime }} ms
         </template>
       </el-table-column>
 
-      <el-table-column label="接口调用时间" min-width="180">
+      <el-table-column key="createTime" label="接口调用时间" min-width="180">
         <template #default="scope">
           {{ formatDateTime(scope.row.createTime) }}
+        </template>
+      </el-table-column>
+
+      <el-table-column key="errorMessage" label="异常信息" min-width="200" v-if="debugMode">
+        <template #default="scope">
+          <span v-if="scope.row.errorMessage" class="error-text" @click="jsonViewer.open(scope.row.errorMessage, '异常信息')">
+            {{ scope.row.errorMessage }}
+          </span>
+          <span v-else style="color: #67C23A;">成功</span>
         </template>
       </el-table-column>
     </el-table>
@@ -157,6 +175,7 @@ export default {
     const logList = ref([]);
     const nodeOptions = ref([]);
     const nodeSelectRef = ref(null);
+    const debugMode = ref(false);
 
     const { loading, withLoading } = useTableLoading();
     const jsonViewer = useJsonViewer();
@@ -238,6 +257,7 @@ export default {
       loading,
       pagination,
       jsonViewer,
+      debugMode,
       handleSearch,
       handleReset,
       handleNodeBlur,
@@ -276,5 +296,15 @@ export default {
 
 .el-select {
   width: 240px;
+}
+
+.error-text {
+  color: #F56C6C;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  cursor: pointer;
 }
 </style>

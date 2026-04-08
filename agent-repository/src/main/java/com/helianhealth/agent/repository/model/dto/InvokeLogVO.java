@@ -37,5 +37,7 @@ public class InvokeLogVO {
 
     private String invokeTime;
 
+    private String errorMessage;
+
     private Date createTime;
 }

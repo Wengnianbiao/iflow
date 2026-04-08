@@ -12,9 +12,10 @@ public class JsonUtils {
 
     public static String toJsonString(Object object) {
         try {
-            return JSONObject.toJSONString(object);
-        } catch (Exception e) {
-            throw JsonUtilsException.JSON_PROCESS_ERROR.toException();
+            return JSON.toJSONString(object);
+        }
+        catch (Exception e) {
+            throw new RuntimeException("Error converting JSON to map: " + e.getMessage(), e);
         }
     }
 

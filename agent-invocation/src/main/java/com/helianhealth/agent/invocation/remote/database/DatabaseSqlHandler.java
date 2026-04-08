@@ -286,7 +286,7 @@ public class DatabaseSqlHandler implements ParamResolver {
             Map<String, Object> metaInfo = JsonUtils.parseMetaInfo(flowNode.getMetaInfo());
             connection = clientManager.getConnection(metaInfo);
         } catch (SQLException e) {
-            throw new RuntimeException("Database connection failed: " + e.getMessage(), e);
+            throw new RuntimeException("数据库连接失败,请核对用户名和密码！", e);
         }
 
         try {

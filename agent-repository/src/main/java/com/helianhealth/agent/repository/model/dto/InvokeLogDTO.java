@@ -31,6 +31,4 @@ public class InvokeLogDTO {
     private String invokeTime;
 
     private String errorMessage;
-
-    private boolean success = true;
 }

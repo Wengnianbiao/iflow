@@ -51,6 +51,9 @@ public class InterfaceInvokeLogDO {
     @Column(name = "invoke_time")
     private String invokeTime;
 
+    @Column(name = "error_message")
+    private String errorMessage;
+
     @Column(name = "create_time")
     private Date createTime;
 }

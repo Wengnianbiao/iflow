@@ -42,6 +42,7 @@ public class InterfaceInvokeLogServiceImpl implements InterfaceInvokeLogService 
                     .remoteInvokeResponseParsed(dto.getRemoteInvokeResponseParsed())
                     .paramAfterInvoke(dto.getParamAfterInvoke())
                     .invokeTime(dto.getInvokeTime())
+                    .errorMessage(dto.getErrorMessage())
                     .createTime(new Date())
                     .build();
 
@@ -122,6 +123,7 @@ public class InterfaceInvokeLogServiceImpl implements InterfaceInvokeLogService 
                 .remoteInvokeResponseParsed(logDO.getRemoteInvokeResponseParsed())
                 .paramAfterInvoke(logDO.getParamAfterInvoke())
                 .invokeTime(logDO.getInvokeTime())
+                .errorMessage(logDO.getErrorMessage())
                 .createTime(logDO.getCreateTime())
                 .build();
     }

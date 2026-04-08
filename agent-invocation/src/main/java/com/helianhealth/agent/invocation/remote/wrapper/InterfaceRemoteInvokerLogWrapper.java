@@ -10,6 +10,8 @@ import com.helianhealth.agent.repository.service.InterfaceInvokeLogService;
 import com.helianhealth.agent.common.utils.JsonUtils;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.Map;
 
 @Slf4j
@@ -56,9 +58,9 @@ public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker 
 
             return stringObjectMap;
         } catch (Exception e) {
-            log.error("工作流节点执行异常", e);
+            log.error("工作流节点:[{}]执行异常", flowNode.getNodeName(), e);
             // 记录异常信息
-            LogCollector.collectError(e.getMessage());
+            LogCollector.collectError(getRootCauseMessage(e) + "\n\n" + getFullStackTrace(e));
             throw e;
         } finally {
             try {
@@ -110,8 +112,33 @@ public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker 
 
 
     /**
-     * 统一保存所有收集到的日志数据
+     * 提取第一个有业务含义的异常信息（跳过反射包装类的 null message）
      */
+    private String getRootCauseMessage(Throwable e) {
+        Throwable current = e;
+        while (current != null) {
+            if (current.getMessage() != null) {
+                return current.toString();
+            }
+            current = current.getCause();
+        }
+        // 全部为 null 时，返回根因类名
+        Throwable root = e;
+        while (root.getCause() != null) {
+            root = root.getCause();
+        }
+        return root.getClass().getName();
+    }
+
+    /**
+     * 获取完整格式化堆栈信息（含异常类名、message、cause chain）
+     */
+    private String getFullStackTrace(Exception e) {
+        StringWriter sw = new StringWriter();
+        e.printStackTrace(new PrintWriter(sw));
+        return sw.toString();
+    }
+
     private void saveAllCollectedLogs(LogContext context) {
         try {
             InvokeLogDTO dto = InvokeLogDTO.builder()
@@ -124,7 +151,6 @@ public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker 
                     .paramAfterInvoke(context.getParamAfterInvoke())
                     .invokeTime(context.getInvokeTime())
                     .errorMessage(context.getErrorMessage())
-                    .success(context.isSuccess())
                     .build();
             interfaceInvokeLogService.saveInvokeLog(dto);
         } catch (Exception e) {

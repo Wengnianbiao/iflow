@@ -14,6 +14,11 @@ import java.util.regex.Pattern;
 
 /**
  * SpEL表达式解析工具类
+ * <p>
+ * 异常处理原则：字段级解析失败静默处理，不向上抛出异常。
+ * 单个字段的表达式解析错误不应阻断整个参数转换流程，
+ * 解析异常信息通过日志记录
+ * </p>
  */
 public class SpelUtils {
 
@@ -42,7 +47,7 @@ public class SpelUtils {
 
             return PARSER.parseExpression(expression).getValue(context);
         } catch (Exception e) {
-            logger.error("表达式[{}]解析异常：", expression, e);
+            logger.error("前置处理表达式[{}]解析异常：", expression, e);
             return null;
         }
     }
@@ -195,7 +200,7 @@ public class SpelUtils {
      * 从调度表达式中提取所有可能的节点ID
      * 例如: "#data[code] == '-1' ? T(java.util.Arrays).asList(39) : T(java.util.Arrays).asList(40, 41)"
      * 返回: [39, 40, 41]
-     * 
+     *
      * @param scheduleExpr 调度表达式
      * @return 所有可能的下游节点ID列表
      */
