@@ -1,6 +1,5 @@
 package com.helianhealth.agent.invocation.remote.wrapper;
 
-import com.helianhealth.agent.common.utils.SpringContextHolder;
 import com.helianhealth.agent.invocation.remote.InterfaceClientProxy;
 import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
 import com.helianhealth.agent.repository.service.InterfaceInvokeLogService;
@@ -31,12 +30,11 @@ public class WrapperFactory {
      * 包装顺序：日志包装 -> 原始调用器
      *
      * @param original 原始调用器对象
+     * @param logService 日志服务
      * @return 包装后的调用器对象
      */
-    public static InterfaceRemoteInvoker createRemoteInvokerChain(InterfaceRemoteInvoker original) {
-        // 从Spring容器获取日志服务
-        InterfaceInvokeLogService logService = SpringContextHolder.getBean(InterfaceInvokeLogService.class);
-        // 应用日志包装，注入日志服务
+    public static InterfaceRemoteInvoker createRemoteInvokerChain(InterfaceRemoteInvoker original,
+                                                                   InterfaceInvokeLogService logService) {
         return new InterfaceRemoteInvokerLogWrapper(original, logService);
     }
 }

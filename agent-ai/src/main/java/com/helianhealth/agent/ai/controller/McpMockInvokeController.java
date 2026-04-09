@@ -10,6 +10,7 @@ import com.helianhealth.agent.invocation.remote.model.Invocation;
 import com.helianhealth.agent.invocation.remote.wrapper.WrapperFactory;
 import com.helianhealth.agent.schedule.builder.WorkFlowNodeBuilder;
 import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
+import com.helianhealth.agent.repository.service.InterfaceInvokeLogService;
 import com.helianhealth.agent.ai.service.AiNodeParamConfigService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +36,7 @@ public class McpMockInvokeController {
 
     private final WorkFlowNodeBuilder workFlowNodeBuilder;
     private final AiNodeParamConfigService nodeParamConfigService;
+    private final InterfaceInvokeLogService interfaceInvokeLogService;
 
     /**
      * 执行Mock调用验证
@@ -69,7 +71,7 @@ public class McpMockInvokeController {
 
             // 4. 执行Mock调用
             InterfaceRemoteInvoker invoker = AgentExtensionLoader.getExtensionLoader(InterfaceRemoteInvoker.class).getAdaptiveExtension();
-            Map<String, Object> result = WrapperFactory.createRemoteInvokerChain(invoker).remoteInvoke(workflowNode, invocation);
+            Map<String, Object> result = WrapperFactory.createRemoteInvokerChain(invoker, interfaceInvokeLogService).remoteInvoke(workflowNode, invocation);
 
             log.info("MCP Mock调用成功: nodeId={}, mockId={}", nodeId, mockId);
             return ResponseRenderUtils.render(result);

@@ -10,6 +10,7 @@ import com.helianhealth.agent.invocation.remote.model.Invocation;
 import com.helianhealth.agent.invocation.remote.wrapper.WrapperFactory;
 import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
+import com.helianhealth.agent.repository.service.InterfaceInvokeLogService;
 import com.helianhealth.agent.repository.service.NodeParamConfigQueryService;
 import com.helianhealth.agent.schedule.builder.WorkFlowNodeBuilder;
 import com.helianhealth.agent.schedule.processor.BusinessDataSplitter;
@@ -42,27 +43,23 @@ public class WorkflowScheduler {
     private final BusinessDataSplitter splitBusinessDataPostProcessor;
     private final NodeParamConfigQueryService nodeParamConfigService;
     private final ThreadPoolTaskExecutor taskExecutor;
-    private InterfaceRemoteInvoker interfaceRemoteInvoker;
+    private final InterfaceRemoteInvoker interfaceRemoteInvoker;
 
     public WorkflowScheduler(WorkFlowNodeBuilder workFlowNodeBuilder,
                            ParamFilterProcessor businessDataPostProcessor,
                            BusinessDataSplitter splitBusinessDataPostProcessor,
                            NodeParamConfigQueryService nodeParamConfigService,
+                           InterfaceInvokeLogService interfaceInvokeLogService,
                            @Qualifier("WorkFlowNodeExecutor") ThreadPoolTaskExecutor taskExecutor) {
         this.workFlowNodeBuilder = workFlowNodeBuilder;
         this.businessDataPostProcessor = businessDataPostProcessor;
         this.splitBusinessDataPostProcessor = splitBusinessDataPostProcessor;
         this.nodeParamConfigService = nodeParamConfigService;
         this.taskExecutor = taskExecutor;
-    }
-
-    private InterfaceRemoteInvoker getInvoker() {
-        if (interfaceRemoteInvoker == null) {
-            interfaceRemoteInvoker = WrapperFactory.createRemoteInvokerChain(
-                    AgentExtensionLoader.getExtensionLoader(InterfaceRemoteInvoker.class).getAdaptiveExtension()
-            );
-        }
-        return interfaceRemoteInvoker;
+        this.interfaceRemoteInvoker = WrapperFactory.createRemoteInvokerChain(
+                AgentExtensionLoader.getExtensionLoader(InterfaceRemoteInvoker.class).getAdaptiveExtension(),
+                interfaceInvokeLogService
+        );
     }
 
     /**
@@ -104,7 +101,7 @@ public class WorkflowScheduler {
             nodeResponse = parallelSplitNodeProcess(flowNode, businessDataAfterPost);
         } else {
             // 单节点处理 - 直接调用远程调用器
-            nodeResponse = getInvoker().remoteInvoke(flowNode, buildInvocation(flowNode, businessDataAfterPost));
+            nodeResponse = interfaceRemoteInvoker.remoteInvoke(flowNode, buildInvocation(flowNode, businessDataAfterPost));
         }
 
         // 3、根据表达式调度下一个节点
@@ -142,7 +139,7 @@ public class WorkflowScheduler {
         // 2. 并行执行任务，单个失败不影响整体
         List<CompletableFuture<Map<String, Object>>> futures = listBusinessData.stream()
                 .map(map -> CompletableFuture.supplyAsync(
-                        () -> getInvoker().remoteInvoke(flowNode, buildInvocation(flowNode, map)),
+                        () -> interfaceRemoteInvoker.remoteInvoke(flowNode, buildInvocation(flowNode, map)),
                         taskExecutor
                 ).handle((result, ex) -> {
                     if (ex != null) {

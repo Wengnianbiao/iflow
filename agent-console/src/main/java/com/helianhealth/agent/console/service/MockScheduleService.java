@@ -13,6 +13,7 @@ import com.helianhealth.agent.invocation.remote.wrapper.WrapperFactory;
 import com.helianhealth.agent.repository.model.domain.MockConfig;
 import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
+import com.helianhealth.agent.repository.service.InterfaceInvokeLogService;
 import com.helianhealth.agent.repository.service.MockConfigQueryService;
 import com.helianhealth.agent.repository.service.NodeParamConfigQueryService;
 import com.helianhealth.agent.schedule.processor.BusinessDataSplitter;
@@ -44,13 +45,14 @@ public class MockScheduleService {
     private final ParamFilterProcessor businessDataPostProcessor;
     private final BusinessDataSplitter splitBusinessDataPostProcessor;
     private final ThreadPoolTaskExecutor taskExecutor;
-    private InterfaceRemoteInvoker interfaceRemoteInvoker;
+    private final InterfaceRemoteInvoker interfaceRemoteInvoker;
 
     public MockScheduleService(InterfaceWorkflowNodeService flowNodeService,
                                NodeParamConfigQueryService nodeParamConfigService,
                                MockConfigQueryService mockConfigQueryService,
                                ParamFilterProcessor businessDataPostProcessor,
                                BusinessDataSplitter splitBusinessDataPostProcessor,
+                               InterfaceInvokeLogService interfaceInvokeLogService,
                                @Qualifier("WorkFlowNodeExecutor") ThreadPoolTaskExecutor taskExecutor) {
         this.flowNodeService = flowNodeService;
         this.nodeParamConfigService = nodeParamConfigService;
@@ -58,18 +60,10 @@ public class MockScheduleService {
         this.businessDataPostProcessor = businessDataPostProcessor;
         this.splitBusinessDataPostProcessor = splitBusinessDataPostProcessor;
         this.taskExecutor = taskExecutor;
-    }
-
-    /**
-     * 延迟获取 InterfaceRemoteInvoker（避免构造时 Spring 容器未初始化）
-     */
-    private InterfaceRemoteInvoker getInvoker() {
-        if (interfaceRemoteInvoker == null) {
-            interfaceRemoteInvoker = WrapperFactory.createRemoteInvokerChain(
-                    AgentExtensionLoader.getExtensionLoader(InterfaceRemoteInvoker.class).getAdaptiveExtension()
-            );
-        }
-        return interfaceRemoteInvoker;
+        this.interfaceRemoteInvoker = WrapperFactory.createRemoteInvokerChain(
+                AgentExtensionLoader.getExtensionLoader(InterfaceRemoteInvoker.class).getAdaptiveExtension(),
+                interfaceInvokeLogService
+        );
     }
 
     /**
@@ -119,7 +113,7 @@ public class MockScheduleService {
         if (splitField != null && !splitField.isEmpty()) {
             nodeResponse = parallelSplitNodeProcess(node, filteredBusinessData);
         } else {
-            nodeResponse = getInvoker()
+            nodeResponse = interfaceRemoteInvoker
                     .remoteInvoke(node, buildInvocation(node, filteredBusinessData));
         }
 
@@ -232,7 +226,7 @@ public class MockScheduleService {
 
         List<CompletableFuture<Map<String, Object>>> futures = listBusinessData.stream()
                 .map(map -> CompletableFuture.supplyAsync(
-                        () -> getInvoker().remoteInvoke(node, buildInvocation(node, map)),
+                        () -> interfaceRemoteInvoker.remoteInvoke(node, buildInvocation(node, map)),
                         taskExecutor
                 ).handle((result, ex) -> {
                     if (ex != null) {
