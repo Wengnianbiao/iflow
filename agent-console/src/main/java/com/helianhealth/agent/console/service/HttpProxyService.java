@@ -1,6 +1,8 @@
 package com.helianhealth.agent.console.service;
 
 import com.alibaba.fastjson2.JSON;
+import com.helianhealth.agent.common.exception.AgentErrorCode;
+import com.helianhealth.agent.common.exception.AgentInvocationException;
 import com.helianhealth.agent.console.controller.request.HttpProxyRequest;
 import com.helianhealth.agent.console.controller.reponse.HttpProxyResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -86,7 +88,7 @@ public class HttpProxyService {
                 .build();
         } catch (Exception e) {
             log.error("HTTP代理请求失败: {}", e.getMessage(), e);
-            throw new RuntimeException("HTTP请求失败: " + e.getMessage(), e);
+            throw new AgentInvocationException(AgentErrorCode.HTTP_CALL_FAILED, e.getMessage(), e);
         }
     }
     

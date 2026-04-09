@@ -2,6 +2,8 @@ package com.helianhealth.agent.invocation.remote;
 
 import com.helianhealth.agent.common.enums.MappingSource;
 import com.helianhealth.agent.common.enums.ParamType;
+import com.helianhealth.agent.common.exception.AgentConfigException;
+import com.helianhealth.agent.common.exception.AgentErrorCode;
 import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.invocation.remote.model.PostBuildContext;
@@ -52,10 +54,12 @@ public class DefaultParamTreeBuilder extends AbstractParamTreeBuilder {
             // 若为数组则需要转换成当前数组的首个索引对应的对象的key-value格式
             case ARRAY:
                 if (sourceValue == null) {
-                    throw new IllegalArgumentException("Source value for ARRAY type is null: " + config.getSourceParamKey());
+                    throw new AgentConfigException(AgentErrorCode.PRE_PARAM_TREE_BUILD_ERROR,
+                            "Source value for ARRAY type is null: " + config.getSourceParamKey());
                 }
                 if (!(sourceValue instanceof List)) {
-                    throw new IllegalArgumentException("Expected List for ARRAY type, but got: " + sourceValue.getClass().getSimpleName());
+                    throw new AgentConfigException(AgentErrorCode.PRE_PARAM_TREE_BUILD_ERROR,
+                            "Expected List for ARRAY type, but got: " + sourceValue.getClass().getSimpleName());
                 }
 
                 List<?> list = (List<?>) sourceValue;
@@ -65,7 +69,8 @@ public class DefaultParamTreeBuilder extends AbstractParamTreeBuilder {
 
                 Object firstItem = list.get(0);
                 if (!(firstItem instanceof Map)) {
-                    throw new IllegalArgumentException("First element of array must be a Map, but got: " + firstItem.getClass().getSimpleName());
+                    throw new AgentConfigException(AgentErrorCode.PRE_PARAM_TREE_BUILD_ERROR,
+                            "First element of array must be a Map, but got: " + firstItem.getClass().getSimpleName());
                 }
 
                 return JsonUtils.toMap(list.get(0));

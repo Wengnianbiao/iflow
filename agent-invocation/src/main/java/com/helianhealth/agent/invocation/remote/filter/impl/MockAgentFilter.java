@@ -1,6 +1,8 @@
 package com.helianhealth.agent.invocation.remote.filter.impl;
 
 import com.helianhealth.agent.common.base.ExtensionFilterConstants;
+import com.helianhealth.agent.common.exception.AgentConfigException;
+import com.helianhealth.agent.common.exception.AgentErrorCode;
 import com.helianhealth.agent.common.extension.AgentActivate;
 import com.helianhealth.agent.common.utils.JsonUtils;
 import com.helianhealth.agent.invocation.context.LogCollector;
@@ -85,16 +87,16 @@ public class MockAgentFilter implements AgentFilter {
                 // 根据 NodeType 选择对应的 handler 来处理参数节点
                 String resolvedParam = resolveParamNodesByType(flowNode, params);
                 // 通过门面收集调用前参数
-                LogCollector.collectParamBeforeInvoke(resolvedParam);
+                LogCollector.collectInvokeRequest(resolvedParam);
 
                 // 获取原始响应字符串用于日志收集
                 String rawResponse = mockConfigQueryService.getRawMockResponseByMockId(mockId);
                 if (rawResponse != null) {
                     // 通过门面收集Mock原始响应
-                    LogCollector.collectRemoteInvokeResponse(rawResponse);
+                    LogCollector.collectInvokeResponse(rawResponse);
                     // 根据 NodeType 选择对应的解析方式
                     Map<String, Object> mockResponse = parseResponseByType(flowNode, rawResponse);
-                    LogCollector.collectRemoteInvokeResponseParsed(JsonUtils.toJsonString(mockResponse));
+                    LogCollector.collectInvokeParsedResponse(JsonUtils.toJsonString(mockResponse));
                     if (mockResponse != null) {
                         return mockResponse;
                     }
@@ -118,7 +120,8 @@ public class MockAgentFilter implements AgentFilter {
             case WEBSERVICE:
                 return soapRequestHandler.resolveParamNodes(flowNode, params);
             default:
-                throw new UnsupportedOperationException("不支持的节点类型: " + flowNode.getNodeType());
+                throw new AgentConfigException(AgentErrorCode.NODE_TYPE_UNSUPPORTED,
+                        String.valueOf(flowNode.getNodeType()));
         }
     }
 
@@ -133,7 +136,8 @@ public class MockAgentFilter implements AgentFilter {
             case WEBSERVICE:
                 return soapRequestHandler.parseSoapResponse(flowNode, rawResponse);
             default:
-                throw new UnsupportedOperationException("不支持的节点类型: " + flowNode.getNodeType());
+                throw new AgentConfigException(AgentErrorCode.NODE_TYPE_UNSUPPORTED,
+                        String.valueOf(flowNode.getNodeType()));
         }
     }
 }

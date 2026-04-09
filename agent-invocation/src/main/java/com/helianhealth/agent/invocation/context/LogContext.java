@@ -15,22 +15,22 @@ public class LogContext {
     private String nodeName;
 
     /**
-     * 业务数据（JSON 格式）
-     */
-    private String businessData = "{}";
-
-    /**
      * 业务关键字（用于日志检索）
      */
     private String keyword;
 
     /**
-     * 解析后的调用前参数（可能JSON/SQL/XML等格式）
+     * 上游业务数据
+     */
+    private String businessData = "{}";
+
+    /**
+     * 远程调用前入参（可能JSON/SQL/XML等格式）
      */
     private String paramBeforeInvoke = "{}";
 
     /**
-     * 远程调用响应（JSON 格式）
+     * 远程调用后原始响应
      */
     private String remoteInvokeResponse = "{}";
 
@@ -40,7 +40,7 @@ public class LogContext {
     private String remoteInvokeResponseParsed = "{}";
 
     /**
-     * 调用后参数（JSON 格式）
+     * 调用后参数
      */
     private String paramAfterInvoke = "{}";
 

@@ -3,6 +3,8 @@ package com.helianhealth.agent.console.service.impl;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.helianhealth.agent.common.base.PageList;
+import com.helianhealth.agent.common.exception.AgentErrorCode;
+import com.helianhealth.agent.common.exception.AgentException;
 import com.helianhealth.agent.console.controller.reponse.WorkflowFullExportRsp;
 import com.helianhealth.agent.console.controller.request.WorkflowNodeCreateReq;
 import com.helianhealth.agent.console.model.dto.NodeParamConfigImportDTO;
@@ -65,7 +67,7 @@ public class InterfaceWorkflowServiceImpl implements InterfaceWorkflowService {
             return pageList;
         } catch (Exception e) {
             log.error("获取工作流列表失败", e);
-            throw new RuntimeException("获取工作流列表失败: " + e.getMessage());
+            throw new AgentException(AgentErrorCode.CONSOLE_OPERATION_FAILED, "获取工作流列表失败: " + e.getMessage(), e);
         }
     }
 
@@ -91,7 +93,7 @@ public class InterfaceWorkflowServiceImpl implements InterfaceWorkflowService {
             workflowCommandService.deleteWorkflow(flowId);
         } catch (Exception e) {
             log.error("删除工作流失败", e);
-            throw new RuntimeException("删除工作流失败: " + e.getMessage());
+            throw new AgentException(AgentErrorCode.CONSOLE_OPERATION_FAILED, "删除工作流失败: " + e.getMessage(), e);
         }
     }
 

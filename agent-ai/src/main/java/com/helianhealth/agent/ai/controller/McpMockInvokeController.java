@@ -1,6 +1,7 @@
 package com.helianhealth.agent.ai.controller;
 
 import com.helianhealth.agent.common.base.ResultData;
+import com.helianhealth.agent.common.exception.AgentException;
 import com.helianhealth.agent.common.extension.AgentExtensionLoader;
 import com.helianhealth.agent.common.utils.ResponseRenderUtils;
 import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
@@ -72,11 +73,11 @@ public class McpMockInvokeController {
 
             log.info("MCP Mock调用成功: nodeId={}, mockId={}", nodeId, mockId);
             return ResponseRenderUtils.render(result);
-        } catch (IllegalArgumentException e) {
-            log.error("MCP Mock调用参数错误, nodeId={}, mockId={}", nodeId, mockId, e);
+        } catch (AgentException e) {
+            log.error("MCP Mock调用异常, nodeId={}, mockId={}: {}", nodeId, mockId, e.getMessage(), e);
             return ResponseRenderUtils.error(e.getMessage());
         } catch (Exception e) {
-            log.error("MCP Mock调用失败, nodeId={}, mockId={}", nodeId, mockId, e);
+            log.error("MCP Mock调用未知异常, nodeId={}, mockId={}", nodeId, mockId, e);
             return ResponseRenderUtils.error("Mock调用失败: " + e.getMessage());
         }
     }

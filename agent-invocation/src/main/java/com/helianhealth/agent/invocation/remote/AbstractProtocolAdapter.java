@@ -26,19 +26,16 @@ public abstract class AbstractProtocolAdapter implements InterfaceClientProxy {
         try {
             // 1. 调用前参数解析
             String resolvedParam = resolveParam(flowNode, params);
-            LogCollector.collectParamBeforeInvoke(resolvedParam);
+            LogCollector.collectInvokeRequest(resolvedParam);
 
             // 2. 执行远程调用
             String rawResponse = executeInvoke(flowNode, resolvedParam);
-            LogCollector.collectRemoteInvokeResponse(rawResponse);
+            LogCollector.collectInvokeResponse(rawResponse);
 
             // 3. 调用后响应解析
             Map<String, Object> parseResponse = parseResponse(flowNode, rawResponse);
-            LogCollector.collectRemoteInvokeResponseParsed(JsonUtils.toJsonString(parseResponse));
+            LogCollector.collectInvokeParsedResponse(JsonUtils.toJsonString(parseResponse));
             return parseResponse;
-        } catch (Exception e) {
-            LogCollector.collectError(e.getMessage());
-            throw e;
         } finally {
             LogCollector.collectInvokeTime(System.currentTimeMillis() - startTime);
         }

@@ -1,7 +1,7 @@
 package com.helianhealth.agent.common.utils;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.helianhealth.agent.common.exception.AgentConfigException;
+import com.helianhealth.agent.common.exception.AgentErrorCode;
 import org.springframework.expression.BeanResolver;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
@@ -15,16 +15,13 @@ import java.util.regex.Pattern;
 /**
  * SpEL表达式解析工具类
  * <p>
- * 异常处理原则：字段级解析失败静默处理，不向上抛出异常。
- * 单个字段的表达式解析错误不应阻断整个参数转换流程，
- * 解析异常信息通过日志记录
+ * 工具类只负责解析，解析失败即抛出异常，由调用方决定处理策略。
+ * 例如 ValueResolverSelector 捕获异常后静默返回 null，保证单个字段解析失败不阻断整个参数转换流程。
  * </p>
  */
 public class SpelUtils {
 
     private static final SpelExpressionParser PARSER = new SpelExpressionParser();
-
-    private static final Logger logger = LoggerFactory.getLogger(SpelUtils.class);
 
     private static final BeanResolver BEAN_RESOLVER =
             (context, beanName) -> SpringContextHolder.getBean(beanName);
@@ -39,17 +36,12 @@ public class SpelUtils {
      * @return 表达式执行结果
      */
     public static Object parserPreNode(String expression, Object businessData, Object parentBusinessData, Map<String, Object> sourceBusinessData) {
-        try {
-            StandardEvaluationContext context = new StandardEvaluationContext();
-            context.setVariable("data", businessData);
-            context.setVariable("parent", parentBusinessData);
-            context.setVariable("source", sourceBusinessData);
+        StandardEvaluationContext context = new StandardEvaluationContext();
+        context.setVariable("data", businessData);
+        context.setVariable("parent", parentBusinessData);
+        context.setVariable("source", sourceBusinessData);
 
-            return PARSER.parseExpression(expression).getValue(context);
-        } catch (Exception e) {
-            logger.error("前置处理表达式[{}]解析异常：", expression, e);
-            return null;
-        }
+        return PARSER.parseExpression(expression).getValue(context);
     }
 
     /**
@@ -61,17 +53,12 @@ public class SpelUtils {
      * @return 表达式执行结果
      */
     public static Object parserPostNode(String expression, Object businessData, Map<String, Object> inputBusinessData, Map<String, Object> responseBusinessData) {
-        try {
-            StandardEvaluationContext context = new StandardEvaluationContext();
-            context.setVariable("data", businessData);
-            context.setVariable("input", inputBusinessData);
-            context.setVariable("response", responseBusinessData);
+        StandardEvaluationContext context = new StandardEvaluationContext();
+        context.setVariable("data", businessData);
+        context.setVariable("input", inputBusinessData);
+        context.setVariable("response", responseBusinessData);
 
-            return PARSER.parseExpression(expression).getValue(context);
-        } catch (Exception e) {
-            logger.error("后置处理表达式[{}]解析异常：", expression, e);
-            return null;
-        }
+        return PARSER.parseExpression(expression).getValue(context);
     }
 
     /**
@@ -81,10 +68,10 @@ public class SpelUtils {
      * @return 过滤后的业务数据
      */
     public static Map<String, Object> businessDataFilter(String expression, Map<String, Object> businessData) {
+        if (businessData == null) {
+            return null;
+        }
         try {
-            if (businessData == null) {
-                return null;
-            }
             Map<String, Object> deepCopyMap = JsonUtils.deepCopyMap(businessData);
 
             StandardEvaluationContext context = new StandardEvaluationContext();
@@ -93,8 +80,7 @@ public class SpelUtils {
 
             return deepCopyMap;
         } catch (Exception e) {
-            logger.error("业务数据过滤处理表达式[{}]解析异常：", expression, e);
-            return null;
+            throw new AgentConfigException(AgentErrorCode.FILTER_EXPRESSION_PARSE_ERROR, expression, e);
         }
     }
 
@@ -108,18 +94,13 @@ public class SpelUtils {
      * @return 表达式执行结果
      */
     public static Object parserPreNodeWithBeanAccess(String expression, Object businessData, Object parentBusinessData, Map<String, Object> sourceBusinessData) {
-        try {
-            StandardEvaluationContext context = new StandardEvaluationContext();
-            context.setVariable("data", businessData);
-            context.setVariable("parent", parentBusinessData);
-            context.setVariable("source", sourceBusinessData);
-            context.setBeanResolver(BEAN_RESOLVER);
+        StandardEvaluationContext context = new StandardEvaluationContext();
+        context.setVariable("data", businessData);
+        context.setVariable("parent", parentBusinessData);
+        context.setVariable("source", sourceBusinessData);
+        context.setBeanResolver(BEAN_RESOLVER);
 
-            return PARSER.parseExpression(expression).getValue(context);
-        } catch (Exception e) {
-            logger.error("前置处理Bean表达式[{}]解析异常：", expression, e);
-            return null;
-        }
+        return PARSER.parseExpression(expression).getValue(context);
     }
 
     /**
@@ -132,18 +113,13 @@ public class SpelUtils {
      * @return 表达式执行结果
      */
     public static Object parserPostNodeWithBeanAccess(String expression, Object businessData, Map<String, Object> inputBusinessData, Map<String, Object> responseBusinessData) {
-        try {
-            StandardEvaluationContext context = new StandardEvaluationContext();
-            context.setVariable("data", businessData);
-            context.setVariable("input", inputBusinessData);
-            context.setVariable("response", responseBusinessData);
-            context.setBeanResolver(BEAN_RESOLVER);
+        StandardEvaluationContext context = new StandardEvaluationContext();
+        context.setVariable("data", businessData);
+        context.setVariable("input", inputBusinessData);
+        context.setVariable("response", responseBusinessData);
+        context.setBeanResolver(BEAN_RESOLVER);
 
-            return PARSER.parseExpression(expression).getValue(context);
-        } catch (Exception e) {
-            logger.error("后置处理Bean表达式[{}]解析异常：", expression, e);
-            return null;
-        }
+        return PARSER.parseExpression(expression).getValue(context);
     }
 
     public static boolean validateExpressionSyntax(String expression) {
@@ -166,7 +142,6 @@ public class SpelUtils {
         if (expression == null || expression.trim().isEmpty()) {
             return null;
         }
-
         try {
             StandardEvaluationContext context = new StandardEvaluationContext();
             context.setVariable("data", preFlowNodeResponse);
@@ -188,11 +163,8 @@ public class SpelUtils {
             }
 
             return (List<Integer>) parser;
-        } catch (IllegalArgumentException e) {
-            throw e;
         } catch (Exception e) {
-            logger.error("调度表达式[{}]解析异常：", expression, e);
-            return null;
+            throw new AgentConfigException(AgentErrorCode.SCHEDULE_EXPRESSION_PARSE_ERROR, expression, e);
         }
     }
 

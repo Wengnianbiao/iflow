@@ -36,9 +36,9 @@ public class LogCollector {
     }
 
     /**
-     * 收集业务数据
+     * 收集上游调用入参
      */
-    public static void collectBusinessData(String businessDataJson) {
+    public static void collectRequest(String businessDataJson) {
         LogContext context = InvocationLogContextHolder.getContext();
         if (context != null) {
             context.setBusinessData(businessDataJson);
@@ -46,9 +46,9 @@ public class LogCollector {
     }
 
     /**
-     * 收集调用前参数（参数解析后的结果，可能是JSON/SQL/XML等格式）
+     * 收集调用前参数（可能是JSON/SQL/XML等格式）
      */
-    public static void collectParamBeforeInvoke(String paramBeforeInvoke) {
+    public static void collectInvokeRequest(String paramBeforeInvoke) {
         LogContext context = InvocationLogContextHolder.getContext();
         if (context != null) {
             context.setParamBeforeInvoke(paramBeforeInvoke);
@@ -56,9 +56,9 @@ public class LogCollector {
     }
 
     /**
-     * 收集远程调用原始响应
+     * 收集远程调用原始响应（可能是JSON/XML等格式）
      */
-    public static void collectRemoteInvokeResponse(String responseJson) {
+    public static void collectInvokeResponse(String responseJson) {
         LogContext context = InvocationLogContextHolder.getContext();
         if (context != null) {
             context.setRemoteInvokeResponse(responseJson);
@@ -68,7 +68,7 @@ public class LogCollector {
     /**
      * 收集远程调用原始响应转化后结果
      */
-    public static void collectRemoteInvokeResponseParsed(String parsedResponseJson) {
+    public static void collectInvokeParsedResponse(String parsedResponseJson) {
         LogContext context = InvocationLogContextHolder.getContext();
         if (context != null) {
 
@@ -77,9 +77,9 @@ public class LogCollector {
     }
 
     /**
-     * 收集调用后参数（最终返回结果）
+     * 收集调用后参数
      */
-    public static void collectParamAfterInvoke(String resultJson) {
+    public static void collectResponse(String resultJson) {
         LogContext context = InvocationLogContextHolder.getContext();
         if (context != null) {
             context.setParamAfterInvoke(resultJson);

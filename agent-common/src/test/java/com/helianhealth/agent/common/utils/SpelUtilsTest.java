@@ -1,5 +1,6 @@
 package com.helianhealth.agent.common.utils;
 
+import com.helianhealth.agent.common.exception.AgentConfigException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -68,6 +69,37 @@ public class SpelUtilsTest {
         void filterNullData() {
             Map<String, Object> result = SpelUtils.businessDataFilter("#data.clear()", null);
             assertNull(result);
+        }
+
+        @Test
+        @DisplayName("过滤空 Map 返回空 Map")
+        void filterEmptyMap() {
+            Map<String, Object> result = SpelUtils.businessDataFilter(
+                    "#data[chargeType] == 'CHARGED' ? #data : #data.clear()", new HashMap<>());
+            assertNotNull(result);
+            assertTrue(result.isEmpty());
+        }
+
+        @Test
+        @DisplayName("无效表达式抛出 AgentConfigException")
+        void filterInvalidExpression() {
+            Map<String, Object> data = new HashMap<>();
+            data.put("key", "value");
+            assertThrows(AgentConfigException.class, () ->
+                    SpelUtils.businessDataFilter("#data[", data));
+        }
+
+        @Test
+        @DisplayName("过滤不修改原始数据（深拷贝验证）")
+        void filterDoesNotModifyOriginal() {
+            Map<String, Object> data = new HashMap<>();
+            data.put("chargeType", "REFUNDED");
+            data.put("orderId", "ORD001");
+
+            SpelUtils.businessDataFilter(
+                    "#data[chargeType] == 'CHARGED' ? #data : #data.clear()", data);
+
+            assertEquals(2, data.size(), "原始数据不应被修改");
         }
     }
 
@@ -292,16 +324,39 @@ public class SpelUtilsTest {
         }
 
         @Test
+        @DisplayName("纯空白表达式返回null")
+        void whitespaceOnlyExpression() {
+            List<Integer> result = SpelUtils.parseScheduleExpression("   ", new HashMap<>());
+            assertNull(result);
+        }
+
+        @Test
+        @DisplayName("返回空列表")
+        void emptyListResult() {
+            List<Integer> result = SpelUtils.parseScheduleExpression(
+                    "T(java.util.Collections).emptyList()", new HashMap<>());
+            assertNotNull(result);
+            assertTrue(result.isEmpty());
+        }
+
+        @Test
+        @DisplayName("SpEL语法错误抛出 AgentConfigException")
+        void spelSyntaxError() {
+            assertThrows(AgentConfigException.class, () ->
+                    SpelUtils.parseScheduleExpression("#data[", new HashMap<>()));
+        }
+
+        @Test
         @DisplayName("返回类型错误时抛出异常")
         void invalidReturnType() {
-            assertThrows(IllegalArgumentException.class, () ->
+            assertThrows(AgentConfigException.class, () ->
                     SpelUtils.parseScheduleExpression("'not a list'", new HashMap<>()));
         }
 
         @Test
         @DisplayName("元素类型错误时抛出异常")
         void invalidElementType() {
-            assertThrows(IllegalArgumentException.class, () ->
+            assertThrows(AgentConfigException.class, () ->
                     SpelUtils.parseScheduleExpression("T(java.util.Arrays).asList('a', 'b')", new HashMap<>()));
         }
     }
@@ -442,24 +497,24 @@ public class SpelUtilsTest {
         }
 
         @Test
-        @DisplayName("Bean 访问：前置处理 Bean 不存在时返回 null")
+        @DisplayName("Bean 访问：前置处理 Bean 不存在时抛出异常")
         void beanAccessPreProcessBeanNotFound() {
-            Object result = SpelUtils.parserPreNodeWithBeanAccess("@missingBean.toString()", new HashMap<>(), null, null);
-            assertNull(result);
+            assertThrows(Exception.class, () ->
+                    SpelUtils.parserPreNodeWithBeanAccess("@missingBean.toString()", new HashMap<>(), null, null));
         }
 
         @Test
-        @DisplayName("Bean 访问：后置处理 Bean 不存在时返回 null")
+        @DisplayName("Bean 访问：后置处理 Bean 不存在时抛出异常")
         void beanAccessPostProcessBeanNotFound() {
-            Object result = SpelUtils.parserPostNodeWithBeanAccess("@missingBean.toString()", new HashMap<>(), null, null);
-            assertNull(result);
+            assertThrows(Exception.class, () ->
+                    SpelUtils.parserPostNodeWithBeanAccess("@missingBean.toString()", new HashMap<>(), null, null));
         }
 
         @Test
-        @DisplayName("表达式解析异常时返回 null")
+        @DisplayName("表达式解析异常时抛出异常")
         void expressionParseError() {
-            Object result = SpelUtils.parserPreNode("#data[nonExistent].unknownMethod()", new HashMap<>(), null, null);
-            assertNull(result);
+            assertThrows(Exception.class, () ->
+                    SpelUtils.parserPreNode("#data[nonExistent].unknownMethod()", new HashMap<>(), null, null));
         }
     }
 
@@ -506,17 +561,17 @@ public class SpelUtilsTest {
         }
 
         @Test
-        @DisplayName("前置处理：Bean不存在时返回null")
+        @DisplayName("前置处理：Bean不存在时抛出异常")
         void preProcessBeanNotFound() {
-            Object result = SpelUtils.parserPreNodeWithBeanAccess("@nonExistentBean.method()", new HashMap<>(), null, null);
-            assertNull(result);
+            assertThrows(Exception.class, () ->
+                    SpelUtils.parserPreNodeWithBeanAccess("@nonExistentBean.method()", new HashMap<>(), null, null));
         }
 
         @Test
-        @DisplayName("前置处理：表达式解析异常时返回null")
+        @DisplayName("前置处理：表达式解析异常时抛出异常")
         void preProcessExpressionError() {
-            Object result = SpelUtils.parserPreNodeWithBeanAccess("#data[invalid", new HashMap<>(), null, null);
-            assertNull(result);
+            assertThrows(Exception.class, () ->
+                    SpelUtils.parserPreNodeWithBeanAccess("#data[invalid", new HashMap<>(), null, null));
         }
     }
 
@@ -577,17 +632,85 @@ public class SpelUtilsTest {
         }
 
         @Test
-        @DisplayName("后置处理：Bean不存在时返回null")
+        @DisplayName("后置处理：Bean不存在时抛出异常")
         void postProcessBeanNotFound() {
-            Object result = SpelUtils.parserPostNodeWithBeanAccess("@nonExistentBean.method()", new HashMap<>(), null, null);
-            assertNull(result);
+            assertThrows(Exception.class, () ->
+                    SpelUtils.parserPostNodeWithBeanAccess("@nonExistentBean.method()", new HashMap<>(), null, null));
         }
 
         @Test
-        @DisplayName("后置处理：表达式解析异常时返回null")
+        @DisplayName("后置处理：表达式解析异常时抛出异常")
         void postProcessExpressionError() {
-            Object result = SpelUtils.parserPostNodeWithBeanAccess("#data[invalid", new HashMap<>(), null, null);
-            assertNull(result);
+            assertThrows(Exception.class, () ->
+                    SpelUtils.parserPostNodeWithBeanAccess("#data[invalid", new HashMap<>(), null, null));
+        }
+    }
+
+    // ==================== 节点ID提取场景（extractNodeIdsFromScheduleExpr） ====================
+
+    @Nested
+    @DisplayName("节点ID提取场景")
+    class ExtractNodeIdsTests {
+
+        @Test
+        @DisplayName("单分支表达式提取节点ID")
+        void extractSingleBranch() {
+            List<Integer> ids = SpelUtils.extractNodeIdsFromScheduleExpr(
+                    "T(java.util.Arrays).asList(39)");
+            assertEquals(Arrays.asList(39), ids);
+        }
+
+        @Test
+        @DisplayName("多分支表达式提取所有节点ID")
+        void extractMultipleBranches() {
+            List<Integer> ids = SpelUtils.extractNodeIdsFromScheduleExpr(
+                    "#data[code] == '-1' ? T(java.util.Arrays).asList(39) : T(java.util.Arrays).asList(40, 41)");
+            assertEquals(Arrays.asList(39, 40, 41), ids);
+        }
+
+        @Test
+        @DisplayName("单个asList中多个节点")
+        void extractMultipleNodesInOneList() {
+            List<Integer> ids = SpelUtils.extractNodeIdsFromScheduleExpr(
+                    "T(java.util.Arrays).asList(2, 3, 5)");
+            assertEquals(Arrays.asList(2, 3, 5), ids);
+        }
+
+        @Test
+        @DisplayName("null表达式返回空列表")
+        void extractFromNull() {
+            List<Integer> ids = SpelUtils.extractNodeIdsFromScheduleExpr(null);
+            assertTrue(ids.isEmpty());
+        }
+
+        @Test
+        @DisplayName("空字符串返回空列表")
+        void extractFromEmpty() {
+            List<Integer> ids = SpelUtils.extractNodeIdsFromScheduleExpr("");
+            assertTrue(ids.isEmpty());
+        }
+
+        @Test
+        @DisplayName("纯空白字符串返回空列表")
+        void extractFromWhitespace() {
+            List<Integer> ids = SpelUtils.extractNodeIdsFromScheduleExpr("   ");
+            assertTrue(ids.isEmpty());
+        }
+
+        @Test
+        @DisplayName("无asList模式的表达式返回空列表")
+        void extractFromNoAsListPattern() {
+            List<Integer> ids = SpelUtils.extractNodeIdsFromScheduleExpr("#data[code] == '200'");
+            assertTrue(ids.isEmpty());
+        }
+
+        @Test
+        @DisplayName("相同节点ID出现在不同分支")
+        void extractDuplicateNodeIds() {
+            List<Integer> ids = SpelUtils.extractNodeIdsFromScheduleExpr(
+                    "#data[x] ? T(java.util.Arrays).asList(2) : T(java.util.Arrays).asList(2, 3)");
+            // extractNodeIdsFromScheduleExpr 不做去重，两个分支都有 2
+            assertEquals(Arrays.asList(2, 2, 3), ids);
         }
     }
 }

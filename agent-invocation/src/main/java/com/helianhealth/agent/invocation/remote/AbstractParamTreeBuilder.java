@@ -1,6 +1,8 @@
 package com.helianhealth.agent.invocation.remote;
 
 import com.helianhealth.agent.common.enums.MappingSource;
+import com.helianhealth.agent.common.exception.AgentConfigException;
+import com.helianhealth.agent.common.exception.AgentErrorCode;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.invocation.remote.model.PostBuildContext;
 import com.helianhealth.agent.invocation.remote.model.PreBuildContext;
@@ -73,7 +75,7 @@ public abstract class AbstractParamTreeBuilder implements ParamTree {
                 children.add(processPreParamNode(config, configs, context));
             }
         } catch (Exception e) {
-            log.error("Building param tree ERROR:", e);
+            throw new AgentConfigException(AgentErrorCode.PRE_PARAM_TREE_BUILD_ERROR, e.getMessage(), e);
         }
 
         return children;
@@ -170,7 +172,7 @@ public abstract class AbstractParamTreeBuilder implements ParamTree {
                 children.add(processPostParamNode(config, configs, context));
             }
         } catch (Exception e) {
-            log.error("Building param tree ERROR:", e);
+            throw new AgentConfigException(AgentErrorCode.POST_PARAM_TREE_BUILD_ERROR, e.getMessage(), e);
         }
 
         return children;

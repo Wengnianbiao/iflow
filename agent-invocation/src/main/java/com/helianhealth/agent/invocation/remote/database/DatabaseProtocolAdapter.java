@@ -1,5 +1,7 @@
 package com.helianhealth.agent.invocation.remote.database;
 
+import com.helianhealth.agent.common.exception.AgentErrorCode;
+import com.helianhealth.agent.common.exception.AgentInvocationException;
 import com.helianhealth.agent.common.utils.JsonUtils;
 import com.helianhealth.agent.invocation.remote.AbstractProtocolAdapter;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
@@ -31,6 +33,10 @@ public class DatabaseProtocolAdapter extends AbstractProtocolAdapter {
 
     @Override
     protected Map<String, Object> parseResponse(WorkflowNode flowNode, String rawResponse) {
-        return JsonUtils.toMap(rawResponse);
+        try {
+            return JsonUtils.toMap(rawResponse);
+        } catch (Exception e) {
+            throw new AgentInvocationException(AgentErrorCode.REMOTE_RESPONSE_PARSE_ERROR, "数据库响应解析失败: " + e.getMessage(), e);
+        }
     }
 }

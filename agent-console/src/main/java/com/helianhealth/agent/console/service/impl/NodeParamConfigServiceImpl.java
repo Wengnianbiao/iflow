@@ -6,6 +6,8 @@ import com.github.pagehelper.PageInfo;
 import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.common.enums.ParamType;
 import com.helianhealth.agent.common.enums.ProcessType;
+import com.helianhealth.agent.common.exception.AgentErrorCode;
+import com.helianhealth.agent.common.exception.AgentException;
 import com.helianhealth.agent.console.model.dto.NodeParamConfigImportDTO;
 import com.helianhealth.agent.console.service.NodeParamConfigService;
 import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
@@ -67,7 +69,7 @@ public class NodeParamConfigServiceImpl implements NodeParamConfigService {
             return pageList;
         } catch (Exception e) {
             log.error("获取节点参数配置列表失败", e);
-            throw new RuntimeException("获取节点参数配置列表失败: " + e.getMessage());
+            throw new AgentException(AgentErrorCode.CONSOLE_OPERATION_FAILED, "获取节点参数配置列表失败: " + e.getMessage(), e);
         }
     }
 
@@ -106,7 +108,7 @@ public class NodeParamConfigServiceImpl implements NodeParamConfigService {
             }
         } catch (Exception e) {
             log.error("更新节点参数配置失败", e);
-            throw new RuntimeException("更新节点参数配置失败: " + e.getMessage());
+            throw new AgentException(AgentErrorCode.CONSOLE_OPERATION_FAILED, "更新节点参数配置失败: " + e.getMessage(), e);
         }
     }
 
@@ -134,7 +136,7 @@ public class NodeParamConfigServiceImpl implements NodeParamConfigService {
             }
         } catch (Exception e) {
             log.error("创建节点参数配置失败", e);
-            throw new RuntimeException("创建节点参数配置失败: " + e.getMessage());
+            throw new AgentException(AgentErrorCode.CONSOLE_OPERATION_FAILED, "创建节点参数配置失败: " + e.getMessage(), e);
         }
     }
 
@@ -150,7 +152,7 @@ public class NodeParamConfigServiceImpl implements NodeParamConfigService {
             nodeParamConfigCommandService.deleteConfig(configId);
         } catch (Exception e) {
             log.error("删除节点参数配置失败", e);
-            throw new RuntimeException("删除节点参数配置失败: " + e.getMessage());
+            throw new AgentException(AgentErrorCode.CONSOLE_OPERATION_FAILED, "删除节点参数配置失败: " + e.getMessage(), e);
         }
     }
 
@@ -194,10 +196,10 @@ public class NodeParamConfigServiceImpl implements NodeParamConfigService {
             log.info("成功导入{}条参数配置", successCount);
         } catch (IOException e) {
             log.error("读取文件失败", e);
-            throw new RuntimeException("读取文件失败: " + e.getMessage());
+            throw new AgentException(AgentErrorCode.CONSOLE_OPERATION_FAILED, "读取文件失败: " + e.getMessage(), e);
         } catch (Exception e) {
             log.error("导入节点参数配置失败", e);
-            throw new RuntimeException("导入节点参数配置失败: " + e.getMessage());
+            throw new AgentException(AgentErrorCode.CONSOLE_OPERATION_FAILED, "导入节点参数配置失败: " + e.getMessage(), e);
         }
     }
 
@@ -218,7 +220,7 @@ public class NodeParamConfigServiceImpl implements NodeParamConfigService {
             log.info("成功导入{}条参数配置", successCount);
         } catch (Exception e) {
             log.error("导入节点参数配置失败", e);
-            throw new RuntimeException("导入节点参数配置失败: " + e.getMessage());
+            throw new AgentException(AgentErrorCode.CONSOLE_OPERATION_FAILED, "导入节点参数配置失败: " + e.getMessage(), e);
         }
     }
 

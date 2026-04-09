@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 
@@ -109,7 +110,11 @@ class AdaptiveExtensionProxy {
             log.debug("Adaptive select extension: {}#{} for method {}",
                     interfaceClass.getSimpleName(), extensionName, methodName);
 
-            return method.invoke(extension, args);
+            try {
+                return method.invoke(extension, args);
+            } catch (InvocationTargetException e) {
+                throw e.getCause() != null ? e.getCause() : e;
+            }
         }
 
         /**

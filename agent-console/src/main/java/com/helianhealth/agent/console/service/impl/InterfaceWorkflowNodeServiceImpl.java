@@ -4,6 +4,8 @@ import com.alibaba.fastjson2.JSON;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.helianhealth.agent.common.base.PageList;
+import com.helianhealth.agent.common.exception.AgentErrorCode;
+import com.helianhealth.agent.common.exception.AgentException;
 import com.helianhealth.agent.common.enums.NodeType;
 import com.helianhealth.agent.common.enums.ScheduleParamSourceType;
 import com.helianhealth.agent.common.utils.SpelUtils;
@@ -84,7 +86,7 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
             return pageList;
         } catch (Exception e) {
             log.error("获取工作流节点列表失败", e);
-            throw new RuntimeException("获取工作流节点列表失败: " + e.getMessage());
+            throw new AgentException(AgentErrorCode.CONSOLE_OPERATION_FAILED, "获取工作流节点列表失败: " + e.getMessage(), e);
         }
     }
 
@@ -163,7 +165,7 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
             nodeParamConfigs.forEach(nodeParamConfigDO -> nodeParamConfigService.deleteById(nodeParamConfigDO.getConfigId()));
         } catch (Exception e) {
             log.error("删除节点失败", e);
-            throw new RuntimeException("删除节点失败: " + e.getMessage());
+            throw new AgentException(AgentErrorCode.CONSOLE_OPERATION_FAILED, "删除节点失败: " + e.getMessage(), e);
         }
     }
 
@@ -223,7 +225,7 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
             return response;
         } catch (Exception e) {
             log.error("导出节点参数配置失败，nodeId={}", nodeId, e);
-            throw new RuntimeException("导出节点参数配置失败: " + e.getMessage());
+            throw new AgentException(AgentErrorCode.CONSOLE_OPERATION_FAILED, "导出节点参数配置失败: " + e.getMessage(), e);
         }
     }
 
@@ -254,7 +256,7 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
             return response;
         } catch (Exception e) {
             log.error("导出节点参数配置失败，nodeId={}", nodeId, e);
-            throw new RuntimeException("导出节点参数配置失败: " + e.getMessage());
+            throw new AgentException(AgentErrorCode.CONSOLE_OPERATION_FAILED, "导出节点参数配置失败: " + e.getMessage(), e);
         }
     }
 
@@ -360,7 +362,7 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
             }
         } catch (IOException e) {
             log.error("批量导入节点配置失败：", e);
-            throw new RuntimeException("批量导入节点配置失败: " + e.getMessage());
+            throw new AgentException(AgentErrorCode.CONSOLE_OPERATION_FAILED, "批量导入节点配置失败: " + e.getMessage(), e);
         }
     }
 

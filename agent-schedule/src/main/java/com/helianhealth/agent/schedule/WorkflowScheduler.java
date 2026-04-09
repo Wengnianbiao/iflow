@@ -1,7 +1,8 @@
 package com.helianhealth.agent.schedule;
 
 import com.helianhealth.agent.common.enums.ScheduleParamSourceType;
-import com.helianhealth.agent.common.exception.WorkflowBusinessException;
+import com.helianhealth.agent.common.exception.AgentConfigException;
+import com.helianhealth.agent.common.exception.AgentErrorCode;
 import com.helianhealth.agent.common.extension.AgentExtensionLoader;
 import com.helianhealth.agent.common.utils.SpelUtils;
 import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
@@ -55,9 +56,6 @@ public class WorkflowScheduler {
         this.taskExecutor = taskExecutor;
     }
 
-    /**
-     * 延迟获取 InterfaceRemoteInvoker（避免构造时 Spring 容器未初始化）
-     */
     private InterfaceRemoteInvoker getInvoker() {
         if (interfaceRemoteInvoker == null) {
             interfaceRemoteInvoker = WrapperFactory.createRemoteInvokerChain(
@@ -82,9 +80,10 @@ public class WorkflowScheduler {
             // 多个节点,则说明这是个并行业务,譬如申请单,节点工作完成后需要有个聚合操作
             flowNodeResponse = processParallelNode(flowNodes, businessData);
         } else {
-            log.error(WorkflowBusinessException.FLOW_NOT_FOUND.getMessage());
-            throw WorkflowBusinessException.FLOW_NOT_FOUND.toException();
+            log.error("工作流节点为空, flowNodes={}", flowNodes);
+            throw new AgentConfigException(AgentErrorCode.WORKFLOW_NOT_FOUND, "调度时工作流节点列表为空");
         }
+
         return flowNodeResponse;
     }
 
@@ -174,12 +173,11 @@ public class WorkflowScheduler {
     }
 
     private List<Integer> determineNextNode(String scheduleExpr, Map<String, Object> preFlowNodeResponse) {
-        try {
-            return SpelUtils.parseScheduleExpression(scheduleExpr, preFlowNodeResponse);
-        } catch (IllegalArgumentException e) {
-            log.error("调度表达式[{}]解析异常：", scheduleExpr, e);
-            throw WorkflowBusinessException.EXPRESSION_PARSING_ERROR.toException();
+        if (scheduleExpr == null || scheduleExpr.trim().isEmpty()) {
+            return null;
         }
+
+        return SpelUtils.parseScheduleExpression(scheduleExpr, preFlowNodeResponse);
     }
 
     private Map<String, Object> processParallelNode(List<WorkflowNode> nodes, Map<String, Object> businessData) {

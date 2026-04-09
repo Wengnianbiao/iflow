@@ -1,7 +1,7 @@
 package com.helianhealth.agent.console.config;
 
 import com.helianhealth.agent.common.base.ResultData;
-import com.helianhealth.agent.common.exception.BaseBusinessException;
+import com.helianhealth.agent.common.exception.AgentException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -14,14 +14,14 @@ public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-    // 处理业务异常（BaseBusinessException 及其子类）
-    @ExceptionHandler(BaseBusinessException.class)
-    public ResponseEntity<ResultData<?>> handleBusinessException(BaseBusinessException ex) {
-        log.warn("Business exception occurred: code={}, message={}", ex.getBusinessCode().getCode(), ex.getMessage());
+    // 处理框架业务异常（AgentException 及其子类）
+    @ExceptionHandler(AgentException.class)
+    public ResponseEntity<ResultData<?>> handleAgentException(AgentException ex) {
+        log.warn("Agent exception occurred: code={}, message={}", ex.getErrorCode().getCode(), ex.getMessage());
         ResultData<?> resultData = ResultData.builder()
-                .code(ex.getBusinessCode().getCode())
-                .message(ex.getMessage())
-                .rsp(null) // 业务异常通常数据返回 null，也可按需处理
+                .code(String.valueOf(ex.getErrorCode().getCode()))
+                .message(ex.getErrorCode().getMessage())
+                .rsp(null)
                 .build();
         return new ResponseEntity<>(resultData, HttpStatus.BAD_REQUEST);
     }
@@ -43,7 +43,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ResultData<?>> handleSystemException(Exception ex) {
         log.error("System exception occurred", ex);
         ResultData<?> resultData = ResultData.builder()
-                .code(String.valueOf(HttpStatus.INTERNAL_SERVER_ERROR.value())) // 系统异常返回 500
+                .code(String.valueOf(HttpStatus.INTERNAL_SERVER_ERROR.value()))
                 .message(ex.getMessage() != null ? ex.getMessage() : "Internal Server Error")
                 .rsp(null)
                 .build();

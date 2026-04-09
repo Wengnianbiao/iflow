@@ -104,19 +104,19 @@ public class ExampleInvoker implements InterfaceRemoteInvoker {
             // 2. 转换入参为下游接口格式
             Map<String, Object> request = convertToDownstreamParam(businessData);
             String requestJson = JsonUtils.toJsonString(request);
-            
+
             // 3. 收集调用前日志
-            LogCollector.collectParamBeforeInvoke(requestJson);
-            
+            LogCollector.collectInvokeRequest(requestJson);
+
             // 4. 获取节点 URL
             Map<String, Object> metaInfo = JsonUtils.parseMetaInfo(flowNode.getMetaInfo());
             String url = (String) metaInfo.get("url");
 
             // 5. 发起 HTTP POST 请求
             String responseJson = HttpUtils.post(url, requestJson);
-            
+
             // 6. 收集调用后日志
-            LogCollector.collectRemoteInvokeResponse(responseJson);
+            LogCollector.collectInvokeResponse(responseJson);
 
             // 7. 转换响应为上游格式
             Map<String, Object> response = JsonUtils.fromJsonStringToObjectMap(responseJson);
@@ -125,7 +125,7 @@ public class ExampleInvoker implements InterfaceRemoteInvoker {
         } catch (IOException | ParseException e) {
             log.error("调用远程接口失败", e);
             LogCollector.collectError(e.getMessage());
-            
+
             Map<String, Object> result = new HashMap<>();
             result.put("code", "500");
             result.put("message", "调用失败：" + e.getMessage());
@@ -142,11 +142,11 @@ public class ExampleInvoker implements InterfaceRemoteInvoker {
      */
     private Map<String, Object> convertToDownstreamParam(Map<String, Object> upstreamData) {
         Map<String, Object> downstreamParam = new HashMap<>();
-        
+
         // TODO: 根据实际业务进行字段映射
         // 示例：downstreamParam.put("targetField", upstreamData.get("sourceField"));
         downstreamParam.putAll(upstreamData);
-        
+
         return downstreamParam;
     }
 
@@ -155,11 +155,11 @@ public class ExampleInvoker implements InterfaceRemoteInvoker {
      */
     private Map<String, Object> convertToUpstreamResponse(Map<String, Object> downstreamResponse) {
         Map<String, Object> result = new HashMap<>();
-        
+
         // TODO: 根据实际业务提取响应字段
         result.put("code", downstreamResponse.get("code"));
         result.put("message", downstreamResponse.get("message"));
-        
+
         return result;
     }
 }
@@ -200,18 +200,18 @@ public class DynamicSignInvoker implements InterfaceRemoteInvoker {
             // 1. 获取签名密钥
             Map<String, String> extParams = flowNode.getExtensionParam();
             String secretKey = extParams.getOrDefault("secretKey", "default_secret");
-            
+
             // 2. 转换入参
             Map<String, Object> request = convertToDownstreamParam(businessData);
             String requestJson = JsonUtils.toJsonString(request);
-            
+
             // 3. 生成签名
             long timestamp = System.currentTimeMillis();
             String sign = generateSign(requestJson, timestamp, secretKey);
-            
+
             // 4. 收集调用前日志
-            LogCollector.collectParamBeforeInvoke(requestJson);
-            
+            LogCollector.collectInvokeRequest(requestJson);
+
             // 5. 构建带签名的请求头
             Map<String, Object> metaInfo = JsonUtils.parseMetaInfo(flowNode.getMetaInfo());
             String url = (String) metaInfo.get("url");
@@ -222,7 +222,7 @@ public class DynamicSignInvoker implements InterfaceRemoteInvoker {
 
             // 6. 发起请求
             String responseJson = HttpUtils.post(url, headers, requestJson);
-            LogCollector.collectRemoteInvokeResponse(responseJson);
+            LogCollector.collectInvokeResponse(responseJson);
 
             // 7. 转换响应
             Map<String, Object> response = JsonUtils.fromJsonStringToObjectMap(responseJson);
@@ -236,7 +236,7 @@ public class DynamicSignInvoker implements InterfaceRemoteInvoker {
             LogCollector.collectInvokeTime(System.currentTimeMillis() - startTime);
         }
     }
-    
+
     private String generateSign(String body, long timestamp, String secret) {
         try {
             String content = body + timestamp + secret;
@@ -251,19 +251,19 @@ public class DynamicSignInvoker implements InterfaceRemoteInvoker {
             throw new RuntimeException("签名生成失败", e);
         }
     }
-    
+
     private Map<String, Object> convertToDownstreamParam(Map<String, Object> upstreamData) {
         // TODO: 实现入参转换逻辑
         return new HashMap<>(upstreamData);
     }
-    
+
     private Map<String, Object> convertToUpstreamResponse(Map<String, Object> response) {
         Map<String, Object> result = new HashMap<>();
         result.put("code", response.get("code"));
         result.put("message", response.get("message"));
         return result;
     }
-    
+
     private Map<String, Object> buildErrorResponse(String message) {
         Map<String, Object> result = new HashMap<>();
         result.put("code", "500");
@@ -312,15 +312,15 @@ public class DynamicTokenInvoker implements InterfaceRemoteInvoker {
             String tokenUrl = extParams.get("tokenUrl");
             String clientId = extParams.get("clientId");
             String clientSecret = extParams.get("clientSecret");
-            
+
             // 2. 获取有效 Token
             String token = getValidToken(tokenUrl, clientId, clientSecret);
-            
+
             // 3. 转换入参
             Map<String, Object> request = convertToDownstreamParam(businessData);
             String requestJson = JsonUtils.toJsonString(request);
-            LogCollector.collectParamBeforeInvoke(requestJson);
-            
+            LogCollector.collectInvokeRequest(requestJson);
+
             // 4. 构建带 Token 的请求头
             Map<String, Object> metaInfo = JsonUtils.parseMetaInfo(flowNode.getMetaInfo());
             String url = (String) metaInfo.get("url");
@@ -330,7 +330,7 @@ public class DynamicTokenInvoker implements InterfaceRemoteInvoker {
 
             // 5. 发起请求
             String responseJson = HttpUtils.post(url, headers, requestJson);
-            LogCollector.collectRemoteInvokeResponse(responseJson);
+            LogCollector.collectInvokeResponse(responseJson);
 
             // 6. 转换响应
             Map<String, Object> response = JsonUtils.fromJsonStringToObjectMap(responseJson);
@@ -344,29 +344,29 @@ public class DynamicTokenInvoker implements InterfaceRemoteInvoker {
             LogCollector.collectInvokeTime(System.currentTimeMillis() - startTime);
         }
     }
-    
+
     private String getValidToken(String tokenUrl, String clientId, String clientSecret) {
         String cacheKey = clientId + "_" + tokenUrl;
         TokenInfo cached = TOKEN_CACHE.get(cacheKey);
-        
+
         if (cached != null && !cached.isExpired()) {
             return cached.token;
         }
-        
+
         try {
             // 请求新 Token
             Map<String, String> params = new HashMap<>();
             params.put("client_id", clientId);
             params.put("client_secret", clientSecret);
             params.put("grant_type", "client_credentials");
-            
+
             String responseStr = HttpUtils.post(tokenUrl, JsonUtils.toJsonString(params));
             Map<String, Object> response = JsonUtils.fromJsonStringToObjectMap(responseStr);
-            
+
             String token = (String) response.get("access_token");
-            int expiresIn = response.get("expires_in") != null 
+            int expiresIn = response.get("expires_in") != null
                     ? ((Number) response.get("expires_in")).intValue() : 3600;
-            
+
             TOKEN_CACHE.put(cacheKey, new TokenInfo(token, expiresIn));
             return token;
         } catch (Exception e) {
@@ -374,34 +374,34 @@ public class DynamicTokenInvoker implements InterfaceRemoteInvoker {
             throw new RuntimeException("获取 Token 失败", e);
         }
     }
-    
+
     private Map<String, Object> convertToDownstreamParam(Map<String, Object> upstreamData) {
         return new HashMap<>(upstreamData);
     }
-    
+
     private Map<String, Object> convertToUpstreamResponse(Map<String, Object> response) {
         Map<String, Object> result = new HashMap<>();
         result.put("code", response.get("code"));
         result.put("message", response.get("message"));
         return result;
     }
-    
+
     private Map<String, Object> buildErrorResponse(String message) {
         Map<String, Object> result = new HashMap<>();
         result.put("code", "500");
         result.put("message", "调用失败：" + message);
         return result;
     }
-    
+
     private static class TokenInfo {
         final String token;
         final long expireTime;
-        
+
         TokenInfo(String token, int expiresIn) {
             this.token = token;
             this.expireTime = System.currentTimeMillis() + (expiresIn - 60) * 1000L;
         }
-        
+
         boolean isExpired() {
             return System.currentTimeMillis() > expireTime;
         }
@@ -446,23 +446,23 @@ public class AesEncryptInvoker implements InterfaceRemoteInvoker {
             // 1. 获取加密密钥
             Map<String, String> extParams = flowNode.getExtensionParam();
             String aesKey = extParams.get("aesKey");
-            
+
             // 2. 转换并加密入参
             Map<String, Object> request = convertToDownstreamParam(businessData);
             String requestJson = JsonUtils.toJsonString(request);
             String encryptedData = encrypt(requestJson, aesKey);
-            
+
             // 3. 构建加密请求体
             Map<String, Object> encryptedRequest = new HashMap<>();
             encryptedRequest.put("encryptedData", encryptedData);
             String encryptedRequestJson = JsonUtils.toJsonString(encryptedRequest);
-            LogCollector.collectParamBeforeInvoke(encryptedRequestJson);
-            
+            LogCollector.collectInvokeRequest(encryptedRequestJson);
+
             // 4. 发起请求
             Map<String, Object> metaInfo = JsonUtils.parseMetaInfo(flowNode.getMetaInfo());
             String url = (String) metaInfo.get("url");
             String responseJson = HttpUtils.post(url, encryptedRequestJson);
-            LogCollector.collectRemoteInvokeResponse(responseJson);
+            LogCollector.collectInvokeResponse(responseJson);
 
             // 5. 解密响应（如果需要）
             Map<String, Object> response = JsonUtils.fromJsonStringToObjectMap(responseJson);
@@ -470,7 +470,7 @@ public class AesEncryptInvoker implements InterfaceRemoteInvoker {
                 String decrypted = decrypt((String) response.get("encryptedResponse"), aesKey);
                 response = JsonUtils.fromJsonStringToObjectMap(decrypted);
             }
-            
+
             return convertToUpstreamResponse(response);
 
         } catch (IOException | ParseException e) {
@@ -481,7 +481,7 @@ public class AesEncryptInvoker implements InterfaceRemoteInvoker {
             LogCollector.collectInvokeTime(System.currentTimeMillis() - startTime);
         }
     }
-    
+
     private String encrypt(String content, String key) {
         try {
             SecretKeySpec keySpec = new SecretKeySpec(key.getBytes(), "AES");
@@ -493,7 +493,7 @@ public class AesEncryptInvoker implements InterfaceRemoteInvoker {
             throw new RuntimeException("加密失败", e);
         }
     }
-    
+
     private String decrypt(String content, String key) {
         try {
             SecretKeySpec keySpec = new SecretKeySpec(key.getBytes(), "AES");
@@ -505,18 +505,18 @@ public class AesEncryptInvoker implements InterfaceRemoteInvoker {
             throw new RuntimeException("解密失败", e);
         }
     }
-    
+
     private Map<String, Object> convertToDownstreamParam(Map<String, Object> upstreamData) {
         return new HashMap<>(upstreamData);
     }
-    
+
     private Map<String, Object> convertToUpstreamResponse(Map<String, Object> response) {
         Map<String, Object> result = new HashMap<>();
         result.put("code", response.get("code"));
         result.put("message", response.get("message"));
         return result;
     }
-    
+
     private Map<String, Object> buildErrorResponse(String message) {
         Map<String, Object> result = new HashMap<>();
         result.put("code", "500");

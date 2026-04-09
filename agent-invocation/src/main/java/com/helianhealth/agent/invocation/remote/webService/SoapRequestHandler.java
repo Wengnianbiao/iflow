@@ -1,17 +1,19 @@
 package com.helianhealth.agent.invocation.remote.webService;
 
-import com.alibaba.fastjson2.JSONObject;
 import com.helianhealth.agent.common.base.MetaInfoKeys;
-import com.helianhealth.agent.repository.model.domain.WorkflowNode;
-import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
+import com.helianhealth.agent.common.exception.AgentConfigException;
+import com.helianhealth.agent.common.exception.AgentErrorCode;
+import com.helianhealth.agent.common.exception.AgentException;
+import com.helianhealth.agent.common.exception.AgentInvocationException;
+import com.helianhealth.agent.common.utils.JsonUtils;
+import com.helianhealth.agent.common.utils.XmlUtils;
 import com.helianhealth.agent.invocation.remote.ParamResolver;
 import com.helianhealth.agent.invocation.remote.manager.HttpApiClientManager;
-import com.helianhealth.agent.common.utils.JsonUtils;
+import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.invocation.utils.ParamNodeUtils;
-import com.helianhealth.agent.common.utils.XmlUtils;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 
 import java.util.HashMap;
 import java.util.List;
@@ -42,8 +44,8 @@ public class SoapRequestHandler implements ParamResolver {
      */
     public String resolveParamNodes(WorkflowNode flowNode, List<ParamTreeNode> paramNode) {
         try {
-            JSONObject metaInfo = JsonUtils.parseMetaInfo2JsonObject(flowNode.getMetaInfo());
-            String dataType = metaInfo.getString(MetaInfoKeys.DATA_TYPE);
+            Map<String, Object> metaInfo = JsonUtils.parseMetaInfo(flowNode.getMetaInfo());
+            String dataType = (String) metaInfo.get(MetaInfoKeys.DATA_TYPE);
             if (MetaInfoKeys.DATA_TYPE_JSON.equalsIgnoreCase(dataType)) {
                 // 业务数据为JSON
                 String paramJson = ParamNodeUtils.paramNode2Json(paramNode);
@@ -63,9 +65,10 @@ public class SoapRequestHandler implements ParamResolver {
                 return buildSoapFromConfig(metaInfo, paramXml);
             }
 
+        } catch (AgentException e) {
+            throw e;
         } catch (Exception e) {
-            log.error("构建SOAP消息失败", e);
-            throw new RuntimeException("构建SOAP消息失败: " + e.getMessage());
+            throw new AgentInvocationException(AgentErrorCode.WS_MESSAGE_BUILD_ERROR, e.getMessage(), e);
         }
     }
 
@@ -73,31 +76,32 @@ public class SoapRequestHandler implements ParamResolver {
      * 发送SOAP请求并获取响应
      */
     public String sendSoapRequest(WorkflowNode flowNode, String soapMessage) {
-        try {
-            // 解析metaInfo
-            JSONObject metaInfo = JsonUtils.parseMetaInfo2JsonObject(flowNode.getMetaInfo());
-            String endpointUrl = metaInfo.getString(MetaInfoKeys.URL);
-            if (StringUtils.isEmpty(endpointUrl)) {
-                throw new IllegalArgumentException("metaInfo中未配置url");
-            }
+        // 解析metaInfo
+        Map<String, Object> metaInfo = JsonUtils.parseMetaInfo(flowNode.getMetaInfo());
+        String endpointUrl = (String) metaInfo.get(MetaInfoKeys.URL);
+        if (endpointUrl == null || endpointUrl.isEmpty()) {
+            throw new AgentConfigException(AgentErrorCode.WS_CONFIG_MISSING, "metaInfo中未配置url");
+        }
 
-            // 设置自定义请求头
-            Map<String, String> headers = new HashMap<>();
-            JSONObject headerConfig = metaInfo.getJSONObject(MetaInfoKeys.HEADERS);
-            if (headerConfig != null) {
-                for (String key : headerConfig.keySet()) {
-                    headers.put(key, headerConfig.getString(key));
+        // 设置自定义请求头
+        Map<String, String> headers = new HashMap<>();
+        Object headerConfig = metaInfo.get(MetaInfoKeys.HEADERS);
+        if (headerConfig instanceof Map) {
+            ((Map<?, ?>) headerConfig).forEach((key, value) -> {
+                if (key != null && value != null) {
+                    headers.put(String.valueOf(key), String.valueOf(value));
                 }
-            }
-            // 如果没有设置Content-Type，使用默认值
-            if (!headers.containsKey("Content-Type")) {
-                headers.put("Content-Type", "text/xml;charset=UTF-8");
-            }
+            });
+        }
+        // 如果没有设置Content-Type，使用默认值
+        if (!headers.containsKey("Content-Type")) {
+            headers.put("Content-Type", "text/xml;charset=UTF-8");
+        }
 
+        try {
             return httpApiClientManager.executePost(endpointUrl, headers, soapMessage);
         } catch (Exception e) {
-            log.error("发送SOAP请求失败", e);
-            throw new RuntimeException("发送SOAP请求失败: " + e.getMessage());
+            throw new AgentInvocationException(AgentErrorCode.WS_CALL_FAILED, e.getMessage(), e);
         }
     }
 
@@ -114,17 +118,18 @@ public class SoapRequestHandler implements ParamResolver {
             }
 
             return XmlUtils.parseResponseXml(response, metaMap);
+        } catch (AgentException e) {
+            throw e;
         } catch (Exception e) {
-            log.error("解析SOAP响应失败", e);
-            throw new RuntimeException("解析SOAP响应失败: " + e.getMessage());
+            throw new AgentInvocationException(AgentErrorCode.WS_RESPONSE_PARSE_ERROR, e.getMessage(), e);
         }
     }
 
     /**
      * 根据配置构建SOAP消息
      */
-    private String buildSoapFromConfig(JSONObject metaInfo, String paramXml) {
-        String soupTemplate = metaInfo.getString(MetaInfoKeys.SOAP_TEMPLATE);
+    private String buildSoapFromConfig(Map<String, Object> metaInfo, String paramXml) {
+        String soupTemplate = (String) metaInfo.get(MetaInfoKeys.SOAP_TEMPLATE);
         // 没有模板说明不需要嵌套SOAP信封
         if (soupTemplate == null || soupTemplate.isEmpty()) {
             return paramXml;

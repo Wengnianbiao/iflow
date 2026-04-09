@@ -2,7 +2,8 @@ package com.helianhealth.agent.console.service;
 
 import com.helianhealth.agent.common.base.ExtensionFilterConstants;
 import com.helianhealth.agent.common.enums.ScheduleParamSourceType;
-import com.helianhealth.agent.common.exception.WorkflowBusinessException;
+import com.helianhealth.agent.common.exception.AgentConfigException;
+import com.helianhealth.agent.common.exception.AgentErrorCode;
 import com.helianhealth.agent.common.extension.AgentExtensionLoader;
 import com.helianhealth.agent.common.utils.SpelUtils;
 import com.helianhealth.agent.console.model.dto.MockInvokeRequest;
@@ -80,7 +81,7 @@ public class MockScheduleService {
     public Map<String, Object> mockSchedule(MockInvokeRequest request) {
         List<MockInvokeRequest.MockNodeConfig> mockConfigs = request.getMockConfigs();
         if (mockConfigs == null || mockConfigs.isEmpty()) {
-            throw new IllegalArgumentException("Mock配置不能为空");
+            throw new AgentConfigException(AgentErrorCode.MOCK_CONFIG_INVALID, "Mock配置不能为空");
         }
 
         // 构建 nodeId -> mockId 映射
@@ -129,7 +130,7 @@ public class MockScheduleService {
 
         for (Integer nextNodeId : nextNodeIds) {
             if (!mockIdMap.containsKey(nextNodeId)) {
-                throw new IllegalArgumentException(
+                throw new AgentConfigException(AgentErrorCode.MOCK_CONFIG_INVALID,
                         "调度的下游节点[" + nextNodeId + "]未配置Mock，请先配置该节点的Mock数据");
             }
         }
@@ -158,17 +159,17 @@ public class MockScheduleService {
         // 验证Mock配置
         MockConfig mockConfig = mockConfigQueryService.findById(mockId);
         if (mockConfig == null) {
-            throw new IllegalArgumentException("Mock配置不存在，mockId=" + mockId);
+            throw new AgentConfigException(AgentErrorCode.MOCK_CONFIG_INVALID, "Mock配置不存在，mockId=" + mockId);
         }
         if (!mockConfig.getNodeId().equals(nodeId)) {
-            throw new IllegalArgumentException(
+            throw new AgentConfigException(AgentErrorCode.MOCK_CONFIG_INVALID,
                     "Mock配置不属于该节点，mockId=" + mockId + ", nodeId=" + nodeId);
         }
 
         // 获取节点信息
         WorkflowNode node = flowNodeService.selectByNodeId(nodeId);
         if (node == null) {
-            throw new IllegalArgumentException("节点不存在，nodeId=" + nodeId);
+            throw new AgentConfigException(AgentErrorCode.NODE_NOT_FOUND, "nodeId=" + nodeId);
         }
 
         // 设置Mock标记
@@ -211,12 +212,7 @@ public class MockScheduleService {
         if (scheduleExpr == null || scheduleExpr.trim().isEmpty()) {
             return null;
         }
-        try {
-            return SpelUtils.parseScheduleExpression(scheduleExpr, nodeResponse);
-        } catch (Exception e) {
-            log.error("调度表达式[{}]解析异常：", scheduleExpr, e);
-            throw WorkflowBusinessException.EXPRESSION_PARSING_ERROR.toException();
-        }
+        return SpelUtils.parseScheduleExpression(scheduleExpr, nodeResponse);
     }
 
     private Map<String, Object> determineNextNodeParam(ScheduleParamSourceType paramSourceType,

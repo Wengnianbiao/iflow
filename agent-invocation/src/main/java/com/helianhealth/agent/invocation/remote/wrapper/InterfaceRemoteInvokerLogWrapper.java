@@ -45,7 +45,7 @@ public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker 
                 LogCollector.collectKeyword(String.valueOf(keywordObj));
             }
         }
-        LogCollector.collectBusinessData(JsonUtils.toJsonString(businessData));
+        LogCollector.collectRequest(JsonUtils.toJsonString(businessData));
 
         try {
             log.info("开始执行工作流节点: [{}]", flowNode.getNodeName());
@@ -54,13 +54,13 @@ public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker 
             Map<String, Object> stringObjectMap = interfaceRemoteInvoker.remoteInvoke(flowNode, invocation);
 
             // 记录调用结果
-            LogCollector.collectParamAfterInvoke(JsonUtils.toJsonString(stringObjectMap));
+            LogCollector.collectResponse(JsonUtils.toJsonString(stringObjectMap));
 
             return stringObjectMap;
         } catch (Exception e) {
             log.error("工作流节点:[{}]执行异常", flowNode.getNodeName(), e);
             // 记录异常信息
-            LogCollector.collectError(getRootCauseMessage(e) + "\n\n" + getFullStackTrace(e));
+            LogCollector.collectError(getRootCauseMessage(e) + "\n\n========== StackTrace ==========\n\n" + getFullStackTrace(e));
             throw e;
         } finally {
             try {

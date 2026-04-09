@@ -1,5 +1,7 @@
 package com.helianhealth.agent.console.service;
 
+import com.helianhealth.agent.common.exception.AgentErrorCode;
+import com.helianhealth.agent.common.exception.AgentInvocationException;
 import com.helianhealth.agent.console.controller.request.SqlExecuteRequest;
 import com.helianhealth.agent.console.controller.reponse.SqlExecuteResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -62,7 +64,7 @@ public class SqlExecuteService {
             
         } catch (SQLException e) {
             log.error("SQL执行失败: {}", e.getMessage(), e);
-            throw new RuntimeException("SQL执行失败: " + e.getMessage(), e);
+            throw new AgentInvocationException(AgentErrorCode.DB_EXECUTION_FAILED, e.getMessage(), e);
         } finally {
             // 关闭资源
             closeQuietly(rs);

@@ -1,6 +1,8 @@
 package com.helianhealth.agent.api.adapter;
 
 import com.helianhealth.agent.common.enums.WorkflowContentType;
+import com.helianhealth.agent.common.exception.AgentConfigException;
+import com.helianhealth.agent.common.exception.AgentErrorCode;
 import com.helianhealth.agent.repository.model.domain.Workflow;
 import com.helianhealth.agent.common.utils.JsonUtils;
 import com.helianhealth.agent.common.utils.XmlUtils;
@@ -42,7 +44,7 @@ public class ContentTypeAdapter {
             }
         } catch (Exception e) {
             log.error("请求协议适配失败，类型: {}, 错误: {}", contentType, e.getMessage(), e);
-            throw new RuntimeException("请求协议适配失败: " + e.getMessage(), e);
+            throw new AgentConfigException(AgentErrorCode.CONTENT_TYPE_ADAPT_ERROR, e.getMessage(), e);
         }
     }
 
@@ -68,7 +70,7 @@ public class ContentTypeAdapter {
         } else if (WorkflowContentType.XML.equals(contentType)) {
             return XmlUtils.buildResponseXml(responseData, workflow.getContentMetaInfo());
         } else {
-            throw new IllegalArgumentException("不支持的响应类型: " + contentType);
+            throw new AgentConfigException(AgentErrorCode.CONTENT_TYPE_UNSUPPORTED, String.valueOf(contentType));
         }
     }
 

@@ -147,7 +147,7 @@ public class HttpApiClientManager {
             logger.info("POST 请求响应: [{}]", responseEntity);
             return responseEntity;
         } catch (IOException | ParseException e) {
-            logger.error("执行 POST 请求失败，URL: [{}]，异常: [{}]", url, e.getMessage(), e);
+            logger.debug("执行 POST 请求失败，URL: [{}]，异常: [{}]", url, e.getMessage());
             throw e;
         }
     }
@@ -174,7 +174,7 @@ public class HttpApiClientManager {
             logger.info("GET 请求响应状态码: [{}]", statusCode);
             return EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
         } catch (IOException | ParseException e) {
-            logger.error("执行 GET 请求失败，URL: [{}]，异常: [{}]", url, e.getMessage(), e);
+            logger.debug("执行 GET 请求失败，URL: [{}]，异常: [{}]", url, e.getMessage());
             throw e;
         }
     }
@@ -213,7 +213,7 @@ public class HttpApiClientManager {
             logger.info("POST Form 请求响应: [{}]", responseEntity);
             return responseEntity;
         } catch (IOException | ParseException e) {
-            logger.error("执行 POST Form 请求失败，URL: [{}]，异常: [{}]", url, e.getMessage(), e);
+            logger.debug("执行 POST Form 请求失败，URL: [{}]，异常: [{}]", url, e.getMessage());
             throw e;
         }
     }

@@ -3,7 +3,9 @@ package com.helianhealth.agent.invocation.remote.database;
 import com.alibaba.fastjson2.JSONArray;
 import com.helianhealth.agent.common.base.MetaInfoKeys;
 import com.helianhealth.agent.common.enums.ParamType;
-import com.helianhealth.agent.common.exception.DatabaseRemoteBusinessException;
+import com.helianhealth.agent.common.exception.AgentConfigException;
+import com.helianhealth.agent.common.exception.AgentErrorCode;
+import com.helianhealth.agent.common.exception.AgentInvocationException;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.ParamResolver;
@@ -41,10 +43,10 @@ public class DatabaseSqlHandler implements ParamResolver {
 
         // 检查是否有SQL模板
         if (!StringUtils.hasText(sqlTemplate)) {
-            throw DatabaseRemoteBusinessException.DATABASE_TEMPLATE_NOT_FOUND.toException();
+            throw new AgentConfigException(AgentErrorCode.SQL_TEMPLATE_MISSING);
         }
         if (!StringUtils.hasText(operation)) {
-            throw DatabaseRemoteBusinessException.DATABASE_OPERATION_NOT_FOUND.toException();
+            throw new AgentConfigException(AgentErrorCode.SQL_OPERATION_MISSING);
         }
 
         switch (operation.toUpperCase()) {
@@ -81,7 +83,7 @@ public class DatabaseSqlHandler implements ParamResolver {
 
         // 检查是否还有未替换的占位符
         if (finalSql.contains(DatabaseSqlConstants.PLACEHOLDER_START) && finalSql.contains(DatabaseSqlConstants.PLACEHOLDER_END)) {
-            throw DatabaseRemoteBusinessException.DATABASE_PLACE_HOLDER_ERROR.toException();
+            throw new AgentConfigException(AgentErrorCode.SQL_PLACEHOLDER_UNMATCHED, "SQL语句中存在未匹配的参数占位符: " + finalSql);
         }
 
         return finalSql;
@@ -101,7 +103,7 @@ public class DatabaseSqlHandler implements ParamResolver {
 
         // 检查是否还有未替换的占位符
         if (finalSql.contains(DatabaseSqlConstants.PLACEHOLDER_START) && finalSql.contains(DatabaseSqlConstants.PLACEHOLDER_END)) {
-            throw DatabaseRemoteBusinessException.DATABASE_PLACE_HOLDER_ERROR.toException();
+            throw new AgentConfigException(AgentErrorCode.SQL_PLACEHOLDER_UNMATCHED, "SQL语句中存在未匹配的参数占位符: " + finalSql);
         }
 
         return finalSql;
@@ -168,7 +170,7 @@ public class DatabaseSqlHandler implements ParamResolver {
                 valuesBuilder.append(recordValues);
             }
         } else {
-            throw new RuntimeException("Insert语句不支持的参数类型：" + paramNode.getParamType());
+            throw new AgentConfigException(AgentErrorCode.SQL_UNSUPPORTED_PARAM_TYPE, String.valueOf(paramNode.getParamType()));
         }
 
         String result = hasRecords ? prefix + " " + valuesBuilder : "";
@@ -180,7 +182,7 @@ public class DatabaseSqlHandler implements ParamResolver {
 
         // 检查是否还有未替换的占位符
         if (result.contains("{") && result.contains("}")) {
-            throw DatabaseRemoteBusinessException.DATABASE_PLACE_HOLDER_ERROR.toException();
+            throw new AgentConfigException(AgentErrorCode.SQL_PLACEHOLDER_UNMATCHED, "SQL语句中存在未匹配的参数占位符: " + result);
         }
 
         return result;
@@ -207,7 +209,7 @@ public class DatabaseSqlHandler implements ParamResolver {
 
         // 检查是否还有未替换的占位符
         if (finalSql.contains(DatabaseSqlConstants.PLACEHOLDER_START) && finalSql.contains(DatabaseSqlConstants.PLACEHOLDER_END)) {
-            throw DatabaseRemoteBusinessException.DATABASE_PLACE_HOLDER_ERROR.toException();
+            throw new AgentConfigException(AgentErrorCode.SQL_PLACEHOLDER_UNMATCHED, "SQL语句中存在未匹配的参数占位符: " + finalSql);
         }
 
         return finalSql;
@@ -224,7 +226,7 @@ public class DatabaseSqlHandler implements ParamResolver {
                     List<ParamTreeNode> actualNodes = virtualNode.getChildren();
                     // 对于查询语句的数组场景，只处理单元素节点
                     if (actualNodes.size() > 1) {
-                        throw DatabaseRemoteBusinessException.DATABASE_ARRAY_CHILD_SIZE_ERROR.toException();
+                        throw new AgentConfigException(AgentErrorCode.SQL_ARRAY_CHILD_SIZE_ERROR);
                     }
                     Object value = actualNodes.get(0).getParamValue();
                     // 根据配置项中是否保留单元素节点的key
@@ -286,7 +288,7 @@ public class DatabaseSqlHandler implements ParamResolver {
             Map<String, Object> metaInfo = JsonUtils.parseMetaInfo(flowNode.getMetaInfo());
             connection = clientManager.getConnection(metaInfo);
         } catch (SQLException e) {
-            throw new RuntimeException("数据库连接失败,请核对用户名和密码！", e);
+            throw new AgentInvocationException(AgentErrorCode.DB_CONNECTION_FAILED, e.getMessage(), e);
         }
 
         try {
@@ -302,7 +304,7 @@ public class DatabaseSqlHandler implements ParamResolver {
                 return result;
             }
         } catch (SQLException e) {
-            throw new RuntimeException("SQL execution failed: " + e.getMessage() + ", SQL: " + sql, e);
+            throw new AgentInvocationException(AgentErrorCode.DB_EXECUTION_FAILED, "SQL: " + sql, e);
         } finally {
             closeQuietly(rs, ps, connection);
         }

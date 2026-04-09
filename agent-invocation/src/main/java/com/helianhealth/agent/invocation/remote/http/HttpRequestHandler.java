@@ -2,6 +2,8 @@ package com.helianhealth.agent.invocation.remote.http;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.helianhealth.agent.common.exception.AgentConfigException;
+import com.helianhealth.agent.common.exception.AgentErrorCode;
 import com.helianhealth.agent.common.enums.ParamType;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
@@ -164,7 +166,7 @@ public class HttpRequestHandler implements ParamResolver {
                 });
             }
         } catch (Exception e) {
-            log.warn("Failed to convert JSON to form params: {}", jsonBody, e);
+            throw new AgentConfigException(AgentErrorCode.CONTENT_TYPE_ADAPT_ERROR, "JSON转Form参数失败: " + jsonBody, e);
         }
         
         return formParams;

@@ -2,6 +2,7 @@ package com.helianhealth.agent.console.controller;
 
 import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.common.base.ResultData;
+import com.helianhealth.agent.common.exception.AgentException;
 import com.helianhealth.agent.common.utils.ResponseRenderUtils;
 import com.helianhealth.agent.console.model.dto.MockInvokeRequest;
 import com.helianhealth.agent.console.service.MockScheduleService;
@@ -143,11 +144,11 @@ public class MockController {
             }
             Map<String, Object> result = mockScheduleService.mockSchedule(request);
             return ResponseRenderUtils.render(result);
-        } catch (IllegalArgumentException e) {
-            log.error("调用Mock节点参数错误", e);
+        } catch (AgentException e) {
+            log.error("Mock调度异常: {}", e.getMessage(), e);
             return ResponseRenderUtils.error(e.getMessage());
         } catch (Exception e) {
-            log.error("调用Mock节点失败", e);
+            log.error("Mock调度未知异常", e);
             return ResponseRenderUtils.error("调用Mock节点失败: " + e.getMessage());
         }
     }

@@ -1,5 +1,7 @@
 package com.helianhealth.agent.console.service.extension;
 
+import com.helianhealth.agent.common.exception.AgentErrorCode;
+import com.helianhealth.agent.common.exception.AgentException;
 import com.helianhealth.agent.common.utils.JsonUtils;
 import com.helianhealth.agent.console.enums.ExtensionType;
 import com.helianhealth.agent.repository.mapper.agent.InterfaceFlowNodeMapper;
@@ -140,7 +142,7 @@ public class ExtensionNodeUpdateService {
                     } catch (Exception e) {
                         log.error("Failed to parse existing extension_param for node {}, using empty map. Node data: {}", nodeId, existingParam, e);
                         // 解析失败时抛出异常，避免丢失原有配置
-                        throw new RuntimeException("解析节点扩展参数失败，可能存在配置损坏", e);
+                        throw new AgentException(AgentErrorCode.CONSOLE_OPERATION_FAILED, "解析节点扩展参数失败，可能存在配置损坏", e);
                     }
                 }
 

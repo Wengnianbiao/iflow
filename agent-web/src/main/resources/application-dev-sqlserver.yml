@@ -2,7 +2,6 @@ server:
   port: 8099
 
 spring:
-  profiles: dev-sqlserver
   datasource:
     agent:
       type: com.alibaba.druid.pool.DruidDataSource

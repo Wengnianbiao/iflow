@@ -2,6 +2,8 @@ package com.helianhealth.agent.invocation.remote.support;
 
 
 import com.helianhealth.agent.common.enums.ParamType;
+import com.helianhealth.agent.common.exception.AgentConfigException;
+import com.helianhealth.agent.common.exception.AgentErrorCode;
 
 /**
  * 基础类型转换处理器
@@ -32,10 +34,10 @@ public class BasicTypeConversionHandler implements TypeHandler {
                 case DOUBLE:
                     return convertToDouble(rawValue);
                 default:
-                    throw new TypeConversionException("不支持的目标类型: " + targetType);
+                    throw new AgentConfigException(AgentErrorCode.TYPE_CONVERSION_ERROR, "不支持的目标类型: " + targetType);
             }
         } catch (NumberFormatException e) {
-            throw new TypeConversionException(
+            throw new AgentConfigException(AgentErrorCode.TYPE_CONVERSION_ERROR,
                     String.format("值[%s]从类型[%s]转换为[%s]失败",
                             rawValue, rawValue.getClass().getSimpleName(), targetType),
                     e
@@ -49,7 +51,7 @@ public class BasicTypeConversionHandler implements TypeHandler {
         } else if (rawValue instanceof String) {
             return Double.parseDouble(((String) rawValue).trim());
         }
-        throw new TypeConversionException("无法将类型[" + rawValue.getClass() + "]转换为DOUBLE");
+        throw new AgentConfigException(AgentErrorCode.TYPE_CONVERSION_ERROR, "无法将类型[" + rawValue.getClass() + "]转换为DOUBLE");
     }
 
     // 转换为Integer
@@ -59,7 +61,7 @@ public class BasicTypeConversionHandler implements TypeHandler {
         } else if (rawValue instanceof String) {
             return Integer.parseInt(((String) rawValue).trim());
         }
-        throw new TypeConversionException("无法将类型[" + rawValue.getClass() + "]转换为INTEGER");
+        throw new AgentConfigException(AgentErrorCode.TYPE_CONVERSION_ERROR, "无法将类型[" + rawValue.getClass() + "]转换为INTEGER");
     }
 
     // 转换为Long
@@ -69,7 +71,7 @@ public class BasicTypeConversionHandler implements TypeHandler {
         } else if (rawValue instanceof String) {
             return Long.parseLong(((String) rawValue).trim());
         }
-        throw new TypeConversionException("无法将类型[" + rawValue.getClass() + "]转换为LONG");
+        throw new AgentConfigException(AgentErrorCode.TYPE_CONVERSION_ERROR, "无法将类型[" + rawValue.getClass() + "]转换为LONG");
     }
 
     // 转换为Boolean
@@ -82,7 +84,7 @@ public class BasicTypeConversionHandler implements TypeHandler {
         } else if (rawValue instanceof Number) {
             return ((Number) rawValue).intValue() != 0;
         }
-        throw new TypeConversionException("无法将类型[" + rawValue.getClass() + "]转换为BOOLEAN");
+        throw new AgentConfigException(AgentErrorCode.TYPE_CONVERSION_ERROR, "无法将类型[" + rawValue.getClass() + "]转换为BOOLEAN");
     }
 
 

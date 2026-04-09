@@ -34,7 +34,7 @@ public class TestInvoker implements InterfaceRemoteInvoker {
             Map<String, Object> request = convertToDownstreamParam(businessData);
             String requestJson = JsonUtils.toJsonString(request);
             // 收集调用前日志
-            LogCollector.collectParamBeforeInvoke(JsonUtils.toJsonString(requestJson));
+            LogCollector.collectInvokeRequest(JsonUtils.toJsonString(requestJson));
             // 获取节点url
             Map<String, Object> metaInfo = JsonUtils.parseMetaInfo(interfaceWorkflowNode.getMetaInfo());
             String url = (String) metaInfo.get("url");
@@ -42,7 +42,7 @@ public class TestInvoker implements InterfaceRemoteInvoker {
             // 发起 HTTP POST 请求
             String responseJson = HttpUtils.post(url, requestJson);
             // 收集调用后日志
-            LogCollector.collectRemoteInvokeResponse(responseJson);
+            LogCollector.collectInvokeResponse(responseJson);
 
             Map<String, Object> response = JsonUtils.fromJsonStringToObjectMap(responseJson);
             // 构造返回给上游的响应

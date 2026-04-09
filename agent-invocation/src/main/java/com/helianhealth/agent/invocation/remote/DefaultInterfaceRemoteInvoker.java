@@ -11,6 +11,7 @@ import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import org.springframework.util.CollectionUtils;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -70,10 +71,9 @@ public class DefaultInterfaceRemoteInvoker implements InterfaceRemoteInvoker {
      * @return 处理后的结果
      */
     public Map<String, Object> postProcess(WorkflowNode flowNode, Map<String, Object> response, Invocation invocation) {
-        // 从 invocation 获取后置参数配置
         List<NodeParamConfig> nodeConfigs = invocation.getPostParamConfigs();
-        if (CollectionUtils.isEmpty(nodeConfigs)) {
-            return response;  // 无配置时返回原始响应
+        if (nodeConfigs == null || nodeConfigs.isEmpty()) {
+            return new HashMap<>();
         }
 
         Map<String, Object> businessData = invocation.getBusinessData();

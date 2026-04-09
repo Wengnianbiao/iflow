@@ -2,6 +2,8 @@ package com.helianhealth.agent.ai.service;
 
 import com.alibaba.fastjson2.JSON;
 import com.helianhealth.agent.common.enums.NodeType;
+import com.helianhealth.agent.common.exception.AgentErrorCode;
+import com.helianhealth.agent.common.exception.AgentException;
 import com.helianhealth.agent.common.enums.ParamType;
 import com.helianhealth.agent.common.enums.ScheduleParamSourceType;
 import com.helianhealth.agent.repository.model.po.InterfaceWorkflowDO;
@@ -97,10 +99,10 @@ public class McpConfigService {
                 
         } catch (IOException e) {
             log.error("读取配置文件失败: {}", configFileName, e);
-            throw new RuntimeException("读取配置文件失败: " + e.getMessage());
+            throw new AgentException(AgentErrorCode.CONSOLE_OPERATION_FAILED, "读取配置文件失败: " + e.getMessage(), e);
         } catch (Exception e) {
             log.error("从配置文件创建工作流失败: {}", configFileName, e);
-            throw new RuntimeException("创建工作流失败: " + e.getMessage());
+            throw new AgentException(AgentErrorCode.CONSOLE_OPERATION_FAILED, "创建工作流失败: " + e.getMessage(), e);
         }
     }
 

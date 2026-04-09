@@ -1,5 +1,7 @@
 package com.helianhealth.agent.console.service.extension;
 
+import com.helianhealth.agent.common.exception.AgentErrorCode;
+import com.helianhealth.agent.common.exception.AgentException;
 import com.helianhealth.agent.common.extension.model.DynamicSpiDefinition;
 import com.helianhealth.agent.common.extension.config.DynamicSpiConfigSource;
 import com.helianhealth.agent.repository.mapper.agent.NodeExtensionConfigMapper;
@@ -30,7 +32,7 @@ public class NodeExtensionConfigRepositoryImpl implements DynamicSpiConfigSource
             return list.stream().map(this::convert).collect(Collectors.toList());
         } catch (Exception e) {
             log.error("Failed to fetch enabled configurations", e);
-            throw new RuntimeException("Failed to fetch SPI extension configurations", e);
+            throw new AgentException(AgentErrorCode.CONSOLE_OPERATION_FAILED, "Failed to fetch SPI extension configurations", e);
         }
     }
 

@@ -29,7 +29,8 @@ public class ValueResolverSelector {
                     .map(resolver -> resolver.resolveValue(config, businessData, parentBusinessData, sourceBusinessData))
                     .orElse(null);
         } catch (Exception e) {
-            log.error("目标入参[{}] resolve value error:", config.getTargetParamKey(), e);
+            log.error("参数解析失败, targetParam={}, sourceParam={}, mappingType={}:",
+                    config.getTargetParamKey(), config.getSourceParamKey(), config.getMappingType(), e);
             return null;
         }
     }

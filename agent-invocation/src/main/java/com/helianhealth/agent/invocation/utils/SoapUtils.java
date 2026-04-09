@@ -2,6 +2,9 @@ package com.helianhealth.agent.invocation.utils;
 
 import com.alibaba.fastjson2.JSONObject;
 import com.helianhealth.agent.common.base.MetaInfoKeys;
+import com.helianhealth.agent.common.exception.AgentConfigException;
+import com.helianhealth.agent.common.exception.AgentErrorCode;
+import com.helianhealth.agent.common.exception.AgentInvocationException;
 import com.helianhealth.agent.invocation.remote.manager.HttpApiClientManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,7 +29,7 @@ public class SoapUtils {
         try {
             String endpointUrl = metaInfo.getString(MetaInfoKeys.URL);
             if (StringUtils.isEmpty(endpointUrl)) {
-                throw new IllegalArgumentException("metaInfo中未配置url");
+                throw new AgentConfigException(AgentErrorCode.WS_CONFIG_MISSING, "metaInfo中未配置url");
             }
 
             // 设置自定义请求头
@@ -45,7 +48,7 @@ public class SoapUtils {
             return httpApiClientManager.executePost(endpointUrl, headers, soapMessage);
         } catch (Exception e) {
             log.error("发送SOAP请求失败", e);
-            throw new RuntimeException("发送SOAP请求失败: " + e.getMessage());
+            throw new AgentInvocationException(AgentErrorCode.WS_CALL_FAILED, e.getMessage(), e);
         }
     }
 
@@ -60,7 +63,7 @@ public class SoapUtils {
         try {
             String endpointUrl = (String) metaInfo.get(MetaInfoKeys.URL);
             if (StringUtils.isEmpty(endpointUrl)) {
-                throw new IllegalArgumentException("metaInfo中未配置url");
+                throw new AgentConfigException(AgentErrorCode.WS_CONFIG_MISSING, "metaInfo中未配置url");
             }
 
             // 构建请求头
@@ -78,7 +81,7 @@ public class SoapUtils {
             return httpApiClientManager.executePost(endpointUrl, headers, soapMessage);
         } catch (Exception e) {
             log.error("发送SOAP请求失败", e);
-            throw new RuntimeException("发送SOAP请求失败: " + e.getMessage());
+            throw new AgentInvocationException(AgentErrorCode.WS_CALL_FAILED, e.getMessage(), e);
         }
     }
 }

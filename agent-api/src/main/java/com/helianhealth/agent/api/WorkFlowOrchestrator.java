@@ -1,19 +1,22 @@
 package com.helianhealth.agent.api;
 
+import com.helianhealth.agent.api.adapter.ContentTypeAdapter;
 import com.helianhealth.agent.api.model.request.JarvisRequest;
 import com.helianhealth.agent.api.model.response.JarvisResultData;
-import com.helianhealth.agent.api.adapter.ContentTypeAdapter;
-import com.helianhealth.agent.common.exception.WorkflowBusinessException;
+import com.helianhealth.agent.common.exception.AgentConfigException;
+import com.helianhealth.agent.common.exception.AgentErrorCode;
+import com.helianhealth.agent.common.exception.AgentException;
+import com.helianhealth.agent.common.utils.JsonUtils;
 import com.helianhealth.agent.repository.model.domain.Workflow;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
+import com.helianhealth.agent.repository.service.WorkflowQueryService;
 import com.helianhealth.agent.schedule.WorkflowScheduler;
 import com.helianhealth.agent.schedule.builder.WorkFlowNodeBuilder;
-import com.helianhealth.agent.repository.service.WorkflowQueryService;
-import com.helianhealth.agent.common.utils.JsonUtils;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -48,13 +51,16 @@ public class WorkFlowOrchestrator {
                         businessData);
                 return processJarvisRsp(scheduleRsp);
             } else {
-                log.error(WorkflowBusinessException.METHOD_NOT_SUPPORT.getMessage());
-                // 对于没有实现jarvis的接口,直接返回成功
+                // 对于没有实现jarvis的接口,默认都返回成功
+                log.warn("jarvis接口未匹配工作流, businessMethod={}", request.getBusinessMethod());
                 return JarvisResultData.ok();
             }
+        } catch (AgentException e) {
+            log.error("jarvis调度异常, businessMethod={}: {}", request.getBusinessMethod(), e.getMessage(), e);
+            return JarvisResultData.error(request.getBusinessMethod() + " | " + e.getMessage());
         } catch (Exception e) {
-            log.error("dispatch request error:", e);
-            return JarvisResultData.fail();
+            log.error("jarvis调度未知异常, businessMethod={}", request.getBusinessMethod(), e);
+            return JarvisResultData.error(request.getBusinessMethod() + " | " + extractRootCauseMessage(e));
         }
     }
 
@@ -94,12 +100,40 @@ public class WorkFlowOrchestrator {
                 // 4、根据工作流contentType构建响应
                 return contentTypeAdapter.adaptResponse(workflow, scheduleRsp);
             } else {
-                log.error(WorkflowBusinessException.METHOD_NOT_SUPPORT.getMessage());
-                throw WorkflowBusinessException.METHOD_NOT_SUPPORT.toException();
+                log.error("open api接口未匹配工作流, uri={}", interfaceUri);
+                throw new AgentConfigException(AgentErrorCode.METHOD_NOT_SUPPORT, "uri=" + interfaceUri);
             }
+        } catch (AgentException e) {
+            log.error("open api调度异常, uri={}: {}", interfaceUri, e.getMessage(), e);
+            return buildErrorResponse(e.getErrorCode().getCode(), e.getErrorCode().getMessage(), e.getDetail());
         } catch (Exception e) {
-            log.error("dispatch request error:", e);
-            return null;
+            log.error("open api调度未知异常, uri={}", interfaceUri, e);
+            return buildErrorResponse(AgentErrorCode.INTERNAL_ERROR.getCode(),
+                    AgentErrorCode.INTERNAL_ERROR.getMessage(), extractRootCauseMessage(e));
         }
+    }
+
+    private String buildErrorResponse(int code, String message, String detail) {
+        Map<String, Object> error = new LinkedHashMap<>();
+        error.put("code", code);
+        error.put("message", message);
+        if (detail != null && !detail.isEmpty()) {
+            error.put("detail", detail);
+        }
+        return JsonUtils.toJsonString(error);
+    }
+
+    /**
+     * 提取异常链中第一个有业务含义的消息
+     */
+    private String extractRootCauseMessage(Throwable e) {
+        Throwable current = e;
+        while (current != null) {
+            if (current.getMessage() != null && !current.getMessage().isEmpty()) {
+                return current.getMessage();
+            }
+            current = current.getCause();
+        }
+        return e.getClass().getName();
     }
 }
