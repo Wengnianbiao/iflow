@@ -9,8 +9,8 @@ import com.helianhealth.agent.ai.model.WorkflowNodeCreateMcpRequest;
 import com.helianhealth.agent.ai.model.WorkflowNodeUpdateMcpRequest;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.repository.model.dto.InterfaceWorkflowNodeView;
-import com.helianhealth.agent.repository.model.po.InterfaceWorkflowNodePO;
 import com.helianhealth.agent.repository.service.WorkflowNodeCommandService;
+import com.helianhealth.agent.repository.service.WorkflowNodeQueryService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -34,6 +34,7 @@ import java.util.List;
 public class McpWorkflowNodeController {
 
     private final WorkflowNodeCommandService workflowNodeCommandService;
+    private final WorkflowNodeQueryService workflowNodeQueryService;
 
     /**
      * 查询所有工作流节点（不分页）
@@ -43,10 +44,7 @@ public class McpWorkflowNodeController {
     public ResultData<List<InterfaceWorkflowNodeView>> listAllNodes() {
         try {
             log.info("MCP查询所有工作流节点");
-            List<InterfaceWorkflowNodePO> nodes = workflowNodeCommandService.selectAllNodes(null);
-            List<InterfaceWorkflowNodeView> views = nodes.stream()
-                    .map(this::toView)
-                    .collect(java.util.stream.Collectors.toList());
+            List<InterfaceWorkflowNodeView> views = workflowNodeQueryService.selectAllNodes(null);
             return ResponseRenderUtils.render(views);
         } catch (Exception e) {
             log.error("MCP查询工作流节点列表失败", e);
@@ -61,8 +59,7 @@ public class McpWorkflowNodeController {
     public ResultData<WorkflowNode> getNode(@PathVariable Integer nodeId) {
         try {
             log.info("MCP查询工作流节点: nodeId={}", nodeId);
-            InterfaceWorkflowNodePO nodePO = workflowNodeCommandService.selectNodeEntity(nodeId);
-            WorkflowNode node = toDomain(nodePO);
+            WorkflowNode node = workflowNodeQueryService.selectByNodeId(nodeId);
             if (node == null) {
                 return ResponseRenderUtils.error("工作流节点不存在");
             }
@@ -80,9 +77,9 @@ public class McpWorkflowNodeController {
     public ResultData<Integer> createWorkflowNode(@RequestBody WorkflowNodeCreateMcpRequest nodeRequest) {
         try {
             log.info("MCP创建工作流节点: {}", nodeRequest);
-            InterfaceWorkflowNodePO nodePO = toNodePO(nodeRequest);
-            workflowNodeCommandService.createNode(nodePO);
-            int nodeId = nodePO.getNodeId();
+            WorkflowNode node = toNodeDomain(nodeRequest);
+            workflowNodeCommandService.createNode(node);
+            int nodeId = node.getNodeId();
             return ResponseRenderUtils.render(nodeId);
         } catch (Exception e) {
             log.error("MCP创建工作流节点失败", e);
@@ -100,8 +97,8 @@ public class McpWorkflowNodeController {
             if (updateRequest.getNodeId() == null) {
                 return ResponseRenderUtils.error("nodeId不能为空");
             }
-            InterfaceWorkflowNodePO nodePO = toNodePO(updateRequest);
-            int result = workflowNodeCommandService.updateNodeSelective(nodePO);
+            WorkflowNode node = toNodeDomain(updateRequest);
+            int result = workflowNodeCommandService.updateNodeSelective(node);
             return ResponseRenderUtils.render(result);
         } catch (Exception e) {
             log.error("MCP更新工作流节点失败", e);
@@ -124,55 +121,11 @@ public class McpWorkflowNodeController {
         }
     }
 
-    private InterfaceWorkflowNodeView toView(InterfaceWorkflowNodePO po) {
-        if (po == null) {
-            return null;
-        }
-        InterfaceWorkflowNodeView view = new InterfaceWorkflowNodeView();
-        view.setNodeId(po.getNodeId());
-        view.setNodeName(po.getNodeName());
-        view.setFlowId(po.getFlowId());
-        view.setParamFilterExpr(po.getParamFilterExpr());
-        view.setNodeType(po.getNodeType());
-        view.setMetaInfo(po.getMetaInfo());
-        view.setSplitField(po.getSplitField());
-        view.setScheduleExpr(po.getScheduleExpr());
-        view.setScheduleParamSourceType(po.getScheduleParamSourceType());
-        view.setKeywordField(po.getKeywordField());
-        view.setRemoteExtension(po.getRemoteExtension());
-        view.setExtensionParam(po.getExtensionParam());
-        return view;
-    }
-
-    private WorkflowNode toDomain(InterfaceWorkflowNodePO po) {
-        if (po == null) {
-            return null;
-        }
-        java.util.Map<String, String> extensionParam = null;
-        if (po.getExtensionParam() != null && !po.getExtensionParam().isEmpty()) {
-            extensionParam = JsonUtils.fromJsonStringToMap(po.getExtensionParam());
-        }
-        return WorkflowNode.builder()
-                .nodeId(po.getNodeId())
-                .nodeName(po.getNodeName())
-                .flowId(po.getFlowId())
-                .paramFilterExpr(po.getParamFilterExpr())
-                .nodeType(po.getNodeType())
-                .metaInfo(po.getMetaInfo())
-                .splitField(po.getSplitField())
-                .scheduleExpr(po.getScheduleExpr())
-                .scheduleParamSourceType(po.getScheduleParamSourceType())
-                .keywordField(po.getKeywordField())
-                .remoteExtension(po.getRemoteExtension())
-                .extensionParam(extensionParam)
-                .build();
-    }
-
-    private InterfaceWorkflowNodePO toNodePO(WorkflowNodeCreateMcpRequest request) {
+    private WorkflowNode toNodeDomain(WorkflowNodeCreateMcpRequest request) {
         if (request == null) {
             return null;
         }
-        return InterfaceWorkflowNodePO.builder()
+        return WorkflowNode.builder()
                 .nodeName(request.getNodeName())
                 .flowId(request.getFlowId())
                 .paramFilterExpr(request.getParamFilterExpr())
@@ -182,16 +135,16 @@ public class McpWorkflowNodeController {
                 .scheduleExpr(request.getScheduleExpr())
                 .splitField(request.getSplitField())
                 .remoteExtension(request.getRemoteExtension())
-                .extensionParam(request.getExtensionParam())
+                .extensionParam(request.getExtensionParam() != null ? JsonUtils.fromJsonStringToMap(request.getExtensionParam()) : null)
                 .scheduleParamSourceType(parseScheduleParamSourceType(request.getScheduleParamSourceType()))
                 .build();
     }
 
-    private InterfaceWorkflowNodePO toNodePO(WorkflowNodeUpdateMcpRequest request) {
+    private WorkflowNode toNodeDomain(WorkflowNodeUpdateMcpRequest request) {
         if (request == null) {
             return null;
         }
-        return InterfaceWorkflowNodePO.builder()
+        return WorkflowNode.builder()
                 .nodeId(request.getNodeId())
                 .nodeName(request.getNodeName())
                 .flowId(request.getFlowId())
@@ -201,7 +154,7 @@ public class McpWorkflowNodeController {
                 .keywordField(request.getKeywordField())
                 .splitField(request.getSplitField())
                 .remoteExtension(request.getRemoteExtension())
-                .extensionParam(request.getExtensionParam())
+                .extensionParam(request.getExtensionParam() != null ? JsonUtils.fromJsonStringToMap(request.getExtensionParam()) : null)
                 .scheduleExpr(request.getScheduleExpr())
                 .scheduleParamSourceType(parseScheduleParamSourceType(request.getScheduleParamSourceType()))
                 .build();

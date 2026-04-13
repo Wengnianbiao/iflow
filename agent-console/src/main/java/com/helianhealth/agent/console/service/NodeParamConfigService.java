@@ -3,7 +3,6 @@ package com.helianhealth.agent.console.service;
 import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.common.enums.ProcessType;
 import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
-import com.helianhealth.agent.repository.model.po.NodeParamConfigDO;
 import com.helianhealth.agent.console.model.dto.NodeParamConfigImportDTO;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -15,13 +14,13 @@ public interface NodeParamConfigService {
 
     List<NodeParamConfig> selectPostProcessConfigByNodeId(Integer nodeId);
 
-    PageList<NodeParamConfigDO> findAllNodeParamConfigs(Integer nodeId, ProcessType processType, String targetParam, int pageNum, int pageSize);
+    PageList<NodeParamConfig> findAllNodeParamConfigs(Integer nodeId, ProcessType processType, String targetParam, int pageNum, int pageSize);
 
-    List<NodeParamConfigDO> findAllNodeParamConfigsUnpaged(Integer nodeId, ProcessType processType);
+    List<NodeParamConfig> findAllNodeParamConfigsUnpaged(Integer nodeId, ProcessType processType);
 
-    NodeParamConfigDO update(NodeParamConfigDO config);
+    NodeParamConfig update(NodeParamConfig config);
 
-    NodeParamConfigDO save(NodeParamConfigDO config);
+    NodeParamConfig save(NodeParamConfig config);
 
     void deleteById(Integer configId);
 

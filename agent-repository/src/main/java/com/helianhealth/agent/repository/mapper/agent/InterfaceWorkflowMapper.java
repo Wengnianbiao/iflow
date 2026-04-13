@@ -1,15 +1,15 @@
 package com.helianhealth.agent.repository.mapper.agent;
 
-import com.helianhealth.agent.repository.model.po.InterfaceWorkflowDO;
+import com.helianhealth.agent.repository.model.po.InterfaceWorkflowPO;
 import tk.mybatis.mapper.common.Mapper;
 
 import java.util.List;
 
-public interface InterfaceWorkflowMapper extends Mapper<InterfaceWorkflowDO> {
+public interface InterfaceWorkflowMapper extends Mapper<InterfaceWorkflowPO> {
 
-    InterfaceWorkflowDO selectByInterfaceUri(String interfaceUri);
+    InterfaceWorkflowPO selectByInterfaceUri(String interfaceUri);
 
-    List<InterfaceWorkflowDO> selectAllWorkflows();
+    List<InterfaceWorkflowPO> selectAllWorkflows();
 
-    int createWorkflow(InterfaceWorkflowDO workflow);
+    int createWorkflow(InterfaceWorkflowPO workflow);
 }

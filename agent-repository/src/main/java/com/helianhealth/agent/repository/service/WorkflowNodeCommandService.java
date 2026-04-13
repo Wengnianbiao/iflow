@@ -1,20 +1,18 @@
 package com.helianhealth.agent.repository.service;
 
-import com.helianhealth.agent.repository.model.po.InterfaceWorkflowNodePO;
-
-import java.util.List;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 
 /**
  * 工作流节点写操作服务
  */
 public interface WorkflowNodeCommandService {
 
-    void createNode(InterfaceWorkflowNodePO node);
+    void createNode(WorkflowNode node);
 
     /**
      * 更新节点基本信息（动态SQL，只更新非空字段）
      */
-    int updateNodeSelective(InterfaceWorkflowNodePO node);
+    int updateNodeSelective(WorkflowNode node);
 
     /**
      * 更新节点的 remote_extension 字段
@@ -33,8 +31,4 @@ public interface WorkflowNodeCommandService {
     int updateScheduleFields(Integer nodeId, String scheduleParamSourceType, String scheduleExpr);
 
     void deleteNode(Integer nodeId);
-
-    List<InterfaceWorkflowNodePO> selectAllNodes(Integer flowId);
-
-    InterfaceWorkflowNodePO selectNodeEntity(Integer nodeId);
 }

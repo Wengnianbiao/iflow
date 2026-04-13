@@ -1,11 +1,11 @@
 package com.helianhealth.agent.repository.service.impl;
 
 import com.helianhealth.agent.repository.mapper.agent.InterfaceWorkflowMapper;
-import com.helianhealth.agent.repository.model.po.InterfaceWorkflowDO;
+import com.helianhealth.agent.repository.model.assembler.WorkflowAssembler;
+import com.helianhealth.agent.repository.model.domain.Workflow;
+import com.helianhealth.agent.repository.model.po.InterfaceWorkflowPO;
 import com.helianhealth.agent.repository.service.WorkflowCommandService;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 /**
  * 工作流写操作服务实现
@@ -20,18 +20,17 @@ public class WorkflowCommandServiceImpl implements WorkflowCommandService {
     }
 
     @Override
-    public int createWorkflow(InterfaceWorkflowDO workflow) {
-        return workflowMapper.createWorkflow(workflow);
+    public int createWorkflow(Workflow workflow) {
+        InterfaceWorkflowPO po = WorkflowAssembler.toPO(workflow);
+        int result = workflowMapper.createWorkflow(po);
+        workflow.setFlowId(po.getFlowId());
+        return result;
     }
 
     @Override
-    public List<InterfaceWorkflowDO> selectAllWorkflows() {
-        return workflowMapper.selectAllWorkflows();
-    }
-
-    @Override
-    public int updateWorkflow(InterfaceWorkflowDO workflow) {
-        return workflowMapper.updateByPrimaryKeySelective(workflow);
+    public int updateWorkflow(Workflow workflow) {
+        InterfaceWorkflowPO po = WorkflowAssembler.toPO(workflow);
+        return workflowMapper.updateByPrimaryKeySelective(po);
     }
 
     @Override
@@ -39,8 +38,4 @@ public class WorkflowCommandServiceImpl implements WorkflowCommandService {
         workflowMapper.deleteByPrimaryKey(flowId);
     }
 
-    @Override
-    public InterfaceWorkflowDO selectWorkflowEntity(Integer flowId) {
-        return workflowMapper.selectByPrimaryKey(flowId);
-    }
 }

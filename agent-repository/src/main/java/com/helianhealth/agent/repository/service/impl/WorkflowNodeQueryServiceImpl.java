@@ -1,13 +1,18 @@
 package com.helianhealth.agent.repository.service.impl;
 
-import com.helianhealth.agent.common.utils.JsonUtils;
+import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.PageInfo;
+import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.repository.mapper.agent.InterfaceFlowNodeMapper;
+import com.helianhealth.agent.repository.model.assembler.WorkflowNodeAssembler;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
+import com.helianhealth.agent.repository.model.dto.InterfaceWorkflowNodeView;
 import com.helianhealth.agent.repository.model.po.InterfaceWorkflowNodePO;
 import com.helianhealth.agent.repository.service.WorkflowNodeQueryService;
 import org.springframework.stereotype.Service;
 
-import java.util.Map;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 工作流节点查询服务基础实现
@@ -24,30 +29,28 @@ public class WorkflowNodeQueryServiceImpl implements WorkflowNodeQueryService {
     @Override
     public WorkflowNode selectByNodeId(Integer nodeId) {
         InterfaceWorkflowNodePO po = flowNodeMapper.selectByNodeId(nodeId);
-        return toWorkflowNode(po);
+        return WorkflowNodeAssembler.toDomain(po);
     }
 
-    protected WorkflowNode toWorkflowNode(InterfaceWorkflowNodePO po) {
-        if (po == null) {
-            return null;
-        }
-        Map<String, String> extensionParam = null;
-        if (po.getExtensionParam() != null && !po.getExtensionParam().isEmpty()) {
-            extensionParam = JsonUtils.fromJsonStringToMap(po.getExtensionParam());
-        }
-        return WorkflowNode.builder()
-                .nodeId(po.getNodeId())
-                .nodeName(po.getNodeName())
-                .flowId(po.getFlowId())
-                .paramFilterExpr(po.getParamFilterExpr())
-                .nodeType(po.getNodeType())
-                .metaInfo(po.getMetaInfo())
-                .splitField(po.getSplitField())
-                .scheduleExpr(po.getScheduleExpr())
-                .scheduleParamSourceType(po.getScheduleParamSourceType())
-                .keywordField(po.getKeywordField())
-                .remoteExtension(po.getRemoteExtension())
-                .extensionParam(extensionParam)
-                .build();
+    @Override
+    public List<InterfaceWorkflowNodeView> selectAllNodes(Integer flowId) {
+        return flowNodeMapper.selectAllNodes(flowId).stream()
+                .map(WorkflowNodeAssembler::toView)
+                .collect(Collectors.toList());
     }
+
+    @Override
+    public PageList<InterfaceWorkflowNodeView> selectAllNodesPaged(Integer flowId, int pageNum, int pageSize) {
+        PageHelper.startPage(pageNum, pageSize);
+        List<InterfaceWorkflowNodePO> poList = flowNodeMapper.selectAllNodes(flowId);
+        PageInfo<InterfaceWorkflowNodePO> pageInfo = new PageInfo<>(poList);
+        List<InterfaceWorkflowNodeView> views = poList.stream().map(WorkflowNodeAssembler::toView).collect(Collectors.toList());
+        PageList<InterfaceWorkflowNodeView> pageList = new PageList<>();
+        pageList.setRows(views);
+        pageList.setTotal(pageInfo.getTotal());
+        pageList.setPageNum(pageInfo.getPageNum());
+        pageList.setPageSize(pageInfo.getPageSize());
+        return pageList;
+    }
+
 }

@@ -3,7 +3,7 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.helianhealth.agent.repository.mapper.agent.NodeParamConfigMapper">
 
-    <resultMap id="NodeParamConfigResultMap" type="com.helianhealth.agent.repository.model.po.NodeParamConfigDO">
+    <resultMap id="NodeParamConfigResultMap" type="com.helianhealth.agent.repository.model.po.NodeParamConfigPO">
         <id property="configId" column="config_id"/>
         <result property="nodeId" column="node_id"/>
         <result property="processType" column="process_type"/>
@@ -20,7 +20,7 @@
         <result property="mappingRule" column="mapping_rule"/>
     </resultMap>
 
-    <insert id="insertNodeParamConfig" parameterType="com.helianhealth.agent.repository.model.po.NodeParamConfigDO"
+    <insert id="insertNodeParamConfig" parameterType="com.helianhealth.agent.repository.model.po.NodeParamConfigPO"
             useGeneratedKeys="true" keyProperty="configId" keyColumn="config_id">
         INSERT INTO node_param_config
         <trim prefix="(" suffix=")" suffixOverrides=",">
@@ -139,7 +139,7 @@
         </where>
     </select>
 
-    <update id="updateNodeParamConfig" parameterType="com.helianhealth.agent.repository.model.po.NodeParamConfigDO">
+    <update id="updateNodeParamConfig" parameterType="com.helianhealth.agent.repository.model.po.NodeParamConfigPO">
         UPDATE node_param_config
         SET
             process_type = #{processType,jdbcType=VARCHAR},

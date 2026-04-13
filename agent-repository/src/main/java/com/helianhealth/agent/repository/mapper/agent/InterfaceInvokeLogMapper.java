@@ -1,18 +1,18 @@
 package com.helianhealth.agent.repository.mapper.agent;
 
-import com.helianhealth.agent.repository.model.po.InterfaceInvokeLogDO;
+import com.helianhealth.agent.repository.model.po.InterfaceInvokeLogPO;
 import org.apache.ibatis.annotations.Param;
 import tk.mybatis.mapper.common.Mapper;
 
 import java.util.Date;
 import java.util.List;
 
-public interface InterfaceInvokeLogMapper extends Mapper<InterfaceInvokeLogDO> {
-    void insertLog(InterfaceInvokeLogDO logDO);
+public interface InterfaceInvokeLogMapper extends Mapper<InterfaceInvokeLogPO> {
+    void insertLog(InterfaceInvokeLogPO logDO);
 
-    List<InterfaceInvokeLogDO> selectAllInvokeLogs(@Param("nodeName") String nodeName, @Param("keyword") String keyword);
+    List<InterfaceInvokeLogPO> selectAllInvokeLogs(@Param("nodeName") String nodeName, @Param("keyword") String keyword);
 
-    List<InterfaceInvokeLogDO> selectLogsByTimeRange(@Param("startTime") Date startTime);
+    List<InterfaceInvokeLogPO> selectLogsByTimeRange(@Param("startTime") Date startTime);
 
     /**
      * 删除指定时间之前的日志

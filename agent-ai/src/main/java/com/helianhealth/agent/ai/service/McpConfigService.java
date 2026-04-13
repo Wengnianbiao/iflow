@@ -6,9 +6,9 @@ import com.helianhealth.agent.common.exception.AgentErrorCode;
 import com.helianhealth.agent.common.exception.AgentException;
 import com.helianhealth.agent.common.enums.ParamType;
 import com.helianhealth.agent.common.enums.ScheduleParamSourceType;
-import com.helianhealth.agent.repository.model.po.InterfaceWorkflowDO;
-import com.helianhealth.agent.repository.model.po.NodeParamConfigDO;
-import com.helianhealth.agent.repository.model.po.InterfaceWorkflowNodePO;
+import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
+import com.helianhealth.agent.repository.model.domain.Workflow;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.repository.service.NodeParamConfigCommandService;
 import com.helianhealth.agent.repository.service.WorkflowCommandService;
 import com.helianhealth.agent.repository.service.WorkflowNodeCommandService;
@@ -57,7 +57,7 @@ public class McpConfigService {
             WorkflowConfig config = JSON.parseObject(content, WorkflowConfig.class);
             
             // 3. 创建工作流
-            InterfaceWorkflowDO workflow = config.getWorkflow();
+            Workflow workflow = config.getWorkflow();
             workflowCommandService.createWorkflow(workflow);
             Integer flowId = workflow.getFlowId();
             log.info("工作流创建成功, flowId={}, flowName={}", flowId, workflow.getFlowName());
@@ -66,7 +66,7 @@ public class McpConfigService {
             WorkflowConfig.NodeConfig nodeConfig = config.getNode();
             nodeConfig.setFlowId(flowId);
             
-            InterfaceWorkflowNodePO nodeRequest = InterfaceWorkflowNodePO.builder()
+            WorkflowNode nodeRequest = WorkflowNode.builder()
                     .nodeName(nodeConfig.getNodeName())
                     .flowId(flowId)
                     .nodeType(parseNodeType(nodeConfig.getNodeType()))
@@ -84,9 +84,9 @@ public class McpConfigService {
             log.info("节点创建成功, nodeId={}, nodeName={}", nodeId, nodeConfig.getNodeName());
             
             // 5. 批量创建参数配置
-            List<NodeParamConfigDO> paramsConfig = config.getParamsConfig();
+            List<NodeParamConfig> paramsConfig = config.getParamsConfig();
             int paramCount = 0;
-            for (NodeParamConfigDO paramConfig : paramsConfig) {
+            for (NodeParamConfig paramConfig : paramsConfig) {
                 paramConfig.setNodeId(nodeId);
                 normalizeConfig(paramConfig);
                 nodeParamConfigCommandService.insertConfig(paramConfig);
@@ -111,9 +111,9 @@ public class McpConfigService {
      */
     @Data
     public static class WorkflowConfig {
-        private InterfaceWorkflowDO workflow;
+        private Workflow workflow;
         private NodeConfig node;
-        private List<NodeParamConfigDO> paramsConfig;
+        private List<NodeParamConfig> paramsConfig;
         
         @Data
         public static class NodeConfig {
@@ -156,7 +156,7 @@ public class McpConfigService {
         return ScheduleParamSourceType.valueOf(value.trim().toUpperCase());
     }
 
-    private void normalizeConfig(NodeParamConfigDO config) {
+    private void normalizeConfig(NodeParamConfig config) {
         if (config.getSort() == null) {
             config.setSort(1);
         }

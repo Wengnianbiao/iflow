@@ -5,7 +5,7 @@ import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.common.enums.ProcessType;
 import com.helianhealth.agent.common.utils.ResponseRenderUtils;
-import com.helianhealth.agent.repository.model.po.NodeParamConfigDO;
+import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 import com.helianhealth.agent.console.service.NodeParamConfigService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,14 +35,14 @@ public class NodeParamConfigController {
      * 获取所有节点参数配置
      */
     @GetMapping("/all")
-    public ResultData<PageList<NodeParamConfigDO>> getAllNodeParamConfigs(
+    public ResultData<PageList<NodeParamConfig>> getAllNodeParamConfigs(
             @RequestParam(value = "nodeId", required = false) Integer nodeId,
             @RequestParam(value = "processType", required = false) ProcessType processType,
             @RequestParam(value = "targetParam", required = false) String targetParam,
             @RequestParam(value = "pageNum", defaultValue = "1") int pageNum,
             @RequestParam(value = "pageSize", defaultValue = "10") int pageSize) {
         try {
-            PageList<NodeParamConfigDO> pageList = nodeParamConfigService.findAllNodeParamConfigs(nodeId, processType, targetParam, pageNum, pageSize);
+            PageList<NodeParamConfig> pageList = nodeParamConfigService.findAllNodeParamConfigs(nodeId, processType, targetParam, pageNum, pageSize);
             return ResponseRenderUtils.render(pageList);
         } catch (Exception e) {
             log.error("获取节点参数配置列表失败", e);
@@ -54,11 +54,11 @@ public class NodeParamConfigController {
      * 获取所有节点参数配置
      */
     @GetMapping("/all-unpaged")
-    public ResultData<List<NodeParamConfigDO>> getAllNodeParamConfigsUnpaged(
+    public ResultData<List<NodeParamConfig>> getAllNodeParamConfigsUnpaged(
             @RequestParam(value = "nodeId", required = false) Integer nodeId,
             @RequestParam(value = "processType", required = false) ProcessType processType) {
         try {
-            List<NodeParamConfigDO> pageList = nodeParamConfigService.findAllNodeParamConfigsUnpaged(nodeId, processType);
+            List<NodeParamConfig> pageList = nodeParamConfigService.findAllNodeParamConfigsUnpaged(nodeId, processType);
             return ResponseRenderUtils.render(pageList);
         } catch (Exception e) {
             log.error("获取节点参数配置列表失败", e);
@@ -70,7 +70,7 @@ public class NodeParamConfigController {
      * 创建节点参数配置
      */
     @PostMapping("/create")
-    public ResultData<NodeParamConfigDO> createNodeParamConfig(@RequestBody NodeParamConfigDO config) {
+    public ResultData<NodeParamConfig> createNodeParamConfig(@RequestBody NodeParamConfig config) {
         try {
 
             log.info("创建节点参数配置: {}", config);
@@ -84,7 +84,7 @@ public class NodeParamConfigController {
             }
 
             // 调用服务层保存逻辑
-            NodeParamConfigDO savedConfig = nodeParamConfigService.save(config);
+            NodeParamConfig savedConfig = nodeParamConfigService.save(config);
 
             if (savedConfig != null) {
                 return ResponseRenderUtils.render(savedConfig);
@@ -101,7 +101,7 @@ public class NodeParamConfigController {
      * 更新节点参数配置
      */
     @PostMapping("/update")
-    public ResultData<NodeParamConfigDO> updateNodeParamConfig(@RequestBody NodeParamConfigDO config) {
+    public ResultData<NodeParamConfig> updateNodeParamConfig(@RequestBody NodeParamConfig config) {
         try {
             // 验证参数是否为空
             if (config == null || config.getConfigId() == null) {
@@ -109,7 +109,7 @@ public class NodeParamConfigController {
             }
 
             // 调用服务层更新逻辑
-            NodeParamConfigDO updatedConfig = nodeParamConfigService.update(config);
+            NodeParamConfig updatedConfig = nodeParamConfigService.update(config);
 
             if (updatedConfig != null) {
                 return ResponseRenderUtils.render(updatedConfig);

@@ -5,12 +5,11 @@ import com.helianhealth.agent.ai.model.NodeParamConfigMcpResponse;
 import com.helianhealth.agent.ai.model.NodeParamConfigMcpView;
 import com.helianhealth.agent.common.enums.ParamType;
 import com.helianhealth.agent.common.enums.ProcessType;
-import com.helianhealth.agent.repository.mapper.agent.InterfaceFlowNodeMapper;
-import com.helianhealth.agent.repository.mapper.agent.NodeParamConfigMapper;
 import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
-import com.helianhealth.agent.repository.model.po.InterfaceWorkflowNodePO;
-import com.helianhealth.agent.repository.model.po.NodeParamConfigDO;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.repository.service.NodeParamConfigCommandService;
+import com.helianhealth.agent.repository.service.NodeParamConfigQueryService;
+import com.helianhealth.agent.repository.service.WorkflowNodeQueryService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -23,25 +22,25 @@ import java.util.stream.Collectors;
 public class AiNodeParamConfigService {
 
     private final NodeParamConfigCommandService nodeParamConfigCommandService;
-    private final NodeParamConfigMapper nodeParamConfigMapper;
-    private final InterfaceFlowNodeMapper flowNodeMapper;
+    private final NodeParamConfigQueryService nodeParamConfigQueryService;
+    private final WorkflowNodeQueryService workflowNodeQueryService;
 
     public boolean nodeExists(Integer nodeId) {
-        return flowNodeMapper.selectByNodeId(nodeId) != null;
+        return workflowNodeQueryService.selectByNodeId(nodeId) != null;
     }
 
     public String getNodeName(Integer nodeId) {
-        InterfaceWorkflowNodePO node = flowNodeMapper.selectByNodeId(nodeId);
+        WorkflowNode node = workflowNodeQueryService.selectByNodeId(nodeId);
         return node == null ? null : node.getNodeName();
     }
 
-    public List<NodeParamConfigDO> findAllNodeParamConfigsUnpaged(Integer nodeId, ProcessType processType) {
+    public List<NodeParamConfig> findAllNodeParamConfigsUnpaged(Integer nodeId, ProcessType processType) {
         String type = processType == null ? null : processType.name();
-        return nodeParamConfigCommandService.selectAllConfigs(nodeId, type, null);
+        return nodeParamConfigQueryService.selectAllConfigs(nodeId, type, null);
     }
 
     public NodeParamConfigMcpResponse exportNodeParamConfigs(Integer nodeId) {
-        List<NodeParamConfigDO> configs = nodeParamConfigCommandService.selectAllConfigs(nodeId, null, null);
+        List<NodeParamConfig> configs = nodeParamConfigQueryService.selectAllConfigs(nodeId, null, null);
         List<NodeParamConfigMcpView> preParams = buildTree(configs, null, ProcessType.PRE_PROCESS);
         List<NodeParamConfigMcpView> postParams = buildTree(configs, null, ProcessType.POST_PROCESS);
         String nodeName = getNodeName(nodeId);
@@ -49,18 +48,16 @@ public class AiNodeParamConfigService {
     }
 
     public List<NodeParamConfig> findPreProcessDomainConfigs(Integer nodeId) {
-        List<NodeParamConfigDO> configs = nodeParamConfigMapper.selectPreProcessConfigByNodeId(nodeId);
-        return configs.stream().map(this::toDomain).collect(Collectors.toList());
+        return nodeParamConfigQueryService.selectPreProcessConfigByNodeId(nodeId);
     }
 
     public List<NodeParamConfig> findPostProcessDomainConfigs(Integer nodeId) {
-        List<NodeParamConfigDO> configs = nodeParamConfigMapper.selectPostProcessConfigByNodeId(nodeId);
-        return configs.stream().map(this::toDomain).collect(Collectors.toList());
+        return nodeParamConfigQueryService.selectPostProcessConfigByNodeId(nodeId);
     }
 
     public void deleteAllNodeParamConfigs(Integer nodeId) {
-        List<NodeParamConfigDO> configs = nodeParamConfigCommandService.selectAllConfigs(nodeId, null, null);
-        for (NodeParamConfigDO config : configs) {
+        List<NodeParamConfig> configs = nodeParamConfigQueryService.selectAllConfigs(nodeId, null, null);
+        for (NodeParamConfig config : configs) {
             nodeParamConfigCommandService.deleteConfig(config.getConfigId());
         }
     }
@@ -79,11 +76,11 @@ public class AiNodeParamConfigService {
         return count;
     }
 
-    public NodeParamConfigDO updateNodeParamConfig(NodeParamConfigMcpView configView) {
-        NodeParamConfigDO config = NodeParamConfigMcpConverter.toDO(configView);
+    public NodeParamConfig updateNodeParamConfig(NodeParamConfigMcpView configView) {
+        NodeParamConfig config = NodeParamConfigMcpConverter.toDomain(configView);
         normalizeConfig(config);
         nodeParamConfigCommandService.updateConfig(config);
-        return nodeParamConfigCommandService.selectConfigById(configView.getConfigId());
+        return nodeParamConfigQueryService.selectConfigById(configView.getConfigId());
     }
 
     public void deleteNodeParamConfig(Integer configId) {
@@ -91,8 +88,8 @@ public class AiNodeParamConfigService {
     }
 
     private int processConfigRecursive(NodeParamConfigMcpView paramConfigView, Integer nodeId, Integer parentId) {
-        NodeParamConfigDO configDO = NodeParamConfigMcpConverter.toDO(paramConfigView, nodeId, parentId);
-        NodeParamConfigDO savedConfig = save(configDO);
+        NodeParamConfig config = NodeParamConfigMcpConverter.toDomain(paramConfigView, nodeId, parentId);
+        NodeParamConfig savedConfig = save(config);
         int count = 1;
         if (paramConfigView.getChildParams() != null && !paramConfigView.getChildParams().isEmpty()) {
             for (NodeParamConfigMcpView child : paramConfigView.getChildParams()) {
@@ -102,13 +99,13 @@ public class AiNodeParamConfigService {
         return count;
     }
 
-    private NodeParamConfigDO save(NodeParamConfigDO config) {
+    private NodeParamConfig save(NodeParamConfig config) {
         normalizeConfig(config);
         nodeParamConfigCommandService.insertConfig(config);
         return config;
     }
 
-    private void normalizeConfig(NodeParamConfigDO config) {
+    private void normalizeConfig(NodeParamConfig config) {
         if (config.getSort() == null) {
             config.setSort(1);
         }
@@ -117,7 +114,7 @@ public class AiNodeParamConfigService {
         }
     }
 
-    private List<NodeParamConfigMcpView> buildTree(List<NodeParamConfigDO> configs, Integer parentId, ProcessType processType) {
+    private List<NodeParamConfigMcpView> buildTree(List<NodeParamConfig> configs, Integer parentId, ProcessType processType) {
         if (configs == null || configs.isEmpty()) {
             return Collections.emptyList();
         }
@@ -136,24 +133,5 @@ public class AiNodeParamConfigService {
                     return view;
                 })
                 .collect(Collectors.toList());
-    }
-
-    private NodeParamConfig toDomain(NodeParamConfigDO config) {
-        return NodeParamConfig.builder()
-                .configId(config.getConfigId())
-                .nodeId(config.getNodeId())
-                .parentId(config.getParentId())
-                .processType(config.getProcessType())
-                .sourceParamKey(config.getSourceParamKey())
-                .sourceParamType(config.getSourceParamType())
-                .paramDesc(config.getParamDesc())
-                .targetParamKey(config.getTargetParamKey())
-                .targetParamType(config.getTargetParamType())
-                .keepSingleElementKey(config.getKeepSingleElementKey())
-                .sort(config.getSort())
-                .mappingType(config.getMappingType())
-                .mappingSource(config.getMappingSource())
-                .mappingRule(config.getMappingRule())
-                .build();
     }
 }

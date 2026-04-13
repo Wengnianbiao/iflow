@@ -24,9 +24,6 @@ public class BusinessDataSplitter {
         return splitBySimpleField(splitField, businessData);
     }
 
-    /**
-     * 简单字段拆分（原有逻辑）
-     */
     private List<Map<String, Object>> splitBySimpleField(String splitField, Map<String, Object> businessData) {
         // 获取待分割字段业务数据
         Object splitBusinessData = businessData.get(splitField);

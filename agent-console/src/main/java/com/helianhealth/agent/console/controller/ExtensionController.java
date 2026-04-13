@@ -1,7 +1,7 @@
 package com.helianhealth.agent.console.controller;
 
 import com.helianhealth.agent.console.enums.ExtensionType;
-import com.helianhealth.agent.repository.model.po.NodeExtensionConfigDO;
+import com.helianhealth.agent.repository.model.domain.NodeExtensionConfig;
 import com.helianhealth.agent.console.model.dto.NodeExtensionConfigCreateReq;
 import com.helianhealth.agent.console.model.dto.NodeExtensionConfigDetailResponse;
 import com.helianhealth.agent.console.model.dto.NodeExtensionConfigUpdateReq;
@@ -80,7 +80,7 @@ public class ExtensionController {
      * @param extensionType 扩展类型（filter/remote）
      */
     @GetMapping("/{extensionType}/list")
-    public List<NodeExtensionConfigDO> listByType(@PathVariable String extensionType) {
+    public List<NodeExtensionConfig> listByType(@PathVariable String extensionType) {
         ExtensionType type = ExtensionType.fromCode(extensionType);
         return dynamicSpiAdminService.listExtensionsBySpiInterface(type.getSpiInterface());
     }
@@ -98,7 +98,7 @@ public class ExtensionController {
      * 获取所有启用的扩展配置
      */
     @GetMapping("/enabled-configs")
-    public List<NodeExtensionConfigDO> listEnabledConfigs() {
+    public List<NodeExtensionConfig> listEnabledConfigs() {
         return dynamicSpiAdminService.listEnabledConfigs();
     }
 

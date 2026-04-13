@@ -6,7 +6,7 @@ import com.helianhealth.agent.common.enums.MappingSource;
 import com.helianhealth.agent.common.enums.MappingType;
 import com.helianhealth.agent.common.enums.ParamType;
 import com.helianhealth.agent.common.enums.ProcessType;
-import com.helianhealth.agent.repository.model.po.NodeParamConfigDO;
+import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -159,9 +159,9 @@ public class NodeParamConfigMcpConverter {
     // ==================== 转换方法 ====================
 
     /**
-     * DO -> MCP视图（枚举转字符串）
+     * Domain -> MCP视图（枚举转字符串）
      */
-    public static NodeParamConfigMcpView toMcpView(NodeParamConfigDO config) {
+    public static NodeParamConfigMcpView toMcpView(NodeParamConfig config) {
         if (config == null) {
             return null;
         }
@@ -182,9 +182,9 @@ public class NodeParamConfigMcpConverter {
     }
 
     /**
-     * DO列表 -> MCP视图列表（扁平）
+     * Domain列表 -> MCP视图列表（扁平）
      */
-    public static List<NodeParamConfigMcpView> toMcpViewList(List<NodeParamConfigDO> configs) {
+    public static List<NodeParamConfigMcpView> toMcpViewList(List<NodeParamConfig> configs) {
         if (configs == null) {
             return new ArrayList<>();
         }
@@ -223,13 +223,13 @@ public class NodeParamConfigMcpConverter {
     }
 
     /**
-     * MCP视图 -> DO（用于更新，包含枚举转换）
+     * MCP视图 -> Domain（用于更新，包含枚举转换）
      */
-    public static NodeParamConfigDO toDO(NodeParamConfigMcpView view) {
+    public static NodeParamConfig toDomain(NodeParamConfigMcpView view) {
         if (view == null) {
             return null;
         }
-        return NodeParamConfigDO.builder()
+        return NodeParamConfig.builder()
                 .configId(view.getConfigId())
                 .processType(parseProcessType(view.getProcessType()))
                 .sourceParamKey(view.getSourceParamKey())
@@ -245,11 +245,11 @@ public class NodeParamConfigMcpConverter {
                 .build();
     }
 
-    public static NodeParamConfigDO toDO(NodeParamConfigMcpView view, Integer nodeId, Integer parentId) {
+    public static NodeParamConfig toDomain(NodeParamConfigMcpView view, Integer nodeId, Integer parentId) {
         if (view == null) {
             return null;
         }
-        return NodeParamConfigDO.builder()
+        return NodeParamConfig.builder()
                 .processType(parseProcessType(view.getProcessType()))
                 .nodeId(nodeId)
                 .parentId(parentId)

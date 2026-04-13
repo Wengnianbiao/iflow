@@ -7,7 +7,6 @@ import com.helianhealth.agent.common.utils.ResponseRenderUtils;
 import com.helianhealth.agent.console.model.dto.MockInvokeRequest;
 import com.helianhealth.agent.console.service.MockScheduleService;
 import com.helianhealth.agent.repository.model.domain.MockConfig;
-import com.helianhealth.agent.repository.model.po.MockConfigDO;
 import com.helianhealth.agent.repository.service.MockConfigCommandService;
 import com.helianhealth.agent.repository.service.MockConfigQueryService;
 import lombok.AllArgsConstructor;
@@ -71,7 +70,7 @@ public class MockController {
     }
 
     @PostMapping("/create")
-    public ResultData<MockConfigDO> createMockConfig(@RequestBody MockConfigDO mockConfig) {
+    public ResultData<MockConfig> createMockConfig(@RequestBody MockConfig mockConfig) {
         try {
             if (mockConfig.getNodeId() == null) {
                 return ResponseRenderUtils.error("节点ID不能为空");
@@ -92,7 +91,7 @@ public class MockController {
     }
 
     @PostMapping("/update")
-    public ResultData<Integer> updateMockConfig(@RequestBody MockConfigDO mockConfig) {
+    public ResultData<Integer> updateMockConfig(@RequestBody MockConfig mockConfig) {
         try {
             if (mockConfig.getMockId() == null) {
                 return ResponseRenderUtils.error("MockID不能为空");

@@ -8,7 +8,7 @@ import com.helianhealth.agent.ai.service.AiNodeParamConfigService;
 import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.common.enums.ProcessType;
 import com.helianhealth.agent.common.utils.ResponseRenderUtils;
-import com.helianhealth.agent.repository.model.po.NodeParamConfigDO;
+import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -53,7 +53,7 @@ public class McpNodeParamConfigController {
             if (nodeId == null) {
                 return ResponseRenderUtils.error("nodeId不能为空");
             }
-            List<NodeParamConfigDO> configs = nodeParamConfigService.findAllNodeParamConfigsUnpaged(nodeId, processType);
+            List<NodeParamConfig> configs = nodeParamConfigService.findAllNodeParamConfigsUnpaged(nodeId, processType);
             List<NodeParamConfigMcpView> mcpViews = NodeParamConfigMcpConverter.toMcpViewList(configs);
             return ResponseRenderUtils.render(mcpViews);
         } catch (Exception e) {
@@ -160,7 +160,7 @@ public class McpNodeParamConfigController {
             if (config == null || config.getConfigId() == null) {
                 return ResponseRenderUtils.error("参数不能为空，configId必须存在");
             }
-            NodeParamConfigDO updatedConfig = nodeParamConfigService.updateNodeParamConfig(config);
+            NodeParamConfig updatedConfig = nodeParamConfigService.updateNodeParamConfig(config);
             if (updatedConfig != null) {
                 return ResponseRenderUtils.render(NodeParamConfigMcpConverter.toMcpView(updatedConfig));
             } else {

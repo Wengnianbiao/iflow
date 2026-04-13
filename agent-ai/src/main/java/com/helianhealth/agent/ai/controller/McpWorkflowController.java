@@ -6,8 +6,8 @@ import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.common.enums.WorkflowContentType;
 import com.helianhealth.agent.common.utils.ResponseRenderUtils;
 import com.helianhealth.agent.repository.model.domain.Workflow;
-import com.helianhealth.agent.repository.model.po.InterfaceWorkflowDO;
 import com.helianhealth.agent.repository.service.WorkflowCommandService;
+import com.helianhealth.agent.repository.service.WorkflowQueryService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -31,16 +31,17 @@ import java.util.List;
 public class McpWorkflowController {
 
     private final WorkflowCommandService workflowCommandService;
+    private final WorkflowQueryService workflowQueryService;
 
     /**
      * 查询所有工作流（不分页）
      * 用于AI获取当前系统中的所有工作流及其ID
      */
     @GetMapping("/list")
-    public ResultData<List<InterfaceWorkflowDO>> listAllWorkflows() {
+    public ResultData<List<Workflow>> listAllWorkflows() {
         try {
             log.info("MCP查询所有工作流");
-            List<InterfaceWorkflowDO> workflows = workflowCommandService.selectAllWorkflows();
+            List<Workflow> workflows = workflowQueryService.selectAllWorkflows();
             return ResponseRenderUtils.render(workflows);
         } catch (Exception e) {
             log.error("MCP查询工作流列表失败", e);
@@ -55,8 +56,7 @@ public class McpWorkflowController {
     public ResultData<Workflow> getWorkflow(@PathVariable Integer flowId) {
         try {
             log.info("MCP查询工作流: flowId={}", flowId);
-            InterfaceWorkflowDO workflowDO = workflowCommandService.selectWorkflowEntity(flowId);
-            Workflow workflow = toWorkflow(workflowDO);
+            Workflow workflow = workflowQueryService.selectByFlowId(flowId);
             if (workflow == null) {
                 return ResponseRenderUtils.error("工作流不存在");
             }
@@ -74,7 +74,7 @@ public class McpWorkflowController {
     public ResultData<Integer> createWorkflow(@RequestBody WorkflowCreateMcpRequest request) {
         try {
             log.info("MCP创建工作流: {}", request);
-            InterfaceWorkflowDO workflow = toWorkflowDO(request);
+            Workflow workflow = toWorkflowDomain(request);
             workflowCommandService.createWorkflow(workflow);
             Integer flowId = workflow.getFlowId();
             return ResponseRenderUtils.render(flowId);
@@ -94,7 +94,7 @@ public class McpWorkflowController {
             if (request.getFlowId() == null) {
                 return ResponseRenderUtils.error("flowId不能为空");
             }
-            InterfaceWorkflowDO workflow = toWorkflowDO(request);
+            Workflow workflow = toWorkflowDomain(request);
             int result = workflowCommandService.updateWorkflow(workflow);
             return ResponseRenderUtils.render(result);
         } catch (Exception e) {
@@ -118,26 +118,11 @@ public class McpWorkflowController {
         }
     }
 
-    private Workflow toWorkflow(InterfaceWorkflowDO entity) {
-        if (entity == null) {
-            return null;
-        }
-        return Workflow.builder()
-                .flowId(entity.getFlowId())
-                .flowName(entity.getFlowName())
-                .interfaceUri(entity.getInterfaceUri())
-                .contentType(entity.getContentType())
-                .contentMetaInfo(entity.getContentMetaInfo())
-                .firstFlowNodes(entity.getFirstFlowNodes())
-                .status(entity.getStatus())
-                .build();
-    }
-
-    private InterfaceWorkflowDO toWorkflowDO(WorkflowCreateMcpRequest request) {
+    private Workflow toWorkflowDomain(WorkflowCreateMcpRequest request) {
         if (request == null) {
             return null;
         }
-        return InterfaceWorkflowDO.builder()
+        return Workflow.builder()
                 .flowName(request.getFlowName())
                 .interfaceUri(request.getInterfaceUri())
                 .contentType(parseContentType(request.getContentType()))
@@ -147,11 +132,11 @@ public class McpWorkflowController {
                 .build();
     }
 
-    private InterfaceWorkflowDO toWorkflowDO(WorkflowUpdateMcpRequest request) {
+    private Workflow toWorkflowDomain(WorkflowUpdateMcpRequest request) {
         if (request == null) {
             return null;
         }
-        return InterfaceWorkflowDO.builder()
+        return Workflow.builder()
                 .flowId(request.getFlowId())
                 .flowName(request.getFlowName())
                 .interfaceUri(request.getInterfaceUri())

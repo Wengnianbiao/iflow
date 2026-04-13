@@ -2,9 +2,11 @@ package com.helianhealth.agent.repository.model.domain;
 
 import com.helianhealth.agent.common.enums.NodeType;
 import com.helianhealth.agent.common.enums.ScheduleParamSourceType;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
 
 import java.util.Map;
 
@@ -15,6 +17,8 @@ import java.util.Map;
 @EqualsAndHashCode(callSuper = false)
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class WorkflowNode {
 
     private Integer nodeId;

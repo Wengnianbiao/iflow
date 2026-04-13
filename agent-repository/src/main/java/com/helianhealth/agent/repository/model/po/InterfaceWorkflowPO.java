@@ -26,7 +26,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "interface_workflow")
-public class InterfaceWorkflowDO {
+public class InterfaceWorkflowPO {
 
     @Id
     @Column(name = "flow_id", nullable = false, updatable = false)

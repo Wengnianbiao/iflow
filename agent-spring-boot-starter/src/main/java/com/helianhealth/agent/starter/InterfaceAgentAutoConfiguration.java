@@ -9,7 +9,6 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * Interface Agent 自动配置类
- * 其他项目引入 agent-spring-boot-starter 后，该配置会自动生效
  */
 @Configuration
 @ConditionalOnProperty(prefix = "interface-agent", name = "enabled", havingValue = "true", matchIfMissing = true)

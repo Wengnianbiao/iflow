@@ -20,7 +20,7 @@ import java.util.Date;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "interface_invoke_log")
-public class InterfaceInvokeLogDO {
+public class InterfaceInvokeLogPO {
 
     @Id
     @Column(name = "log_id")

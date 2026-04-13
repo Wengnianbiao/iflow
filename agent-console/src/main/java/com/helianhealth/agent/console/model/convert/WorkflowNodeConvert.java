@@ -1,10 +1,9 @@
 package com.helianhealth.agent.console.model.convert;
 
-import com.helianhealth.agent.repository.model.dto.InterfaceWorkflowNodeView;
 import com.helianhealth.agent.common.enums.NodeType;
 import com.helianhealth.agent.console.model.dto.NodeConfigImportDTO;
 import com.helianhealth.agent.console.model.dto.NodeParamConfigImportDTO;
-import com.helianhealth.agent.repository.model.po.InterfaceWorkflowNodePO;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -13,37 +12,15 @@ import java.util.stream.Collectors;
 @Repository
 public class WorkflowNodeConvert {
 
-    public InterfaceWorkflowNodeView poConvertToView(InterfaceWorkflowNodePO po) {
-        if (po == null) {
-            return null;
-        }
-
-        InterfaceWorkflowNodeView view = new InterfaceWorkflowNodeView();
-        view.setNodeId(po.getNodeId());
-        view.setNodeName(po.getNodeName());
-        view.setFlowId(po.getFlowId());
-        view.setParamFilterExpr(po.getParamFilterExpr());
-        view.setNodeType(po.getNodeType());
-        view.setMetaInfo(po.getMetaInfo());
-        view.setSplitField(po.getSplitField());
-        view.setScheduleExpr(po.getScheduleExpr());
-        view.setScheduleParamSourceType(po.getScheduleParamSourceType());
-        view.setKeywordField(po.getKeywordField());
-        view.setRemoteExtension(po.getRemoteExtension());
-        view.setExtensionParam(po.getExtensionParam());
-
-        return view;
-    }
-
-    public InterfaceWorkflowNodePO importNodeToPo(NodeConfigImportDTO.NodeInfo nodeInfo) {
-        InterfaceWorkflowNodePO po = new InterfaceWorkflowNodePO();
-        po.setNodeName(nodeInfo.getNodeName());
-        po.setNodeType(NodeType.valueOf(nodeInfo.getNodeType()));
-        po.setMetaInfo(nodeInfo.getMetaInfo());
-        po.setParamFilterExpr(nodeInfo.getParamFilterExpr());
-        po.setKeywordField(nodeInfo.getKeywordField());
-        po.setSplitField(nodeInfo.getSplitField());
-        return po;
+    public WorkflowNode importNodeToDomain(NodeConfigImportDTO.NodeInfo nodeInfo) {
+        return WorkflowNode.builder()
+                .nodeName(nodeInfo.getNodeName())
+                .nodeType(NodeType.valueOf(nodeInfo.getNodeType()))
+                .metaInfo(nodeInfo.getMetaInfo())
+                .paramFilterExpr(nodeInfo.getParamFilterExpr())
+                .keywordField(nodeInfo.getKeywordField())
+                .splitField(nodeInfo.getSplitField())
+                .build();
     }
 
     public NodeParamConfigImportDTO.NodeParamConfigDTO convertNodeParamConfig(NodeConfigImportDTO.NodeParamConfigDTO source) {

@@ -4,8 +4,8 @@ import com.helianhealth.agent.common.exception.AgentErrorCode;
 import com.helianhealth.agent.common.exception.AgentException;
 import com.helianhealth.agent.common.extension.model.DynamicSpiDefinition;
 import com.helianhealth.agent.common.extension.config.DynamicSpiConfigSource;
-import com.helianhealth.agent.repository.mapper.agent.NodeExtensionConfigMapper;
-import com.helianhealth.agent.repository.model.po.NodeExtensionConfigDO;
+import com.helianhealth.agent.repository.model.domain.NodeExtensionConfig;
+import com.helianhealth.agent.repository.service.NodeExtensionConfigQueryService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -15,20 +15,20 @@ import java.util.stream.Collectors;
 
 /**
  * 基于 workflow 的节点扩展配置仓储实现
- * 负责将节点扩展配置 DO 转换为 extension 模块的领域模型
+ * 负责将节点扩展配置领域模型转换为 extension 模块的领域模型
  */
 @Service
 @Slf4j
 public class NodeExtensionConfigRepositoryImpl implements DynamicSpiConfigSource {
 
     @Autowired
-    private NodeExtensionConfigMapper nodeExtensionConfigMapper;
+    private NodeExtensionConfigQueryService extensionConfigQueryService;
 
     @Override
     public List<DynamicSpiDefinition> listEnabled() {
         try {
             // Fetch all enabled configurations
-            List<NodeExtensionConfigDO> list = nodeExtensionConfigMapper.selectByEnabled(1);
+            List<NodeExtensionConfig> list = extensionConfigQueryService.selectByEnabled(1);
             return list.stream().map(this::convert).collect(Collectors.toList());
         } catch (Exception e) {
             log.error("Failed to fetch enabled configurations", e);
@@ -38,11 +38,11 @@ public class NodeExtensionConfigRepositoryImpl implements DynamicSpiConfigSource
 
     @Override
     public DynamicSpiDefinition findBySpiInterfaceAndExtension(String spiInterface, String extensionName) {
-        NodeExtensionConfigDO doObj = nodeExtensionConfigMapper.selectBySpiInterfaceAndExtension(spiInterface, extensionName);
-        return convert(doObj);
+        NodeExtensionConfig config = extensionConfigQueryService.selectBySpiInterfaceAndExtension(spiInterface, extensionName);
+        return convert(config);
     }
 
-    private DynamicSpiDefinition convert(NodeExtensionConfigDO source) {
+    private DynamicSpiDefinition convert(NodeExtensionConfig source) {
         if (source == null) {
             return null;
         }

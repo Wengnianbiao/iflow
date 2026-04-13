@@ -1,7 +1,5 @@
 package com.helianhealth.agent.console.service.impl;
 
-import com.github.pagehelper.PageHelper;
-import com.github.pagehelper.PageInfo;
 import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.common.exception.AgentErrorCode;
 import com.helianhealth.agent.common.exception.AgentException;
@@ -11,10 +9,11 @@ import com.helianhealth.agent.console.model.dto.NodeParamConfigImportDTO;
 import com.helianhealth.agent.console.service.InterfaceWorkflowNodeService;
 import com.helianhealth.agent.console.service.InterfaceWorkflowService;
 import com.helianhealth.agent.console.service.NodeParamConfigService;
+import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
+import com.helianhealth.agent.repository.model.domain.Workflow;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
-import com.helianhealth.agent.repository.model.po.InterfaceWorkflowDO;
-import com.helianhealth.agent.repository.model.po.NodeParamConfigDO;
 import com.helianhealth.agent.repository.service.WorkflowCommandService;
+import com.helianhealth.agent.repository.service.WorkflowQueryService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,41 +29,32 @@ import java.util.stream.Collectors;
 public class InterfaceWorkflowServiceImpl implements InterfaceWorkflowService {
 
     private final WorkflowCommandService workflowCommandService;
+    private final WorkflowQueryService workflowQueryService;
     private final InterfaceWorkflowNodeService workflowNodeService;
     private final NodeParamConfigService nodeParamConfigService;
 
     public InterfaceWorkflowServiceImpl(WorkflowCommandService workflowCommandService,
+                                        WorkflowQueryService workflowQueryService,
                                         InterfaceWorkflowNodeService workflowNodeService,
                                         NodeParamConfigService nodeParamConfigService) {
         this.workflowCommandService = workflowCommandService;
+        this.workflowQueryService = workflowQueryService;
         this.workflowNodeService = workflowNodeService;
         this.nodeParamConfigService = nodeParamConfigService;
     }
 
     @Override
-    public int save(InterfaceWorkflowDO workflow) {
-        // 验证参数
+    public int save(Workflow workflow) {
         if (workflow == null) {
             throw new IllegalArgumentException("参数不能为空");
         }
-
         return workflowCommandService.createWorkflow(workflow);
     }
 
     @Override
-    public PageList<InterfaceWorkflowDO> getAllWorkflows(int pageNum, int pageSize) {
+    public PageList<Workflow> getAllWorkflows(int pageNum, int pageSize) {
         try {
-            PageHelper.startPage(pageNum, pageSize);
-            List<InterfaceWorkflowDO> workflows = workflowCommandService.selectAllWorkflows();
-            PageInfo<InterfaceWorkflowDO> pageInfo = new PageInfo<>(workflows);
-
-            // 构建 PageList 对象
-            PageList<InterfaceWorkflowDO> pageList = new PageList<>();
-            pageList.setRows(workflows);
-            pageList.setTotal(pageInfo.getTotal());
-            pageList.setPageNum(pageInfo.getPageNum());
-            pageList.setPageSize(pageInfo.getPageSize());
-            return pageList;
+            return workflowQueryService.selectAllWorkflowsPaged(pageNum, pageSize);
         } catch (Exception e) {
             log.error("获取工作流列表失败", e);
             throw new AgentException(AgentErrorCode.CONSOLE_OPERATION_FAILED, "获取工作流列表失败: " + e.getMessage(), e);
@@ -72,24 +62,21 @@ public class InterfaceWorkflowServiceImpl implements InterfaceWorkflowService {
     }
 
     @Override
-    public List<InterfaceWorkflowDO> getAllWorkflowsWithoutPaged() {
-        return workflowCommandService.selectAllWorkflows();
+    public List<Workflow> getAllWorkflowsWithoutPaged() {
+        return workflowQueryService.selectAllWorkflows();
     }
 
     @Override
-    public int update(InterfaceWorkflowDO interfaceInstanceDO) {
-        return workflowCommandService.updateWorkflow(interfaceInstanceDO);
+    public int update(Workflow workflow) {
+        return workflowCommandService.updateWorkflow(workflow);
     }
 
     @Override
     public void deleteByFlowId(Integer flowId) {
         try {
-            // 验证参数
             if (flowId == null) {
                 throw new IllegalArgumentException("参数不能为空，flowId 必须存在");
             }
-
-            // 执行删除操作
             workflowCommandService.deleteWorkflow(flowId);
         } catch (Exception e) {
             log.error("删除工作流失败", e);
@@ -99,7 +86,7 @@ public class InterfaceWorkflowServiceImpl implements InterfaceWorkflowService {
 
     @Override
     public WorkflowFullExportRsp exportWorkflowFull(Integer flowId) {
-        InterfaceWorkflowDO workflow = workflowCommandService.selectWorkflowEntity(flowId);
+        Workflow workflow = workflowQueryService.selectByFlowId(flowId);
         if (workflow == null) {
             throw new IllegalArgumentException("工作流不存在: " + flowId);
         }
@@ -142,7 +129,7 @@ public class InterfaceWorkflowServiceImpl implements InterfaceWorkflowService {
                 nodeConfig.setRemoteExtension(node.getRemoteExtension());
 
                 // 5. 查询节点的参数配置并构建树形结构
-                List<NodeParamConfigDO> paramConfigs = nodeParamConfigService.findAllNodeParamConfigsUnpaged(nodeId, null);
+                List<NodeParamConfig> paramConfigs = nodeParamConfigService.findAllNodeParamConfigsUnpaged(nodeId, null);
                 List<WorkflowFullExportRsp.ParamConfigDTO> paramTree = buildParamTree(paramConfigs, null);
                 nodeConfig.setParamsConfig(paramTree);
 
@@ -167,7 +154,7 @@ public class InterfaceWorkflowServiceImpl implements InterfaceWorkflowService {
      * 构建参数配置树形结构
      */
     private List<WorkflowFullExportRsp.ParamConfigDTO> buildParamTree(
-            List<NodeParamConfigDO> paramConfigs, Integer parentId) {
+            List<NodeParamConfig> paramConfigs, Integer parentId) {
         return paramConfigs.stream()
                 .filter(config -> (parentId == null && config.getParentId() == null) ||
                         (parentId != null && parentId.equals(config.getParentId())))
@@ -197,7 +184,7 @@ public class InterfaceWorkflowServiceImpl implements InterfaceWorkflowService {
     public Integer importWorkflowFull(WorkflowFullExportRsp importData) {
         // 1. 创建工作流
         WorkflowFullExportRsp.WorkflowInfo workflowInfo = importData.getWorkflowInfo();
-        InterfaceWorkflowDO workflow = InterfaceWorkflowDO.builder()
+        Workflow workflow = Workflow.builder()
                 .flowName(workflowInfo.getFlowName())
                 .interfaceUri(workflowInfo.getInterfaceUri())
                 .contentType(workflowInfo.getContentType() != null ?

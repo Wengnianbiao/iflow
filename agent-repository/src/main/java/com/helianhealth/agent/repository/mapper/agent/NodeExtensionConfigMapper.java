@@ -1,6 +1,6 @@
 package com.helianhealth.agent.repository.mapper.agent;
 
-import com.helianhealth.agent.repository.model.po.NodeExtensionConfigDO;
+import com.helianhealth.agent.repository.model.po.NodeExtensionConfigPO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -12,21 +12,21 @@ import java.util.List;
 @Mapper
 public interface NodeExtensionConfigMapper {
 
-    List<NodeExtensionConfigDO> selectByEnabled(@Param("enabled") Integer enabled);
+    List<NodeExtensionConfigPO> selectByEnabled(@Param("enabled") Integer enabled);
 
-    NodeExtensionConfigDO selectById(@Param("codeId") Integer codeId);
+    NodeExtensionConfigPO selectById(@Param("codeId") Integer codeId);
 
-    NodeExtensionConfigDO selectBySpiInterfaceAndExtension(@Param("spiInterface") String spiInterface,
+    NodeExtensionConfigPO selectBySpiInterfaceAndExtension(@Param("spiInterface") String spiInterface,
                                                            @Param("extensionName") String extensionName);
 
-    void insert(NodeExtensionConfigDO record);
+    void insert(NodeExtensionConfigPO record);
 
-    void update(NodeExtensionConfigDO record);
+    void update(NodeExtensionConfigPO record);
 
     void deleteById(@Param("codeId") Integer codeId);
 
     void deleteBySpiInterfaceAndExtension(@Param("spiInterface") String spiInterface,
                                           @Param("extensionName") String extensionName);
 
-    List<NodeExtensionConfigDO> selectBySpiInterface(@Param("spiInterface") String spiInterface);
+    List<NodeExtensionConfigPO> selectBySpiInterface(@Param("spiInterface") String spiInterface);
 }

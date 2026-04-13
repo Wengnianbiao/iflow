@@ -3,7 +3,6 @@ package com.helianhealth.agent.ai.controller;
 import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.common.utils.ResponseRenderUtils;
 import com.helianhealth.agent.repository.model.domain.MockConfig;
-import com.helianhealth.agent.repository.model.po.MockConfigDO;
 import com.helianhealth.agent.repository.service.MockConfigCommandService;
 import com.helianhealth.agent.repository.service.MockConfigQueryService;
 import lombok.AllArgsConstructor;
@@ -53,7 +52,7 @@ public class McpMockConfigController {
     }
 
     @PostMapping("/create")
-    public ResultData<Integer> createMock(@RequestBody MockConfigDO mockConfig) {
+    public ResultData<Integer> createMock(@RequestBody MockConfig mockConfig) {
         try {
             log.info("MCP创建Mock配置: {}", mockConfig);
             mockConfigCommandService.insert(mockConfig);
@@ -65,7 +64,7 @@ public class McpMockConfigController {
     }
 
     @PostMapping("/update")
-    public ResultData<Integer> updateMock(@RequestBody MockConfigDO mockConfig) {
+    public ResultData<Integer> updateMock(@RequestBody MockConfig mockConfig) {
         try {
             log.info("MCP更新Mock配置: {}", mockConfig);
             if (mockConfig.getMockId() == null) {

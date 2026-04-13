@@ -1,12 +1,10 @@
 package com.helianhealth.agent.console.service.extension;
 
-import com.helianhealth.agent.common.exception.AgentErrorCode;
-import com.helianhealth.agent.common.exception.AgentException;
 import com.helianhealth.agent.common.utils.JsonUtils;
 import com.helianhealth.agent.console.enums.ExtensionType;
-import com.helianhealth.agent.repository.mapper.agent.InterfaceFlowNodeMapper;
-import com.helianhealth.agent.repository.model.po.InterfaceWorkflowNodePO;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.repository.service.WorkflowNodeCommandService;
+import com.helianhealth.agent.repository.service.WorkflowNodeQueryService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -29,7 +27,7 @@ import java.util.Map;
 public class ExtensionNodeUpdateService {
 
     @Autowired
-    private InterfaceFlowNodeMapper nodeMapper;
+    private WorkflowNodeQueryService workflowNodeQueryService;
 
     @Autowired
     private WorkflowNodeCommandService workflowNodeCommandService;
@@ -105,7 +103,7 @@ public class ExtensionNodeUpdateService {
      */
     private void updateRemoteExtensionField(String extensionName, List<Integer> nodeIds) {
         Integer nodeId = nodeIds.get(0); // 单节点绑定：只取第一个
-        InterfaceWorkflowNodePO node = nodeMapper.selectByPrimaryKey(nodeId);
+        WorkflowNode node = workflowNodeQueryService.selectByNodeId(nodeId);
         if (node != null) {
             workflowNodeCommandService.updateRemoteExtension(nodeId, extensionName);
             log.info("Updated node {} remote_extension to: {}", nodeId, extensionName);
@@ -130,20 +128,13 @@ public class ExtensionNodeUpdateService {
                 : "true";
 
         for (Integer nodeId : nodeIds) {
-            InterfaceWorkflowNodePO node = nodeMapper.selectByPrimaryKey(nodeId);
+            WorkflowNode node = workflowNodeQueryService.selectByNodeId(nodeId);
             if (node != null) {
-                // 解析现有的 extension_param
+                // 获取现有的 extension_param（已是 Map<String,String>）
                 Map<String, String> extensionParam = new HashMap<>();
-                String existingParam = node.getExtensionParam();
-                if (existingParam != null && !existingParam.trim().isEmpty()) {
-                    try {
-                        Map<String, String> parsed = JsonUtils.fromJsonStringToMap(existingParam);
-                        extensionParam.putAll(parsed);
-                    } catch (Exception e) {
-                        log.error("Failed to parse existing extension_param for node {}, using empty map. Node data: {}", nodeId, existingParam, e);
-                        // 解析失败时抛出异常，避免丢失原有配置
-                        throw new AgentException(AgentErrorCode.CONSOLE_OPERATION_FAILED, "解析节点扩展参数失败，可能存在配置损坏", e);
-                    }
+                Map<String, String> existingParam = node.getExtensionParam();
+                if (existingParam != null && !existingParam.isEmpty()) {
+                    extensionParam.putAll(existingParam);
                 }
 
                 // 添加/更新 filter 配置（key: "filter.{extensionName}", value: JSON字符串或"true"）
@@ -165,7 +156,7 @@ public class ExtensionNodeUpdateService {
      */
     private void clearRemoteExtensionField(List<Integer> nodeIds) {
         for (Integer nodeId : nodeIds) {
-            InterfaceWorkflowNodePO node = nodeMapper.selectByPrimaryKey(nodeId);
+            WorkflowNode node = workflowNodeQueryService.selectByNodeId(nodeId);
             if (node != null) {
                 workflowNodeCommandService.updateRemoteExtension(nodeId, null);
                 log.info("Cleared node {} remote_extension", nodeId);
@@ -178,22 +169,17 @@ public class ExtensionNodeUpdateService {
      */
     private void clearExtensionParamField(String extensionName, List<Integer> nodeIds) {
         for (Integer nodeId : nodeIds) {
-            InterfaceWorkflowNodePO node = nodeMapper.selectByPrimaryKey(nodeId);
+            WorkflowNode node = workflowNodeQueryService.selectByNodeId(nodeId);
             if (node != null) {
-                String existingParam = node.getExtensionParam();
-                if (existingParam != null && !existingParam.trim().isEmpty()) {
-                    try {
-                        Map<String, String> extensionParam = JsonUtils.fromJsonStringToMap(existingParam);
-                        String filterKey = "filter." + extensionName;
+                Map<String, String> extensionParam = node.getExtensionParam();
+                if (extensionParam != null && !extensionParam.isEmpty()) {
+                    String filterKey = "filter." + extensionName;
 
-                        if (extensionParam.remove(filterKey) != null) {
-                            // 如果成功移除了该 filter，回写到节点
-                            String newExtensionParam = JsonUtils.toJsonString(extensionParam);
-                            workflowNodeCommandService.updateExtensionParam(nodeId, newExtensionParam);
-                            log.info("Cleared node {} extension_param filter: {}", nodeId, filterKey);
-                        }
-                    } catch (Exception e) {
-                        log.warn("Failed to clear extension_param for node {}: {}", nodeId, existingParam, e);
+                    if (extensionParam.remove(filterKey) != null) {
+                        // 如果成功移除了该 filter，回写到节点
+                        String newExtensionParam = JsonUtils.toJsonString(extensionParam);
+                        workflowNodeCommandService.updateExtensionParam(nodeId, newExtensionParam);
+                        log.info("Cleared node {} extension_param filter: {}", nodeId, filterKey);
                     }
                 }
             }

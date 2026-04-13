@@ -25,7 +25,7 @@ import javax.persistence.Table;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "node_param_config")
-public class NodeParamConfigDO {
+public class NodeParamConfigPO {
 
     @Id
     @Column(name = "config_id", nullable = false, updatable = false)

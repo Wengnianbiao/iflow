@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class MockConfigDO {
+public class MockConfigPO {
 
     private Integer mockId;
 

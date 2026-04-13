@@ -9,13 +9,13 @@ import javax.persistence.*;
 import java.util.List;
 
 /**
- * 节点扩展配置领域对象
+ * 节点扩展配置持久化对象
  * 对动态 SPI 节点实现的配置（包括类名、源码等）
  */
 @Data
 @Entity
 @Table(name = "node_extension_config")
-public class NodeExtensionConfigDO {
+public class NodeExtensionConfigPO {
 
     @Id
     @Column(name = "code_id", nullable = false, updatable = false)

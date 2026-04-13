@@ -1,11 +1,11 @@
 package com.helianhealth.agent.repository.service.impl;
 
 import com.helianhealth.agent.repository.mapper.agent.NodeParamConfigMapper;
-import com.helianhealth.agent.repository.model.po.NodeParamConfigDO;
+import com.helianhealth.agent.repository.model.assembler.NodeParamConfigAssembler;
+import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
+import com.helianhealth.agent.repository.model.po.NodeParamConfigPO;
 import com.helianhealth.agent.repository.service.NodeParamConfigCommandService;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 /**
  * 节点参数配置写操作服务实现
@@ -20,18 +20,17 @@ public class NodeParamConfigCommandServiceImpl implements NodeParamConfigCommand
     }
 
     @Override
-    public int insertConfig(NodeParamConfigDO config) {
-        return nodeParamConfigMapper.insertNodeParamConfig(config);
+    public int insertConfig(NodeParamConfig config) {
+        NodeParamConfigPO po = NodeParamConfigAssembler.toPO(config);
+        int result = nodeParamConfigMapper.insertNodeParamConfig(po);
+        config.setConfigId(po.getConfigId());
+        return result;
     }
 
     @Override
-    public int updateConfig(NodeParamConfigDO config) {
-        return nodeParamConfigMapper.updateNodeParamConfig(config);
-    }
-
-    @Override
-    public NodeParamConfigDO selectConfigById(Integer configId) {
-        return nodeParamConfigMapper.selectByPrimaryKey(configId);
+    public int updateConfig(NodeParamConfig config) {
+        NodeParamConfigPO po = NodeParamConfigAssembler.toPO(config);
+        return nodeParamConfigMapper.updateNodeParamConfig(po);
     }
 
     @Override
@@ -39,8 +38,4 @@ public class NodeParamConfigCommandServiceImpl implements NodeParamConfigCommand
         nodeParamConfigMapper.deleteByPrimaryKey(configId);
     }
 
-    @Override
-    public List<NodeParamConfigDO> selectAllConfigs(Integer nodeId, String processType, String targetParam) {
-        return nodeParamConfigMapper.selectAllParamConfig(nodeId, processType, targetParam);
-    }
 }

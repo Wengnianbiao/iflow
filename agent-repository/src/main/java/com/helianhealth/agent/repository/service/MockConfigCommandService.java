@@ -1,15 +1,15 @@
 package com.helianhealth.agent.repository.service;
 
-import com.helianhealth.agent.repository.model.po.MockConfigDO;
+import com.helianhealth.agent.repository.model.domain.MockConfig;
 
 /**
  * Mock配置写操作服务
  */
 public interface MockConfigCommandService {
 
-    int insert(MockConfigDO mockConfig);
+    int insert(MockConfig mockConfig);
 
-    int update(MockConfigDO mockConfig);
+    int update(MockConfig mockConfig);
 
     int deleteById(Integer mockId);
 

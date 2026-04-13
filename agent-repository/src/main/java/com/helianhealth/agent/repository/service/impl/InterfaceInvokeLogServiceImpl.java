@@ -4,7 +4,7 @@ import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.repository.mapper.agent.InterfaceInvokeLogMapper;
-import com.helianhealth.agent.repository.model.po.InterfaceInvokeLogDO;
+import com.helianhealth.agent.repository.model.po.InterfaceInvokeLogPO;
 import com.helianhealth.agent.repository.model.dto.InvokeLogDTO;
 import com.helianhealth.agent.repository.model.dto.InvokeLogVO;
 import com.helianhealth.agent.repository.model.dto.InvokeStatsVO;
@@ -33,7 +33,7 @@ public class InterfaceInvokeLogServiceImpl implements InterfaceInvokeLogService 
     @Override
     public void saveInvokeLog(InvokeLogDTO dto) {
         try {
-            InterfaceInvokeLogDO logDO = InterfaceInvokeLogDO.builder()
+            InterfaceInvokeLogPO logDO = InterfaceInvokeLogPO.builder()
                     .nodeName(dto.getNodeName())
                     .keyword(dto.getKeyword())
                     .businessData(dto.getBusinessData())
@@ -56,8 +56,8 @@ public class InterfaceInvokeLogServiceImpl implements InterfaceInvokeLogService 
     public PageList<InvokeLogVO> findAllInvokeLogs(String nodeName, String keyword, int pageNum, int pageSize) {
         try {
             PageHelper.startPage(pageNum, pageSize);
-            List<InterfaceInvokeLogDO> invokeLogs = interfaceInvokeLogMapper.selectAllInvokeLogs(nodeName, keyword);
-            PageInfo<InterfaceInvokeLogDO> pageInfo = new PageInfo<>(invokeLogs);
+            List<InterfaceInvokeLogPO> invokeLogs = interfaceInvokeLogMapper.selectAllInvokeLogs(nodeName, keyword);
+            PageInfo<InterfaceInvokeLogPO> pageInfo = new PageInfo<>(invokeLogs);
 
             List<InvokeLogVO> voList = invokeLogs.stream()
                     .map(this::convertToVO)
@@ -85,7 +85,7 @@ public class InterfaceInvokeLogServiceImpl implements InterfaceInvokeLogService 
             calendar.set(Calendar.MILLISECOND, 0);
             Date startTime = calendar.getTime();
 
-            List<InterfaceInvokeLogDO> logs = interfaceInvokeLogMapper.selectLogsByTimeRange(startTime);
+            List<InterfaceInvokeLogPO> logs = interfaceInvokeLogMapper.selectLogsByTimeRange(startTime);
             return calculateStats(logs);
         } catch (Exception e) {
             log.error("获取今日统计失败", e);
@@ -104,7 +104,7 @@ public class InterfaceInvokeLogServiceImpl implements InterfaceInvokeLogService 
             calendar.set(Calendar.MILLISECOND, 0);
             Date startTime = calendar.getTime();
 
-            List<InterfaceInvokeLogDO> logs = interfaceInvokeLogMapper.selectLogsByTimeRange(startTime);
+            List<InterfaceInvokeLogPO> logs = interfaceInvokeLogMapper.selectLogsByTimeRange(startTime);
             return calculateStats(logs);
         } catch (Exception e) {
             log.error("获取最近7天统计失败", e);
@@ -112,7 +112,7 @@ public class InterfaceInvokeLogServiceImpl implements InterfaceInvokeLogService 
         }
     }
 
-    private InvokeLogVO convertToVO(InterfaceInvokeLogDO logDO) {
+    private InvokeLogVO convertToVO(InterfaceInvokeLogPO logDO) {
         return InvokeLogVO.builder()
                 .logId(logDO.getLogId())
                 .nodeName(logDO.getNodeName())
@@ -128,18 +128,18 @@ public class InterfaceInvokeLogServiceImpl implements InterfaceInvokeLogService 
                 .build();
     }
 
-    private List<InvokeStatsVO> calculateStats(List<InterfaceInvokeLogDO> logs) {
+    private List<InvokeStatsVO> calculateStats(List<InterfaceInvokeLogPO> logs) {
         if (logs == null || logs.isEmpty()) {
             return new ArrayList<>();
         }
 
-        Map<String, List<InterfaceInvokeLogDO>> groupedLogs = logs.stream()
-                .collect(Collectors.groupingBy(InterfaceInvokeLogDO::getNodeName));
+        Map<String, List<InterfaceInvokeLogPO>> groupedLogs = logs.stream()
+                .collect(Collectors.groupingBy(InterfaceInvokeLogPO::getNodeName));
 
         return groupedLogs.entrySet().stream()
                 .map(entry -> {
                     String nodeName = entry.getKey();
-                    List<InterfaceInvokeLogDO> nodeLogs = entry.getValue();
+                    List<InterfaceInvokeLogPO> nodeLogs = entry.getValue();
 
                     List<Integer> times = nodeLogs.stream()
                             .map(l -> parseInvokeTime(l.getInvokeTime()))

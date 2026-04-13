@@ -4,7 +4,7 @@ import com.alibaba.fastjson2.JSON;
 import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.console.controller.reponse.WorkflowFullExportRsp;
-import com.helianhealth.agent.repository.model.po.InterfaceWorkflowDO;
+import com.helianhealth.agent.repository.model.domain.Workflow;
 import com.helianhealth.agent.console.service.InterfaceWorkflowService;
 import com.helianhealth.agent.common.utils.ResponseRenderUtils;
 import lombok.AllArgsConstructor;
@@ -37,11 +37,11 @@ public class WorkflowController {
      * 获取工作流列表
      */
     @GetMapping("/all")
-    public ResultData<PageList<InterfaceWorkflowDO>> getAllWorkflows(
+    public ResultData<PageList<Workflow>> getAllWorkflows(
             @RequestParam(value = "pageNum", defaultValue = "1") int pageNum,
             @RequestParam(value = "pageSize", defaultValue = "10") int pageSize) {
         try {
-            PageList<InterfaceWorkflowDO> allWorkflows = interfaceRuleFlowService.getAllWorkflows(pageNum, pageSize);
+            PageList<Workflow> allWorkflows = interfaceRuleFlowService.getAllWorkflows(pageNum, pageSize);
             return ResponseRenderUtils.render(allWorkflows);
         } catch (Exception e) {
             log.error("获取工作流失败", e);
@@ -53,9 +53,9 @@ public class WorkflowController {
      * 获取工作流列表不分页
      */
     @GetMapping("/all-unpaged")
-    public ResultData<List<InterfaceWorkflowDO>> getAllWorkflowsWithoutPaged() {
+    public ResultData<List<Workflow>> getAllWorkflowsWithoutPaged() {
         try {
-            List<InterfaceWorkflowDO> allWorkflows = interfaceRuleFlowService.getAllWorkflowsWithoutPaged();
+            List<Workflow> allWorkflows = interfaceRuleFlowService.getAllWorkflowsWithoutPaged();
             return ResponseRenderUtils.render(allWorkflows);
         } catch (Exception e) {
             log.error("获取工作流失败", e);
@@ -67,7 +67,7 @@ public class WorkflowController {
      * 创建工作流
      */
     @PostMapping("/create")
-    public ResultData<Integer> createFlow(@RequestBody InterfaceWorkflowDO flow) {
+    public ResultData<Integer> createFlow(@RequestBody Workflow flow) {
         try {
             int savedFlow = interfaceRuleFlowService.save(flow);
             return ResponseRenderUtils.render(savedFlow);
@@ -81,7 +81,7 @@ public class WorkflowController {
      * 更新工作流
      */
     @PostMapping("/update")
-    public ResultData<Integer> updateFlow(@RequestBody InterfaceWorkflowDO flow) {
+    public ResultData<Integer> updateFlow(@RequestBody Workflow flow) {
         try {
             int updatedFlow = interfaceRuleFlowService.update(flow);
             return ResponseRenderUtils.render(updatedFlow);

@@ -1,21 +1,15 @@
 package com.helianhealth.agent.repository.service;
 
-import com.helianhealth.agent.repository.model.po.NodeParamConfigDO;
-
-import java.util.List;
+import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 
 /**
  * 节点参数配置写操作服务
  */
 public interface NodeParamConfigCommandService {
 
-    int insertConfig(NodeParamConfigDO config);
+    int insertConfig(NodeParamConfig config);
 
-    int updateConfig(NodeParamConfigDO config);
-
-    NodeParamConfigDO selectConfigById(Integer configId);
+    int updateConfig(NodeParamConfig config);
 
     void deleteConfig(Integer configId);
-
-    List<NodeParamConfigDO> selectAllConfigs(Integer nodeId, String processType, String targetParam);
 }

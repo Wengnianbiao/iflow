@@ -1,7 +1,9 @@
 package com.helianhealth.agent.repository.service.impl;
 
 import com.helianhealth.agent.repository.mapper.agent.MockConfigMapper;
-import com.helianhealth.agent.repository.model.po.MockConfigDO;
+import com.helianhealth.agent.repository.model.assembler.MockConfigAssembler;
+import com.helianhealth.agent.repository.model.domain.MockConfig;
+import com.helianhealth.agent.repository.model.po.MockConfigPO;
 import com.helianhealth.agent.repository.service.MockConfigCommandService;
 import org.springframework.stereotype.Service;
 
@@ -18,13 +20,17 @@ public class MockConfigCommandServiceImpl implements MockConfigCommandService {
     }
 
     @Override
-    public int insert(MockConfigDO mockConfig) {
-        return mockConfigMapper.insert(mockConfig);
+    public int insert(MockConfig mockConfig) {
+        MockConfigPO po = MockConfigAssembler.toPO(mockConfig);
+        int result = mockConfigMapper.insert(po);
+        mockConfig.setMockId(po.getMockId());
+        return result;
     }
 
     @Override
-    public int update(MockConfigDO mockConfig) {
-        return mockConfigMapper.update(mockConfig);
+    public int update(MockConfig mockConfig) {
+        MockConfigPO po = MockConfigAssembler.toPO(mockConfig);
+        return mockConfigMapper.update(po);
     }
 
     @Override
@@ -36,4 +42,5 @@ public class MockConfigCommandServiceImpl implements MockConfigCommandService {
     public int deleteByNodeId(Integer nodeId) {
         return mockConfigMapper.deleteByNodeId(nodeId);
     }
+
 }

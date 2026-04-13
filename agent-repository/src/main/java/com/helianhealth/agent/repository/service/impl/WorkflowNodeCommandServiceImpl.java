@@ -1,11 +1,11 @@
 package com.helianhealth.agent.repository.service.impl;
 
 import com.helianhealth.agent.repository.mapper.agent.InterfaceFlowNodeMapper;
+import com.helianhealth.agent.repository.model.assembler.WorkflowNodeAssembler;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.repository.model.po.InterfaceWorkflowNodePO;
 import com.helianhealth.agent.repository.service.WorkflowNodeCommandService;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 /**
  * 工作流节点写操作服务实现
@@ -20,13 +20,16 @@ public class WorkflowNodeCommandServiceImpl implements WorkflowNodeCommandServic
     }
 
     @Override
-    public void createNode(InterfaceWorkflowNodePO node) {
-        flowNodeMapper.createNode(node);
+    public void createNode(WorkflowNode node) {
+        InterfaceWorkflowNodePO po = WorkflowNodeAssembler.toPO(node);
+        flowNodeMapper.createNode(po);
+        node.setNodeId(po.getNodeId());
     }
 
     @Override
-    public int updateNodeSelective(InterfaceWorkflowNodePO node) {
-        return flowNodeMapper.updateNodeSelective(node);
+    public int updateNodeSelective(WorkflowNode node) {
+        InterfaceWorkflowNodePO po = WorkflowNodeAssembler.toPO(node);
+        return flowNodeMapper.updateNodeSelective(po);
     }
 
     @Override
@@ -49,13 +52,4 @@ public class WorkflowNodeCommandServiceImpl implements WorkflowNodeCommandServic
         flowNodeMapper.deleteByPrimaryKey(nodeId);
     }
 
-    @Override
-    public List<InterfaceWorkflowNodePO> selectAllNodes(Integer flowId) {
-        return flowNodeMapper.selectAllNodes(flowId);
-    }
-
-    @Override
-    public InterfaceWorkflowNodePO selectNodeEntity(Integer nodeId) {
-        return flowNodeMapper.selectByNodeId(nodeId);
-    }
 }
