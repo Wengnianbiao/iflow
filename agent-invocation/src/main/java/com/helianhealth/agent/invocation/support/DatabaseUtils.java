@@ -1,4 +1,4 @@
-package com.helianhealth.agent.invocation.utils;
+package com.helianhealth.agent.invocation.support;
 
 import com.helianhealth.agent.invocation.remote.manager.DatabaseApiClientManager;
 import org.slf4j.Logger;
@@ -145,4 +145,3 @@ public class DatabaseUtils {
         }
     }
 }
-
