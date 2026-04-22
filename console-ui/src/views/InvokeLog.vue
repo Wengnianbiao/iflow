@@ -189,8 +189,8 @@ export default {
           pageSize: pagination.pageSize.value
         };
         const response = await fetchLogList(params);
-        if (response.status === 200 && response.data.code === '200') {
-          const pageList = response.data.rsp;
+        if (response.status === 200 && response.data.code === 200) {
+          const pageList = response.data.data;
           logList.value = pageList.rows || [];
           pagination.total.value = pageList.total || 0;
         }
@@ -202,8 +202,8 @@ export default {
     const loadNodeList = async () => {
       try {
         const response = await fetchNodeList();
-        if (response.status === 200 && response.data.code === '200') {
-          nodeOptions.value = response.data.rsp || [];
+        if (response.status === 200 && response.data.code === 200) {
+          nodeOptions.value = response.data.data || [];
           await fetchData();
         }
       } catch (error) {

@@ -7,7 +7,6 @@ import com.helianhealth.agent.ai.model.NodeParamConfigMcpView;
 import com.helianhealth.agent.ai.service.AiNodeParamConfigService;
 import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.common.enums.ProcessType;
-import com.helianhealth.agent.common.utils.ResponseRenderUtils;
 import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -51,14 +50,14 @@ public class McpNodeParamConfigController {
         try {
             log.info("MCP查询节点参数配置: nodeId={}, processType={}", nodeId, processType);
             if (nodeId == null) {
-                return ResponseRenderUtils.error("nodeId不能为空");
+                return ResultData.error("nodeId不能为空");
             }
             List<NodeParamConfig> configs = nodeParamConfigService.findAllNodeParamConfigsUnpaged(nodeId, processType);
             List<NodeParamConfigMcpView> mcpViews = NodeParamConfigMcpConverter.toMcpViewList(configs);
-            return ResponseRenderUtils.render(mcpViews);
+            return ResultData.ok(mcpViews);
         } catch (Exception e) {
             log.error("MCP查询节点参数配置失败", e);
-            return ResponseRenderUtils.error("查询节点参数配置失败: " + e.getMessage());
+            return ResultData.error("查询节点参数配置失败: " + e.getMessage());
         }
     }
 
@@ -71,13 +70,13 @@ public class McpNodeParamConfigController {
         try {
             log.info("MCP导出节点参数配置: nodeId={}", nodeId);
             if (nodeId == null) {
-                return ResponseRenderUtils.error("nodeId不能为空");
+                return ResultData.error("nodeId不能为空");
             }
             NodeParamConfigMcpResponse mcpResponse = nodeParamConfigService.exportNodeParamConfigs(nodeId);
-            return ResponseRenderUtils.render(mcpResponse);
+            return ResultData.ok(mcpResponse);
         } catch (Exception e) {
             log.error("MCP导出节点参数配置失败", e);
-            return ResponseRenderUtils.error("导出节点参数配置失败: " + e.getMessage());
+            return ResultData.error("导出节点参数配置失败: " + e.getMessage());
         }
     }
 
@@ -94,15 +93,15 @@ public class McpNodeParamConfigController {
                     request.getParams() != null ? request.getParams().size() : 0);
             
             if (request.getNodeId() == null) {
-                return ResponseRenderUtils.error("nodeId不能为空");
+                return ResultData.error("nodeId不能为空");
             }
             if (request.getParams() == null || request.getParams().isEmpty()) {
-                return ResponseRenderUtils.error("参数配置列表不能为空");
+                return ResultData.error("参数配置列表不能为空");
             }
             
             // 校验节点是否存在
             if (!nodeParamConfigService.nodeExists(request.getNodeId())) {
-                return ResponseRenderUtils.error("节点不存在，nodeId=" + request.getNodeId());
+                return ResultData.error("节点不存在，nodeId=" + request.getNodeId());
             }
             
             // 必填项 + 枚举校验
@@ -120,14 +119,14 @@ public class McpNodeParamConfigController {
                     false
             );
             
-            return ResponseRenderUtils.render("导入节点参数配置成功，共" + request.getParams().size() + "条");
+            return ResultData.ok("导入节点参数配置成功，共" + request.getParams().size() + "条");
         } catch (IllegalArgumentException e) {
             // 枚举校验失败，返回清晰的错误提示
             log.warn("MCP导入节点参数配置参数校验失败: {}", e.getMessage());
-            return ResponseRenderUtils.error("参数校验失败: " + e.getMessage());
+            return ResultData.error("参数校验失败: " + e.getMessage());
         } catch (Exception e) {
             log.error("MCP导入节点参数配置失败", e);
-            return ResponseRenderUtils.error("导入节点参数配置失败: " + e.getMessage());
+            return ResultData.error("导入节点参数配置失败: " + e.getMessage());
         }
     }
 
@@ -140,13 +139,13 @@ public class McpNodeParamConfigController {
         try {
             log.info("MCP全量删除节点参数配置: nodeId={}", nodeId);
             if (nodeId == null) {
-                return ResponseRenderUtils.error("nodeId不能为空");
+                return ResultData.error("nodeId不能为空");
             }
             nodeParamConfigService.deleteAllNodeParamConfigs(nodeId);
-            return ResponseRenderUtils.render("全量删除节点参数配置成功");
+            return ResultData.ok("全量删除节点参数配置成功");
         } catch (Exception e) {
             log.error("MCP全量删除节点参数配置失败", e);
-            return ResponseRenderUtils.error("全量删除节点参数配置失败: " + e.getMessage());
+            return ResultData.error("全量删除节点参数配置失败: " + e.getMessage());
         }
     }
 
@@ -158,20 +157,20 @@ public class McpNodeParamConfigController {
         try {
             log.info("MCP更新节点参数配置: configId={}", config != null ? config.getConfigId() : null);
             if (config == null || config.getConfigId() == null) {
-                return ResponseRenderUtils.error("参数不能为空，configId必须存在");
+                return ResultData.error("参数不能为空，configId必须存在");
             }
             NodeParamConfig updatedConfig = nodeParamConfigService.updateNodeParamConfig(config);
             if (updatedConfig != null) {
-                return ResponseRenderUtils.render(NodeParamConfigMcpConverter.toMcpView(updatedConfig));
+                return ResultData.ok(NodeParamConfigMcpConverter.toMcpView(updatedConfig));
             } else {
-                return ResponseRenderUtils.error("更新节点参数配置失败");
+                return ResultData.error("更新节点参数配置失败");
             }
         } catch (IllegalArgumentException e) {
             log.warn("MCP更新节点参数配置参数校验失败: {}", e.getMessage());
-            return ResponseRenderUtils.error("参数校验失败: " + e.getMessage());
+            return ResultData.error("参数校验失败: " + e.getMessage());
         } catch (Exception e) {
             log.error("MCP更新节点参数配置失败", e);
-            return ResponseRenderUtils.error("更新节点参数配置失败: " + e.getMessage());
+            return ResultData.error("更新节点参数配置失败: " + e.getMessage());
         }
     }
 
@@ -183,10 +182,10 @@ public class McpNodeParamConfigController {
         try {
             log.info("MCP删除节点参数配置: configId={}", configId);
             nodeParamConfigService.deleteNodeParamConfig(configId);
-            return ResponseRenderUtils.render("节点参数配置删除成功");
+            return ResultData.ok("节点参数配置删除成功");
         } catch (Exception e) {
             log.error("MCP删除节点参数配置失败", e);
-            return ResponseRenderUtils.error("删除节点参数配置失败: " + e.getMessage());
+            return ResultData.error("删除节点参数配置失败: " + e.getMessage());
         }
     }
 }

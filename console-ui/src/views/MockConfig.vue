@@ -242,8 +242,8 @@ export default {
         };
 
         const response = await getMockConfigList(params);
-        if (response.status === 200 && response.data.code === '200') {
-          const pageList = response.data.rsp;
+        if (response.status === 200 && response.data.code === 200) {
+          const pageList = response.data.data;
           mockList.value = pageList.rows || [];
           pagination.total.value = pageList.total || 0;
         }
@@ -255,8 +255,8 @@ export default {
     const fetchNodeList = async () => {
       try {
         const response = await getNodeListUnpaged();
-        if (response.status === 200 && response.data.code === '200') {
-          nodeOptions.value = response.data.rsp || [];
+        if (response.status === 200 && response.data.code === 200) {
+          nodeOptions.value = response.data.data || [];
           const map = new Map();
           nodeOptions.value.forEach(node => {
             map.set(node.nodeId, node.nodeName);
@@ -349,7 +349,7 @@ export default {
           response = await createMockConfig(submitData);
         }
 
-        if (response.status === 200 && response.data.code === '200') {
+        if (response.status === 200 && response.data.code === 200) {
           dialog.close();
           await fetchData();
         }

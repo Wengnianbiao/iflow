@@ -1,7 +1,7 @@
 package com.helianhealth.agent.invocation.remote.filter;
 
 import com.helianhealth.agent.common.base.ExtensionFilterConstants;
-import com.helianhealth.agent.common.base.MetaInfoKeys;
+import com.helianhealth.agent.common.base.MetaInfoKeyConstants;
 import com.helianhealth.agent.common.utils.JsonUtils;
 import com.helianhealth.agent.invocation.remote.InterfaceClientProxy;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
@@ -38,9 +38,9 @@ public abstract class AbstractHeaderAgentFilter implements AgentFilter {
 
         try {
             Map<String, Object> metaInfo = JsonUtils.parseMetaInfo(flowNode.getMetaInfo());
-            Map<String, String> headers = extractHeaders(metaInfo.get(MetaInfoKeys.HEADERS));
+            Map<String, String> headers = extractHeaders(metaInfo.get(MetaInfoKeyConstants.HEADERS));
             doFilter(headers);
-            metaInfo.put(MetaInfoKeys.HEADERS, headers);
+            metaInfo.put(MetaInfoKeyConstants.HEADERS, headers);
             flowNode.setMetaInfo(JsonUtils.toJsonString(metaInfo));
         } catch (Exception e) {
             log.error("HeaderAgentFilter处理失败, nodeId={}", flowNode.getNodeId(), e);

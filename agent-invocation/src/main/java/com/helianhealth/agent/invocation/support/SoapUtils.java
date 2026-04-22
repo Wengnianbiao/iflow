@@ -1,6 +1,6 @@
 package com.helianhealth.agent.invocation.support;
 
-import com.helianhealth.agent.common.base.MetaInfoKeys;
+import com.helianhealth.agent.common.base.MetaInfoKeyConstants;
 import com.helianhealth.agent.common.exception.AgentConfigException;
 import com.helianhealth.agent.common.exception.AgentErrorCode;
 import com.helianhealth.agent.common.exception.AgentInvocationException;
@@ -27,7 +27,7 @@ public class SoapUtils {
     @SuppressWarnings("unchecked")
     public static String sendSoapRequest(Map<String, Object> metaInfo, String soapMessage) {
         try {
-            String endpointUrl = (String) metaInfo.get(MetaInfoKeys.URL);
+            String endpointUrl = (String) metaInfo.get(MetaInfoKeyConstants.URL);
             if (endpointUrl == null || endpointUrl.isEmpty()) {
                 throw new AgentConfigException(AgentErrorCode.WS_CONFIG_MISSING, "metaInfo中未配置url");
             }
@@ -35,7 +35,7 @@ public class SoapUtils {
             // 构建请求头
             Map<String, String> headers = new HashMap<>();
             // 设置自定义请求头
-            Map<String, String> headerConfig = (Map<String, String>) metaInfo.get(MetaInfoKeys.HEADERS);
+            Map<String, String> headerConfig = (Map<String, String>) metaInfo.get(MetaInfoKeyConstants.HEADERS);
             if (headerConfig != null) {
                 headers.putAll(headerConfig);
             }

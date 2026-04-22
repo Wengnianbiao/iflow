@@ -3,7 +3,6 @@ package com.helianhealth.agent.ai.controller;
 import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.common.exception.AgentException;
 import com.helianhealth.agent.common.extension.AgentExtensionLoader;
-import com.helianhealth.agent.common.utils.ResponseRenderUtils;
 import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.Invocation;
@@ -74,13 +73,13 @@ public class McpMockInvokeController {
             Map<String, Object> result = WrapperFactory.createRemoteInvokerChain(invoker, interfaceInvokeLogService).remoteInvoke(workflowNode, invocation);
 
             log.info("MCP Mock调用成功: nodeId={}, mockId={}", nodeId, mockId);
-            return ResponseRenderUtils.render(result);
+            return ResultData.ok(result);
         } catch (AgentException e) {
             log.error("MCP Mock调用异常, nodeId={}, mockId={}: {}", nodeId, mockId, e.getMessage(), e);
-            return ResponseRenderUtils.error(e.getMessage());
+            return ResultData.error(e.getMessage());
         } catch (Exception e) {
             log.error("MCP Mock调用未知异常, nodeId={}, mockId={}", nodeId, mockId, e);
-            return ResponseRenderUtils.error("Mock调用失败: " + e.getMessage());
+            return ResultData.error("Mock调用失败: " + e.getMessage());
         }
     }
 
@@ -104,17 +103,17 @@ public class McpMockInvokeController {
             List<MockInvokeResult> results = mockIds.stream().map(mockId -> {
                 try {
                     ResultData<Map<String, Object>> result = invokeMockNode(nodeId, mockId, businessData);
-                    return new MockInvokeResult(mockId, true, "验证成功", result.getRsp());
+                    return new MockInvokeResult(mockId, true, "验证成功", result.getData());
                 } catch (Exception e) {
                     log.error("Mock场景验证失败: mockId={}", mockId, e);
                     return new MockInvokeResult(mockId, false, e.getMessage(), null);
                 }
             }).collect(Collectors.toList());
 
-            return ResponseRenderUtils.render(results);
+            return ResultData.ok(results);
         } catch (Exception e) {
             log.error("MCP批量Mock调用失败", e);
-            return ResponseRenderUtils.error("批量Mock调用失败: " + e.getMessage());
+            return ResultData.error("批量Mock调用失败: " + e.getMessage());
         }
     }
 

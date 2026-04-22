@@ -35,4 +35,9 @@ public class NodeExtensionConfig {
     private Integer enabled;
 
     private String extensionParamValue;
+
+    public boolean isEnabled() {
+        return Integer.valueOf(1).equals(this.enabled);
+    }
+
 }

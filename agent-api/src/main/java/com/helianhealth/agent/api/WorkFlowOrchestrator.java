@@ -27,13 +27,22 @@ import java.util.Optional;
  */
 @Component
 @Slf4j
-@AllArgsConstructor
 public class WorkFlowOrchestrator {
 
     private final WorkflowQueryService workflowService;
     private final WorkflowScheduler workflowScheduler;
     private final WorkFlowNodeBuilder workFlowNodeBuilder;
     private final ContentTypeAdapter contentTypeAdapter;
+
+    public WorkFlowOrchestrator(WorkflowQueryService workflowService,
+                                WorkflowScheduler workflowScheduler,
+                                WorkFlowNodeBuilder workFlowNodeBuilder,
+                                ContentTypeAdapter contentTypeAdapter) {
+        this.workflowService = workflowService;
+        this.workflowScheduler = workflowScheduler;
+        this.workFlowNodeBuilder = workFlowNodeBuilder;
+        this.contentTypeAdapter = contentTypeAdapter;
+    }
 
     /**
      * 适配jarvis的参数解析调度
@@ -105,21 +114,18 @@ public class WorkFlowOrchestrator {
             }
         } catch (AgentException e) {
             log.error("open api调度异常, uri={}: {}", interfaceUri, e.getMessage(), e);
-            return buildErrorResponse(e.getErrorCode().getCode(), e.getErrorCode().getMessage(), e.getDetail());
+            return buildErrorResponse(e.getErrorCode(), e.getErrorMessage());
         } catch (Exception e) {
             log.error("open api调度未知异常, uri={}", interfaceUri, e);
             return buildErrorResponse(AgentErrorCode.INTERNAL_ERROR.getCode(),
-                    AgentErrorCode.INTERNAL_ERROR.getMessage(), extractRootCauseMessage(e));
+                    extractRootCauseMessage(e));
         }
     }
 
-    private String buildErrorResponse(int code, String message, String detail) {
+    private String buildErrorResponse(int code, String message) {
         Map<String, Object> error = new LinkedHashMap<>();
         error.put("code", code);
         error.put("message", message);
-        if (detail != null && !detail.isEmpty()) {
-            error.put("detail", detail);
-        }
         return JsonUtils.toJsonString(error);
     }
 

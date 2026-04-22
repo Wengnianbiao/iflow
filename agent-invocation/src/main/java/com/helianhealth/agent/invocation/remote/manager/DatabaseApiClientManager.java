@@ -1,7 +1,7 @@
 package com.helianhealth.agent.invocation.remote.manager;
 
 import com.alibaba.druid.pool.DruidDataSource;
-import com.helianhealth.agent.common.base.MetaInfoKeys;
+import com.helianhealth.agent.common.base.MetaInfoKeyConstants;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -42,10 +42,10 @@ public class DatabaseApiClientManager {
      * 根据元信息获取数据库连接
      */
     public Connection getConnection(Map<String, Object> metaInfo) throws SQLException {
-        String jdbcUrl = (String) metaInfo.get(MetaInfoKeys.URL);
-        String username = (String) metaInfo.get(MetaInfoKeys.DB_USERNAME);
-        String password = (String) metaInfo.get(MetaInfoKeys.DB_PASSWORD);
-        String driverClassName = (String) metaInfo.get(MetaInfoKeys.DB_DRIVER_CLASS_NAME);
+        String jdbcUrl = (String) metaInfo.get(MetaInfoKeyConstants.URL);
+        String username = (String) metaInfo.get(MetaInfoKeyConstants.DB_USERNAME);
+        String password = (String) metaInfo.get(MetaInfoKeyConstants.DB_PASSWORD);
+        String driverClassName = (String) metaInfo.get(MetaInfoKeyConstants.DB_DRIVER_CLASS_NAME);
 
         String cacheKey = buildCacheKey(jdbcUrl, username);
 

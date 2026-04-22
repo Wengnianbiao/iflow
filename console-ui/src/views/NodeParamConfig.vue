@@ -330,8 +330,8 @@ export default {
           pageSize: pagination.pageSize.value
         };
         const response = await getNodeParams(params);
-        if (response.status === 200 && response.data.code === '200') {
-          const pageList = response.data.rsp;
+        if (response.status === 200 && response.data.code === 200) {
+          const pageList = response.data.data;
           configList.value = pageList.rows || [];
           pagination.total.value = pageList.total || 0;
 
@@ -345,8 +345,8 @@ export default {
     const fetchNodeList = async () => {
       try {
         const response = await getNodeListUnpaged();
-        if (response.status === 200 && response.data.code === '200') {
-          nodeOptions.value = response.data.rsp || [];
+        if (response.status === 200 && response.data.code === 200) {
+          nodeOptions.value = response.data.data || [];
           const map = new Map();
           nodeOptions.value.forEach(node => {
             map.set(node.nodeId, node.nodeName);
@@ -364,8 +364,8 @@ export default {
     const fetchAllParentConfigs = async () => {
       try {
         const response = await getNodeParamsUnpaged();
-        if (response.status === 200 && response.data.code === '200') {
-          allParentConfigs.value = response.data.rsp || [];
+        if (response.status === 200 && response.data.code === 200) {
+          allParentConfigs.value = response.data.data || [];
           const map = new Map();
           allParentConfigs.value.forEach(config => {
             map.set(config.configId, config);
@@ -385,8 +385,8 @@ export default {
         };
 
         const response = await getNodeParamsUnpaged(params);
-        if (response.status === 200 && response.data.code === '200') {
-          configParentOptions.value = (response.data.rsp || []).filter(
+        if (response.status === 200 && response.data.code === 200) {
+          configParentOptions.value = (response.data.data || []).filter(
             config => !editForm.configId || config.configId !== editForm.configId
           );
         }
@@ -418,8 +418,8 @@ export default {
     const fetchParentParamDetails = async (parentId) => {
       try {
         const response = await getNodeParamDetail(parentId);
-        if (response.status === 200 && response.data.code === '200') {
-          const parentConfig = response.data.rsp;
+        if (response.status === 200 && response.data.code === 200) {
+          const parentConfig = response.data.data;
           if (!allParentConfigs.value.some(item => item.configId === parentId)) {
             allParentConfigs.value.push(parentConfig);
           }
@@ -550,7 +550,7 @@ export default {
           response = await createNodeParam(submitData);
         }
 
-        if (response.status === 200 && response.data.code === '200') {
+        if (response.status === 200 && response.data.code === 200) {
           dialog.close();
           await fetchData();
           await fetchAllParentConfigs();
@@ -568,8 +568,8 @@ export default {
       // 获取当前节点的所有配置(不分页)
       try {
         const response = await getNodeParamsUnpaged({ nodeId: searchForm.nodeId });
-        if (response.status === 200 && response.data.code === '200') {
-          allConfigsForVisualization.value = response.data.rsp || [];
+        if (response.status === 200 && response.data.code === 200) {
+          allConfigsForVisualization.value = response.data.data || [];
           visualizationVisible.value = true;
         }
       } catch (error) {

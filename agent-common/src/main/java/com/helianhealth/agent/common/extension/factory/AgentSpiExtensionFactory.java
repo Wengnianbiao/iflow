@@ -1,13 +1,12 @@
 package com.helianhealth.agent.common.extension.factory;
 
+import com.helianhealth.agent.common.extension.AgentExtensionFactory;
 import com.helianhealth.agent.common.extension.AgentExtensionLoader;
 import com.helianhealth.agent.common.extension.AgentSPI;
 
 /**
  * SPI Extension Factory
  * 从SPI扩展中获取对象
- *
- * @author Agent Team
  */
 public class AgentSpiExtensionFactory implements AgentExtensionFactory {
 

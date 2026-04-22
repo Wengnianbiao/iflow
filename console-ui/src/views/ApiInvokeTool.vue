@@ -458,8 +458,8 @@ export default {
         const result = await proxyInvoke(params);
         
         // 处理代理响应
-        if (result.data && result.data.code === '200') {
-          const proxyResult = result.data.rsp || {};
+        if (result.data && result.data.code === 200) {
+          const proxyResult = result.data.data || {};
           this.response = {
             status: proxyResult.status || 200,
             statusText: proxyResult.statusText || 'OK',
@@ -471,7 +471,7 @@ export default {
           this.$message.success(`请求成功，状态码: ${this.response.status}`);
         } else {
           this.response = {
-            status: result.data?.rsp?.status || 0,
+            status: result.data?.data?.status || 0,
             statusText: 'Error',
             headers: {},
             data: result.data?.message || '请求失败',

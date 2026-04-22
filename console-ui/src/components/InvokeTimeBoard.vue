@@ -156,12 +156,12 @@ export default {
           fetchLast7DaysStats()
         ]);
 
-        if (todayRes.status === 200 && todayRes.data.code === '200') {
-          this.todayStats = todayRes.data.rsp || [];
+        if (todayRes.status === 200 && todayRes.data.code === 200) {
+          this.todayStats = todayRes.data.data || [];
         }
 
-        if (last7DaysRes.status === 200 && last7DaysRes.data.code === '200') {
-          this.last7DaysStats = last7DaysRes.data.rsp || [];
+        if (last7DaysRes.status === 200 && last7DaysRes.data.code === 200) {
+          this.last7DaysStats = last7DaysRes.data.data || [];
         }
       } catch (error) {
         console.error('获取统计数据失败:', error);

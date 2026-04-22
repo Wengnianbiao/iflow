@@ -31,7 +31,7 @@ export function useNodeImportExport(refreshCallback) {
         return;
       }
 
-      const exportData = response.data.rsp;
+      const exportData = response.data.data;
       if (!exportData) {
         Message.info('该节点没有配置数据');
         return;
@@ -66,7 +66,7 @@ export function useNodeImportExport(refreshCallback) {
         return;
       }
 
-      const exportData = response.data.rsp;
+      const exportData = response.data.data;
       if (!exportData) {
         Message.info('该节点没有参数配置数据');
         return;
@@ -96,7 +96,7 @@ export function useNodeImportExport(refreshCallback) {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
 
-        if (response.status === 200 && response.data.code === '200') {
+        if (response.status === 200 && response.data.code === 200) {
           Message.success('节点配置导入成功');
           if (refreshCallback) refreshCallback();
         } else {
@@ -125,7 +125,7 @@ export function useNodeImportExport(refreshCallback) {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
 
-        if (response.status === 200 && response.data.code === '200') {
+        if (response.status === 200 && response.data.code === 200) {
           Message.success('参数配置导入成功');
         } else {
           Message.error('参数配置导入失败: ' + (response.data.message || '未知错误'));

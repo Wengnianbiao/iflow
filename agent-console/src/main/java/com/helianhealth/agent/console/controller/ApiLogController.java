@@ -5,7 +5,6 @@ import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.repository.model.dto.InvokeLogVO;
 import com.helianhealth.agent.repository.model.dto.InvokeStatsVO;
 import com.helianhealth.agent.repository.service.InterfaceInvokeLogService;
-import com.helianhealth.agent.common.utils.ResponseRenderUtils;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,10 +30,10 @@ public class ApiLogController {
             @RequestParam(value = "pageSize", defaultValue = "10") int pageSize) {
         try {
             PageList<InvokeLogVO> pageList = interfaceInvokeLogService.findAllInvokeLogs(nodeName, keyword, pageNum, pageSize);
-            return ResponseRenderUtils.render(pageList);
+            return ResultData.ok(pageList);
         } catch (Exception e) {
             log.error("获取节点参数配置列表失败", e);
-            return ResponseRenderUtils.error("获取节点参数配置列表失败: " + e.getMessage());
+            return ResultData.error("获取节点参数配置列表失败: " + e.getMessage());
         }
     }
 
@@ -42,10 +41,9 @@ public class ApiLogController {
     public ResultData<List<InvokeStatsVO>> getTodayStats() {
         try {
             List<InvokeStatsVO> stats = interfaceInvokeLogService.getTodayStats();
-            return ResponseRenderUtils.render(stats);
+            return ResultData.ok(stats);
         } catch (Exception e) {
-            log.error("获取今日统计失败", e);
-            return ResponseRenderUtils.error("获取今日统计失败: " + e.getMessage());
+            return ResultData.error("获取今日统计失败: " + e.getMessage());
         }
     }
 
@@ -53,10 +51,10 @@ public class ApiLogController {
     public ResultData<List<InvokeStatsVO>> getLast7DaysStats() {
         try {
             List<InvokeStatsVO> stats = interfaceInvokeLogService.getLast7DaysStats();
-            return ResponseRenderUtils.render(stats);
+            return ResultData.ok(stats);
         } catch (Exception e) {
             log.error("获取最近7天统计失败", e);
-            return ResponseRenderUtils.error("获取最近7天统计失败: " + e.getMessage());
+            return ResultData.error("获取最近7天统计失败: " + e.getMessage());
         }
     }
 }

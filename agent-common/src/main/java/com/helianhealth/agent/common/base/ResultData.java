@@ -1,42 +1,43 @@
 package com.helianhealth.agent.common.base;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 /**
  * 框架标准响应数据
  */
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class ResultData<T> {
 
-    private String code;
+    private final int code;
 
-    private String message;
+    private final String message;
 
-    private T rsp;
+    private final T data;
 
-    public ResultData(ResultStatusCode statusCode, String message, T data) {
-        this.code = statusCode.getCode();
+    public ResultData(int code, String message, T data) {
+        this.code = code;
         this.message = message;
-        this.rsp = data;
-    }
-
-    public ResultData(ResultStatusCode statusCode, T data) {
-        this.code = statusCode.getCode();
-        this.message = statusCode.getMsg();
-        this.rsp = data;
+        this.data = data;
     }
 
     public static <T> ResultData<T> ok(T data) {
-        return new ResultData<>(ResultStatusCode.OK, data);
+        return new ResultData<>(200, "OK", data);
     }
 
     public static <T> ResultData<T> ok() {
-        return new ResultData<>(ResultStatusCode.OK, null);
+        return new ResultData<>(200, "OK", null);
+    }
+
+    public static <T> ResultData<T> error(String message) {
+        return new ResultData<>(-1, message, null);
+    }
+
+    public int getCode() {
+        return code;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public T getData() {
+        return data;
     }
 }

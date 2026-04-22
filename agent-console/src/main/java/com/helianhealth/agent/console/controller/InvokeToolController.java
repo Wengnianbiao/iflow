@@ -1,7 +1,6 @@
 package com.helianhealth.agent.console.controller;
 
 import com.helianhealth.agent.common.base.ResultData;
-import com.helianhealth.agent.common.utils.ResponseRenderUtils;
 import com.helianhealth.agent.console.controller.request.HttpProxyRequest;
 import com.helianhealth.agent.console.controller.reponse.HttpProxyResponse;
 import com.helianhealth.agent.console.controller.reponse.SqlExecuteResponse;
@@ -35,13 +34,13 @@ public class InvokeToolController {
             log.info("HTTP代理请求: {} {}", request.getMethod(), request.getUrl());
             HttpProxyResponse response = httpProxyService.execute(request);
             log.info("HTTP代理响应: status={}", response.getStatus());
-            return ResponseRenderUtils.render(response);
+            return ResultData.ok(response);
         } catch (IllegalArgumentException e) {
             log.warn("HTTP代理请求参数错误: {}", e.getMessage());
-            return ResponseRenderUtils.error(e.getMessage());
+            return ResultData.error(e.getMessage());
         } catch (Exception e) {
             log.error("HTTP代理请求失败", e);
-            return ResponseRenderUtils.error("请求失败: " + e.getMessage());
+            return ResultData.error("请求失败: " + e.getMessage());
         }
     }
 
@@ -54,13 +53,13 @@ public class InvokeToolController {
         try {
             log.info("SQL查询请求: dbType={}, url={}", request.getDbType(), request.getUrl());
             SqlExecuteResponse response = sqlExecuteService.executeQuery(request);
-            return ResponseRenderUtils.render(response);
+            return ResultData.ok(response);
         } catch (IllegalArgumentException e) {
             log.warn("SQL查询参数错误: {}", e.getMessage());
-            return ResponseRenderUtils.error(e.getMessage());
+            return ResultData.error(e.getMessage());
         } catch (Exception e) {
             log.error("SQL查询失败", e);
-            return ResponseRenderUtils.error("查询失败: " + e.getMessage());
+            return ResultData.error("查询失败: " + e.getMessage());
         }
     }
 }

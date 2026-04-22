@@ -12,6 +12,4 @@ public interface NodeExtensionConfigCommandService {
     void update(NodeExtensionConfig config);
 
     void deleteById(Integer codeId);
-
-    void deleteBySpiInterfaceAndExtension(String spiInterface, String extensionName);
 }

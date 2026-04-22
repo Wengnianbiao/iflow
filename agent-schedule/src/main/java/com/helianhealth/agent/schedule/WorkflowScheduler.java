@@ -221,6 +221,7 @@ public class WorkflowScheduler {
      * @param source 源Map
      * @param target 目标Map
      */
+    @SuppressWarnings("unchecked")
     private void mergeMap(Map<String, Object> source, Map<String, Object> target) {
         for (Map.Entry<String, Object> entry : source.entrySet()) {
             String key = entry.getKey();

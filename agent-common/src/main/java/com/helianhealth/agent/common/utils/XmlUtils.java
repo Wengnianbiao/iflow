@@ -1,6 +1,6 @@
 package com.helianhealth.agent.common.utils;
 
-import com.helianhealth.agent.common.base.MetaInfoKeys;
+import com.helianhealth.agent.common.base.MetaInfoKeyConstants;
 import com.helianhealth.agent.common.factory.XmlParserFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,7 +47,7 @@ public class XmlUtils {
         DocumentBuilder builder = parserFactory.getDocumentBuilder();
 
         // 转义字符全量处理配置
-        Boolean useEscapeObj = (Boolean) metaMap.get(MetaInfoKeys.USE_ESCAPE);
+        Boolean useEscapeObj = (Boolean) metaMap.get(MetaInfoKeyConstants.USE_ESCAPE);
         boolean useEscape = useEscapeObj != null && useEscapeObj;
         if (useEscape) {
             xml = unescapeXml(xml);
@@ -57,7 +57,7 @@ public class XmlUtils {
             InputSource is = new InputSource(new StringReader(cleanXmlString(xml)));
             Document doc = builder.parse(is);
 
-            String elementName = (String) metaMap.get(MetaInfoKeys.ELEMENT_NAME);
+            String elementName = (String) metaMap.get(MetaInfoKeyConstants.ELEMENT_NAME);
             if (StringUtils.hasText(elementName)) {
                 // 根据标签名定位业务数据元素
                 return parseByElementName(doc, builder, metaMap, elementName);
@@ -94,7 +94,7 @@ public class XmlUtils {
         Node targetNode = bizDataNodes.item(0);
 
         // 1. 获取业务数据内容 (根据 isCDATA 配置)
-        Boolean isCDATAObj = (Boolean) metaMap.get(MetaInfoKeys.IS_CDATA);
+        Boolean isCDATAObj = (Boolean) metaMap.get(MetaInfoKeyConstants.IS_CDATA);
         boolean isCDATA = isCDATAObj == null || isCDATAObj;
 
         String dataContent;
@@ -113,8 +113,8 @@ public class XmlUtils {
         }
 
         // 2. 根据 dataType 解析内容
-        String dataType = (String) metaMap.get(MetaInfoKeys.DATA_TYPE);
-        if (dataType != null && dataType.equalsIgnoreCase(MetaInfoKeys.DATA_TYPE_JSON)) {
+        String dataType = (String) metaMap.get(MetaInfoKeyConstants.DATA_TYPE);
+        if (dataType != null && dataType.equalsIgnoreCase(MetaInfoKeyConstants.DATA_TYPE_JSON)) {
             // JSON 格式，直接返回
             return JsonUtils.toMap(dataContent);
         }
@@ -124,7 +124,7 @@ public class XmlUtils {
 
         // 4. 内层标签定位（可选）
         Element bizDataElement;
-        String innerElementName = (String) metaMap.get(MetaInfoKeys.INNER_ELEMENT_NAME);
+        String innerElementName = (String) metaMap.get(MetaInfoKeyConstants.INNER_ELEMENT_NAME);
         if (StringUtils.hasText(innerElementName)) {
             bizDataElement = locateInnerElement(innerDoc, innerElementName);
         } else {
@@ -183,7 +183,7 @@ public class XmlUtils {
      * @return 处理后的原始内容
      */
     private static String unescapeXml(String content) {
-        if (StringUtils.isEmpty(content)) {
+        if (content == null || content.isEmpty()) {
             return content;
         }
         // &amp;必须放在最前面，避免破坏其他转义符结构
@@ -630,7 +630,7 @@ public class XmlUtils {
                 Element parentElement = (Element) elements.get(0).getParentNode();
                 String parentTagName = parentElement.getNodeName();
 
-                List<String> objectTagNames = (List<String>) metaContext.get(MetaInfoKeys.OBJECT_TAG);
+                List<String> objectTagNames = (List<String>) metaContext.get(MetaInfoKeyConstants.OBJECT_TAG);
                 if (objectTagNames != null && objectTagNames.contains(parentTagName)) {
                     return false;
                 }

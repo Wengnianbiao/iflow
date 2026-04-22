@@ -6,6 +6,15 @@
         <el-button type="primary" @click="showTypeSelector" icon="el-icon-plus">新增扩展</el-button>
         <el-button @click="loadExtensionList" icon="el-icon-refresh">刷新列表</el-button>
       </el-form-item>
+      <el-form-item>
+        <el-input
+          v-model="searchKeyword"
+          placeholder="搜索扩展名称 / 实现类"
+          prefix-icon="el-icon-search"
+          clearable
+          style="width: 240px;"
+        ></el-input>
+      </el-form-item>
       <el-form-item label="扩展类型筛选">
         <el-select v-model="filterType" placeholder="全部" @change="loadExtensionList" clearable>
           <el-option label="接口扩展" value="InterfaceRemoteInvoker"></el-option>
@@ -16,11 +25,15 @@
 
     <!-- SPI扩展列表 -->
     <el-table
-      :data="extensionList"
-      border
+      :data="filteredExtensionList"
       style="width: 100%; margin-bottom: 20px"
       v-loading="tableLoading"
     >
+      <template slot="empty">
+        <div style="padding: 30px 0;">
+          <p style="color: #909399; margin: 0;">暂无扩展配置，点击「新增扩展」开始创建</p>
+        </div>
+      </template>
       <el-table-column label="扩展类型" width="120">
         <template slot-scope="scope">
           <el-tag :type="getExtensionTypeTag(scope.row.spiInterface)" size="small">
@@ -28,19 +41,14 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="关联节点" min-width="200">
+      <el-table-column label="关联节点" min-width="120" show-overflow-tooltip>
         <template slot-scope="scope">
           <span v-if="!Array.isArray(scope.row.nodeId) || scope.row.nodeId.length === 0">-</span>
-          <span v-else-if="!Array.isArray(scope.row.nodeId) || scope.row.nodeId.length === 1">
-            {{ getNodeName(scope.row.nodeId) }}
+          <span v-else-if="scope.row.nodeId.length === 1">
+            {{ getNodeNameById(scope.row.nodeId[0]) }}
           </span>
           <div v-else style="display: flex; flex-wrap: wrap; gap: 5px;">
-            <el-tag
-              v-for="id in scope.row.nodeId"
-              :key="id"
-              size="small"
-              type="info"
-            >
+            <el-tag v-for="id in scope.row.nodeId" :key="id" size="small" type="info">
               {{ getNodeNameById(id) }}
             </el-tag>
           </div>
@@ -50,9 +58,19 @@
       <el-table-column prop="className" label="实现类" min-width="200" show-overflow-tooltip></el-table-column>
       <el-table-column label="扩展方式" width="100" align="center">
         <template slot-scope="scope">
-          <el-tag :type="scope.row.extensionMode === 'ONLINE' ? 'success' : 'primary'" size="small">
-            {{ scope.row.extensionMode === 'ONLINE' ? '在线扩展' : '项目扩展' }}
-          </el-tag>
+          <el-tooltip
+            v-if="scope.row.extensionMode === 'ONLINE'"
+            content="点击查看源码"
+            placement="top"
+          >
+            <el-tag
+              type="success"
+              size="small"
+              style="cursor:pointer"
+              @click="handleViewCode(scope.row)"
+            >在线扩展</el-tag>
+          </el-tooltip>
+          <el-tag v-else type="primary" size="small">项目扩展</el-tag>
         </template>
       </el-table-column>
       <el-table-column prop="description" label="描述" min-width="150" show-overflow-tooltip></el-table-column>
@@ -63,16 +81,22 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="180" fixed="right">
+      <el-table-column label="操作" width="220" fixed="right">
         <template slot-scope="scope">
-          <el-button size="mini" @click="handleEdit(scope.row)" icon="el-icon-edit">编辑</el-button>
+          <el-button size="mini" @click="handleEdit(scope.row)">编辑</el-button>
           <el-button
             v-if="scope.row.enabled === 1"
             size="mini"
             type="danger"
-            @click="handleDisable(scope.row)"
-            icon="el-icon-close"
+            @click="handleToggleEnabled(scope.row)"
           >禁用</el-button>
+          <el-button
+            v-else
+            size="mini"
+            type="success"
+            @click="handleToggleEnabled(scope.row)"
+          >启用</el-button>
+          <el-button size="mini" type="danger" @click="handleDelete(scope.row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -130,54 +154,37 @@
       :close-on-click-modal="false"
     >
       <el-form :model="interfaceExtensionForm" label-width="120px" ref="interfaceExtensionForm" :rules="interfaceExtensionRules">
-        <el-alert
-          title="接口扩展（InterfaceRemoteInvoker）"
-          type="info"
-          :closable="false"
-          style="margin-bottom: 20px;"
-        >
-          <p>功能：自定义远程调用逻辑</p>
-          <p>特性：单节点绑定，自动更新节点的 remote_extension 字段</p>
-        </el-alert>
+        <el-divider content-position="left">基础信息</el-divider>
 
-        <el-form-item label="关联节点" prop="nodeId" required>
-          <el-select
-            v-model="interfaceExtensionForm.nodeId"
-            placeholder="请选择要关联的节点（单选）"
-            style="width: 100%"
-            filterable
-          >
-            <el-option
-              v-for="node in nodeList"
-              :key="node.nodeId"
-              :label="node.nodeName"
-              :value="node.nodeId"
-            ></el-option>
-          </el-select>
-        </el-form-item>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="关联节点" prop="nodeId" required>
+              <el-select v-model="interfaceExtensionForm.nodeId" placeholder="请选择要关联的节点（单选）" style="width: 100%" filterable>
+                <el-option v-for="node in nodeList" :key="node.nodeId" :label="node.nodeName" :value="node.nodeId"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="扩展名称" prop="extensionName">
+              <el-input v-model="interfaceExtensionForm.extensionName" placeholder="例如: pacs"></el-input>
+            </el-form-item>
+          </el-col>
+        </el-row>
 
-        <el-form-item label="扩展名称" prop="extensionName">
-          <el-input
-            v-model="interfaceExtensionForm.extensionName"
-            placeholder="例如: pacs"
-          ></el-input>
-        </el-form-item>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="实现类全名" prop="className">
+              <el-input v-model="interfaceExtensionForm.className" placeholder="例如: com.helianhealth.agent.custom.MyRemoteInvoker"></el-input>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="描述" prop="description">
+              <el-input v-model="interfaceExtensionForm.description" placeholder="请输入扩展描述"></el-input>
+            </el-form-item>
+          </el-col>
+        </el-row>
 
-        <el-form-item label="实现类全名" prop="className">
-          <el-input
-            v-model="interfaceExtensionForm.className"
-            placeholder="例如: com.helianhealth.agent.custom.MyRemoteInvoker"
-          ></el-input>
-        </el-form-item>
-
-        <el-form-item label="描述" prop="description">
-          <el-input
-            v-model="interfaceExtensionForm.description"
-            type="textarea"
-            :rows="2"
-            placeholder="请输入扩展描述"
-          ></el-input>
-        </el-form-item>
+        <el-divider content-position="left">扩展配置</el-divider>
 
         <el-form-item label="扩展方式" prop="extensionMode" required>
           <el-radio-group v-model="interfaceExtensionForm.extensionMode">
@@ -193,27 +200,35 @@
         </el-form-item>
 
         <el-form-item label="Java源代码" prop="sourceCode" v-if="interfaceExtensionForm.extensionMode === 'ONLINE'">
-          <el-input
-            v-model="interfaceExtensionForm.sourceCode"
-            type="textarea"
-            :rows="20"
-            placeholder="请输入Java源代码..."
-            style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace;"
-          ></el-input>
+          <div class="code-editor-wrapper">
+            <div class="code-line-numbers" ref="interfaceLineNumbers">
+              <div v-for="n in getLineCount(interfaceExtensionForm.sourceCode)" :key="n" class="line-number">{{ n }}</div>
+            </div>
+            <textarea
+              class="code-textarea"
+              v-model="interfaceExtensionForm.sourceCode"
+              placeholder="请输入Java源代码..."
+              spellcheck="false"
+              @scroll="syncScroll('interface')"
+              ref="interfaceCodeArea"
+            ></textarea>
+          </div>
           <div class="code-toolbar">
             <el-button size="mini" @click="applyTemplate('interfaceRemoteInvoker')" icon="el-icon-document">使用模板</el-button>
           </div>
         </el-form-item>
 
-        <el-form-item label="状态" prop="enabled">
-          <el-switch
-            v-model="interfaceExtensionForm.enabled"
-            :active-value="1"
-            :inactive-value="0"
-            active-text="启用"
-            inactive-text="禁用"
-          ></el-switch>
-        </el-form-item>
+        <!-- 项目扩展接入指引 -->
+        <div v-if="interfaceExtensionForm.extensionMode === 'PROJECT'" style="margin-bottom: 20px;">
+          <el-alert title="项目接入指引" type="info" :closable="false">
+            <el-steps direction="vertical" :space="50" style="margin-top: 12px;">
+              <el-step title="添加依赖" description="在你的业务项目中引入 interface-agent SDK 依赖"></el-step>
+              <el-step title="实现接口" description="创建类实现 InterfaceRemoteInvoker 接口，编写 remoteInvoke 方法"></el-step>
+              <el-step title="注册到 Spring" description="使用 @Component 注解，确保类名与上方「实现类全名」一致"></el-step>
+              <el-step title="部署生效" description="重启应用后，系统将自动发现并加载该扩展"></el-step>
+            </el-steps>
+          </el-alert>
+        </div>
       </el-form>
 
       <div slot="footer">
@@ -231,40 +246,45 @@
       :close-on-click-modal="false"
     >
       <el-form :model="filterExtensionForm" label-width="120px" ref="filterExtensionForm" :rules="filterExtensionRules">
-        <el-alert
-          title="过滤器扩展（AgentFilter）"
-          type="success"
-          :closable="false"
-          style="margin-bottom: 20px;"
-        >
-          <p>功能：实现请求/响应拦截处理逻辑</p>
-          <p>特性：多节点绑定，自动更新节点的 extension_param 字段（key: "filter.{extensionName}", value: 自定义值或默认"true"）</p>
-        </el-alert>
 
-        <el-form-item label="关联节点" prop="nodeId" required>
-          <el-select
-            v-model="filterExtensionForm.nodeId"
-            placeholder="请选择要关联的节点（可多选）"
-            style="width: 100%"
-            filterable
-            multiple
-            collapse-tags
-          >
-            <el-option
-              v-for="node in nodeList"
-              :key="node.nodeId"
-              :label="node.nodeName"
-              :value="node.nodeId"
-            ></el-option>
-          </el-select>
-        </el-form-item>
+        <el-divider content-position="left">基础信息</el-divider>
 
-        <el-form-item label="扩展名称" prop="extensionName">
-          <el-input
-            v-model="filterExtensionForm.extensionName"
-            placeholder="例如: header"
-          ></el-input>
-        </el-form-item>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="关联节点" prop="nodeId" required>
+              <el-select
+                v-model="filterExtensionForm.nodeId"
+                placeholder="请选择要关联的节点（可多选）"
+                style="width: 100%"
+                filterable
+                multiple
+                collapse-tags
+              >
+                <el-option v-for="node in nodeList" :key="node.nodeId" :label="node.nodeName" :value="node.nodeId"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="扩展名称" prop="extensionName">
+              <el-input v-model="filterExtensionForm.extensionName" placeholder="例如: header"></el-input>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="实现类全名" prop="className">
+              <el-input v-model="filterExtensionForm.className" placeholder="例如: com.helianhealth.agent.custom.HeaderFilter"></el-input>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="描述" prop="description">
+              <el-input v-model="filterExtensionForm.description" placeholder="请输入扩展描述"></el-input>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-divider content-position="left">扩展配置</el-divider>
 
         <el-form-item>
           <span slot="label">
@@ -274,52 +294,13 @@
             </el-tooltip>
           </span>
           <div class="param-list">
-            <div
-                v-for="(param, index) in filterExtensionForm.extensionParamList"
-                :key="index"
-                class="param-item"
-            >
-              <el-input
-                  v-model="param.key"
-                  placeholder="参数名（key）"
-                  style="width: 40%; margin-right: 10px;"
-              ></el-input>
-              <el-input
-                  v-model="param.value"
-                  placeholder="参数值（value）"
-                  style="width: 40%; margin-right: 10px;"
-              ></el-input>
-              <el-button
-                  type="danger"
-                  icon="el-icon-delete"
-                  size="small"
-                  circle
-                  @click="removeExtensionParam(index)"
-              ></el-button>
+            <div v-for="(param, index) in filterExtensionForm.extensionParamList" :key="index" class="param-item">
+              <el-input v-model="param.key" placeholder="参数名（key）" style="width: 40%; margin-right: 10px;"></el-input>
+              <el-input v-model="param.value" placeholder="参数值（value）" style="width: 40%; margin-right: 10px;"></el-input>
+              <el-button type="danger" icon="el-icon-delete" size="small" circle @click="removeExtensionParam(index)"></el-button>
             </div>
-            <el-button
-                type="text"
-                icon="el-icon-plus"
-                @click="addExtensionParam"
-                style="margin-top: 10px;"
-            >添加参数</el-button>
+            <el-button type="text" icon="el-icon-plus" @click="addExtensionParam" style="margin-top: 10px;">添加参数</el-button>
           </div>
-        </el-form-item>
-
-        <el-form-item label="实现类全名" prop="className">
-          <el-input
-            v-model="filterExtensionForm.className"
-            placeholder="例如: com.helianhealth.agent.custom.HeaderFilter"
-          ></el-input>
-        </el-form-item>
-
-        <el-form-item label="描述" prop="description">
-          <el-input
-            v-model="filterExtensionForm.description"
-            type="textarea"
-            :rows="2"
-            placeholder="请输入扩展描述"
-          ></el-input>
         </el-form-item>
 
         <el-form-item label="扩展方式" prop="extensionMode" required>
@@ -336,27 +317,35 @@
         </el-form-item>
 
         <el-form-item label="Java源代码" prop="sourceCode" v-if="filterExtensionForm.extensionMode === 'ONLINE'">
-          <el-input
-            v-model="filterExtensionForm.sourceCode"
-            type="textarea"
-            :rows="20"
-            placeholder="请输入Java源代码..."
-            style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace;"
-          ></el-input>
+          <div class="code-editor-wrapper">
+            <div class="code-line-numbers" ref="filterLineNumbers">
+              <div v-for="n in getLineCount(filterExtensionForm.sourceCode)" :key="n" class="line-number">{{ n }}</div>
+            </div>
+            <textarea
+              class="code-textarea"
+              v-model="filterExtensionForm.sourceCode"
+              placeholder="请输入Java源代码..."
+              spellcheck="false"
+              @scroll="syncScroll('filter')"
+              ref="filterCodeArea"
+            ></textarea>
+          </div>
           <div class="code-toolbar">
             <el-button size="mini" @click="applyTemplate('agentFilter')" icon="el-icon-document">使用模板</el-button>
           </div>
         </el-form-item>
 
-        <el-form-item label="状态" prop="enabled">
-          <el-switch
-            v-model="filterExtensionForm.enabled"
-            :active-value="1"
-            :inactive-value="0"
-            active-text="启用"
-            inactive-text="禁用"
-          ></el-switch>
-        </el-form-item>
+        <!-- 项目扩展接入指引 -->
+        <div v-if="filterExtensionForm.extensionMode === 'PROJECT'" style="margin-bottom: 20px;">
+          <el-alert title="项目接入指引" type="success" :closable="false">
+            <el-steps direction="vertical" :space="50" style="margin-top: 12px;">
+              <el-step title="添加依赖" description="在你的业务项目中引入 interface-agent SDK 依赖"></el-step>
+              <el-step title="实现接口" description="创建类实现 AgentFilter 接口，编写 invoke 方法"></el-step>
+              <el-step title="注册到 Spring" description="使用 @Component 注解，确保类名与上方「实现类全名」一致"></el-step>
+              <el-step title="部署生效" description="重启应用后，系统将自动发现并加载该过滤器扩展"></el-step>
+            </el-steps>
+          </el-alert>
+        </div>
       </el-form>
 
       <div slot="footer">
@@ -364,11 +353,41 @@
         <el-button type="primary" @click="handleSaveFilterExtension" :loading="saveLoading">保存</el-button>
       </div>
     </el-dialog>
+
+    <!-- 代码预览对话框 -->
+    <el-dialog
+      :title="codePreviewTitle"
+      :visible.sync="codePreviewVisible"
+      :width="codePreviewFullscreen ? '100%' : '70%'"
+      :top="codePreviewFullscreen ? '0' : '6vh'"
+      :fullscreen="codePreviewFullscreen"
+      :close-on-click-modal="true"
+    >
+      <template slot="title">
+        <span>{{ codePreviewTitle }}</span>
+        <el-button
+          size="mini"
+          :icon="codePreviewFullscreen ? 'el-icon-copy-document' : 'el-icon-full-screen'"
+          circle
+          style="margin-left: 12px"
+          @click="codePreviewFullscreen = !codePreviewFullscreen"
+        ></el-button>
+      </template>
+      <div class="code-preview-wrapper" :style="codePreviewFullscreen ? 'max-height: calc(100vh - 100px)' : ''">
+        <div class="code-line-numbers">
+          <div v-for="n in getLineCount(codePreviewContent)" :key="n" class="line-number">{{ n }}</div>
+        </div>
+        <pre class="code-preview-content"><code v-html="highlightedPreviewCode"></code></pre>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script>
 import { Message, MessageBox } from 'element-ui';
+import hljs from 'highlight.js/lib/core';
+import java from 'highlight.js/lib/languages/java';
+import 'highlight.js/styles/github.css';
 import {
   getInterfaceExtensions,
   registerInterfaceExtension,
@@ -377,34 +396,30 @@ import {
   registerFilterExtension,
   updateFilterExtension,
   disableExtension,
+  enableExtension,
+  deleteExtension,
   getExtensionDetail
 } from '@/api/extension';
 import { getAllNodes } from '@/api/workflow';
+
+hljs.registerLanguage('java', java);
 
 export default {
   name: 'NodeExtensionConfig',
   data() {
     return {
-      // 列表数据
       extensionList: [],
       nodeList: [],
       filterType: '',
+      searchKeyword: '',
       tableLoading: false,
 
-      // 类型选择对话框
       typeSelectorVisible: false,
 
-      // 接口扩展对话框
       interfaceExtensionDialogVisible: false,
       interfaceExtensionForm: {
-        codeId: null,
-        nodeId: null,
-        extensionName: '',
-        className: '',
-        sourceCode: '',
-        description: '',
-        enabled: 1,
-        extensionMode: 'ONLINE'
+        codeId: null, nodeId: null, extensionName: '', className: '',
+        sourceCode: '', description: '', enabled: 1, extensionMode: 'ONLINE'
       },
       interfaceExtensionRules: {
         nodeId: [{ required: true, message: '请选择关联节点', trigger: 'change' }],
@@ -413,18 +428,11 @@ export default {
         extensionMode: [{ required: true, message: '请选择扩展方式', trigger: 'change' }]
       },
 
-      // 过滤器扩展对话框
       filterExtensionDialogVisible: false,
       filterExtensionForm: {
-        codeId: null,
-        nodeId: [],
-        extensionName: '',
-        className: '',
-        sourceCode: '',
-        description: '',
-        enabled: 1,
-        extensionMode: 'ONLINE',
-        extensionParamList: []  // key-value 列表
+        codeId: null, nodeId: [], extensionName: '', className: '',
+        sourceCode: '', description: '', enabled: 1, extensionMode: 'ONLINE',
+        extensionParamList: []
       },
       filterExtensionRules: {
         nodeId: [{ required: true, message: '请选择关联节点', trigger: 'change' }],
@@ -433,91 +441,124 @@ export default {
         extensionMode: [{ required: true, message: '请选择扩展方式', trigger: 'change' }]
       },
 
-      // 通用状态
+      codePreviewVisible: false,
+      codePreviewFullscreen: false,
+      codePreviewTitle: '',
+      codePreviewContent: '',
+
       dialogTitle: '',
       isEdit: false,
       saveLoading: false,
 
-      // 代码模板
       templates: {
         interfaceRemoteInvoker: `package com.helianhealth.agent.extension;
 
 import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
-import com.helianhealth.agent.workflow.model.domain.InterfaceWorkflowNode;
+import com.helianhealth.agent.invocation.remote.model.Invocation;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
+import lombok.extern.slf4j.Slf4j;
+
+import java.util.HashMap;
 import java.util.Map;
 
-/**
- * 自定义远程调用实现示例
- */
+@Slf4j
 public class CustomInvoker implements InterfaceRemoteInvoker {
 
     @Override
-    public Map<String, Object> remoteInvoke(InterfaceWorkflowNode node, Map<String, Object> businessData) {
+    public Map<String, Object> remoteInvoke(Invocation invocation, WorkflowNode node) {
         // TODO: 实现自定义调用逻辑
-        System.out.println("自定义调用: " + node.getNodeName());
-        return businessData;
+        log.info("自定义调用: {}", node.getNodeName());
+        return new HashMap<>();
     }
 }`,
         agentFilter: `package com.helianhealth.agent.extension;
 
 import com.helianhealth.agent.invocation.remote.filter.AgentFilter;
-import com.helianhealth.agent.workflow.model.domain.InterfaceWorkflowNode;
+import com.helianhealth.agent.invocation.remote.filter.AgentFilterChain;
+import com.helianhealth.agent.invocation.remote.model.Invocation;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.Map;
 
-/**
- * 自定义过滤器实现示例
- */
+@Slf4j
 public class CustomFilter implements AgentFilter {
 
     @Override
-    public Map<String, Object> invoke(InterfaceWorkflowNode node, Map<String, Object> businessData) {
+    public Map<String, Object> invoke(Invocation invocation, WorkflowNode node, AgentFilterChain chain) {
         // TODO: 实现请求预处理逻辑
-        System.out.println("Filter 前置处理: " + node.getNodeName());
+        log.info("Filter 前置处理: {}", node.getNodeName());
 
         // 调用下一个过滤器或实际调用
-        Map<String, Object> result = businessData;
+        Map<String, Object> result = chain.doFilter(invocation, node);
 
         // TODO: 实现响应后处理逻辑
-        System.out.println("Filter 后置处理");
+        log.info("Filter 后置处理");
         return result;
     }
 }`
       }
     };
   },
+  computed: {
+    filteredExtensionList() {
+      if (!this.searchKeyword) return this.extensionList;
+      const kw = this.searchKeyword.toLowerCase();
+      return this.extensionList.filter(item =>
+        (item.extensionName && item.extensionName.toLowerCase().includes(kw)) ||
+        (item.className && item.className.toLowerCase().includes(kw))
+      );
+    },
+    highlightedPreviewCode() {
+      if (!this.codePreviewContent) return '';
+      try {
+        return hljs.highlight(this.codePreviewContent, { language: 'java' }).value;
+      } catch {
+        const div = document.createElement('div');
+        div.textContent = this.codePreviewContent;
+        return div.innerHTML;
+      }
+    }
+  },
   mounted() {
     this.loadExtensionList();
     this.loadNodeList();
   },
   methods: {
-    // 加载扩展列表（根据筛选条件）
+    getLineCount(code) {
+      if (!code) return 1;
+      return Math.max(code.split('\n').length, 1);
+    },
+    syncScroll(type) {
+      const areaRef = type === 'interface' ? 'interfaceCodeArea' : 'filterCodeArea';
+      const lineRef = type === 'interface' ? 'interfaceLineNumbers' : 'filterLineNumbers';
+      if (this.$refs[areaRef] && this.$refs[lineRef]) {
+        this.$refs[lineRef].scrollTop = this.$refs[areaRef].scrollTop;
+      }
+    },
+
     async loadExtensionList() {
       this.tableLoading = true;
       try {
         let combinedList = [];
-
         if (!this.filterType || this.filterType === 'InterfaceRemoteInvoker') {
           const interfaceResp = await getInterfaceExtensions();
           if (interfaceResp && interfaceResp.data) {
             const result = interfaceResp.data;
-            const interfaceList = Array.isArray(result.rsp) ? result.rsp :
-                                 Array.isArray(result.data) ? result.data :
+            const interfaceList = Array.isArray(result.data) ? result.data :
                                  Array.isArray(result) ? result : [];
             combinedList = combinedList.concat(interfaceList);
           }
         }
-
         if (!this.filterType || this.filterType === 'AgentFilter') {
           const filterResp = await getFilterExtensions();
           if (filterResp && filterResp.data) {
             const result = filterResp.data;
-            const filterList = Array.isArray(result.rsp) ? result.rsp :
-                              Array.isArray(result.data) ? result.data :
+            const filterList = Array.isArray(result.data) ? result.data :
                               Array.isArray(result) ? result : [];
             combinedList = combinedList.concat(filterList);
           }
         }
-
         this.extensionList = combinedList;
       } catch (error) {
         Message.error('加载扩展列表失败：' + (error.message || '未知错误'));
@@ -527,14 +568,12 @@ public class CustomFilter implements AgentFilter {
       }
     },
 
-    // 加载节点列表
     async loadNodeList() {
       try {
         const response = await getAllNodes();
         if (response && response.data) {
           const result = response.data;
-          this.nodeList = Array.isArray(result.rsp) ? result.rsp :
-                          Array.isArray(result.data) ? result.data :
+          this.nodeList = Array.isArray(result.data) ? result.data :
                           Array.isArray(result) ? result : [];
         } else {
           this.nodeList = [];
@@ -545,7 +584,6 @@ public class CustomFilter implements AgentFilter {
       }
     },
 
-    // 显示类型选择器
     showTypeSelector() {
       if (!this.nodeList || this.nodeList.length === 0) {
         this.loadNodeList();
@@ -553,7 +591,6 @@ public class CustomFilter implements AgentFilter {
       this.typeSelectorVisible = true;
     },
 
-    // 选择扩展类型
     selectExtensionType(type) {
       this.typeSelectorVisible = false;
       this.isEdit = false;
@@ -561,70 +598,41 @@ public class CustomFilter implements AgentFilter {
       if (type === 'InterfaceRemoteInvoker') {
         this.dialogTitle = '新增接口扩展';
         this.interfaceExtensionForm = {
-          codeId: null,
-          nodeId: null,
-          extensionName: '',
-          className: '',
-          sourceCode: '',
-          description: '',
-          enabled: 1,
-          extensionMode: 'ONLINE'
+          codeId: null, nodeId: null, extensionName: '', className: '',
+          sourceCode: '', description: '', enabled: 1, extensionMode: 'ONLINE'
         };
         this.interfaceExtensionDialogVisible = true;
         this.$nextTick(() => {
-          if (this.$refs.interfaceExtensionForm) {
-            this.$refs.interfaceExtensionForm.clearValidate();
-          }
+          if (this.$refs.interfaceExtensionForm) this.$refs.interfaceExtensionForm.clearValidate();
         });
       } else if (type === 'AgentFilter') {
         this.dialogTitle = '新增过滤器扩展';
         this.filterExtensionForm = {
-          codeId: null,
-          nodeId: [],
-          extensionName: '',
-          className: '',
-          sourceCode: '',
-          description: '',
-          enabled: 1,
-          extensionMode: 'ONLINE',
+          codeId: null, nodeId: [], extensionName: '', className: '',
+          sourceCode: '', description: '', enabled: 1, extensionMode: 'ONLINE',
           extensionParamList: []
         };
         this.filterExtensionDialogVisible = true;
         this.$nextTick(() => {
-          if (this.$refs.filterExtensionForm) {
-            this.$refs.filterExtensionForm.clearValidate();
-          }
+          if (this.$refs.filterExtensionForm) this.$refs.filterExtensionForm.clearValidate();
         });
       }
     },
 
-    // 编辑扩展
     async handleEdit(row) {
       this.isEdit = true;
-
-      // 查询详情（会从节点提取 extensionParamValue）
       let detailRow = row;
       try {
         const detailResp = await getExtensionDetail(row.codeId);
-        if (detailResp && detailResp.data) {
-          detailRow = detailResp.data;
-        }
+        if (detailResp && detailResp.data) detailRow = detailResp.data;
       } catch (error) {
         console.error('Failed to load extension detail:', error);
-        // 失败时继续使用列表数据
       }
 
-      // 处理扩展方式字段兼容
       let mode = detailRow.extensionMode || detailRow.extensionLocation || (detailRow.usePageCode === 1 ? 'ONLINE' : 'PROJECT') || 'ONLINE';
-
-      // 处理 nodeId
       let nodeId = detailRow.nodeId;
       if (nodeId && !Array.isArray(nodeId)) {
-        try {
-          nodeId = typeof nodeId === 'string' ? JSON.parse(nodeId) : [nodeId];
-        } catch (e) {
-          nodeId = [];
-        }
+        try { nodeId = typeof nodeId === 'string' ? JSON.parse(nodeId) : [nodeId]; } catch (e) { nodeId = []; }
       } else if (!nodeId) {
         nodeId = [];
       }
@@ -638,9 +646,7 @@ public class CustomFilter implements AgentFilter {
         };
         this.interfaceExtensionDialogVisible = true;
         this.$nextTick(() => {
-          if (this.$refs.interfaceExtensionForm) {
-            this.$refs.interfaceExtensionForm.clearValidate();
-          }
+          if (this.$refs.interfaceExtensionForm) this.$refs.interfaceExtensionForm.clearValidate();
         });
       } else if (detailRow.spiInterface === 'com.helianhealth.agent.invocation.remote.filter.AgentFilter') {
         this.dialogTitle = '编辑过滤器扩展';
@@ -648,34 +654,77 @@ public class CustomFilter implements AgentFilter {
           ...detailRow,
           nodeId: nodeId,
           extensionMode: mode,
-          extensionParamList: this.convertJsonToParamList(detailRow.extensionParamValue)  // 转换为 key-value 列表
+          extensionParamList: this.convertJsonToParamList(detailRow.extensionParamValue)
         };
         this.filterExtensionDialogVisible = true;
         this.$nextTick(() => {
-          if (this.$refs.filterExtensionForm) {
-            this.$refs.filterExtensionForm.clearValidate();
-          }
+          if (this.$refs.filterExtensionForm) this.$refs.filterExtensionForm.clearValidate();
         });
       }
     },
 
-    // 保存接口扩展
+    async handleViewCode(row) {
+      try {
+        const resp = await getExtensionDetail(row.codeId);
+        const detail = (resp && resp.data) ? resp.data : row;
+        this.codePreviewTitle = `${row.extensionName} - 源代码`;
+        this.codePreviewContent = detail.sourceCode || '// 暂无源代码';
+        this.codePreviewVisible = true;
+      } catch (error) {
+        Message.error('获取代码详情失败');
+      }
+    },
+
+    async handleToggleEnabled(row) {
+      const action = row.enabled === 1 ? '禁用' : '启用';
+      try {
+        await MessageBox.confirm(
+          `确定要${action}扩展 "${row.extensionName}" 吗？${row.enabled === 1 ? '禁用后将从运行时卸载。' : '启用后将重新加载到运行时。'}`,
+          '警告',
+          { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
+        );
+        if (row.enabled === 1) {
+          await disableExtension(row.codeId);
+        } else {
+          await enableExtension(row.codeId);
+        }
+        Message.success(`${action}成功`);
+        this.loadExtensionList();
+      } catch (error) {
+        if (error !== 'cancel') {
+          Message.error(`${action}失败：` + (error.message || '未知错误'));
+        }
+      }
+    },
+
+    async handleDelete(row) {
+      try {
+        await MessageBox.confirm(
+          `确定要删除扩展 "${row.extensionName}" 吗？此操作将物理删除配置且不可恢复。`,
+          '警告',
+          { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
+        );
+        await deleteExtension(row.codeId);
+        Message.success('删除成功');
+        this.loadExtensionList();
+      } catch (error) {
+        if (error !== 'cancel') {
+          Message.error('删除失败：' + (error.message || '未知错误'));
+        }
+      }
+    },
+
     async handleSaveInterfaceExtension() {
       try {
         await this.$refs.interfaceExtensionForm.validate();
-      } catch (error) {
-        return;
-      }
+      } catch (error) { return; }
 
       if (!this.interfaceExtensionForm.extensionMode) {
-        Message.error('请选择扩展方式');
-        return;
+        Message.error('请选择扩展方式'); return;
       }
-
       if (this.interfaceExtensionForm.extensionMode === 'ONLINE') {
         if (!this.interfaceExtensionForm.sourceCode || !this.interfaceExtensionForm.sourceCode.trim()) {
-          Message.error('在线扩展模式下，请输入Java源代码');
-          return;
+          Message.error('在线扩展模式下，请输入Java源代码'); return;
         }
       }
 
@@ -683,12 +732,9 @@ public class CustomFilter implements AgentFilter {
       try {
         const submitData = {
           ...this.interfaceExtensionForm,
-          nodeId: [this.interfaceExtensionForm.nodeId]  // 转为数组
+          nodeId: [this.interfaceExtensionForm.nodeId]
         };
-
-        if (submitData.extensionMode === 'PROJECT') {
-          delete submitData.sourceCode;
-        }
+        if (submitData.extensionMode === 'PROJECT') delete submitData.sourceCode;
 
         if (this.isEdit) {
           await updateInterfaceExtension(submitData);
@@ -706,37 +752,26 @@ public class CustomFilter implements AgentFilter {
       }
     },
 
-    // 保存过滤器扩展
     async handleSaveFilterExtension() {
       try {
         await this.$refs.filterExtensionForm.validate();
-      } catch (error) {
-        return;
-      }
+      } catch (error) { return; }
 
       if (!this.filterExtensionForm.extensionMode) {
-        Message.error('请选择扩展方式');
-        return;
+        Message.error('请选择扩展方式'); return;
       }
-
       if (this.filterExtensionForm.extensionMode === 'ONLINE') {
         if (!this.filterExtensionForm.sourceCode || !this.filterExtensionForm.sourceCode.trim()) {
-          Message.error('在线扩展模式下，请输入Java源代码');
-          return;
+          Message.error('在线扩展模式下，请输入Java源代码'); return;
         }
       }
 
       this.saveLoading = true;
       try {
         const submitData = { ...this.filterExtensionForm };
-
-        // 将 extensionParamList 转换为 JSON 字符串
         submitData.extensionParamValue = this.convertParamListToJson(submitData.extensionParamList);
-        delete submitData.extensionParamList;  // 删除临时字段
-
-        if (submitData.extensionMode === 'PROJECT') {
-          delete submitData.sourceCode;
-        }
+        delete submitData.extensionParamList;
+        if (submitData.extensionMode === 'PROJECT') delete submitData.sourceCode;
 
         if (this.isEdit) {
           await updateFilterExtension(submitData);
@@ -754,81 +789,26 @@ public class CustomFilter implements AgentFilter {
       }
     },
 
-    // 禁用扩展
-    async handleDisable(row) {
-      try {
-        await MessageBox.confirm(
-          `确定要禁用扩展 "${row.extensionName}" 吗？禁用后将从运行时卸载。`,
-          '警告',
-          {
-            confirmButtonText: '确定',
-            cancelButtonText: '取消',
-            type: 'warning'
-          }
-        );
-
-        await disableExtension(row.codeId);
-
-        Message.success('禁用成功');
-        this.loadExtensionList();
-      } catch (error) {
-        if (error !== 'cancel') {
-          Message.error('禁用失败：' + (error.message || '未知错误'));
-        }
-      }
-    },
-
-    // 根据节点ID获取节点名称
-    getNodeName(nodeId) {
-      if (!nodeId) return '-';
-
-      if (Array.isArray(nodeId)) {
-        if (nodeId.length === 0) return '-';
-        return nodeId.map(id => {
-          const node = this.nodeList.find(n => n.nodeId === id);
-          return node ? node.nodeName : `节点${id}`;
-        }).join(', ');
-      }
-
-      const node = this.nodeList.find(n => n.nodeId === nodeId);
-      return node ? node.nodeName : `节点${nodeId}`;
-    },
-
-    // 根据单个节点ID获取节点名称
     getNodeNameById(id) {
       const node = this.nodeList.find(n => n.nodeId === id);
       return node ? node.nodeName : `节点${id}`;
     },
-
-    // 获取扩展类型名称
     getExtensionTypeName(spiInterface) {
-      if (spiInterface === 'com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker') {
-        return '接口扩展';
-      } else if (spiInterface === 'com.helianhealth.agent.invocation.remote.filter.AgentFilter') {
-        return '过滤器扩展';
-      }
+      if (spiInterface === 'com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker') return '接口扩展';
+      if (spiInterface === 'com.helianhealth.agent.invocation.remote.filter.AgentFilter') return '过滤器扩展';
       return '未知类型';
     },
-
-    // 获取扩展类型标签颜色
     getExtensionTypeTag(spiInterface) {
-      if (spiInterface === 'com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker') {
-        return 'primary';
-      } else if (spiInterface === 'com.helianhealth.agent.invocation.remote.filter.AgentFilter') {
-        return 'success';
-      }
+      if (spiInterface === 'com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker') return 'primary';
+      if (spiInterface === 'com.helianhealth.agent.invocation.remote.filter.AgentFilter') return 'success';
       return '';
     },
 
-    // 应用模板
     applyTemplate(templateType) {
       const targetForm = templateType === 'interfaceRemoteInvoker' ? 'interfaceExtensionForm' : 'filterExtensionForm';
-
       if (this[targetForm].sourceCode.trim()) {
         MessageBox.confirm('应用模板将覆盖当前代码，是否继续？', '提示', {
-          confirmButtonText: '确定',
-          cancelButtonText: '取消',
-          type: 'warning'
+          confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning'
         }).then(() => {
           this[targetForm].sourceCode = this.templates[templateType];
           Message.success('模板已应用');
@@ -839,46 +819,26 @@ public class CustomFilter implements AgentFilter {
       }
     },
 
-    // 添加扩展参数
     addExtensionParam() {
       this.filterExtensionForm.extensionParamList.push({ key: '', value: '' });
     },
-
-    // 删除扩展参数
     removeExtensionParam(index) {
       this.filterExtensionForm.extensionParamList.splice(index, 1);
     },
-
-    // 将 extensionParamList 转换为 Map 对象的 JSON 字符串
     convertParamListToJson(paramList) {
-      if (!paramList || paramList.length === 0) {
-        return null;
-      }
+      if (!paramList || paramList.length === 0) return null;
       const paramObj = {};
       paramList.forEach(item => {
-        if (item.key && item.key.trim()) {
-          paramObj[item.key.trim()] = item.value || '';
-        }
+        if (item.key && item.key.trim()) paramObj[item.key.trim()] = item.value || '';
       });
-      // 直接返回 JSON 字符串（Map 格式）
       return Object.keys(paramObj).length > 0 ? JSON.stringify(paramObj) : null;
     },
-
-    // 将 Map 对象的 JSON 字符串转换为 extensionParamList
     convertJsonToParamList(jsonStr) {
-      if (!jsonStr || !jsonStr.trim()) {
-        return [];
-      }
+      if (!jsonStr || (typeof jsonStr === 'string' && !jsonStr.trim())) return [];
       try {
-        // 兼容处理：可能是对象，也可能已经是字符串
         const paramObj = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
-        if (typeof paramObj !== 'object' || paramObj === null) {
-          return [];
-        }
-        return Object.keys(paramObj).map(key => ({
-          key: key,
-          value: paramObj[key]
-        }));
+        if (typeof paramObj !== 'object' || paramObj === null) return [];
+        return Object.keys(paramObj).map(key => ({ key, value: paramObj[key] }));
       } catch (e) {
         console.error('解析 extensionParamValue 失败:', e);
         return [];
@@ -897,6 +857,7 @@ public class CustomFilter implements AgentFilter {
   margin-bottom: 15px;
 }
 
+/* 类型选择卡片 */
 .type-selector {
   display: flex;
   justify-content: space-around;
@@ -950,11 +911,92 @@ public class CustomFilter implements AgentFilter {
   margin-right: 5px;
 }
 
+/* 代码编辑器 - 浅色风格 */
+.code-editor-wrapper {
+  display: flex;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #fafafa;
+  height: 400px;
+}
+
+.code-line-numbers {
+  width: 45px;
+  flex-shrink: 0;
+  background: #f5f7fa;
+  padding: 10px 0;
+  text-align: right;
+  overflow: hidden;
+  user-select: none;
+  border-right: 1px solid #e4e7ed;
+}
+
+.line-number {
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 20px;
+  color: #c0c4cc;
+  padding-right: 8px;
+}
+
+.code-textarea {
+  flex: 1;
+  background: #fafafa;
+  color: #303133;
+  border: none;
+  outline: none;
+  resize: none;
+  padding: 10px 14px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 20px;
+  tab-size: 4;
+  white-space: pre;
+  overflow: auto;
+}
+
+.code-textarea::placeholder {
+  color: #c0c4cc;
+}
+
 .code-toolbar {
   margin-top: 10px;
   text-align: right;
 }
 
+/* 代码预览 */
+.code-preview-wrapper {
+  display: flex;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #fafafa;
+  max-height: 70vh;
+}
+
+.code-preview-wrapper .code-line-numbers {
+  padding-top: 14px;
+}
+
+.code-preview-content {
+  flex: 1;
+  margin: 0;
+  padding: 14px;
+  overflow: auto;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 20px;
+  background: transparent;
+  color: #303133;
+}
+
+.code-preview-content code {
+  background: transparent;
+  font-family: inherit;
+}
+
+/* 参数列表 */
 .param-list {
   width: 100%;
 }
@@ -963,5 +1005,12 @@ public class CustomFilter implements AgentFilter {
   display: flex;
   align-items: center;
   margin-bottom: 10px;
+}
+</style>
+
+<style>
+/* 全局样式 - 强制覆盖Element UI嵌套submenu的默认padding */
+.el-menu .el-menu .el-submenu__title {
+  padding-left: 50px !important;
 }
 </style>

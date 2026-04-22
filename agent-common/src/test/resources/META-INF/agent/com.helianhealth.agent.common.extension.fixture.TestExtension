@@ -1,0 +1,4 @@
+default=com.helianhealth.agent.common.extension.fixture.DefaultTestExtension
+custom=com.helianhealth.agent.common.extension.fixture.CustomTestExtension
+activated=com.helianhealth.agent.common.extension.fixture.ActivatedTestExtension
+high-priority=com.helianhealth.agent.common.extension.fixture.HighPriorityActivatedExtension

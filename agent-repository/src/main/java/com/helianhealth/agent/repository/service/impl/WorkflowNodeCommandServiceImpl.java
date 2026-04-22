@@ -33,13 +33,13 @@ public class WorkflowNodeCommandServiceImpl implements WorkflowNodeCommandServic
     }
 
     @Override
-    public int updateRemoteExtension(Integer nodeId, String remoteExtension) {
-        return flowNodeMapper.updateRemoteExtension(nodeId, remoteExtension);
+    public void updateRemoteExtension(Integer nodeId, String remoteExtension) {
+        flowNodeMapper.updateRemoteExtension(nodeId, remoteExtension);
     }
 
     @Override
-    public int updateExtensionParam(Integer nodeId, String extensionParam) {
-        return flowNodeMapper.updateExtensionParam(nodeId, extensionParam);
+    public void updateExtensionParam(Integer nodeId, String extensionParam) {
+        flowNodeMapper.updateExtensionParam(nodeId, extensionParam);
     }
 
     @Override

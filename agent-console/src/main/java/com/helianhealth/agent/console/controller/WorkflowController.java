@@ -6,7 +6,7 @@ import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.console.controller.reponse.WorkflowFullExportRsp;
 import com.helianhealth.agent.repository.model.domain.Workflow;
 import com.helianhealth.agent.console.service.InterfaceWorkflowService;
-import com.helianhealth.agent.common.utils.ResponseRenderUtils;
+
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -42,10 +42,10 @@ public class WorkflowController {
             @RequestParam(value = "pageSize", defaultValue = "10") int pageSize) {
         try {
             PageList<Workflow> allWorkflows = interfaceRuleFlowService.getAllWorkflows(pageNum, pageSize);
-            return ResponseRenderUtils.render(allWorkflows);
+            return ResultData.ok(allWorkflows);
         } catch (Exception e) {
             log.error("获取工作流失败", e);
-            return ResponseRenderUtils.error("获取工作流失败: " + e.getMessage());
+            return ResultData.error("获取工作流失败: " + e.getMessage());
         }
     }
 
@@ -56,10 +56,10 @@ public class WorkflowController {
     public ResultData<List<Workflow>> getAllWorkflowsWithoutPaged() {
         try {
             List<Workflow> allWorkflows = interfaceRuleFlowService.getAllWorkflowsWithoutPaged();
-            return ResponseRenderUtils.render(allWorkflows);
+            return ResultData.ok(allWorkflows);
         } catch (Exception e) {
             log.error("获取工作流失败", e);
-            return ResponseRenderUtils.error("获取工作流失败: " + e.getMessage());
+            return ResultData.error("获取工作流失败: " + e.getMessage());
         }
     }
 
@@ -70,10 +70,10 @@ public class WorkflowController {
     public ResultData<Integer> createFlow(@RequestBody Workflow flow) {
         try {
             int savedFlow = interfaceRuleFlowService.save(flow);
-            return ResponseRenderUtils.render(savedFlow);
+            return ResultData.ok(savedFlow);
         } catch (Exception e) {
             log.error("创建工作流失败", e);
-            return ResponseRenderUtils.error("创建工作流失败: " + e.getMessage());
+            return ResultData.error("创建工作流失败: " + e.getMessage());
         }
     }
 
@@ -84,10 +84,10 @@ public class WorkflowController {
     public ResultData<Integer> updateFlow(@RequestBody Workflow flow) {
         try {
             int updatedFlow = interfaceRuleFlowService.update(flow);
-            return ResponseRenderUtils.render(updatedFlow);
+            return ResultData.ok(updatedFlow);
         } catch (Exception e) {
             log.error("更新工作流失败", e);
-            return ResponseRenderUtils.error("更新工作流失败: " + e.getMessage());
+            return ResultData.error("更新工作流失败: " + e.getMessage());
         }
     }
 
@@ -98,10 +98,10 @@ public class WorkflowController {
     public ResultData<String> deleteFlow(@PathVariable Integer flowId) {
         try {
             interfaceRuleFlowService.deleteByFlowId(flowId);
-            return ResponseRenderUtils.render("工作流删除成功");
+            return ResultData.ok("工作流删除成功");
         } catch (Exception e) {
             log.error("删除工作流失败", e);
-            return ResponseRenderUtils.error("删除工作流失败: " + e.getMessage());
+            return ResultData.error("删除工作流失败: " + e.getMessage());
         }
     }
 
@@ -113,10 +113,10 @@ public class WorkflowController {
         try {
             log.info("导出工作流: flowId={}", flowId);
             WorkflowFullExportRsp exportData = interfaceRuleFlowService.exportWorkflowFull(flowId);
-            return ResponseRenderUtils.render(exportData);
+            return ResultData.ok(exportData);
         } catch (Exception e) {
             log.error("导出工作流失败", e);
-            return ResponseRenderUtils.error("导出工作流失败: " + e.getMessage());
+            return ResultData.error("导出工作流失败: " + e.getMessage());
         }
     }
 
@@ -127,12 +127,12 @@ public class WorkflowController {
     public ResultData<Integer> importWorkflow(@RequestParam("file") MultipartFile file) {
         try {
             if (file == null || file.isEmpty()) {
-                return ResponseRenderUtils.error("文件不能为空");
+                return ResultData.error("文件不能为空");
             }
 
             String fileName = file.getOriginalFilename();
             if (fileName == null || !fileName.toLowerCase().endsWith(".json")) {
-                return ResponseRenderUtils.error("仅支持JSON格式文件");
+                return ResultData.error("仅支持JSON格式文件");
             }
 
             String content = new String(file.getBytes(), StandardCharsets.UTF_8);
@@ -140,10 +140,10 @@ public class WorkflowController {
             
             log.info("导入工作流: {}", importData.getWorkflowInfo().getFlowName());
             Integer flowId = interfaceRuleFlowService.importWorkflowFull(importData);
-            return ResponseRenderUtils.render(flowId);
+            return ResultData.ok(flowId);
         } catch (Exception e) {
             log.error("导入工作流失败", e);
-            return ResponseRenderUtils.error("导入工作流失败: " + e.getMessage());
+            return ResultData.error("导入工作流失败: " + e.getMessage());
         }
     }
 }

@@ -5,6 +5,7 @@ import lombok.Getter;
 /**
  * 扩展类型枚举
  * 统一管理不同类型的 SPI 扩展接口
+ * 目前开放两种spi拓展：过滤器扩展、远程调用扩展
  */
 @Getter
 public enum ExtensionType {

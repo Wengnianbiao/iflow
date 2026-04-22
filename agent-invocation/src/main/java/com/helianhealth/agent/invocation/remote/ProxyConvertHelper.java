@@ -1,6 +1,6 @@
 package com.helianhealth.agent.invocation.remote;
 
-import com.helianhealth.agent.common.base.MetaInfoKeys;
+import com.helianhealth.agent.common.base.MetaInfoKeyConstants;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
@@ -8,7 +8,6 @@ import com.helianhealth.agent.invocation.utils.ParamNodeUtils;
 import com.helianhealth.agent.common.utils.JsonUtils;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -27,7 +26,7 @@ public class ProxyConvertHelper {
         try {
             Map<String, Object> metaJson = JsonUtils.parseMetaInfo(metaInfo);
             // 获取响应类型，默认为JSON
-            String responseType = (String) metaJson.get(MetaInfoKeys.RESPONSE_TYPE);
+            String responseType = (String) metaJson.get(MetaInfoKeyConstants.RESPONSE_TYPE);
             if (responseType == null || responseType.isEmpty()) {
                 responseType = "json";
             }

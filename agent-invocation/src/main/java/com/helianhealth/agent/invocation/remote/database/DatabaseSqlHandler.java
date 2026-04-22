@@ -1,7 +1,7 @@
 package com.helianhealth.agent.invocation.remote.database;
 
 import com.alibaba.fastjson2.JSONArray;
-import com.helianhealth.agent.common.base.MetaInfoKeys;
+import com.helianhealth.agent.common.base.MetaInfoKeyConstants;
 import com.helianhealth.agent.common.enums.ParamType;
 import com.helianhealth.agent.common.exception.AgentConfigException;
 import com.helianhealth.agent.common.exception.AgentErrorCode;
@@ -38,8 +38,8 @@ public class DatabaseSqlHandler implements ParamResolver {
     @Override
     public String resolveParamNodes(WorkflowNode flowNode, List<ParamTreeNode> params) {
         Map<String, Object> metaInfo = JsonUtils.parseMetaInfo(flowNode.getMetaInfo());
-        String sqlTemplate = (String) metaInfo.get(MetaInfoKeys.DB_SQL_TEMPLATE);
-        String operation = (String) metaInfo.get(MetaInfoKeys.DB_OPERATION);
+        String sqlTemplate = (String) metaInfo.get(MetaInfoKeyConstants.DB_SQL_TEMPLATE);
+        String operation = (String) metaInfo.get(MetaInfoKeyConstants.DB_OPERATION);
 
         // 检查是否有SQL模板
         if (!StringUtils.hasText(sqlTemplate)) {

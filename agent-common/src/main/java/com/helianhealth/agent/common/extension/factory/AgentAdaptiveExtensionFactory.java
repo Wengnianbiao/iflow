@@ -1,6 +1,7 @@
 package com.helianhealth.agent.common.extension.factory;
 
 import com.helianhealth.agent.common.extension.AgentAdaptive;
+import com.helianhealth.agent.common.extension.AgentExtensionFactory;
 import com.helianhealth.agent.common.extension.AgentExtensionLoader;
 
 import java.util.ArrayList;
@@ -15,8 +16,6 @@ import java.util.List;
  * 1. SpiExtensionFactory - 从SPI扩展获取
  * 2. SpringExtensionFactory - 从Spring容器获取
  * </p>
- *
- * @author Agent Team
  */
 @AgentAdaptive
 public class AgentAdaptiveExtensionFactory implements AgentExtensionFactory {

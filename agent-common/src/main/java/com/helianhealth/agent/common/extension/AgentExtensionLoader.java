@@ -1,6 +1,8 @@
 package com.helianhealth.agent.common.extension;
 
-import com.helianhealth.agent.common.extension.factory.AgentExtensionFactory;
+import com.helianhealth.agent.common.extension.factory.AdaptiveExtensionProxyFactory;
+import com.helianhealth.agent.common.extension.registry.ExtensionRegistry;
+import com.helianhealth.agent.common.utils.Holder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -11,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -66,23 +69,36 @@ public class AgentExtensionLoader<T> {
      * key: 接口类, value: loader实例
      */
     private static final ConcurrentMap<Class<?>, AgentExtensionLoader<?>> EXTENSION_LOADERS =
-        new ConcurrentHashMap<>();
+        new ConcurrentHashMap<>(64);
+
+    // ==============================
 
     /**
-     * 实例缓存
-     * key: 扩展名, value: 实例
+     * 扩展Class缓存
+     * value: key为扩展名, value为实现类的映射表
      */
-    private final ConcurrentMap<String, T> cachedInstances = new ConcurrentHashMap<>();
+    private final Holder<Map<String, Class<?>>> cachedClasses = new Holder<>();
+
+    /**
+     * 实例缓存,每个SPI拓展接口缓存的实例
+     * key: 扩展名, value: Holder容器
+     */
+    private final ConcurrentMap<String, Holder<Object>> cachedInstances = new ConcurrentHashMap<>();
 
     /**
      * 自适应扩展缓存
      */
-    private volatile T cachedAdaptiveInstance;
+    private final Holder<T> cachedAdaptiveInstance = new Holder<>();
 
     /**
      * 自定义自适应扩展类（标注@AgentAdaptive的类）
      */
     private volatile Class<?> cachedAdaptiveClass;
+
+    /**
+     * Wrapper类缓存（构造器参数为SPI接口类型的类）
+     */
+    private volatile Set<Class<?>> cachedWrapperClasses;
 
     /**
      * Activate注解缓存
@@ -96,9 +112,9 @@ public class AgentExtensionLoader<T> {
     private final Class<T> type;
 
     /**
-     * 默认扩展名（从@AgentSPI注解获取）
+     * 默认扩展名
      */
-    private final String defaultExtensionName;
+    private String defaultExtensionName;
 
     /**
      * 扩展注册中心引用
@@ -110,20 +126,11 @@ public class AgentExtensionLoader<T> {
      */
     private final AgentExtensionFactory extensionFactory;
 
-    /**
-     * 是否已加载静态配置
-     */
-    private volatile boolean configLoaded = false;
-
     private AgentExtensionLoader(Class<T> type) {
         this.type = type;
         this.registry = ExtensionRegistry.getInstance();
         this.extensionFactory = (type == AgentExtensionFactory.class ? null :
             AgentExtensionLoader.getExtensionLoader(AgentExtensionFactory.class).getAdaptiveExtension());
-
-        AgentSPI spi = type.getAnnotation(AgentSPI.class);
-        this.defaultExtensionName = (spi != null && !spi.value().isEmpty())
-            ? spi.value() : null;
     }
 
     /**
@@ -144,6 +151,7 @@ public class AgentExtensionLoader<T> {
                 ") is not extension, because without @AgentSPI Annotation!");
         }
 
+        // 这里有一个jdk8的bug，ConcurrentHashMap的computeIfAbsent会存在deadlock问题
         AgentExtensionLoader<T> loader = (AgentExtensionLoader<T>) EXTENSION_LOADERS.get(type);
         if (loader == null) {
             EXTENSION_LOADERS.putIfAbsent(type, new AgentExtensionLoader<>(type));
@@ -158,46 +166,123 @@ public class AgentExtensionLoader<T> {
      * @param name 扩展名称（如 "http", "database"）
      * @return 扩展实例（单例）
      */
+    @SuppressWarnings("unchecked")
     public T getExtension(String name) {
         if (name == null || name.isEmpty()) {
             throw new IllegalArgumentException("Extension name == null");
         }
 
-        // 确保已加载静态配置
-        ensureConfigLoaded();
+        Holder<Object> holder = cachedInstances.get(name);
+        if (holder == null) {
+            cachedInstances.putIfAbsent(name, new Holder<>());
+            holder = cachedInstances.get(name);
+        }
+        Object instance = holder.get();
+        if (instance == null) {
+            synchronized (holder) {
+                instance = holder.get();
+                if (instance == null) {
+                    instance = createExtension(name);
+                    holder.set(instance);
+                }
+            }
+        }
+        return (T) instance;
+    }
 
-        // 检查缓存
-        T instance = cachedInstances.get(name);
-        if (instance != null) {
-            return instance;
+
+    @SuppressWarnings("unchecked")
+    private T createExtension(String name) {
+        Class<?> clazz = getExtensionClasses().get(name);
+        if (clazz == null) {
+            throw new IllegalStateException("Extension not found: " + type.getName() + "#" + name);
         }
 
-        synchronized (cachedInstances) {
-            instance = cachedInstances.get(name);
-            if (instance != null) {
-                return instance;
+        try {
+            T instance = (T) registry.createInstanceWithInjection(clazz, extensionFactory);
+
+            // 自动包装：依次用Wrapper类包装原始实例
+            Set<Class<?>> wrapperClasses = cachedWrapperClasses;
+            if (wrapperClasses != null && !wrapperClasses.isEmpty()) {
+                for (Class<?> wrapperClass : wrapperClasses) {
+                    instance = (T) registry.createInstanceWithInjection(wrapperClass, extensionFactory, instance);
+                }
             }
 
-            // 从注册中心获取Class
-            String key = type.getName() + "#" + name;
-            Class<?> clazz = registry.getExtensionClass(key);
-            if (clazz == null) {
-                throw new IllegalStateException("Extension not found: " + key);
+            cacheActivateAnnotation(name, clazz);
+            return instance;
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to create instance: " + type.getName() + "#" + name, e);
+        }
+    }
+
+    /**
+     * 获取所有已加载的扩展Class
+     * 首次调用时从配置文件全量加载所有扩展类，后续直接返回缓存
+     */
+    private Map<String, Class<?>> getExtensionClasses() {
+        Map<String, Class<?>> classes = cachedClasses.get();
+        if (classes == null) {
+            synchronized (cachedClasses) {
+                classes = cachedClasses.get();
+                if (classes == null) {
+                    classes = loadExtensionClasses();
+                    cachedClasses.set(classes);
+                }
             }
+        }
+        return classes;
+    }
 
-            try {
-                // 创建实例并注入依赖
-                @SuppressWarnings("unchecked")
-                T newInstance = (T) registry.createInstanceWithInjection(clazz, extensionFactory);
-                cachedInstances.put(name, newInstance);
+    /**
+     * 全量加载当前 type 的扩展类配置
+     */
+    private Map<String, Class<?>> loadExtensionClasses() {
+        AgentSPI spi = type.getAnnotation(AgentSPI.class);
+        if (spi != null && !spi.value().isEmpty()) {
+            this.defaultExtensionName = spi.value();
+        }
+        Map<String, Class<?>> extensionClasses = new ConcurrentHashMap<>();
+        loadDirectory(extensionClasses);
 
-                // 缓存Activate注解
-                cacheActivateAnnotation(name, clazz);
+        return extensionClasses;
+    }
 
-                return newInstance;
-            } catch (Exception e) {
-                throw new IllegalStateException("Failed to create instance: " + key, e);
+    private void loadDirectory(Map<String, Class<?>> classes) {
+        String fileName = AgentExtensionLoader.AGENT_DIRECTORY + type.getName();
+        try {
+            ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+            Enumeration<URL> urls = classLoader.getResources(fileName);
+            while (urls.hasMoreElements()) {
+                URL url = urls.nextElement();
+                loadResource(url, classes);
             }
+        } catch (Exception e) {
+            log.error("Failed to load extension config for {}", type.getName(), e);
+        }
+    }
+
+    /**
+     * 缓存静态扩展Class（从配置文件或编程式注册）
+     */
+    private void putStaticClass(String name, Class<?> clazz, Map<String, Class<?>> classes) {
+        classes.put(name, clazz);
+    }
+
+    /**
+     * 缓存动态扩展Class（从源码编译或运行时类路径加载，有独立ClassLoader生命周期）
+     */
+    private void putDynamicClass(String name, Class<?> clazz) {
+        getExtensionClasses().put(name, clazz);
+    }
+
+    /**
+     * 移除扩展Class并尝试卸载动态ClassLoader
+     */
+    private void removeClass(String name) {
+        Class<?> removedClass = getExtensionClasses().remove(name);
+        if (removedClass != null) {
+            registry.unloadDynamicClass(removedClass.getName());
         }
     }
 
@@ -207,6 +292,7 @@ public class AgentExtensionLoader<T> {
      * @return 默认扩展实例，如果没有配置默认值则返回null
      */
     public T getDefaultExtension() {
+        getExtensionClasses();
         if (defaultExtensionName == null || defaultExtensionName.isEmpty()) {
             return null;
         }
@@ -217,6 +303,7 @@ public class AgentExtensionLoader<T> {
      * 获取默认扩展名
      */
     public String getDefaultExtensionName() {
+        getExtensionClasses();
         return defaultExtensionName;
     }
 
@@ -226,14 +313,17 @@ public class AgentExtensionLoader<T> {
      * 如果存在@AgentAdaptive标注的类，则优先使用
      */
     public T getAdaptiveExtension() {
-        if (cachedAdaptiveInstance == null) {
-            synchronized (this) {
-                if (cachedAdaptiveInstance == null) {
-                    cachedAdaptiveInstance = createAdaptiveExtension();
+        T instance = cachedAdaptiveInstance.get();
+        if (instance == null) {
+            synchronized (cachedAdaptiveInstance) {
+                instance = cachedAdaptiveInstance.get();
+                if (instance == null) {
+                    instance = createAdaptiveExtension();
+                    cachedAdaptiveInstance.set(instance);
                 }
             }
         }
-        return cachedAdaptiveInstance;
+        return instance;
     }
 
     /**
@@ -243,8 +333,6 @@ public class AgentExtensionLoader<T> {
      * @return 按order排序的扩展列表
      */
     public List<T> getActivateExtensions(Map<String, String> params) {
-        ensureConfigLoaded();
-
         List<ActivateInfo<T>> activateInfos = new ArrayList<>();
 
         // 遍历所有已注册的扩展
@@ -264,10 +352,7 @@ public class AgentExtensionLoader<T> {
             activateInfos.add(new ActivateInfo<>(name, extension, activate));
         }
 
-        // 排序
         activateInfos.sort(ActivateInfo::compareTo);
-
-        // 提取结果
         List<T> result = new ArrayList<>(activateInfos.size());
         for (ActivateInfo<T> info : activateInfos) {
             result.add(info.extension);
@@ -319,15 +404,13 @@ public class AgentExtensionLoader<T> {
                 " already exists for " + type.getName());
         }
 
-        registry.registerExtension(type.getName(), name, clazz);
+        getExtensionClasses().put(name, clazz);
 
         // 缓存Activate注解
         cacheActivateAnnotation(name, clazz);
 
         // 清除缓存
         cachedInstances.remove(name);
-
-        log.info("Added extension: {}#{}", type.getName(), name);
     }
 
     /**
@@ -348,22 +431,20 @@ public class AgentExtensionLoader<T> {
                 " does not implement " + type.getName());
         }
 
-        // 检查是否存在
+        // 检查是否存在（触发懒加载）
         if (!hasExtension(name)) {
             throw new IllegalStateException("Extension name " + name +
                 " not found for " + type.getName());
         }
 
-        registry.replaceExtension(type.getName(), name, clazz);
+        getExtensionClasses().put(name, clazz);
 
         // 更新Activate注解缓存
         cacheActivateAnnotation(name, clazz);
 
         // 清除缓存
         cachedInstances.remove(name);
-        cachedAdaptiveInstance = null;
-
-        log.info("Replaced extension: {}#{}", type.getName(), name);
+        cachedAdaptiveInstance.set(null);
     }
 
     /**
@@ -374,10 +455,10 @@ public class AgentExtensionLoader<T> {
             throw new IllegalArgumentException("Extension name == null");
         }
 
-        registry.removeExtension(type.getName(), name);
+        removeClass(name);
         cachedInstances.remove(name);
         cachedActivates.remove(name);
-        cachedAdaptiveInstance = null;
+        cachedAdaptiveInstance.set(null);
 
         log.info("Removed extension: {}#{}", type.getName(), name);
     }
@@ -389,9 +470,10 @@ public class AgentExtensionLoader<T> {
      *
      * @param name 扩展名称
      * @param className 类全限定名
-     * @param sourceCode 源码（可选，为null时从类路径加载）
+     * @param sourceCode 源码（非动态编译模式下可为null）
+     * @param dynamicCompile true表示动态编译（独立ClassLoader），false表示类路径加载
      */
-    public void registerDynamicExtension(String name, String className, String sourceCode) throws Exception {
+    public void registerDynamicExtension(String name, String className, String sourceCode, boolean dynamicCompile) throws Exception {
         if (name == null || name.isEmpty()) {
             throw new IllegalArgumentException("Extension name == null");
         }
@@ -399,26 +481,36 @@ public class AgentExtensionLoader<T> {
             throw new IllegalArgumentException("Class name == null");
         }
 
-        log.debug("Registering dynamic extension: interface={}, name={}, class={}",
-                type.getName(), name, className);
-
-        // 委托ExtensionRegistry进行加载和注册（支持动态编译）
-        registry.loadAndRegister(type.getName(), name, className, sourceCode);
-
-        // 清除缓存，确保下次getExtension时重新加载
-        cachedInstances.remove(name);
-        cachedAdaptiveInstance = null;
-
-        // 尝试缓存Activate注解（如果类已加载）
-        try {
-            Class<?> clazz = Class.forName(className);
-            cacheActivateAnnotation(name, clazz);
-        } catch (ClassNotFoundException e) {
-            // 动态编译的类可能无法通过Class.forName获取，忽略
-            log.debug("Class not in classpath (expected for dynamic compiled): {}", className);
+        // 扩展名唯一性校验，防止重复注册覆盖已有扩展
+        if (hasExtension(name)) {
+            throw new IllegalStateException(
+                String.format("Dynamic extension name '%s' already exists for %s", name, type.getName()));
         }
 
-        log.info("Registered dynamic extension: {}#{}", type.getName(), name);
+        log.info("Registering dynamic extension: interface={}, name={}, class={}",
+                type.getName(), name, className);
+
+        // 委托Registry进行动态编译/类路径加载
+        Class<?> clazz = registry.loadClass(className, sourceCode, dynamicCompile);
+
+        // 校验扩展类必须是SPI接口的实现类，与静态加载路径保持一致的fail-fast语义
+        // 校验失败时需要卸载已加载的动态ClassLoader，避免类泄漏
+        if (!type.isAssignableFrom(clazz)) {
+            registry.unloadDynamicClass(className);
+            throw new IllegalStateException(
+                String.format("Dynamic extension class %s is not subtype of interface %s",
+                    clazz.getName(), type.getName()));
+        }
+
+        putDynamicClass(name, clazz);
+
+        // 清除实例缓存，确保下次getExtension时重新创建
+        cachedInstances.remove(name);
+        cachedAdaptiveInstance.set(null);
+
+        cacheActivateAnnotation(name, clazz);
+
+        log.info("Registered dynamic extension success: {}#{}", type.getName(), name);
     }
 
     /**
@@ -431,13 +523,10 @@ public class AgentExtensionLoader<T> {
             throw new IllegalArgumentException("Extension name == null");
         }
 
-        // 清理所有缓存
+        removeClass(name);
         cachedInstances.remove(name);
         cachedActivates.remove(name);
-        cachedAdaptiveInstance = null;
-
-        // 委托ExtensionRegistry进行类卸载
-        registry.removeExtension(type.getName(), name);
+        cachedAdaptiveInstance.set(null);
 
         log.info("Removed dynamic extension with class unloading: {}#{}", type.getName(), name);
     }
@@ -448,15 +537,16 @@ public class AgentExtensionLoader<T> {
      * @param name 扩展名称
      * @param className 类全限定名
      * @param sourceCode 源码（可选）
+     * @param dynamicCompile true表示动态编译，false表示类路径加载
      */
-    public void refreshDynamicExtension(String name, String className, String sourceCode) throws Exception {
+    public void refreshDynamicExtension(String name, String className, String sourceCode, boolean dynamicCompile) throws Exception {
         log.info("Refreshing dynamic extension: {}#{}", type.getName(), name);
 
         // 先卸载
         removeDynamicExtension(name);
 
         // 重新注册
-        registerDynamicExtension(name, className, sourceCode);
+        registerDynamicExtension(name, className, sourceCode, dynamicCompile);
 
         log.info("Successfully refreshed dynamic extension: {}#{}", type.getName(), name);
     }
@@ -465,84 +555,53 @@ public class AgentExtensionLoader<T> {
      * 检查扩展是否存在
      */
     public boolean hasExtension(String name) {
-        ensureConfigLoaded();
-        return registry.hasExtension(type.getName(), name);
+        return getExtensionClasses().containsKey(name);
     }
 
     /**
      * 获取所有已注册的扩展名
      */
     public Set<String> getSupportedExtensions() {
-        ensureConfigLoaded();
-        return registry.getExtensionNames(type.getName());
+        return new HashSet<>(getExtensionClasses().keySet());
     }
 
     /**
      * 清除缓存（用于测试或热加载）
      */
     public void clearCache() {
+        cachedClasses.set(null);
         cachedInstances.clear();
         cachedActivates.clear();
-        cachedAdaptiveInstance = null;
+        cachedWrapperClasses = null;
+        cachedAdaptiveInstance.set(null);
         cachedAdaptiveClass = null;
     }
 
     /**
-     * 创建自适应扩展
+     * 创建自适应扩展实例
+     * 触发全量加载（确保cachedAdaptiveClass被扫描到），
+     * 如果存在@AgentAdaptive标注的类则返回，否则返回null走动态代理路径
      */
     @SuppressWarnings("unchecked")
     private T createAdaptiveExtension() {
-        ensureConfigLoaded();
-        // 优先使用自定义的@AgentAdaptive类
-        if (cachedAdaptiveClass != null) {
+        Class<?> adaptiveClass = getAdaptiveExtensionClass();
+        if (adaptiveClass != null) {
             try {
-                return (T) registry.createInstanceWithInjection(cachedAdaptiveClass, extensionFactory);
+                return (T) registry.createInstanceWithInjection(adaptiveClass, extensionFactory);
             } catch (Exception e) {
-                throw new IllegalStateException("Failed to create adaptive instance: " +
-                    cachedAdaptiveClass.getName(), e);
+                throw new IllegalStateException("Failed to create adaptive extension for " + type.getName(), e);
             }
         }
-
-        // 否则使用动态代理,这里是和dubbo不一样的地方,dubbo是动态编译自适应拓展类
-        // agent则是使用动态代理来创建自适应扩展(有反射开销)
-        return AdaptiveExtensionProxy.createProxy(type, this);
+        // 与Dubbo不同：Dubbo动态编译生成自适应类，这里用JDK动态代理实现（有反射开销但避免了编译依赖）
+        return AdaptiveExtensionProxyFactory.createProxy(type, this);
     }
 
-    /**
-     * 确保静态配置已加载
-     */
-    private void ensureConfigLoaded() {
-        if (!configLoaded) {
-            synchronized (this) {
-                if (!configLoaded) {
-                    loadExtensionsFromConfig();
-                    configLoaded = true;
-                }
-            }
-        }
+    private Class<?> getAdaptiveExtensionClass() {
+        getExtensionClasses();
+        return cachedAdaptiveClass;
     }
 
-    /**
-     * 从配置文件加载扩展
-     */
-    private void loadExtensionsFromConfig() {
-        String fileName = AGENT_DIRECTORY + type.getName();
-        try {
-            ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-            Enumeration<URL> urls = classLoader.getResources(fileName);
-            while (urls.hasMoreElements()) {
-                URL url = urls.nextElement();
-                loadResource(url);
-            }
-        } catch (Exception e) {
-            log.error("Failed to load extension config for {}", type.getName(), e);
-        }
-    }
-
-    /**
-     * 加载单个配置文件
-     */
-    private void loadResource(URL resourceURL) {
+    private void loadResource(URL resourceURL, Map<String, Class<?>> classes) {
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(resourceURL.openStream(), StandardCharsets.UTF_8))) {
             String line;
@@ -565,7 +624,7 @@ public class AgentExtensionLoader<T> {
 
                     if (!className.isEmpty()) {
                         try {
-                            loadClass(extensionName, className, resourceURL);
+                            loadClass(extensionName, className, resourceURL, classes);
                         } catch (Exception e) {
                             log.error("Failed to load extension: name={}, class={}, from={}",
                                 extensionName, className, resourceURL, e);
@@ -581,7 +640,8 @@ public class AgentExtensionLoader<T> {
     /**
      * 加载扩展类并进行验证
      */
-    private void loadClass(String name, String className, URL resourceURL) throws ClassNotFoundException {
+    private void loadClass(String name, String className, URL resourceURL, Map<String, Class<?>> classes) throws ClassNotFoundException {
+        // 对于静态加载的拓展类默认都使用的类加载器是当前线程的类加载器也就是AppClassLoader
         Class<?> clazz = Class.forName(className, true,
             Thread.currentThread().getContextClassLoader());
 
@@ -606,16 +666,15 @@ public class AgentExtensionLoader<T> {
             return;
         }
 
-        // TODO: 支持Wrapper类（包装器模式）
-        // if (isWrapperClass(clazz)) {
-        //     Set<Class<?>> wrappers = cachedWrapperClasses;
-        //     if (wrappers == null) {
-        //         cachedWrapperClasses = new ConcurrentHashSet<>();
-        //         wrappers = cachedWrapperClasses;
-        //     }
-        //     wrappers.add(clazz);
-        //     return;
-        // }
+        if (isWrapperClass(clazz)) {
+            Set<Class<?>> wrappers = cachedWrapperClasses;
+            if (wrappers == null) {
+                cachedWrapperClasses = Collections.newSetFromMap(new ConcurrentHashMap<>());
+                wrappers = cachedWrapperClasses;
+            }
+            wrappers.add(clazz);
+            return;
+        }
 
         // 普通扩展类处理
         if (name == null || name.isEmpty()) {
@@ -624,20 +683,30 @@ public class AgentExtensionLoader<T> {
                     className, resourceURL));
         }
 
-        // 注册普通扩展
-        registry.registerExtension(type.getName(), name, clazz);
+        // 缓存扩展Class
+        putStaticClass(name, clazz, classes);
 
         // 缓存Activate注解
         cacheActivateAnnotation(name, clazz);
     }
 
-    /**
-     * 缓存Activate注解
-     */
     private void cacheActivateAnnotation(String name, Class<?> clazz) {
         AgentActivate activate = clazz.getAnnotation(AgentActivate.class);
         if (activate != null) {
             cachedActivates.put(name, activate);
+        }
+    }
+
+    /**
+     * 判断是否是Wrapper类
+     * Wrapper类的标志是拥有一个参数为SPI接口类型的构造器
+     */
+    private boolean isWrapperClass(Class<?> clazz) {
+        try {
+            clazz.getConstructor(type);
+            return true;
+        } catch (NoSuchMethodException e) {
+            return false;
         }
     }
 

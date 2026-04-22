@@ -25,8 +25,5 @@ public interface NodeExtensionConfigMapper {
 
     void deleteById(@Param("codeId") Integer codeId);
 
-    void deleteBySpiInterfaceAndExtension(@Param("spiInterface") String spiInterface,
-                                          @Param("extensionName") String extensionName);
-
     List<NodeExtensionConfigPO> selectBySpiInterface(@Param("spiInterface") String spiInterface);
 }

@@ -415,8 +415,8 @@ export default {
       try {
         loading.value = true;
         const response = await getNodeParamsUnpaged({ nodeId: props.nodeId });
-        if (response.status === 200 && response.data.code === '200') {
-          localConfigList.value = response.data.rsp || [];
+        if (response.status === 200 && response.data.code === 200) {
+          localConfigList.value = response.data.data || [];
           buildTreeMappings();
           // 通知父组件数据已更新
           emit('data-updated', localConfigList.value);
@@ -595,7 +595,7 @@ export default {
           response = await createNodeParam(submitData);
         }
 
-        if (response.status === 200 && response.data.code === '200') {
+        if (response.status === 200 && response.data.code === 200) {
           Message.success(submitData.configId ? '更新成功' : '创建成功');
           editDialogVisible.value = false;
           await refreshData();

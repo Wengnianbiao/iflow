@@ -4,7 +4,6 @@ import com.helianhealth.agent.ai.model.WorkflowCreateMcpRequest;
 import com.helianhealth.agent.ai.model.WorkflowUpdateMcpRequest;
 import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.common.enums.WorkflowContentType;
-import com.helianhealth.agent.common.utils.ResponseRenderUtils;
 import com.helianhealth.agent.repository.model.domain.Workflow;
 import com.helianhealth.agent.repository.service.WorkflowCommandService;
 import com.helianhealth.agent.repository.service.WorkflowQueryService;
@@ -27,11 +26,15 @@ import java.util.List;
 @RestController
 @RequestMapping("/v1/ai/mcp/workflow")
 @Slf4j
-@AllArgsConstructor
 public class McpWorkflowController {
 
     private final WorkflowCommandService workflowCommandService;
     private final WorkflowQueryService workflowQueryService;
+
+    public McpWorkflowController(WorkflowCommandService workflowCommandService, WorkflowQueryService workflowQueryService) {
+        this.workflowCommandService = workflowCommandService;
+        this.workflowQueryService = workflowQueryService;
+    }
 
     /**
      * 查询所有工作流（不分页）
@@ -42,10 +45,10 @@ public class McpWorkflowController {
         try {
             log.info("MCP查询所有工作流");
             List<Workflow> workflows = workflowQueryService.selectAllWorkflows();
-            return ResponseRenderUtils.render(workflows);
+            return ResultData.ok(workflows);
         } catch (Exception e) {
             log.error("MCP查询工作流列表失败", e);
-            return ResponseRenderUtils.error("查询工作流列表失败: " + e.getMessage());
+            return ResultData.error("查询工作流列表失败: " + e.getMessage());
         }
     }
 
@@ -58,12 +61,12 @@ public class McpWorkflowController {
             log.info("MCP查询工作流: flowId={}", flowId);
             Workflow workflow = workflowQueryService.selectByFlowId(flowId);
             if (workflow == null) {
-                return ResponseRenderUtils.error("工作流不存在");
+                return ResultData.error("工作流不存在");
             }
-            return ResponseRenderUtils.render(workflow);
+            return ResultData.ok(workflow);
         } catch (Exception e) {
             log.error("MCP查询工作流失败", e);
-            return ResponseRenderUtils.error("查询工作流失败: " + e.getMessage());
+            return ResultData.error("查询工作流失败: " + e.getMessage());
         }
     }
 
@@ -77,10 +80,10 @@ public class McpWorkflowController {
             Workflow workflow = toWorkflowDomain(request);
             workflowCommandService.createWorkflow(workflow);
             Integer flowId = workflow.getFlowId();
-            return ResponseRenderUtils.render(flowId);
+            return ResultData.ok(flowId);
         } catch (Exception e) {
             log.error("MCP创建工作流失败", e);
-            return ResponseRenderUtils.error("创建工作流失败: " + e.getMessage());
+            return ResultData.error("创建工作流失败: " + e.getMessage());
         }
     }
 
@@ -92,14 +95,14 @@ public class McpWorkflowController {
         try {
             log.info("MCP更新工作流: {}", request);
             if (request.getFlowId() == null) {
-                return ResponseRenderUtils.error("flowId不能为空");
+                return ResultData.error("flowId不能为空");
             }
             Workflow workflow = toWorkflowDomain(request);
             int result = workflowCommandService.updateWorkflow(workflow);
-            return ResponseRenderUtils.render(result);
+            return ResultData.ok(result);
         } catch (Exception e) {
             log.error("MCP更新工作流失败", e);
-            return ResponseRenderUtils.error("更新工作流失败: " + e.getMessage());
+            return ResultData.error("更新工作流失败: " + e.getMessage());
         }
     }
 
@@ -111,10 +114,10 @@ public class McpWorkflowController {
         try {
             log.info("MCP删除工作流: flowId={}", flowId);
             workflowCommandService.deleteWorkflow(flowId);
-            return ResponseRenderUtils.render("工作流删除成功");
+            return ResultData.ok("工作流删除成功");
         } catch (Exception e) {
             log.error("MCP删除工作流失败", e);
-            return ResponseRenderUtils.error("删除工作流失败: " + e.getMessage());
+            return ResultData.error("删除工作流失败: " + e.getMessage());
         }
     }
 

@@ -1,6 +1,6 @@
 package com.helianhealth.agent.invocation.remote.webService;
 
-import com.helianhealth.agent.common.base.MetaInfoKeys;
+import com.helianhealth.agent.common.base.MetaInfoKeyConstants;
 import com.helianhealth.agent.common.exception.AgentConfigException;
 import com.helianhealth.agent.common.exception.AgentErrorCode;
 import com.helianhealth.agent.common.exception.AgentException;
@@ -45,8 +45,8 @@ public class SoapRequestHandler implements ParamResolver {
     public String resolveParamNodes(WorkflowNode flowNode, List<ParamTreeNode> paramNode) {
         try {
             Map<String, Object> metaInfo = JsonUtils.parseMetaInfo(flowNode.getMetaInfo());
-            String dataType = (String) metaInfo.get(MetaInfoKeys.DATA_TYPE);
-            if (MetaInfoKeys.DATA_TYPE_JSON.equalsIgnoreCase(dataType)) {
+            String dataType = (String) metaInfo.get(MetaInfoKeyConstants.DATA_TYPE);
+            if (MetaInfoKeyConstants.DATA_TYPE_JSON.equalsIgnoreCase(dataType)) {
                 // 业务数据为JSON
                 String paramJson = ParamNodeUtils.paramNode2Json(paramNode);
 
@@ -78,14 +78,14 @@ public class SoapRequestHandler implements ParamResolver {
     public String sendSoapRequest(WorkflowNode flowNode, String soapMessage) {
         // 解析metaInfo
         Map<String, Object> metaInfo = JsonUtils.parseMetaInfo(flowNode.getMetaInfo());
-        String endpointUrl = (String) metaInfo.get(MetaInfoKeys.URL);
+        String endpointUrl = (String) metaInfo.get(MetaInfoKeyConstants.URL);
         if (endpointUrl == null || endpointUrl.isEmpty()) {
             throw new AgentConfigException(AgentErrorCode.WS_CONFIG_MISSING, "metaInfo中未配置url");
         }
 
         // 设置自定义请求头
         Map<String, String> headers = new HashMap<>();
-        Object headerConfig = metaInfo.get(MetaInfoKeys.HEADERS);
+        Object headerConfig = metaInfo.get(MetaInfoKeyConstants.HEADERS);
         if (headerConfig instanceof Map) {
             ((Map<?, ?>) headerConfig).forEach((key, value) -> {
                 if (key != null && value != null) {
@@ -129,7 +129,7 @@ public class SoapRequestHandler implements ParamResolver {
      * 根据配置构建SOAP消息
      */
     private String buildSoapFromConfig(Map<String, Object> metaInfo, String paramXml) {
-        String soupTemplate = (String) metaInfo.get(MetaInfoKeys.SOAP_TEMPLATE);
+        String soupTemplate = (String) metaInfo.get(MetaInfoKeyConstants.SOAP_TEMPLATE);
         // 没有模板说明不需要嵌套SOAP信封
         if (soupTemplate == null || soupTemplate.isEmpty()) {
             return paramXml;

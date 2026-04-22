@@ -570,8 +570,8 @@ export default {
         }
 
         const response = await getNodeList(params);
-        if (response.status === 200 && response.data.code === '200') {
-          const pageList = response.data.rsp;
+        if (response.status === 200 && response.data.code === 200) {
+          const pageList = response.data.data;
           nodes.value = pageList.rows || [];
           pagination.total.value = pageList.total || 0;
         }
@@ -619,7 +619,7 @@ export default {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
 
-        if (response.status === 200 && response.data.code === '200') {
+        if (response.status === 200 && response.data.code === 200) {
           Message.success('节点导入成功');
           jsonImportDialog.visible = false;
           jsonImportDialog.content = '';
@@ -636,8 +636,8 @@ export default {
     const fetchWorkflows = async () => {
       try {
         const response = await getAllWorkflowsUnpaged();
-        if (response.status === 200 && response.data.code === '200') {
-          const workflows = Array.isArray(response.data.rsp) ? response.data.rsp : [];
+        if (response.status === 200 && response.data.code === 200) {
+          const workflows = Array.isArray(response.data.data) ? response.data.data : [];
           workflowOptions.value = workflows;
 
           const map = new Map();
@@ -760,7 +760,7 @@ export default {
           response = await createNode(submitData);
         }
 
-        if (response.status === 200 && response.data.code === '200') {
+        if (response.status === 200 && response.data.code === 200) {
           dialog.close();
           await fetchData();
         }

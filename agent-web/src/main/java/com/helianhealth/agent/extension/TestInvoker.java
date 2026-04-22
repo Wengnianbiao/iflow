@@ -4,14 +4,18 @@ package com.helianhealth.agent.extension;
 import com.helianhealth.agent.common.utils.JsonUtils;
 import com.helianhealth.agent.invocation.context.LogCollector;
 import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
-import com.helianhealth.agent.invocation.utils.HttpUtils;
+import com.helianhealth.agent.invocation.support.HttpUtils;
+import com.helianhealth.agent.repository.mapper.hems.HemsMapper;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.Invocation;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.core5.http.ParseException;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -23,11 +27,21 @@ import java.util.Map;
 @Slf4j
 public class TestInvoker implements InterfaceRemoteInvoker {
 
+    private final JdbcTemplate hemsJdbcTemplate;
+
+    public TestInvoker(JdbcTemplate hemsJdbcTemplate) {
+        this.hemsJdbcTemplate = hemsJdbcTemplate;
+    }
+
     @Override
     public Map<String, Object> remoteInvoke(WorkflowNode interfaceWorkflowNode, Invocation invocation) {
         // 上游业务入参
         Map<String, Object> businessData = invocation.getBusinessData();
         long startTime = System.currentTimeMillis();
+
+        // 测试 JDBC 查询
+        List<Map<String, Object>> rows = hemsJdbcTemplate.queryForList("SELECT TOP 10 * FROM VocaPatient");
+        log.info("JDBC 查询结果: {}", JsonUtils.toJsonString(rows));
 
         try {
             // 将上游入参转换为下游接口需要的格式

@@ -21,10 +21,13 @@ import java.util.Map;
 
 @RestController
 @Slf4j
-@AllArgsConstructor
 public class ApiController {
 
     private final ApiService apiService;
+
+    public ApiController(ApiService apiService) {
+        this.apiService = apiService;
+    }
 
     @GetMapping("/HLOpenApi/Hjk")
     public JarvisResultData<Object> healthCheck() {

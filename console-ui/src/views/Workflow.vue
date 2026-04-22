@@ -265,8 +265,8 @@ export default {
         };
         const response = await getWorkflows(params);
 
-        if (response.status === 200 && response.data.code === '200') {
-          const pageList = response.data.rsp;
+        if (response.status === 200 && response.data.code === 200) {
+          const pageList = response.data.data;
           workflows.value = (pageList.rows || []).map(workflow => ({
             ...workflow,
             firstFlowNodeNames: workflow.firstFlowNodes.map(id =>
@@ -283,8 +283,8 @@ export default {
     const fetchNodeList = async () => {
       try {
         const response = await getAllNodes();
-        if (response.status === 200 && response.data.code === '200') {
-          nodeOptions.value = response.data.rsp || [];
+        if (response.status === 200 && response.data.code === 200) {
+          nodeOptions.value = response.data.data || [];
           const map = new Map();
           nodeOptions.value.forEach(node => {
             map.set(node.nodeId, node.nodeName);
@@ -412,8 +412,8 @@ export default {
     const handleExport = async (row) => {
       try {
         const response = await exportWorkflow(row.flowId);
-        if (response.status === 200 && response.data.code === '200') {
-          const exportData = response.data.rsp;
+        if (response.status === 200 && response.data.code === 200) {
+          const exportData = response.data.data;
           const jsonStr = JSON.stringify(exportData, null, 2);
           const blob = new Blob([jsonStr], { type: 'application/json' });
           const url = window.URL.createObjectURL(blob);
@@ -444,7 +444,7 @@ export default {
     const handleImportUpload = async (file) => {
       try {
         const response = await importWorkflow(file);
-        if (response.status === 200 && response.data.code === '200') {
+        if (response.status === 200 && response.data.code === 200) {
           await fetchNodeList();
         }
       } catch (error) {
@@ -474,7 +474,7 @@ export default {
         const file = new File([blob], 'import.json', { type: 'application/json' });
 
         const response = await importWorkflow(file);
-        if (response.status === 200 && response.data.code === '200') {
+        if (response.status === 200 && response.data.code === 200) {
           proxy.$message.success('导入成功');
           jsonImportDialog.visible = false;
           jsonImportDialog.content = '';
@@ -558,7 +558,7 @@ export default {
           response = await createWorkflow(submitData);
         }
 
-        if (response.status === 200 && response.data.code === '200') {
+        if (response.status === 200 && response.data.code === 200) {
           dialog.close();
           await fetchData();
         }

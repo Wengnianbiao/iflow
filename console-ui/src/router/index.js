@@ -89,17 +89,6 @@ const routes = [
     }
   },
   {
-    path: '/guide/solutions',
-    name: 'ProductSolutions',
-    component: () => import('@/views/ProductSolutions.vue'),
-    meta: {
-      breadcrumb: [
-        { name: '配置手册', path: null, icon: 'el-icon-reading' },
-        { name: '产品介绍', path: '/guide/solutions' }
-      ]
-    }
-  },
-  {
     path: '/demo/param-mapping',
     name: 'ParamMappingDemo',
     component: () => import('@/views/ParamMappingDemo.vue'),

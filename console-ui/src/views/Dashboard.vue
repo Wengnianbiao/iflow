@@ -95,8 +95,8 @@ export default {
     async loadWorkflowStats() {
       try {
         const response = await getAllWorkflowsUnpaged();
-        if (response.status === 200 && response.data.code === '200') {
-          const workflows = response.data.rsp || [];
+        if (response.status === 200 && response.data.code === 200) {
+          const workflows = response.data.data || [];
           this.workflowCount = workflows.length;
           this.activeWorkflowCount = workflows.filter(w => w.status === 1).length;
         }
@@ -108,8 +108,8 @@ export default {
     async loadNodeStats() {
       try {
         const response = await getNodeListUnpaged();
-        if (response.status === 200 && response.data.code === '200') {
-          const nodes = response.data.rsp || [];
+        if (response.status === 200 && response.data.code === 200) {
+          const nodes = response.data.data || [];
           this.nodeCount = nodes.length;
         }
       } catch (error) {
@@ -121,8 +121,8 @@ export default {
       try {
         // 直接调用今日统计接口
         const response = await fetchTodayStats();
-        if (response.status === 200 && response.data.code === '200') {
-          const stats = response.data.rsp || [];
+        if (response.status === 200 && response.data.code === 200) {
+          const stats = response.data.data || [];
           // 累加所有接口的调用次数
           this.todayInvokeCount = stats.reduce((sum, stat) => sum + stat.count, 0);
         }

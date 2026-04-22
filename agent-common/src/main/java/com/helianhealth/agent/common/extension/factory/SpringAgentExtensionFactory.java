@@ -1,5 +1,6 @@
 package com.helianhealth.agent.common.extension.factory;
 
+import com.helianhealth.agent.common.extension.AgentExtensionFactory;
 import com.helianhealth.agent.common.utils.SpringContextHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,8 +14,6 @@ import java.util.stream.Collectors;
 /**
  * Spring Extension Factory
  * 从Spring容器中获取Bean，优先按类型查找
- *
- * @author Agent Team
  */
 public class SpringAgentExtensionFactory implements AgentExtensionFactory {
 
@@ -78,7 +77,7 @@ public class SpringAgentExtensionFactory implements AgentExtensionFactory {
                     return null;
                 }
             } else {
-                log.warn("指定的Bean名称不在候选列表中（类型：{}，名称：{}，候选：{}）", 
+                log.warn("指定的Bean名称不在候选列表中（类型：{}，名称：{}，候选：{}）",
                         type.getName(), name, singletonBeanNames);
                 return null;
             }

@@ -293,8 +293,8 @@ export default {
     const loadNodeList = async () => {
       try {
         const response = await getNodeListUnpaged();
-        if (response.status === 200 && response.data.code === '200') {
-          nodeOptions.value = response.data.rsp || [];
+        if (response.status === 200 && response.data.code === 200) {
+          nodeOptions.value = response.data.data || [];
         }
       } catch (error) {
         console.error('获取节点列表失败:', error);
@@ -312,19 +312,19 @@ export default {
       try {
         // 获取当前节点的Mock配置
         const response = await getMockConfigsByNodeId(nodeId);
-        if (response.status === 200 && response.data.code === '200') {
-          mockOptions.value = response.data.rsp || [];
+        if (response.status === 200 && response.data.code === 200) {
+          mockOptions.value = response.data.data || [];
         }
         
         // 获取下游调度节点
         const downstreamResponse = await getDownstreamNodes(nodeId);
-        if (downstreamResponse.status === 200 && downstreamResponse.data.code === '200') {
-          const downstreamNodeList = downstreamResponse.data.rsp || [];
+        if (downstreamResponse.status === 200 && downstreamResponse.data.code === 200) {
+          const downstreamNodeList = downstreamResponse.data.data || [];
           // 为每个下游节点加载Mock配置
           for (const node of downstreamNodeList) {
             const mockResponse = await getMockConfigsByNodeId(node.nodeId);
-            const mockList = mockResponse.status === 200 && mockResponse.data.code === '200' 
-              ? mockResponse.data.rsp || [] 
+            const mockList = mockResponse.status === 200 && mockResponse.data.code === 200 
+              ? mockResponse.data.data || [] 
               : [];
             scheduleChain.value.push({
               nodeId: node.nodeId,
@@ -376,9 +376,9 @@ export default {
         
         const response = await invokeMock(mockConfigs, businessData);
         
-        if (response.status === 200 && response.data.code === '200') {
-          responseData.value = JSON.stringify(response.data.rsp, null, 2);
-          parsedResponse.value = response.data.rsp;
+        if (response.status === 200 && response.data.code === 200) {
+          responseData.value = JSON.stringify(response.data.data, null, 2);
+          parsedResponse.value = response.data.data;
           Message.success('Mock调用成功');
         } else {
           errorMessage.value = response.data.msg || 'Mock调用失败';

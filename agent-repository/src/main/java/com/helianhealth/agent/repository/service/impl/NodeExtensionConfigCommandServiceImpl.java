@@ -4,7 +4,6 @@ import com.helianhealth.agent.repository.mapper.agent.NodeExtensionConfigMapper;
 import com.helianhealth.agent.repository.model.assembler.NodeExtensionConfigAssembler;
 import com.helianhealth.agent.repository.model.domain.NodeExtensionConfig;
 import com.helianhealth.agent.repository.service.NodeExtensionConfigCommandService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -12,9 +11,11 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class NodeExtensionConfigCommandServiceImpl implements NodeExtensionConfigCommandService {
+    private final NodeExtensionConfigMapper nodeExtensionConfigMapper;
 
-    @Autowired
-    private NodeExtensionConfigMapper nodeExtensionConfigMapper;
+    public NodeExtensionConfigCommandServiceImpl(NodeExtensionConfigMapper nodeExtensionConfigMapper) {
+        this.nodeExtensionConfigMapper = nodeExtensionConfigMapper;
+    }
 
     @Override
     public void insert(NodeExtensionConfig config) {
@@ -29,10 +30,5 @@ public class NodeExtensionConfigCommandServiceImpl implements NodeExtensionConfi
     @Override
     public void deleteById(Integer codeId) {
         nodeExtensionConfigMapper.deleteById(codeId);
-    }
-
-    @Override
-    public void deleteBySpiInterfaceAndExtension(String spiInterface, String extensionName) {
-        nodeExtensionConfigMapper.deleteBySpiInterfaceAndExtension(spiInterface, extensionName);
     }
 }

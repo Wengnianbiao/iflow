@@ -2,7 +2,6 @@ package com.helianhealth.agent.ai.controller;
 
 import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.common.base.ResultData;
-import com.helianhealth.agent.common.utils.ResponseRenderUtils;
 import com.helianhealth.agent.repository.model.dto.InvokeLogVO;
 import com.helianhealth.agent.repository.service.InterfaceInvokeLogService;
 import lombok.AllArgsConstructor;
@@ -46,10 +45,10 @@ public class McpInvokeLogController {
                     nodeName, keyword, pageNum, pageSize);
             PageList<InvokeLogVO> logs = invokeLogService.findAllInvokeLogs(
                     nodeName, keyword, pageNum, pageSize);
-            return ResponseRenderUtils.render(logs);
+            return ResultData.ok(logs);
         } catch (Exception e) {
             log.error("MCP查询调用日志失败", e);
-            return ResponseRenderUtils.error("查询调用日志失败: " + e.getMessage());
+            return ResultData.error("查询调用日志失败: " + e.getMessage());
         }
     }
 
@@ -67,10 +66,10 @@ public class McpInvokeLogController {
             log.info("MCP查询最新调用日志: limit={}", limit);
             PageList<InvokeLogVO> logs = invokeLogService.findAllInvokeLogs(
                     null, null, 1, limit);
-            return ResponseRenderUtils.render(logs);
+            return ResultData.ok(logs);
         } catch (Exception e) {
             log.error("MCP查询最新调用日志失败", e);
-            return ResponseRenderUtils.error("查询最新调用日志失败: " + e.getMessage());
+            return ResultData.error("查询最新调用日志失败: " + e.getMessage());
         }
     }
 
@@ -90,10 +89,10 @@ public class McpInvokeLogController {
             log.info("MCP根据关键字查询日志: keyword={}, limit={}", keyword, limit);
             PageList<InvokeLogVO> logs = invokeLogService.findAllInvokeLogs(
                     null, keyword, 1, limit);
-            return ResponseRenderUtils.render(logs);
+            return ResultData.ok(logs);
         } catch (Exception e) {
             log.error("MCP根据关键字查询日志失败", e);
-            return ResponseRenderUtils.error("根据关键字查询日志失败: " + e.getMessage());
+            return ResultData.error("根据关键字查询日志失败: " + e.getMessage());
         }
     }
 
@@ -116,10 +115,10 @@ public class McpInvokeLogController {
                     nodeName, pageNum, pageSize);
             PageList<InvokeLogVO> logs = invokeLogService.findAllInvokeLogs(
                     nodeName, null, pageNum, pageSize);
-            return ResponseRenderUtils.render(logs);
+            return ResultData.ok(logs);
         } catch (Exception e) {
             log.error("MCP根据节点查询日志失败", e);
-            return ResponseRenderUtils.error("根据节点查询日志失败: " + e.getMessage());
+            return ResultData.error("根据节点查询日志失败: " + e.getMessage());
         }
     }
 }

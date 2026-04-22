@@ -58,12 +58,34 @@ export function updateExtension(extensionType, data) {
 }
 
 /**
- * 禁用扩展（所有类型通用）
+ * 禁用扩展
  * @param {number} codeId - 配置ID
  */
 export function disableExtension(codeId) {
   return request({
     url: `/api/extension/disable/${codeId}`,
+    method: 'post'
+  });
+}
+
+/**
+ * 启用扩展
+ * @param {number} codeId - 配置ID
+ */
+export function enableExtension(codeId) {
+  return request({
+    url: `/api/extension/enable/${codeId}`,
+    method: 'post'
+  });
+}
+
+/**
+ * 删除扩展（物理删除）
+ * @param {number} codeId - 配置ID
+ */
+export function deleteExtension(codeId) {
+  return request({
+    url: `/api/extension/delete/${codeId}`,
     method: 'post'
   });
 }

@@ -82,13 +82,6 @@
         WHERE code_id = #{codeId}
     </delete>
 
-    <!-- 根据SPI接口和扩展名称删除 -->
-    <delete id="deleteBySpiInterfaceAndExtension">
-        DELETE FROM node_extension_config
-        WHERE spi_interface = #{spiInterface}
-        AND extension_name = #{extensionName}
-    </delete>
-
     <!-- 根据SPI接口查询所有配置 -->
     <select id="selectBySpiInterface" resultMap="BaseResultMap">
         SELECT * FROM node_extension_config

@@ -333,7 +333,7 @@ export default {
           maxRows: 1
         });
         
-        if (response.data && response.data.code === '200') {
+        if (response.data && response.data.code === 200) {
           this.$message.success('连接成功');
         } else {
           this.$message.error(response.data?.message || '连接失败');
@@ -380,8 +380,8 @@ export default {
 
         const time = Date.now() - startTime;
 
-        if (response.data && response.data.code === '200') {
-          const data = response.data.rsp || {};
+        if (response.data && response.data.code === 200) {
+          const data = response.data.data || {};
           this.result = {
             success: true,
             rows: data.rows || [],

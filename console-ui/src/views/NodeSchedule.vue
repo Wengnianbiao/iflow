@@ -420,8 +420,8 @@ export default {
           pageSize: 1000
         });
 
-        if (res.code === '200') {
-          this.allNodes = res.rsp.rows || [];
+        if (res.code === 200) {
+          this.allNodes = res.data.rows || [];
 
           // 筛选出有调度配置的节点
           this.scheduleList = this.allNodes.filter(node =>
@@ -591,8 +591,8 @@ export default {
           pageSize: 1000
         });
 
-        if (res.status === 200 && res.data.code === '200') {
-          const params = res.data.rsp.rows || [];
+        if (res.status === 200 && res.data.code === 200) {
+          const params = res.data.data.rows || [];
           // 转换为下拉选项格式
           this.postProcessParams = params.map(p => ({
             key: p.targetParamKey,

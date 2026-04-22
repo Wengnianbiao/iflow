@@ -2,7 +2,6 @@ package com.helianhealth.agent.console.controller;
 
 import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.common.base.ResultData;
-import com.helianhealth.agent.common.utils.ResponseRenderUtils;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.repository.model.dto.InterfaceWorkflowNodeView;
 import com.helianhealth.agent.console.controller.reponse.NodeConfigExportRsp;
@@ -46,10 +45,10 @@ public class WorkflowNodeController {
         try {
             PageList<InterfaceWorkflowNodeView> nodes = interfaceFlowNodeService.getAllNodes(flowId, pageNum, pageSize);
 
-            return ResponseRenderUtils.render(nodes);
+            return ResultData.ok(nodes);
         } catch (Exception e) {
             log.error("获取工作流节点失败", e);
-            return ResponseRenderUtils.error("获取工作流节点失败: " + e.getMessage());
+            return ResultData.error("获取工作流节点失败: " + e.getMessage());
         }
     }
 
@@ -58,10 +57,10 @@ public class WorkflowNodeController {
         try {
             List<InterfaceWorkflowNodeView> nodes = interfaceFlowNodeService.getAllNodesWithoutPaged();
 
-            return ResponseRenderUtils.render(nodes);
+            return ResultData.ok(nodes);
         } catch (Exception e) {
             log.error("获取工作流节点失败", e);
-            return ResponseRenderUtils.error("获取工作流节点失败: " + e.getMessage());
+            return ResultData.error("获取工作流节点失败: " + e.getMessage());
         }
     }
 
@@ -74,10 +73,10 @@ public class WorkflowNodeController {
     public ResultData<Integer> createNode(@RequestBody WorkflowNodeCreateReq nodeRequest) {
         try {
             int savedNode = interfaceFlowNodeService.save(nodeRequest);
-            return ResponseRenderUtils.render(savedNode);
+            return ResultData.ok(savedNode);
         } catch (Exception e) {
             log.error("创建工作流节点失败", e);
-            return ResponseRenderUtils.error("创建工作流节点失败: " + e.getMessage());
+            return ResultData.error("创建工作流节点失败: " + e.getMessage());
         }
     }
 
@@ -89,12 +88,12 @@ public class WorkflowNodeController {
         try {
             WorkflowNode node = interfaceFlowNodeService.selectByNodeId(nodeId);
             if (node == null) {
-                return ResponseRenderUtils.error("工作流节点不存在");
+                return ResultData.error("工作流节点不存在");
             }
-            return ResponseRenderUtils.render(node);
+            return ResultData.ok(node);
         } catch (Exception e) {
             log.error("获取工作流节点失败", e);
-            return ResponseRenderUtils.error("获取工作流节点失败: " + e.getMessage());
+            return ResultData.error("获取工作流节点失败: " + e.getMessage());
         }
     }
 
@@ -105,10 +104,10 @@ public class WorkflowNodeController {
     public ResultData<Integer> updateNode(@RequestBody WorkflowNodeUpdateReq updateRequest) {
         try {
             int result = interfaceFlowNodeService.update(updateRequest);
-            return ResponseRenderUtils.render(result);
+            return ResultData.ok(result);
         } catch (Exception e) {
             log.error("更新工作流节点失败", e);
-            return ResponseRenderUtils.error("更新工作流节点失败: " + e.getMessage());
+            return ResultData.error("更新工作流节点失败: " + e.getMessage());
         }
     }
 
@@ -116,10 +115,10 @@ public class WorkflowNodeController {
     public ResultData<Integer> updateNodeSchedule(@RequestBody WorkflowNodeScheduleUpdateReq updateRequest) {
         try {
             int result = interfaceFlowNodeService.updateSchedule(updateRequest);
-            return ResponseRenderUtils.render(result);
+            return ResultData.ok(result);
         } catch (Exception e) {
             log.error("更新节点调度配置失败", e);
-            return ResponseRenderUtils.error("更新节点调度配置失败: " + e.getMessage());
+            return ResultData.error("更新节点调度配置失败: " + e.getMessage());
         }
     }
 
@@ -130,10 +129,10 @@ public class WorkflowNodeController {
     public ResultData<String> deleteNode(@PathVariable Integer nodeId) {
         try {
             interfaceFlowNodeService.deleteByNodeId(nodeId);
-            return ResponseRenderUtils.render("工作流节点删除成功");
+            return ResultData.ok("工作流节点删除成功");
         } catch (Exception e) {
             log.error("删除工作流节点失败", e);
-            return ResponseRenderUtils.error("删除工作流节点失败: " + e.getMessage());
+            return ResultData.error("删除工作流节点失败: " + e.getMessage());
         }
     }
 
@@ -141,10 +140,10 @@ public class WorkflowNodeController {
     public ResultData<String> deleteAllConfig(@PathVariable Integer nodeId) {
         try {
             interfaceFlowNodeService.deleteAllConfigByNodeId(nodeId);
-            return ResponseRenderUtils.render("工作流节点配置删除成功");
+            return ResultData.ok("工作流节点配置删除成功");
         } catch (Exception e) {
             log.error("删除工作流节点配置失败", e);
-            return ResponseRenderUtils.error("删除工作流节点配置失败: " + e.getMessage());
+            return ResultData.error("删除工作流节点配置失败: " + e.getMessage());
         }
     }
 
@@ -153,10 +152,10 @@ public class WorkflowNodeController {
         try {
             NodeParamConfigExportRsp nodeParamConfigExportResponse = interfaceFlowNodeService.exportNodeParamConfig(nodeId);
 
-            return ResponseRenderUtils.render(nodeParamConfigExportResponse);
+            return ResultData.ok(nodeParamConfigExportResponse);
         } catch (Exception e) {
             log.error("获取工作流节点失败", e);
-            return ResponseRenderUtils.error("获取工作流节点失败: " + e.getMessage());
+            return ResultData.error("获取工作流节点失败: " + e.getMessage());
         }
     }
 
@@ -169,18 +168,18 @@ public class WorkflowNodeController {
             @RequestParam("file") MultipartFile file) {
         try {
             if (nodeId == null) {
-                return ResponseRenderUtils.error("nodeId不能为空");
+                return ResultData.error("nodeId不能为空");
             }
 
             if (file == null || file.isEmpty()) {
-                return ResponseRenderUtils.error("文件不能为空");
+                return ResultData.error("文件不能为空");
             }
 
             nodeParamConfigService.importNodeParamConfig(nodeId, file);
-            return ResponseRenderUtils.success();
+            return ResultData.ok();
         } catch (Exception e) {
             log.error("导入节点参数配置失败", e);
-            return ResponseRenderUtils.error("导入节点参数配置失败: " + e.getMessage());
+            return ResultData.error("导入节点参数配置失败: " + e.getMessage());
         }
     }
 
@@ -192,14 +191,14 @@ public class WorkflowNodeController {
             @RequestParam("file") MultipartFile file) {
         try {
             if (file == null || file.isEmpty()) {
-                return ResponseRenderUtils.error("文件不能为空");
+                return ResultData.error("文件不能为空");
             }
 
             interfaceFlowNodeService.importNodeConfig(file);
-            return ResponseRenderUtils.success();
+            return ResultData.ok();
         } catch (Exception e) {
             log.error("导入节点参数配置失败", e);
-            return ResponseRenderUtils.error("导入节点参数配置失败: " + e.getMessage());
+            return ResultData.error("导入节点参数配置失败: " + e.getMessage());
         }
     }
 
@@ -211,10 +210,10 @@ public class WorkflowNodeController {
         try {
             NodeConfigExportRsp nodeConfigExportRsp = interfaceFlowNodeService.exportNodeConfig(nodeId);
 
-            return ResponseRenderUtils.render(nodeConfigExportRsp);
+            return ResultData.ok(nodeConfigExportRsp);
         } catch (Exception e) {
             log.error("获取工作流节点失败", e);
-            return ResponseRenderUtils.error("获取工作流节点失败: " + e.getMessage());
+            return ResultData.error("获取工作流节点失败: " + e.getMessage());
         }
     }
 
@@ -225,10 +224,10 @@ public class WorkflowNodeController {
     public ResultData<List<InterfaceWorkflowNodeView>> getDownstreamNodes(@PathVariable Integer nodeId) {
         try {
             List<InterfaceWorkflowNodeView> downstreamNodes = interfaceFlowNodeService.getDownstreamNodes(nodeId);
-            return ResponseRenderUtils.render(downstreamNodes);
+            return ResultData.ok(downstreamNodes);
         } catch (Exception e) {
             log.error("获取下游节点失败", e);
-            return ResponseRenderUtils.error("获取下游节点失败: " + e.getMessage());
+            return ResultData.error("获取下游节点失败: " + e.getMessage());
         }
     }
 }

@@ -9,6 +9,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import tk.mybatis.spring.annotation.MapperScan;
 
@@ -47,5 +48,14 @@ public class RepositoryHemsDataSourceConfig {
     @Bean(name = "repositoryHemsTransactionManager")
     public DataSourceTransactionManager transactionManager(@Qualifier("repositoryHemsDataSource") DataSource ds) {
         return new DataSourceTransactionManager(ds);
+    }
+
+    /**
+     * Hems 业务库 JdbcTemplate
+     * 供自定义 SPI 扩展执行动态 SQL
+     */
+    @Bean(name = "hemsJdbcTemplate")
+    public JdbcTemplate hemsJdbcTemplate(@Qualifier("repositoryHemsDataSource") DataSource dataSource) {
+        return new JdbcTemplate(dataSource);
     }
 }

@@ -2,8 +2,8 @@ package com.helianhealth.agent.console.service.extension;
 
 import com.helianhealth.agent.common.exception.AgentErrorCode;
 import com.helianhealth.agent.common.exception.AgentException;
-import com.helianhealth.agent.common.extension.model.DynamicSpiDefinition;
-import com.helianhealth.agent.common.extension.config.DynamicSpiConfigSource;
+import com.helianhealth.agent.common.extension.support.DynamicSpiDefinition;
+import com.helianhealth.agent.common.extension.support.DynamicSpiConfigSource;
 import com.helianhealth.agent.repository.model.domain.NodeExtensionConfig;
 import com.helianhealth.agent.repository.service.NodeExtensionConfigQueryService;
 import lombok.extern.slf4j.Slf4j;
@@ -52,6 +52,7 @@ public class NodeExtensionConfigRepositoryImpl implements DynamicSpiConfigSource
         target.setExtensionName(source.getExtensionName());
         target.setClassName(source.getClassName());
         target.setSourceCode(source.getSourceCode());
+        target.setDynamicCompile("ONLINE".equals(source.getExtensionMode()));
         return target;
     }
 

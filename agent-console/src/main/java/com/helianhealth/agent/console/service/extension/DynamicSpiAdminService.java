@@ -1,10 +1,12 @@
 package com.helianhealth.agent.console.service.extension;
 
+import com.helianhealth.agent.common.exception.AgentConfigException;
+import com.helianhealth.agent.common.exception.AgentErrorCode;
+import com.helianhealth.agent.common.exception.AgentException;
 import com.helianhealth.agent.common.extension.AgentExtensionLoader;
-import com.helianhealth.agent.common.extension.model.DynamicSpiDefinition;
 import com.helianhealth.agent.console.enums.ExtensionType;
 import com.helianhealth.agent.console.model.convert.NodeExtensionConfigConvert;
-import com.helianhealth.agent.console.model.dto.NodeExtensionConfigCreateReq;
+import com.helianhealth.agent.console.controller.request.NodeExtensionConfigCreateReq;
 import com.helianhealth.agent.console.model.dto.NodeExtensionConfigDetailResponse;
 import com.helianhealth.agent.console.model.dto.NodeExtensionConfigUpdateReq;
 import com.helianhealth.agent.repository.model.domain.NodeExtensionConfig;
@@ -14,15 +16,10 @@ import com.helianhealth.agent.repository.service.NodeExtensionConfigQueryService
 import com.helianhealth.agent.repository.service.WorkflowNodeQueryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.BeanUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * Dynamic SPI Admin Service
@@ -37,54 +34,47 @@ public class DynamicSpiAdminService {
 
     private static final Logger log = LoggerFactory.getLogger(DynamicSpiAdminService.class);
 
-    @Autowired
-    private NodeExtensionConfigQueryService extensionConfigQueryService;
+    private final NodeExtensionConfigQueryService extensionConfigQueryService;
+    private final NodeExtensionConfigCommandService extensionConfigCommandService;
+    private final NodeExtensionConfigService extensionNodeUpdateService;
+    private final WorkflowNodeQueryService workflowNodeQueryService;
+    private final NodeExtensionConfigConvert extensionConfigConvert;
 
-    @Autowired
-    private NodeExtensionConfigCommandService extensionConfigCommandService;
+    public DynamicSpiAdminService(NodeExtensionConfigQueryService extensionConfigQueryService,
+                                  NodeExtensionConfigCommandService extensionConfigCommandService,
+                                  NodeExtensionConfigService extensionNodeUpdateService,
+                                  WorkflowNodeQueryService workflowNodeQueryService,
+                                  NodeExtensionConfigConvert extensionConfigConvert) {
+        this.extensionConfigQueryService = extensionConfigQueryService;
+        this.extensionConfigCommandService = extensionConfigCommandService;
+        this.extensionNodeUpdateService = extensionNodeUpdateService;
+        this.workflowNodeQueryService = workflowNodeQueryService;
+        this.extensionConfigConvert = extensionConfigConvert;
+    }
 
-    @Autowired
-    private ExtensionNodeUpdateService extensionNodeUpdateService;
-
-    @Autowired
-    private WorkflowNodeQueryService workflowNodeQueryService;
-
-    @Autowired
-    private NodeExtensionConfigConvert extensionConfigConvert;
-
-    /**
-     * 注册扩展（完整流程：更新节点字段 + 持久化 + 注册SPI）
-     */
     @Transactional(value = "repositoryAgentTransactionManager", rollbackFor = Exception.class)
     public void registerExtension(ExtensionType type, NodeExtensionConfigCreateReq request) {
-        try {
-            // 转换Request为Domain
-            NodeExtensionConfig config = convertCreateReqToDomain(request);
+        NodeExtensionConfig config = extensionConfigConvert.fromCreateReq(request);
 
-            // Step 1: 更新节点字段（传递extensionParamValue）
-            extensionNodeUpdateService.updateNodeFields(
-                type,
-                config.getExtensionName(),
-                config.getNodeId(),
-                request.getExtensionParamValue()
-            );
+        // Step 1: 更新节点拓展字段
+        extensionNodeUpdateService.updateNodeExtensionField(
+            type,
+            config.getExtensionName(),
+            config.getNodeId(),
+            config.getExtensionParamValue()
+        );
 
-            // Step 2: 插入扩展配置到数据库
-            extensionConfigCommandService.insert(config);
+        // Step 2: 插入扩展配置到数据库
+        extensionConfigCommandService.insert(config);
 
-            // Step 3: 如果启用，事务提交后注册到SPI运行时
-            if (config.getEnabled() != null && config.getEnabled() == 1) {
-                DynamicSpiDefinition definition = toDynamicSpi(config);
-                registerAfterCommit(definition);
-            }
-
-            log.info("Successfully registered extension: type={}, extensionName={}, nodeIds={}, paramValue={}",
-                    type.getDescription(), config.getExtensionName(), config.getNodeId(), request.getExtensionParamValue());
-        } catch (Exception e) {
-            log.error("Failed to register extension: extensionName={}, className={}",
-                    request.getExtensionName(), request.getClassName(), e);
-            throw e;
+        // Step 3: 如果启用，注册到SPI运行时
+        // 放到最后确保异常回滚事务,更新也是如此
+        if (config.isEnabled()) {
+            registerSpi(config);
         }
+
+        log.info("Registered extension successfully: type={}, extensionName={}, nodeIds={}",
+                type.getDescription(), config.getExtensionName(), config.getNodeId());
     }
 
     /**
@@ -92,44 +82,37 @@ public class DynamicSpiAdminService {
      */
     @Transactional(value = "repositoryAgentTransactionManager", rollbackFor = Exception.class)
     public void updateExtension(ExtensionType type, NodeExtensionConfigUpdateReq request) {
-        try {
-            // 转换Request为Domain
-            NodeExtensionConfig config = convertUpdateReqToDomain(request);
+        NodeExtensionConfig config = extensionConfigConvert.fromUpdateReq(request);
 
-            // Step 1: 查询旧配置,清理旧节点字段
-            NodeExtensionConfig oldConfig = extensionConfigQueryService.selectById(config.getCodeId());
-            if (oldConfig != null && oldConfig.getNodeId() != null) {
-                extensionNodeUpdateService.clearNodeFields(
-                    type,
-                    oldConfig.getExtensionName(),
-                    oldConfig.getNodeId()
-                );
-            }
-
-            // Step 2: 更新新节点字段（传递extensionParamValue）
-            extensionNodeUpdateService.updateNodeFields(
+        // Step 1: 查询旧配置,清理旧节点字段
+        NodeExtensionConfig oldConfig = extensionConfigQueryService.selectById(config.getCodeId());
+        if (oldConfig != null && oldConfig.getNodeId() != null) {
+            extensionNodeUpdateService.clearNodeFields(
                 type,
-                config.getExtensionName(),
-                config.getNodeId(),
-                request.getExtensionParamValue()
+                oldConfig.getExtensionName(),
+                oldConfig.getNodeId()
             );
-
-            // Step 3: 更新数据库
-            extensionConfigCommandService.update(config);
-
-            // Step 4: 卸载旧SPI并加载新SPI（事务提交后）
-            String oldSpiInterface = oldConfig != null ? oldConfig.getSpiInterface() : null;
-            String oldExtensionName = oldConfig != null ? oldConfig.getExtensionName() : null;
-            DynamicSpiDefinition newDefinition = toDynamicSpi(config);
-            updateSpiAfterCommit(oldSpiInterface, oldExtensionName, newDefinition);
-
-            log.info("Successfully updated extension: type={}, extensionName={}, nodeIds={}, paramValue={}",
-                    type.getDescription(), config.getExtensionName(), config.getNodeId(), request.getExtensionParamValue());
-        } catch (Exception e) {
-            log.error("Failed to update extension: extensionName={}, className={}",
-                    request.getExtensionName(), request.getClassName(), e);
-            throw e;
         }
+
+        // Step 2: 更新新节点字段
+        extensionNodeUpdateService.updateNodeExtensionField(
+            type,
+            config.getExtensionName(),
+            config.getNodeId(),
+            config.getExtensionParamValue()
+        );
+
+        // Step 3: 更新数据库
+        extensionConfigCommandService.update(config);
+
+        // Step 4: 卸载旧SPI并注册新SPI（失败则异常回滚整个事务）
+        if (oldConfig != null) {
+            unregisterSpi(oldConfig);
+        }
+        registerSpi(config);
+
+        log.info("Updated extension successfully: type={}, extensionName={}, nodeIds={}",
+                type.getDescription(), config.getExtensionName(), config.getNodeId());
     }
 
     /**
@@ -137,23 +120,14 @@ public class DynamicSpiAdminService {
      */
     @Transactional(value = "repositoryAgentTransactionManager", rollbackFor = Exception.class)
     public void saveAndRegisterExtension(NodeExtensionConfig config) {
-        try {
-            // Step 1: 插入扩展配置到数据库
-            extensionConfigCommandService.insert(config);
+        extensionConfigCommandService.insert(config);
 
-            // Step 2: 如果启用，事务提交后注册到SPI运行时
-            if (config.getEnabled() != null && config.getEnabled() == 1) {
-                DynamicSpiDefinition definition = toDynamicSpi(config);
-                registerAfterCommit(definition);
-            }
-
-            log.info("Successfully saved extension: extensionName={}, nodeIds={}",
-                    config.getExtensionName(), config.getNodeId());
-        } catch (Exception e) {
-            log.error("Failed to save extension: extensionName={}, className={}",
-                    config.getExtensionName(), config.getClassName(), e);
-            throw e;
+        if (config.isEnabled()) {
+            registerSpi(config);
         }
+
+        log.info("Saved extension successfully: extensionName={}, nodeIds={}",
+                config.getExtensionName(), config.getNodeId());
     }
 
     /**
@@ -161,23 +135,15 @@ public class DynamicSpiAdminService {
      */
     @Transactional(value = "repositoryAgentTransactionManager", rollbackFor = Exception.class)
     public void updateAndRefreshExtension(NodeExtensionConfig oldConfig, NodeExtensionConfig newConfig) {
-        try {
-            // Step 1: 更新数据库
-            extensionConfigCommandService.update(newConfig);
+        extensionConfigCommandService.update(newConfig);
 
-            // Step 2: 卸载旧SPI并加载新SPI（事务提交后）
-            String oldSpiInterface = oldConfig != null ? oldConfig.getSpiInterface() : null;
-            String oldExtensionName = oldConfig != null ? oldConfig.getExtensionName() : null;
-            DynamicSpiDefinition newDefinition = toDynamicSpi(newConfig);
-            updateSpiAfterCommit(oldSpiInterface, oldExtensionName, newDefinition);
-
-            log.info("Successfully updated extension: extensionName={}, nodeIds={}",
-                    newConfig.getExtensionName(), newConfig.getNodeId());
-        } catch (Exception e) {
-            log.error("Failed to update extension: extensionName={}, className={}",
-                    newConfig.getExtensionName(), newConfig.getClassName(), e);
-            throw e;
+        if (oldConfig != null) {
+            unregisterSpi(oldConfig);
         }
+        registerSpi(newConfig);
+
+        log.info("Updated extension successfully: extensionName={}, nodeIds={}",
+                newConfig.getExtensionName(), newConfig.getNodeId());
     }
 
     /**
@@ -201,7 +167,7 @@ public class DynamicSpiAdminService {
         }
 
         // 只有 Filter 类型才需要从节点提取参数
-        if ("com.helianhealth.agent.invocation.remote.filter.AgentFilter".equals(config.getSpiInterface())) {
+        if (ExtensionType.FILTER.getSpiInterface().equals(config.getSpiInterface())) {
             List<Integer> nodeIds = config.getNodeId();
             if (nodeIds != null && !nodeIds.isEmpty()) {
                 // 从第一个节点获取 extension_param
@@ -221,59 +187,93 @@ public class DynamicSpiAdminService {
     }
 
     /**
-     * Refresh specified node extension by ID
+     * 刷新指定扩展的SPI运行时
      */
-    public void refresh(Integer codeId) throws Exception {
-        try {
-            NodeExtensionConfig config = extensionConfigQueryService.selectById(codeId);
-            if (config == null) {
-                throw new IllegalArgumentException("Extension config not found: " + codeId);
-            }
+    public void refresh(Integer codeId) {
+        NodeExtensionConfig config = extensionConfigQueryService.selectById(codeId);
+        if (config == null) {
+            throw new AgentException(AgentErrorCode.INTERNAL_ERROR, "扩展配置不存在: " + codeId);
+        }
 
-            // 通过AgentExtensionLoader刷新扩展
-            Class<?> interfaceClass = Class.forName(config.getSpiInterface());
-            AgentExtensionLoader<?> loader = AgentExtensionLoader.getExtensionLoader(interfaceClass);
+        try {
+            AgentExtensionLoader<?> loader = getLoader(config.getSpiInterface());
+            boolean dynamicCompile = "ONLINE".equals(config.getExtensionMode());
             loader.refreshDynamicExtension(
                     config.getExtensionName(),
                     config.getClassName(),
-                    config.getSourceCode()
+                    config.getSourceCode(),
+                    dynamicCompile
             );
-
-            log.info("Successfully refreshed dynamic SPI: interface={}, extension={}",
-                    config.getSpiInterface(), config.getExtensionName());
         } catch (Exception e) {
-            log.error("Failed to refresh dynamic SPI for codeId: {}", codeId, e);
-            throw e;
+            throw new AgentException(AgentErrorCode.INTERNAL_ERROR, "SPI刷新失败: " + config.getSpiInterface() + "#" + config.getExtensionName(), e);
         }
+
+        log.info("Refreshed extension successfully: interface={}, extension={}",
+                config.getSpiInterface(), config.getExtensionName());
     }
 
     /**
-     * Disable and unregister runtime implementation
+     * 禁用并卸载SPI运行时实现
      */
     @Transactional(value = "repositoryAgentTransactionManager", rollbackFor = Exception.class)
     public void disableAndUnregister(Integer codeId) {
-        try {
-            NodeExtensionConfig config = extensionConfigQueryService.selectById(codeId);
-            if (config == null) {
-                log.warn("Extension config not found for disable: {}", codeId);
-                return;
-            }
-
-            // Update database
-            config.setEnabled(0);
-            extensionConfigCommandService.update(config);
-
-            // Unregister from SPI runtime after transaction commit
-            String spiInterface = config.getSpiInterface();
-            String extensionName = config.getExtensionName();
-            unregisterAfterCommit(spiInterface, extensionName);
-
-            log.info("Successfully disabled extension config: codeId={}, extensionName={}",
-                    codeId, extensionName);
-        } catch (Exception e) {
-            log.error("Failed to disable extension config: codeId={}", codeId, e);
-            throw e;
+        NodeExtensionConfig config = extensionConfigQueryService.selectById(codeId);
+        if (config == null) {
+            return;
         }
+
+        config.setEnabled(0);
+        extensionConfigCommandService.update(config);
+        unregisterSpi(config);
+
+        log.info("Disabled extension successfully: codeId={}, extensionName={}",
+                codeId, config.getExtensionName());
+    }
+
+    /**
+     * 启用并注册SPI到运行时
+     */
+    @Transactional(value = "repositoryAgentTransactionManager", rollbackFor = Exception.class)
+    public void enableAndRegister(Integer codeId) {
+        NodeExtensionConfig config = extensionConfigQueryService.selectById(codeId);
+        if (config == null) {
+            return;
+        }
+
+        config.setEnabled(1);
+        extensionConfigCommandService.update(config);
+        registerSpi(config);
+
+        log.info("Enabled extension successfully: codeId={}, extensionName={}",
+                codeId, config.getExtensionName());
+    }
+
+    /**
+     * 物理删除扩展配置（清理节点字段 + 卸载SPI + 删除数据库记录）
+     */
+    @Transactional(value = "repositoryAgentTransactionManager", rollbackFor = Exception.class)
+    public void deleteExtension(Integer codeId) {
+        NodeExtensionConfig config = extensionConfigQueryService.selectById(codeId);
+        if (config == null) {
+            return;
+        }
+
+        // Step 1: 清理关联节点字段
+        if (config.getNodeId() != null && !config.getNodeId().isEmpty()) {
+            ExtensionType type = ExtensionType.fromSpiInterface(config.getSpiInterface());
+            extensionNodeUpdateService.clearNodeFields(type, config.getExtensionName(), config.getNodeId());
+        }
+
+        // Step 2: 卸载SPI运行时
+        if (config.isEnabled()) {
+            unregisterSpi(config);
+        }
+
+        // Step 3: 物理删除数据库记录
+        extensionConfigCommandService.deleteById(codeId);
+
+        log.info("Deleted extension successfully: codeId={}, extensionName={}",
+                codeId, config.getExtensionName());
     }
 
     /**
@@ -301,130 +301,44 @@ public class DynamicSpiAdminService {
     }
 
     /**
-     * Register SPI after transaction commit to ensure data consistency
+     * 注册SPI到运行时
      */
-    private void registerAfterCommit(DynamicSpiDefinition definition) {
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                try {
-                    // 通过AgentExtensionLoader注册扩展
-                    Class<?> interfaceClass = Class.forName(definition.getSpiInterface());
-                    @SuppressWarnings("unchecked")
-                    AgentExtensionLoader<Object> loader = (AgentExtensionLoader<Object>)
-                            AgentExtensionLoader.getExtensionLoader(interfaceClass);
-
-                    loader.registerDynamicExtension(
-                            definition.getExtensionName(),
-                            definition.getClassName(),
-                            definition.getSourceCode()
-                    );
-
-                    log.info("Successfully registered dynamic SPI after commit: interface={}, extension={}",
-                            definition.getSpiInterface(), definition.getExtensionName());
-                } catch (Exception e) {
-                    log.error("Failed to register dynamic SPI after commit: interface={}, extension={}, className={}",
-                            definition.getSpiInterface(), definition.getExtensionName(),
-                            definition.getClassName(), e);
-                }
-            }
-        });
+    private void registerSpi(NodeExtensionConfig config) {
+        try {
+            AgentExtensionLoader<?> loader = getLoader(config.getSpiInterface());
+            // 是否动态编译
+            boolean dynamicCompile = "ONLINE".equals(config.getExtensionMode());
+            loader.registerDynamicExtension(
+                    config.getExtensionName(),
+                    config.getClassName(),
+                    config.getSourceCode(),
+                    dynamicCompile
+            );
+        } catch (Exception e) {
+            log.error("SPI注册失败: {}#{},{}", config.getSpiInterface(), config.getExtensionName(), e.getMessage(), e);
+            throw new AgentConfigException(AgentErrorCode.SPI_REGISTER_FAILED,
+                    config.getSpiInterface() + "#" + config.getExtensionName() + e.getMessage(), e);
+        }
     }
 
     /**
-     * Update SPI after transaction commit: unload old and load new
+     * 从运行时卸载SPI
      */
-    private void updateSpiAfterCommit(String oldSpiInterface, String oldExtensionName, DynamicSpiDefinition newDefinition) {
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                try {
-                    // Step 1: Remove old SPI if exists
-                    if (oldSpiInterface != null && oldExtensionName != null) {
-                        Class<?> oldInterfaceClass = Class.forName(oldSpiInterface);
-                        @SuppressWarnings("unchecked")
-                        AgentExtensionLoader<Object> oldLoader = (AgentExtensionLoader<Object>)
-                                AgentExtensionLoader.getExtensionLoader(oldInterfaceClass);
-                        oldLoader.removeDynamicExtension(oldExtensionName);
-
-                        log.debug("Removed old SPI: interface={}, extension={}",
-                                oldSpiInterface, oldExtensionName);
-                    }
-
-                    // Step 2: Register new SPI
-                    Class<?> newInterfaceClass = Class.forName(newDefinition.getSpiInterface());
-                    @SuppressWarnings("unchecked")
-                    AgentExtensionLoader<Object> newLoader = (AgentExtensionLoader<Object>)
-                            AgentExtensionLoader.getExtensionLoader(newInterfaceClass);
-                    newLoader.registerDynamicExtension(
-                            newDefinition.getExtensionName(),
-                            newDefinition.getClassName(),
-                            newDefinition.getSourceCode()
-                    );
-
-                    log.info("Successfully updated dynamic SPI after commit: interface={}, extension={}",
-                            newDefinition.getSpiInterface(), newDefinition.getExtensionName());
-                } catch (Exception e) {
-                    log.error("Failed to update dynamic SPI after commit: old=[{}#{}], new=[{}#{}]",
-                            oldSpiInterface, oldExtensionName,
-                            newDefinition.getSpiInterface(), newDefinition.getExtensionName(), e);
-                }
-            }
-        });
+    private void unregisterSpi(NodeExtensionConfig config) {
+        AgentExtensionLoader<?> loader = getLoader(config.getSpiInterface());
+        loader.removeDynamicExtension(config.getExtensionName());
     }
 
     /**
-     * Unregister SPI after transaction commit
+     * 获取指定SPI接口的ExtensionLoader
      */
-    private void unregisterAfterCommit(String spiInterface, String extensionName) {
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                try {
-                    // 通过AgentExtensionLoader卸载扩展
-                    Class<?> interfaceClass = Class.forName(spiInterface);
-                    @SuppressWarnings("unchecked")
-                    AgentExtensionLoader<Object> loader = (AgentExtensionLoader<Object>)
-                            AgentExtensionLoader.getExtensionLoader(interfaceClass);
-                    loader.removeDynamicExtension(extensionName);
-
-                    log.info("Successfully unregistered dynamic SPI after commit: interface={}, extension={}",
-                            spiInterface, extensionName);
-                } catch (Exception e) {
-                    log.error("Failed to unregister dynamic SPI after commit: interface={}, extension={}",
-                            spiInterface, extensionName, e);
-                }
-            }
-        });
+    private AgentExtensionLoader<?> getLoader(String spiInterface) {
+        try {
+            Class<?> interfaceClass = Class.forName(spiInterface);
+            return AgentExtensionLoader.getExtensionLoader(interfaceClass);
+        } catch (ClassNotFoundException e) {
+            throw new AgentException(AgentErrorCode.INTERNAL_ERROR, "SPI接口类未找到: " + spiInterface, e);
+        }
     }
 
-    /**
-     * Convert Domain to SPI definition (only SPI related fields)
-     */
-    private DynamicSpiDefinition toDynamicSpi(NodeExtensionConfig source) {
-        DynamicSpiDefinition target = new DynamicSpiDefinition();
-        target.setSpiInterface(source.getSpiInterface());
-        target.setExtensionName(source.getExtensionName());
-        target.setClassName(source.getClassName());
-        target.setSourceCode(source.getSourceCode());
-        return target;
-    }
-
-    /**
-     * 转换创建请求为Domain对象
-     */
-    private NodeExtensionConfig convertCreateReqToDomain(NodeExtensionConfigCreateReq request) {
-        NodeExtensionConfig config = new NodeExtensionConfig();
-        BeanUtils.copyProperties(request, config);
-        return config;
-    }
-
-    /**
-     * 转换更新请求为Domain对象
-     */
-    private NodeExtensionConfig convertUpdateReqToDomain(NodeExtensionConfigUpdateReq request) {
-        NodeExtensionConfig config = new NodeExtensionConfig();
-        BeanUtils.copyProperties(request, config);
-        return config;
-    }
 }

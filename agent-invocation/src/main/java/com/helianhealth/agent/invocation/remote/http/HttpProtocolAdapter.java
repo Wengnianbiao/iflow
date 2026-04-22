@@ -1,6 +1,6 @@
 package com.helianhealth.agent.invocation.remote.http;
 
-import com.helianhealth.agent.common.base.MetaInfoKeys;
+import com.helianhealth.agent.common.base.MetaInfoKeyConstants;
 import com.helianhealth.agent.common.exception.AgentConfigException;
 import com.helianhealth.agent.common.exception.AgentErrorCode;
 import com.helianhealth.agent.common.exception.AgentException;
@@ -40,12 +40,12 @@ public class HttpProtocolAdapter extends AbstractProtocolAdapter {
     @SuppressWarnings("unchecked")
     protected String executeInvoke(WorkflowNode flowNode, String resolvedParam) {
         Map<String, Object> metaInfo = JsonUtils.toMap(flowNode.getMetaInfo());
-        if (metaInfo == null || !metaInfo.containsKey(MetaInfoKeys.URL)) {
+        if (metaInfo == null || !metaInfo.containsKey(MetaInfoKeyConstants.URL)) {
             throw new AgentConfigException(AgentErrorCode.HTTP_CONFIG_MISSING, "HTTP请求信息中缺少URL");
         }
-        String url = (String) metaInfo.get(MetaInfoKeys.URL);
-        String method = (String) metaInfo.getOrDefault(MetaInfoKeys.HTTP_METHOD, "POST");
-        Map<String, String> headers = (Map<String, String>) metaInfo.getOrDefault(MetaInfoKeys.HEADERS, new HashMap<>());
+        String url = (String) metaInfo.get(MetaInfoKeyConstants.URL);
+        String method = (String) metaInfo.getOrDefault(MetaInfoKeyConstants.HTTP_METHOD, "POST");
+        Map<String, String> headers = (Map<String, String>) metaInfo.getOrDefault(MetaInfoKeyConstants.HEADERS, new HashMap<>());
 
         try {
             return httpRequestHandler.executeHttpRequest(url, method, headers, resolvedParam);

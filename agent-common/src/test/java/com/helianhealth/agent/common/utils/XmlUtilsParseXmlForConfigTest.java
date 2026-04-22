@@ -1,6 +1,6 @@
 package com.helianhealth.agent.common.utils;
 
-import com.helianhealth.agent.common.base.MetaInfoKeys;
+import com.helianhealth.agent.common.base.MetaInfoKeyConstants;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -97,7 +97,7 @@ public class XmlUtilsParseXmlForConfigTest {
         // 使用 elementName 定位 CDATA 包裹的内容
         String xml = "<Body><Result><![CDATA[<patient><code>P001</code></patient>]]></Result></Body>";
         Map<String, Object> metaMap = new HashMap<>();
-        metaMap.put(MetaInfoKeys.ELEMENT_NAME, "Result");
+        metaMap.put(MetaInfoKeyConstants.ELEMENT_NAME, "Result");
 
         Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 
@@ -113,7 +113,7 @@ public class XmlUtilsParseXmlForConfigTest {
         // CDATA 内容包含 XML 声明
         String xml = "<Body><Result><![CDATA[<?xml version=\"1.0\" encoding=\"UTF-8\"?><data><id>001</id></data>]]></Result></Body>";
         Map<String, Object> metaMap = new HashMap<>();
-        metaMap.put(MetaInfoKeys.ELEMENT_NAME, "Result");
+        metaMap.put(MetaInfoKeyConstants.ELEMENT_NAME, "Result");
 
         Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 
@@ -129,7 +129,7 @@ public class XmlUtilsParseXmlForConfigTest {
         // elementName 对应的标签不存在
         String xml = "<Response><data>test</data></Response>";
         Map<String, Object> metaMap = new HashMap<>();
-        metaMap.put(MetaInfoKeys.ELEMENT_NAME, "NotExist");
+        metaMap.put(MetaInfoKeyConstants.ELEMENT_NAME, "NotExist");
 
         assertThrows(RuntimeException.class, () -> XmlUtils.parseResponseXml(xml, metaMap));
     }
@@ -139,7 +139,7 @@ public class XmlUtilsParseXmlForConfigTest {
         // elementName 对应多个节点
         String xml = "<Root><Item>1</Item><Item>2</Item></Root>";
         Map<String, Object> metaMap = new HashMap<>();
-        metaMap.put(MetaInfoKeys.ELEMENT_NAME, "Item");
+        metaMap.put(MetaInfoKeyConstants.ELEMENT_NAME, "Item");
 
         assertThrows(RuntimeException.class, () -> XmlUtils.parseResponseXml(xml, metaMap));
     }
@@ -151,8 +151,8 @@ public class XmlUtilsParseXmlForConfigTest {
         // 使用 innerElementName 进一步定位
         String xml = "<Body><Result><![CDATA[<root><wrapper><data><id>002</id></data></wrapper></root>]]></Result></Body>";
         Map<String, Object> metaMap = new HashMap<>();
-        metaMap.put(MetaInfoKeys.ELEMENT_NAME, "Result");
-        metaMap.put(MetaInfoKeys.INNER_ELEMENT_NAME, "data");
+        metaMap.put(MetaInfoKeyConstants.ELEMENT_NAME, "Result");
+        metaMap.put(MetaInfoKeyConstants.INNER_ELEMENT_NAME, "data");
 
         Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 
@@ -168,8 +168,8 @@ public class XmlUtilsParseXmlForConfigTest {
         // innerElementName 不存在，抛出异常
         String xml = "<Body><Result><![CDATA[<data><id>003</id></data>]]></Result></Body>";
         Map<String, Object> metaMap = new HashMap<>();
-        metaMap.put(MetaInfoKeys.ELEMENT_NAME, "Result");
-        metaMap.put(MetaInfoKeys.INNER_ELEMENT_NAME, "notExist");
+        metaMap.put(MetaInfoKeyConstants.ELEMENT_NAME, "Result");
+        metaMap.put(MetaInfoKeyConstants.INNER_ELEMENT_NAME, "notExist");
 
         RuntimeException exception = assertThrows(RuntimeException.class,
                 () -> XmlUtils.parseResponseXml(xml, metaMap));
@@ -193,8 +193,8 @@ public class XmlUtilsParseXmlForConfigTest {
                 "</soap:Envelope>";
 
         Map<String, Object> metaMap = new HashMap<>();
-        metaMap.put(MetaInfoKeys.ELEMENT_NAME, "Result");         // 定位外层 CDATA 容器
-        metaMap.put(MetaInfoKeys.INNER_ELEMENT_NAME, "body");     // 定位内层业务数据节点
+        metaMap.put(MetaInfoKeyConstants.ELEMENT_NAME, "Result");         // 定位外层 CDATA 容器
+        metaMap.put(MetaInfoKeyConstants.INNER_ELEMENT_NAME, "body");     // 定位内层业务数据节点
 
         Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 
@@ -213,8 +213,8 @@ public class XmlUtilsParseXmlForConfigTest {
         // isCDATA=false，直接取子元素
         String xml = "<Body><Result><patient><code>P002</code></patient></Result></Body>";
         Map<String, Object> metaMap = new HashMap<>();
-        metaMap.put(MetaInfoKeys.ELEMENT_NAME, "Result");
-        metaMap.put(MetaInfoKeys.IS_CDATA, false);
+        metaMap.put(MetaInfoKeyConstants.ELEMENT_NAME, "Result");
+        metaMap.put(MetaInfoKeyConstants.IS_CDATA, false);
 
         Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 
@@ -230,7 +230,7 @@ public class XmlUtilsParseXmlForConfigTest {
         // 默认 isCDATA=true
         String xml = "<Body><Result><![CDATA[<patient><code>P003</code></patient>]]></Result></Body>";
         Map<String, Object> metaMap = new HashMap<>();
-        metaMap.put(MetaInfoKeys.ELEMENT_NAME, "Result");
+        metaMap.put(MetaInfoKeyConstants.ELEMENT_NAME, "Result");
 
         Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 
@@ -248,8 +248,8 @@ public class XmlUtilsParseXmlForConfigTest {
         // CDATA 内容是 JSON 格式
         String xml = "<Body><Result><![CDATA[{\"code\":\"J001\",\"name\":\"测试\"}]]></Result></Body>";
         Map<String, Object> metaMap = new HashMap<>();
-        metaMap.put(MetaInfoKeys.ELEMENT_NAME, "Result");
-        metaMap.put(MetaInfoKeys.DATA_TYPE, "json");
+        metaMap.put(MetaInfoKeyConstants.ELEMENT_NAME, "Result");
+        metaMap.put(MetaInfoKeyConstants.DATA_TYPE, "json");
 
         Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 
@@ -262,8 +262,8 @@ public class XmlUtilsParseXmlForConfigTest {
         // CDATA 内容是 JSON 数组
         String xml = "<Body><Result><![CDATA[{\"items\":[{\"id\":1},{\"id\":2}]}]]></Result></Body>";
         Map<String, Object> metaMap = new HashMap<>();
-        metaMap.put(MetaInfoKeys.ELEMENT_NAME, "Result");
-        metaMap.put(MetaInfoKeys.DATA_TYPE, "JSON");
+        metaMap.put(MetaInfoKeyConstants.ELEMENT_NAME, "Result");
+        metaMap.put(MetaInfoKeyConstants.DATA_TYPE, "JSON");
 
         Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 
@@ -278,7 +278,7 @@ public class XmlUtilsParseXmlForConfigTest {
         // 转义字符处理
         String xml = "&lt;Response&gt;&lt;data&gt;test&lt;/data&gt;&lt;/Response&gt;";
         Map<String, Object> metaMap = new HashMap<>();
-        metaMap.put(MetaInfoKeys.USE_ESCAPE, true);
+        metaMap.put(MetaInfoKeyConstants.USE_ESCAPE, true);
 
         Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 
@@ -440,7 +440,7 @@ public class XmlUtilsParseXmlForConfigTest {
                 "</Envelope>";
 
         Map<String, Object> metaMap = new HashMap<>();
-        metaMap.put(MetaInfoKeys.ELEMENT_NAME, "Result");
+        metaMap.put(MetaInfoKeyConstants.ELEMENT_NAME, "Result");
 
         Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 
@@ -460,8 +460,8 @@ public class XmlUtilsParseXmlForConfigTest {
                 "</Body>";
 
         Map<String, Object> metaMap = new HashMap<>();
-        metaMap.put(MetaInfoKeys.ELEMENT_NAME, "Result");
-        metaMap.put(MetaInfoKeys.INNER_ELEMENT_NAME, "data");
+        metaMap.put(MetaInfoKeyConstants.ELEMENT_NAME, "Result");
+        metaMap.put(MetaInfoKeyConstants.INNER_ELEMENT_NAME, "data");
 
         Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 
@@ -486,7 +486,7 @@ public class XmlUtilsParseXmlForConfigTest {
         // objectTag 配置 - 暂时保留用于未来扩展
         String xml = "<Root><items><item><id>1</id></item></items></Root>";
         Map<String, Object> metaMap = new HashMap<>();
-        metaMap.put(MetaInfoKeys.OBJECT_TAG, Collections.singletonList("items"));
+        metaMap.put(MetaInfoKeyConstants.OBJECT_TAG, Collections.singletonList("items"));
 
         Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 
@@ -807,8 +807,8 @@ public class XmlUtilsParseXmlForConfigTest {
                     "</soap:Body>" +
                     "</soap:Envelope>";
             Map<String, Object> metaMap = new HashMap<>();
-            metaMap.put(MetaInfoKeys.ELEMENT_NAME, "Result");
-            metaMap.put(MetaInfoKeys.DATA_TYPE, "json");
+            metaMap.put(MetaInfoKeyConstants.ELEMENT_NAME, "Result");
+            metaMap.put(MetaInfoKeyConstants.DATA_TYPE, "json");
 
             Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 
@@ -830,7 +830,7 @@ public class XmlUtilsParseXmlForConfigTest {
                     "</SOAP-ENV:Envelope>";
 
             Map<String, Object> metaMap = new HashMap<>();
-            metaMap.put(MetaInfoKeys.ELEMENT_NAME, "MessageInResult");
+            metaMap.put(MetaInfoKeyConstants.ELEMENT_NAME, "MessageInResult");
 
             Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 
@@ -867,9 +867,9 @@ public class XmlUtilsParseXmlForConfigTest {
                     "</SOAP-ENV:Envelope>";
 
             Map<String, Object> metaMap = new HashMap<>();
-            metaMap.put(MetaInfoKeys.ELEMENT_NAME, "MessageInResult");
+            metaMap.put(MetaInfoKeyConstants.ELEMENT_NAME, "MessageInResult");
 
-            metaMap.put(MetaInfoKeys.OBJECT_TAG, Collections.singletonList("HrResponse"));
+            metaMap.put(MetaInfoKeyConstants.OBJECT_TAG, Collections.singletonList("HrResponse"));
 
             Map<String, Object> result = XmlUtils.parseResponseXml(xml, metaMap);
 

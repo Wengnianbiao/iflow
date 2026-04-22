@@ -4,7 +4,6 @@ import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.common.enums.NodeType;
 import com.helianhealth.agent.common.enums.ScheduleParamSourceType;
 import com.helianhealth.agent.common.utils.JsonUtils;
-import com.helianhealth.agent.common.utils.ResponseRenderUtils;
 import com.helianhealth.agent.ai.model.WorkflowNodeCreateMcpRequest;
 import com.helianhealth.agent.ai.model.WorkflowNodeUpdateMcpRequest;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
@@ -45,10 +44,10 @@ public class McpWorkflowNodeController {
         try {
             log.info("MCP查询所有工作流节点");
             List<InterfaceWorkflowNodeView> views = workflowNodeQueryService.selectAllNodes(null);
-            return ResponseRenderUtils.render(views);
+            return ResultData.ok(views);
         } catch (Exception e) {
             log.error("MCP查询工作流节点列表失败", e);
-            return ResponseRenderUtils.error("查询工作流节点列表失败: " + e.getMessage());
+            return ResultData.error("查询工作流节点列表失败: " + e.getMessage());
         }
     }
 
@@ -61,12 +60,12 @@ public class McpWorkflowNodeController {
             log.info("MCP查询工作流节点: nodeId={}", nodeId);
             WorkflowNode node = workflowNodeQueryService.selectByNodeId(nodeId);
             if (node == null) {
-                return ResponseRenderUtils.error("工作流节点不存在");
+                return ResultData.error("工作流节点不存在");
             }
-            return ResponseRenderUtils.render(node);
+            return ResultData.ok(node);
         } catch (Exception e) {
             log.error("MCP查询工作流节点失败", e);
-            return ResponseRenderUtils.error("查询工作流节点失败: " + e.getMessage());
+            return ResultData.error("查询工作流节点失败: " + e.getMessage());
         }
     }
 
@@ -80,10 +79,10 @@ public class McpWorkflowNodeController {
             WorkflowNode node = toNodeDomain(nodeRequest);
             workflowNodeCommandService.createNode(node);
             int nodeId = node.getNodeId();
-            return ResponseRenderUtils.render(nodeId);
+            return ResultData.ok(nodeId);
         } catch (Exception e) {
             log.error("MCP创建工作流节点失败", e);
-            return ResponseRenderUtils.error("创建工作流节点失败: " + e.getMessage());
+            return ResultData.error("创建工作流节点失败: " + e.getMessage());
         }
     }
 
@@ -95,14 +94,14 @@ public class McpWorkflowNodeController {
         try {
             log.info("MCP更新工作流节点: {}", updateRequest);
             if (updateRequest.getNodeId() == null) {
-                return ResponseRenderUtils.error("nodeId不能为空");
+                return ResultData.error("nodeId不能为空");
             }
             WorkflowNode node = toNodeDomain(updateRequest);
             int result = workflowNodeCommandService.updateNodeSelective(node);
-            return ResponseRenderUtils.render(result);
+            return ResultData.ok(result);
         } catch (Exception e) {
             log.error("MCP更新工作流节点失败", e);
-            return ResponseRenderUtils.error("更新工作流节点失败: " + e.getMessage());
+            return ResultData.error("更新工作流节点失败: " + e.getMessage());
         }
     }
 
@@ -114,10 +113,10 @@ public class McpWorkflowNodeController {
         try {
             log.info("MCP删除工作流节点: nodeId={}", nodeId);
             workflowNodeCommandService.deleteNode(nodeId);
-            return ResponseRenderUtils.render("工作流节点删除成功");
+            return ResultData.ok("工作流节点删除成功");
         } catch (Exception e) {
             log.error("MCP删除工作流节点失败", e);
-            return ResponseRenderUtils.error("删除工作流节点失败: " + e.getMessage());
+            return ResultData.error("删除工作流节点失败: " + e.getMessage());
         }
     }
 

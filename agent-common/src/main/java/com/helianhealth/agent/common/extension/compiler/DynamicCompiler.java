@@ -62,7 +62,7 @@ public class DynamicCompiler {
      */
     private void initClassPath() {
         Set<String> classpathEntries = new LinkedHashSet<>();
-        
+
         // 1. 从 java.class.path 获取
         String javaClassPath = System.getProperty("java.class.path");
         if (javaClassPath != null && !javaClassPath.isEmpty()) {
@@ -72,12 +72,12 @@ public class DynamicCompiler {
                 }
             }
         }
-        
+
         // 2. 从ClassLoader获取URLs
         ClassLoader loader = Thread.currentThread().getContextClassLoader();
         boolean isFatJar = false;
         String mainJarPath = null;
-        
+
         try {
             URL[] urls = getClassLoaderUrls(loader);
             if (urls != null) {
@@ -98,17 +98,17 @@ public class DynamicCompiler {
         } catch (Exception e) {
             // 忽略
         }
-        
+
         // 3. Fat Jar 环境：解压依赖到临时目录
         if (isFatJar && mainJarPath != null) {
             try {
                 Set<String> extractedPaths = extractFatJarDependencies(mainJarPath);
                 classpathEntries.addAll(extractedPaths);
             } catch (Exception e) {
-                System.err.println("[DynamicCompiler] 解压fat jar依赖失败: " + e.getMessage());
+
             }
         }
-        
+
         // 4. 设置编译器类路径
         if (!classpathEntries.isEmpty()) {
             try {
@@ -117,13 +117,12 @@ public class DynamicCompiler {
                     files.add(new File(entry));
                 }
                 standardFileManager.setLocation(StandardLocation.CLASS_PATH, files);
-                System.out.println("[DynamicCompiler] Classpath entries: " + files.size());
             } catch (IOException e) {
                 throw new IllegalStateException("设置ClassPath失败: " + e.getMessage(), e);
             }
         }
     }
-    
+
     /**
      * 提取主jar路径
      */
@@ -139,26 +138,23 @@ public class DynamicCompiler {
         }
         return decodeUrlPath(path);
     }
-    
+
     /**
      * 解压Fat Jar的依赖到临时目录
      */
     private Set<String> extractFatJarDependencies(String jarPath) throws Exception {
         Set<String> paths = new LinkedHashSet<>();
-        
+
         File tempDir = new File(System.getProperty("java.io.tmpdir"), "dynamic-compiler-" + System.currentTimeMillis());
         tempDir.mkdirs();
         tempDir.deleteOnExit();
-        
-        System.out.println("[DynamicCompiler] Extracting fat jar dependencies to: " + tempDir.getAbsolutePath());
-        
         try (java.util.jar.JarFile jar = new java.util.jar.JarFile(jarPath)) {
             java.util.Enumeration<java.util.jar.JarEntry> entries = jar.entries();
-            
+
             while (entries.hasMoreElements()) {
                 java.util.jar.JarEntry entry = entries.nextElement();
                 String name = entry.getName();
-                
+
                 // 解压 BOOT-INF/lib/*.jar
                 if (name.startsWith("BOOT-INF/lib/") && name.endsWith(".jar")) {
                     File outFile = new File(tempDir, name.substring("BOOT-INF/lib/".length()));
@@ -174,18 +170,17 @@ public class DynamicCompiler {
                     outFile.deleteOnExit();
                 }
             }
-            
+
             // 添加 classes 目录
             File classesDir = new File(tempDir, "classes");
             if (classesDir.exists()) {
                 paths.add(classesDir.getAbsolutePath());
             }
         }
-        
-        System.out.println("[DynamicCompiler] Extracted " + paths.size() + " dependencies");
+
         return paths;
     }
-    
+
     /**
      * 解压jar条目
      */
@@ -200,7 +195,7 @@ public class DynamicCompiler {
             }
         }
     }
-    
+
     /**
      * 获取ClassLoader的URLs
      */
@@ -208,7 +203,7 @@ public class DynamicCompiler {
         if (loader instanceof URLClassLoader) {
             return ((URLClassLoader) loader).getURLs();
         }
-        
+
         // Spring Boot LaunchedURLClassLoader
         try {
             java.lang.reflect.Method method = loader.getClass().getMethod("getURLs");
@@ -218,7 +213,7 @@ public class DynamicCompiler {
             return null;
         }
     }
-    
+
     /**
      * 从URL提取文件路径
      * 支持普通URL和Spring Boot嵌套jar URL
@@ -227,10 +222,10 @@ public class DynamicCompiler {
         if (url == null) {
             return null;
         }
-        
+
         String protocol = url.getProtocol();
         String path = url.getPath();
-        
+
         // file:/path/to/file.jar
         if ("file".equals(protocol)) {
             try {
@@ -239,7 +234,7 @@ public class DynamicCompiler {
                 return decodeUrlPath(path);
             }
         }
-        
+
         // jar:file:/path/to/app.jar!/BOOT-INF/lib/xxx.jar!/
         if ("jar".equals(protocol)) {
             // 提取最外层jar的路径
@@ -252,10 +247,10 @@ public class DynamicCompiler {
             }
             return decodeUrlPath(path);
         }
-        
+
         return null;
     }
-    
+
     /**
      * 解码URL路径中的特殊字符
      */
@@ -266,54 +261,54 @@ public class DynamicCompiler {
             return path;
         }
     }
-    
+
     /**
      * 预处理Lombok注解，手动展开@Slf4j等注解
      * 因为动态编译禁用了注解处理器(-proc:none)，需要手动展开
      */
     private String preprocessLombok(String fullClassName, String sourceCode) {
         // 获取简单类名
-        String simpleClassName = fullClassName.contains(".") 
-            ? fullClassName.substring(fullClassName.lastIndexOf('.') + 1) 
+        String simpleClassName = fullClassName.contains(".")
+            ? fullClassName.substring(fullClassName.lastIndexOf('.') + 1)
             : fullClassName;
-        
+
         // 处理 @Slf4j
         if (sourceCode.contains("@Slf4j")) {
             // 移除 import lombok.extern.slf4j.Slf4j;
             sourceCode = sourceCode.replaceAll(
-                "import\\s+lombok\\.extern\\.slf4j\\.Slf4j\\s*;\\s*\n?", 
+                "import\\s+lombok\\.extern\\.slf4j\\.Slf4j\\s*;\\s*\n?",
                 "");
-            
+
             // 移除 @Slf4j 注解
             sourceCode = sourceCode.replaceAll(
-                "@Slf4j\\s*\n?", 
+                "@Slf4j\\s*\n?",
                 "");
-            
+
             // 添加 Logger 声明（在类头部）
-            String loggerDeclaration = "private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(" 
+            String loggerDeclaration = "private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger("
                 + simpleClassName + ".class);\n    ";
-            
+
             // 在类体开始处插入 Logger
             sourceCode = sourceCode.replaceFirst(
                 "(class\\s+" + simpleClassName + "[^{]*\\{)",
                 "$1\n    " + loggerDeclaration);
         }
-        
+
         // 处理 @Log4j2
         if (sourceCode.contains("@Log4j2")) {
             sourceCode = sourceCode.replaceAll(
-                "import\\s+lombok\\.extern\\.log4j\\.Log4j2\\s*;\\s*\n?", 
+                "import\\s+lombok\\.extern\\.log4j\\.Log4j2\\s*;\\s*\n?",
                 "");
             sourceCode = sourceCode.replaceAll(
-                "@Log4j2\\s*\n?", 
+                "@Log4j2\\s*\n?",
                 "");
-            String loggerDeclaration = "private static final org.apache.logging.log4j.Logger log = org.apache.logging.log4j.LogManager.getLogger(" 
+            String loggerDeclaration = "private static final org.apache.logging.log4j.Logger log = org.apache.logging.log4j.LogManager.getLogger("
                 + simpleClassName + ".class);\n    ";
             sourceCode = sourceCode.replaceFirst(
                 "(class\\s+" + simpleClassName + "[^{]*\\{)",
                 "$1\n    " + loggerDeclaration);
         }
-        
+
         return sourceCode;
     }
 
@@ -328,7 +323,7 @@ public class DynamicCompiler {
     public CompileResult compile(String fullClassName, String sourceCode) throws Exception {
         // 预处理源码：展开Lombok注解
         sourceCode = preprocessLombok(fullClassName, sourceCode);
-        
+
         // 每次编译创建独立的ClassLoader，支持类的热替换
         DynamicClassLoader classLoader = AccessController.doPrivileged(
             (PrivilegedAction<DynamicClassLoader>) () -> new DynamicClassLoader(Thread.currentThread().getContextClassLoader())

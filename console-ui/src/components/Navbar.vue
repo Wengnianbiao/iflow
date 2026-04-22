@@ -71,7 +71,6 @@
           <span>配置手册</span>
         </template>
         <el-menu-item index="6-1">快速开始</el-menu-item>
-        <el-menu-item index="6-2">产品介绍</el-menu-item>
         <el-menu-item index="6-3">参数映射演示</el-menu-item>
       </el-submenu>
       <el-menu-item index="7">
@@ -177,11 +176,6 @@ export default {
             this.$router.push('/guide/quick-start');
           }
           break;
-        case '6-2':
-          if (currentPath !== '/guide/solutions') {
-            this.$router.push('/guide/solutions');
-          }
-          break;
         case '6-3':
           if (currentPath !== '/demo/param-mapping') {
             this.$router.push('/demo/param-mapping');
@@ -214,8 +208,6 @@ export default {
       this.activeIndex = '2-3';
     } else if (currentPath === '/demo/param-mapping') {
       this.activeIndex = '6-3';
-    } else if (currentPath === '/guide/solutions') {
-      this.activeIndex = '6-2';
     } else if (currentPath === '/guide/quick-start') {
       this.activeIndex = '6-1';
     } else if (currentPath === '/invoke/log') {
@@ -250,8 +242,6 @@ export default {
         this.activeIndex = '2-3';
       } else if (to.path === '/demo/param-mapping') {
         this.activeIndex = '6-3';
-      } else if (to.path === '/guide/solutions') {
-        this.activeIndex = '6-2';
       } else if (to.path === '/guide/quick-start') {
         this.activeIndex = '6-1';
       } else if (to.path === '/invoke/log') {
