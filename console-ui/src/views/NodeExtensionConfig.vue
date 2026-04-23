@@ -43,12 +43,25 @@
       </el-table-column>
       <el-table-column label="关联节点" min-width="120" show-overflow-tooltip>
         <template slot-scope="scope">
-          <span v-if="!Array.isArray(scope.row.nodeId) || scope.row.nodeId.length === 0">-</span>
-          <span v-else-if="scope.row.nodeId.length === 1">
-            {{ getNodeNameById(scope.row.nodeId[0]) }}
-          </span>
-          <div v-else style="display: flex; flex-wrap: wrap; gap: 5px;">
-            <el-tag v-for="id in scope.row.nodeId" :key="id" size="small" type="info">
+          <div class="node-tag-list">
+            <el-tag
+              v-if="!Array.isArray(scope.row.nodeId) || scope.row.nodeId.length === 0"
+              size="small"
+              type="info"
+              effect="plain"
+              class="node-tag node-tag-empty"
+            >
+              -
+            </el-tag>
+            <el-tag
+              v-for="id in (Array.isArray(scope.row.nodeId) ? scope.row.nodeId : [])"
+              v-else
+              :key="id"
+              size="small"
+              type="info"
+              effect="plain"
+              class="node-tag"
+            >
               {{ getNodeNameById(id) }}
             </el-tag>
           </div>
@@ -58,19 +71,9 @@
       <el-table-column prop="className" label="实现类" min-width="200" show-overflow-tooltip></el-table-column>
       <el-table-column label="扩展方式" width="100" align="center">
         <template slot-scope="scope">
-          <el-tooltip
-            v-if="scope.row.extensionMode === 'ONLINE'"
-            content="点击查看源码"
-            placement="top"
-          >
-            <el-tag
-              type="success"
-              size="small"
-              style="cursor:pointer"
-              @click="handleViewCode(scope.row)"
-            >在线扩展</el-tag>
-          </el-tooltip>
-          <el-tag v-else type="primary" size="small">项目扩展</el-tag>
+          <el-tag :type="scope.row.extensionMode === 'ONLINE' ? 'success' : 'primary'" size="small">
+            {{ scope.row.extensionMode === 'ONLINE' ? '在线扩展' : '项目扩展' }}
+          </el-tag>
         </template>
       </el-table-column>
       <el-table-column prop="description" label="描述" min-width="150" show-overflow-tooltip></el-table-column>
@@ -200,35 +203,10 @@
         </el-form-item>
 
         <el-form-item label="Java源代码" prop="sourceCode" v-if="interfaceExtensionForm.extensionMode === 'ONLINE'">
-          <div class="code-editor-wrapper">
-            <div class="code-line-numbers" ref="interfaceLineNumbers">
-              <div v-for="n in getLineCount(interfaceExtensionForm.sourceCode)" :key="n" class="line-number">{{ n }}</div>
-            </div>
-            <textarea
-              class="code-textarea"
-              v-model="interfaceExtensionForm.sourceCode"
-              placeholder="请输入Java源代码..."
-              spellcheck="false"
-              @scroll="syncScroll('interface')"
-              ref="interfaceCodeArea"
-            ></textarea>
-          </div>
-          <div class="code-toolbar">
-            <el-button size="mini" @click="applyTemplate('interfaceRemoteInvoker')" icon="el-icon-document">使用模板</el-button>
-          </div>
+          <el-button size="small" type="primary" plain icon="el-icon-edit-outline" @click="openCodeEditor('interface')">
+            {{ interfaceExtensionForm.sourceCode ? '编辑源代码' : '编写源代码' }}
+          </el-button>
         </el-form-item>
-
-        <!-- 项目扩展接入指引 -->
-        <div v-if="interfaceExtensionForm.extensionMode === 'PROJECT'" style="margin-bottom: 20px;">
-          <el-alert title="项目接入指引" type="info" :closable="false">
-            <el-steps direction="vertical" :space="50" style="margin-top: 12px;">
-              <el-step title="添加依赖" description="在你的业务项目中引入 interface-agent SDK 依赖"></el-step>
-              <el-step title="实现接口" description="创建类实现 InterfaceRemoteInvoker 接口，编写 remoteInvoke 方法"></el-step>
-              <el-step title="注册到 Spring" description="使用 @Component 注解，确保类名与上方「实现类全名」一致"></el-step>
-              <el-step title="部署生效" description="重启应用后，系统将自动发现并加载该扩展"></el-step>
-            </el-steps>
-          </el-alert>
-        </div>
       </el-form>
 
       <div slot="footer">
@@ -317,35 +295,10 @@
         </el-form-item>
 
         <el-form-item label="Java源代码" prop="sourceCode" v-if="filterExtensionForm.extensionMode === 'ONLINE'">
-          <div class="code-editor-wrapper">
-            <div class="code-line-numbers" ref="filterLineNumbers">
-              <div v-for="n in getLineCount(filterExtensionForm.sourceCode)" :key="n" class="line-number">{{ n }}</div>
-            </div>
-            <textarea
-              class="code-textarea"
-              v-model="filterExtensionForm.sourceCode"
-              placeholder="请输入Java源代码..."
-              spellcheck="false"
-              @scroll="syncScroll('filter')"
-              ref="filterCodeArea"
-            ></textarea>
-          </div>
-          <div class="code-toolbar">
-            <el-button size="mini" @click="applyTemplate('agentFilter')" icon="el-icon-document">使用模板</el-button>
-          </div>
+          <el-button size="small" type="primary" plain icon="el-icon-edit-outline" @click="openCodeEditor('filter')">
+            {{ filterExtensionForm.sourceCode ? '编辑源代码' : '编写源代码' }}
+          </el-button>
         </el-form-item>
-
-        <!-- 项目扩展接入指引 -->
-        <div v-if="filterExtensionForm.extensionMode === 'PROJECT'" style="margin-bottom: 20px;">
-          <el-alert title="项目接入指引" type="success" :closable="false">
-            <el-steps direction="vertical" :space="50" style="margin-top: 12px;">
-              <el-step title="添加依赖" description="在你的业务项目中引入 interface-agent SDK 依赖"></el-step>
-              <el-step title="实现接口" description="创建类实现 AgentFilter 接口，编写 invoke 方法"></el-step>
-              <el-step title="注册到 Spring" description="使用 @Component 注解，确保类名与上方「实现类全名」一致"></el-step>
-              <el-step title="部署生效" description="重启应用后，系统将自动发现并加载该过滤器扩展"></el-step>
-            </el-steps>
-          </el-alert>
-        </div>
       </el-form>
 
       <div slot="footer">
@@ -354,40 +307,66 @@
       </div>
     </el-dialog>
 
-    <!-- 代码预览对话框 -->
+    <!-- 源代码编辑弹窗 -->
     <el-dialog
-      :title="codePreviewTitle"
-      :visible.sync="codePreviewVisible"
-      :width="codePreviewFullscreen ? '100%' : '70%'"
-      :top="codePreviewFullscreen ? '0' : '6vh'"
-      :fullscreen="codePreviewFullscreen"
-      :close-on-click-modal="true"
+      :title="codeEditorTitle"
+      :visible.sync="codeEditorVisible"
+      :width="codeEditorFullscreen ? '100%' : '80%'"
+      :top="codeEditorFullscreen ? '0' : '3vh'"
+      :fullscreen="codeEditorFullscreen"
+      :close-on-click-modal="false"
+      append-to-body
+      @opened="initCodemirror"
     >
       <template slot="title">
-        <span>{{ codePreviewTitle }}</span>
+        <span>{{ codeEditorTitle }}</span>
         <el-button
           size="mini"
-          :icon="codePreviewFullscreen ? 'el-icon-copy-document' : 'el-icon-full-screen'"
+          :icon="codeEditorFullscreen ? 'el-icon-copy-document' : 'el-icon-full-screen'"
           circle
           style="margin-left: 12px"
-          @click="codePreviewFullscreen = !codePreviewFullscreen"
+          @click="toggleFullscreen"
         ></el-button>
       </template>
-      <div class="code-preview-wrapper" :style="codePreviewFullscreen ? 'max-height: calc(100vh - 100px)' : ''">
-        <div class="code-line-numbers">
-          <div v-for="n in getLineCount(codePreviewContent)" :key="n" class="line-number">{{ n }}</div>
+      <div class="code-editor-container" :style="codeEditorFullscreen ? 'height: calc(100vh - 120px)' : ''">
+        <div class="code-toolbar">
+          <div class="code-editor-stats">
+            <el-tag size="mini" type="success" effect="plain">CodeMirror</el-tag>
+            <el-tag size="mini" effect="plain">Java</el-tag>
+            <el-tag size="mini" effect="plain">{{ editorStats.lines }} 行</el-tag>
+            <el-tag size="mini" effect="plain">{{ editorStats.chars }} 字符</el-tag>
+          </div>
+          <div class="code-toolbar-actions">
+            <el-button size="mini" @click="applyTemplateToEditor" icon="el-icon-document">使用模板</el-button>
+          </div>
         </div>
-        <pre class="code-preview-content"><code v-html="highlightedPreviewCode"></code></pre>
+        <div class="code-editor-wrapper">
+          <textarea ref="codemirrorArea"></textarea>
+        </div>
+        <div class="code-editor-footer">
+          <el-button size="small" @click="codeEditorVisible = false">取消</el-button>
+          <el-button size="small" type="primary" @click="confirmCodeEditor">确定</el-button>
+        </div>
       </div>
+      <div slot="footer" style="display:none;"></div>
     </el-dialog>
   </div>
 </template>
 
 <script>
 import { Message, MessageBox } from 'element-ui';
-import hljs from 'highlight.js/lib/core';
-import java from 'highlight.js/lib/languages/java';
-import 'highlight.js/styles/github.css';
+import CodeMirror from 'codemirror';
+import 'codemirror/lib/codemirror.css';
+import 'codemirror/theme/material-darker.css';
+import 'codemirror/mode/clike/clike';
+import 'codemirror/addon/edit/matchbrackets';
+import 'codemirror/addon/edit/closebrackets';
+import 'codemirror/addon/fold/foldcode';
+import 'codemirror/addon/fold/foldgutter';
+import 'codemirror/addon/fold/foldgutter.css';
+import 'codemirror/addon/fold/brace-fold';
+import 'codemirror/addon/fold/comment-fold';
+import 'codemirror/addon/selection/active-line';
 import {
   getInterfaceExtensions,
   registerInterfaceExtension,
@@ -401,8 +380,6 @@ import {
   getExtensionDetail
 } from '@/api/extension';
 import { getAllNodes } from '@/api/workflow';
-
-hljs.registerLanguage('java', java);
 
 export default {
   name: 'NodeExtensionConfig',
@@ -441,10 +418,11 @@ export default {
         extensionMode: [{ required: true, message: '请选择扩展方式', trigger: 'change' }]
       },
 
-      codePreviewVisible: false,
-      codePreviewFullscreen: false,
-      codePreviewTitle: '',
-      codePreviewContent: '',
+      codeEditorVisible: false,
+      codeEditorFullscreen: false,
+      codeEditorTitle: '',
+      codeEditorContent: '',
+      codeEditorTarget: '',
 
       dialogTitle: '',
       isEdit: false,
@@ -509,31 +487,105 @@ public class CustomFilter implements AgentFilter {
         (item.className && item.className.toLowerCase().includes(kw))
       );
     },
-    highlightedPreviewCode() {
-      if (!this.codePreviewContent) return '';
-      try {
-        return hljs.highlight(this.codePreviewContent, { language: 'java' }).value;
-      } catch {
-        const div = document.createElement('div');
-        div.textContent = this.codePreviewContent;
-        return div.innerHTML;
-      }
+    editorStats() {
+      const code = this.codeEditorContent || '';
+      return {
+        lines: Math.max((code.match(/\n/g) || []).length + 1, 1),
+        chars: code.length
+      };
     }
   },
   mounted() {
     this.loadExtensionList();
     this.loadNodeList();
   },
+  beforeDestroy() {
+    if (this.cmInstance) {
+      this.cmInstance.toTextArea();
+      this.cmInstance = null;
+    }
+  },
   methods: {
-    getLineCount(code) {
-      if (!code) return 1;
-      return Math.max(code.split('\n').length, 1);
+    initCodemirror() {
+      this.$nextTick(() => {
+        if (this.cmInstance) {
+          this.cmInstance.setValue(this.codeEditorContent || '');
+          this.cmInstance.refresh();
+          this.cmInstance.focus();
+          return;
+        }
+        this.cmInstance = CodeMirror.fromTextArea(this.$refs.codemirrorArea, {
+          mode: 'text/x-java',
+          theme: 'material-darker',
+          lineNumbers: true,
+          matchBrackets: true,
+          autoCloseBrackets: true,
+          foldGutter: true,
+          gutters: ['CodeMirror-linenumbers', 'CodeMirror-foldgutter'],
+          styleActiveLine: true,
+          indentUnit: 4,
+          tabSize: 4,
+          indentWithTabs: false,
+          lineWrapping: false,
+          extraKeys: {
+            'Tab': (cm) => {
+              if (cm.somethingSelected()) {
+                cm.indentSelection('add');
+              } else {
+                cm.replaceSelection('    ', 'end');
+              }
+            },
+            'Shift-Tab': (cm) => cm.indentSelection('subtract')
+          }
+        });
+        this.cmInstance.setValue(this.codeEditorContent || '');
+        this.cmInstance.on('change', (cm) => {
+          this.codeEditorContent = cm.getValue();
+        });
+        this.cmInstance.setSize('100%', '100%');
+        this.cmInstance.focus();
+      });
     },
-    syncScroll(type) {
-      const areaRef = type === 'interface' ? 'interfaceCodeArea' : 'filterCodeArea';
-      const lineRef = type === 'interface' ? 'interfaceLineNumbers' : 'filterLineNumbers';
-      if (this.$refs[areaRef] && this.$refs[lineRef]) {
-        this.$refs[lineRef].scrollTop = this.$refs[areaRef].scrollTop;
+    toggleFullscreen() {
+      this.codeEditorFullscreen = !this.codeEditorFullscreen;
+      this.$nextTick(() => {
+        if (this.cmInstance) this.cmInstance.refresh();
+      });
+    },
+    openCodeEditor(target) {
+      this.codeEditorTarget = target;
+      if (target === 'interface') {
+        this.codeEditorTitle = '编辑源代码 - 接口扩展';
+        this.codeEditorContent = this.interfaceExtensionForm.sourceCode || '';
+      } else {
+        this.codeEditorTitle = '编辑源代码 - 过滤器扩展';
+        this.codeEditorContent = this.filterExtensionForm.sourceCode || '';
+      }
+      this.codeEditorFullscreen = false;
+      this.codeEditorVisible = true;
+    },
+
+    confirmCodeEditor() {
+      if (this.codeEditorTarget === 'interface') {
+        this.interfaceExtensionForm.sourceCode = this.codeEditorContent;
+      } else {
+        this.filterExtensionForm.sourceCode = this.codeEditorContent;
+      }
+      this.codeEditorVisible = false;
+    },
+
+    applyTemplateToEditor() {
+      const templateKey = this.codeEditorTarget === 'interface' ? 'interfaceRemoteInvoker' : 'agentFilter';
+      const apply = () => {
+        this.codeEditorContent = this.templates[templateKey];
+        if (this.cmInstance) this.cmInstance.setValue(this.codeEditorContent);
+      };
+      if (this.codeEditorContent && this.codeEditorContent.trim()) {
+        MessageBox.confirm('使用模板将覆盖当前代码，是否继续？', '提示', {
+          confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning'
+        }).then(apply).catch(() => {});
+      } else {
+        apply();
       }
     },
 
@@ -660,18 +712,6 @@ public class CustomFilter implements AgentFilter {
         this.$nextTick(() => {
           if (this.$refs.filterExtensionForm) this.$refs.filterExtensionForm.clearValidate();
         });
-      }
-    },
-
-    async handleViewCode(row) {
-      try {
-        const resp = await getExtensionDetail(row.codeId);
-        const detail = (resp && resp.data) ? resp.data : row;
-        this.codePreviewTitle = `${row.extensionName} - 源代码`;
-        this.codePreviewContent = detail.sourceCode || '// 暂无源代码';
-        this.codePreviewVisible = true;
-      } catch (error) {
-        Message.error('获取代码详情失败');
       }
     },
 
@@ -804,21 +844,6 @@ public class CustomFilter implements AgentFilter {
       return '';
     },
 
-    applyTemplate(templateType) {
-      const targetForm = templateType === 'interfaceRemoteInvoker' ? 'interfaceExtensionForm' : 'filterExtensionForm';
-      if (this[targetForm].sourceCode.trim()) {
-        MessageBox.confirm('应用模板将覆盖当前代码，是否继续？', '提示', {
-          confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning'
-        }).then(() => {
-          this[targetForm].sourceCode = this.templates[templateType];
-          Message.success('模板已应用');
-        }).catch(() => {});
-      } else {
-        this[targetForm].sourceCode = this.templates[templateType];
-        Message.success('模板已应用');
-      }
-    },
-
     addExtensionParam() {
       this.filterExtensionForm.extensionParamList.push({ key: '', value: '' });
     },
@@ -855,6 +880,22 @@ public class CustomFilter implements AgentFilter {
 
 .toolbar {
   margin-bottom: 15px;
+}
+
+.node-tag-list {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 28px;
+}
+
+.node-tag {
+  max-width: 220px;
+}
+
+.node-tag-empty {
+  color: #b0b8c6;
 }
 
 /* 类型选择卡片 */
@@ -911,89 +952,54 @@ public class CustomFilter implements AgentFilter {
   margin-right: 5px;
 }
 
-/* 代码编辑器 - 浅色风格 */
-.code-editor-wrapper {
+.code-entry {
   display: flex;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
-  overflow: hidden;
-  background: #fafafa;
-  height: 400px;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
-.code-line-numbers {
-  width: 45px;
-  flex-shrink: 0;
-  background: #f5f7fa;
-  padding: 10px 0;
-  text-align: right;
-  overflow: hidden;
-  user-select: none;
-  border-right: 1px solid #e4e7ed;
+.code-stats-inline {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
-.line-number {
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-  font-size: 13px;
-  line-height: 20px;
-  color: #c0c4cc;
-  padding-right: 8px;
-}
-
-.code-textarea {
-  flex: 1;
-  background: #fafafa;
-  color: #303133;
-  border: none;
-  outline: none;
-  resize: none;
-  padding: 10px 14px;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-  font-size: 13px;
-  line-height: 20px;
-  tab-size: 4;
-  white-space: pre;
-  overflow: auto;
-}
-
-.code-textarea::placeholder {
-  color: #c0c4cc;
+/* 代码编辑器整体容器 - flex 纵向布局 */
+.code-editor-container {
+  display: flex;
+  flex-direction: column;
+  height: calc(80vh - 120px);
 }
 
 .code-toolbar {
-  margin-top: 10px;
-  text-align: right;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  flex-shrink: 0;
 }
 
-/* 代码预览 */
-.code-preview-wrapper {
+.code-editor-stats {
   display: flex;
-  border: 1px solid #dcdfe6;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.code-editor-wrapper {
+  border: 1px solid #d1d5db;
   border-radius: 4px;
   overflow: hidden;
-  background: #fafafa;
-  max-height: 70vh;
-}
-
-.code-preview-wrapper .code-line-numbers {
-  padding-top: 14px;
-}
-
-.code-preview-content {
   flex: 1;
-  margin: 0;
-  padding: 14px;
-  overflow: auto;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-  font-size: 13px;
-  line-height: 20px;
-  background: transparent;
-  color: #303133;
+  min-height: 0;
 }
 
-.code-preview-content code {
-  background: transparent;
-  font-family: inherit;
+.code-editor-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 12px;
+  flex-shrink: 0;
 }
 
 /* 参数列表 */
@@ -1012,5 +1018,13 @@ public class CustomFilter implements AgentFilter {
 /* 全局样式 - 强制覆盖Element UI嵌套submenu的默认padding */
 .el-menu .el-menu .el-submenu__title {
   padding-left: 50px !important;
+}
+
+/* CodeMirror 在 dialog 中的全局适配 */
+.code-editor-wrapper .CodeMirror {
+  height: 100%;
+  font-family: 'JetBrains Mono', 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.6;
 }
 </style>

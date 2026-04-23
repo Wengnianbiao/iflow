@@ -116,37 +116,6 @@ public class DynamicSpiAdminService {
     }
 
     /**
-     * 保存扩展配置并注册SPI（不包含节点字段更新）
-     */
-    @Transactional(value = "repositoryAgentTransactionManager", rollbackFor = Exception.class)
-    public void saveAndRegisterExtension(NodeExtensionConfig config) {
-        extensionConfigCommandService.insert(config);
-
-        if (config.isEnabled()) {
-            registerSpi(config);
-        }
-
-        log.info("Saved extension successfully: extensionName={}, nodeIds={}",
-                config.getExtensionName(), config.getNodeId());
-    }
-
-    /**
-     * 更新扩展配置并刷新SPI
-     */
-    @Transactional(value = "repositoryAgentTransactionManager", rollbackFor = Exception.class)
-    public void updateAndRefreshExtension(NodeExtensionConfig oldConfig, NodeExtensionConfig newConfig) {
-        extensionConfigCommandService.update(newConfig);
-
-        if (oldConfig != null) {
-            unregisterSpi(oldConfig);
-        }
-        registerSpi(newConfig);
-
-        log.info("Updated extension successfully: extensionName={}, nodeIds={}",
-                newConfig.getExtensionName(), newConfig.getNodeId());
-    }
-
-    /**
      * 根据ID查询扩展配置
      */
     public NodeExtensionConfig getExtensionById(Integer codeId) {
@@ -187,32 +156,6 @@ public class DynamicSpiAdminService {
     }
 
     /**
-     * 刷新指定扩展的SPI运行时
-     */
-    public void refresh(Integer codeId) {
-        NodeExtensionConfig config = extensionConfigQueryService.selectById(codeId);
-        if (config == null) {
-            throw new AgentException(AgentErrorCode.INTERNAL_ERROR, "扩展配置不存在: " + codeId);
-        }
-
-        try {
-            AgentExtensionLoader<?> loader = getLoader(config.getSpiInterface());
-            boolean dynamicCompile = "ONLINE".equals(config.getExtensionMode());
-            loader.refreshDynamicExtension(
-                    config.getExtensionName(),
-                    config.getClassName(),
-                    config.getSourceCode(),
-                    dynamicCompile
-            );
-        } catch (Exception e) {
-            throw new AgentException(AgentErrorCode.INTERNAL_ERROR, "SPI刷新失败: " + config.getSpiInterface() + "#" + config.getExtensionName(), e);
-        }
-
-        log.info("Refreshed extension successfully: interface={}, extension={}",
-                config.getSpiInterface(), config.getExtensionName());
-    }
-
-    /**
      * 禁用并卸载SPI运行时实现
      */
     @Transactional(value = "repositoryAgentTransactionManager", rollbackFor = Exception.class)
@@ -220,6 +163,11 @@ public class DynamicSpiAdminService {
         NodeExtensionConfig config = extensionConfigQueryService.selectById(codeId);
         if (config == null) {
             return;
+        }
+
+        if (config.getNodeId() != null && !config.getNodeId().isEmpty()) {
+            ExtensionType type = ExtensionType.fromSpiInterface(config.getSpiInterface());
+            extensionNodeUpdateService.clearNodeFields(type, config.getExtensionName(), config.getNodeId());
         }
 
         config.setEnabled(0);
@@ -238,6 +186,13 @@ public class DynamicSpiAdminService {
         NodeExtensionConfig config = extensionConfigQueryService.selectById(codeId);
         if (config == null) {
             return;
+        }
+
+        // 恢复节点字段，确保运行时能找到扩展
+        if (config.getNodeId() != null && !config.getNodeId().isEmpty()) {
+            ExtensionType type = ExtensionType.fromSpiInterface(config.getSpiInterface());
+            extensionNodeUpdateService.updateNodeExtensionField(
+                type, config.getExtensionName(), config.getNodeId(), config.getExtensionParamValue());
         }
 
         config.setEnabled(1);

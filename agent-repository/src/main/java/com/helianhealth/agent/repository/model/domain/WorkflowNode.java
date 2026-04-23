@@ -8,6 +8,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -74,4 +75,24 @@ public class WorkflowNode {
      * 类似 Dubbo URL 的 parameters，用于承载节点级别的可扩展配置
      */
     private Map<String, String> extensionParam;
+
+    /**
+     * 添加/更新扩展参数
+     */
+    public void putExtensionParam(String key, String value) {
+        if (extensionParam == null) {
+            extensionParam = new HashMap<>();
+        }
+        extensionParam.put(key, value);
+    }
+
+    /**
+     * 移除扩展参数，返回是否实际移除了
+     */
+    public boolean removeExtensionParam(String key) {
+        if (extensionParam == null || extensionParam.isEmpty()) {
+            return false;
+        }
+        return extensionParam.remove(key) != null;
+    }
 }

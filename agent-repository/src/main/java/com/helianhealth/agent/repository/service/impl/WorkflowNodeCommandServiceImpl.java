@@ -1,11 +1,14 @@
 package com.helianhealth.agent.repository.service.impl;
 
+import com.helianhealth.agent.common.utils.JsonUtils;
 import com.helianhealth.agent.repository.mapper.agent.InterfaceFlowNodeMapper;
 import com.helianhealth.agent.repository.model.assembler.WorkflowNodeAssembler;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.repository.model.po.InterfaceWorkflowNodePO;
 import com.helianhealth.agent.repository.service.WorkflowNodeCommandService;
 import org.springframework.stereotype.Service;
+
+import java.util.Map;
 
 /**
  * 工作流节点写操作服务实现
@@ -40,6 +43,12 @@ public class WorkflowNodeCommandServiceImpl implements WorkflowNodeCommandServic
     @Override
     public void updateExtensionParam(Integer nodeId, String extensionParam) {
         flowNodeMapper.updateExtensionParam(nodeId, extensionParam);
+    }
+
+    @Override
+    public void saveExtensionParam(Integer nodeId, Map<String, String> extensionParam) {
+        String json = JsonUtils.toJsonString(extensionParam);
+        flowNodeMapper.updateExtensionParam(nodeId, json);
     }
 
     @Override

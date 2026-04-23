@@ -91,17 +91,6 @@ export function deleteExtension(codeId) {
 }
 
 /**
- * 刷新扩展（所有类型通用）
- * @param {number} codeId - 配置ID
- */
-export function refreshExtension(codeId) {
-  return request({
-    url: `/api/extension/refresh/${codeId}`,
-    method: 'post'
-  });
-}
-
-/**
  * 获取所有启用的扩展配置
  */
 export function getEnabledConfigs() {

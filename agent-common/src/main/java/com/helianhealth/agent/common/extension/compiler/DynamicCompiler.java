@@ -1,16 +1,27 @@
 package com.helianhealth.agent.common.extension.compiler;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.tools.*;
 import java.io.ByteArrayOutputStream;
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.AccessController;
+import java.security.MessageDigest;
 import java.security.PrivilegedAction;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 动态Java代码编译器（单例）
@@ -18,12 +29,17 @@ import java.util.*;
  * 复用编译器实例，每次编译创建独立的ClassLoader支持热替换
  */
 public class DynamicCompiler {
+    private static final Logger log = LoggerFactory.getLogger(DynamicCompiler.class);
 
     private static volatile DynamicCompiler INSTANCE;
 
     private final JavaCompiler compiler;
     private final StandardJavaFileManager standardFileManager;
     private final List<String> options;
+    private static final String FAT_JAR_CACHE_ROOT = "dynamic-compiler-fatjar-cache";
+    private static final String CACHE_CLASSPATH_INDEX = "classpath.idx";
+    private static final String CACHE_READY_MARKER = ".ready";
+    private static final Map<String, Set<String>> FAT_JAR_CLASSPATH_CACHE = new ConcurrentHashMap<>();
 
     /**
      * 获取单例实例
@@ -62,6 +78,8 @@ public class DynamicCompiler {
      */
     private void initClassPath() {
         Set<String> classpathEntries = new LinkedHashSet<>();
+        log.info("DynamicCompiler init start");
+        log.info("DynamicCompiler code source: {}", getCodeSourceLocation());
 
         // 1. 从 java.class.path 获取
         String javaClassPath = System.getProperty("java.class.path");
@@ -87,6 +105,13 @@ public class DynamicCompiler {
                     if (urlStr.contains("!/BOOT-INF/")) {
                         isFatJar = true;
                         mainJarPath = extractMainJarPath(url);
+                    } else if (urlStr.contains("!/")) {
+                        // 某些环境 URL 中不会直接出现 BOOT-INF，先提取外层 jar，再做结构探测
+                        String candidateJar = extractMainJarPath(url);
+                        if (candidateJar != null && isSpringBootFatJar(new File(candidateJar))) {
+                            isFatJar = true;
+                            mainJarPath = candidateJar;
+                        }
                     } else {
                         String path = extractPath(url);
                         if (path != null && new File(path).exists()) {
@@ -99,13 +124,24 @@ public class DynamicCompiler {
             // 忽略
         }
 
+        // 2.1 fallback: 从 java.class.path / CodeSource 探测 Fat Jar
+        if (!isFatJar || mainJarPath == null) {
+            String detectedJar = detectFatJarMainPath(javaClassPath);
+            if (detectedJar != null) {
+                isFatJar = true;
+                mainJarPath = detectedJar;
+            }
+        }
+        log.info("DynamicCompiler fat-jar detect result: isFatJar={}, mainJarPath={}", isFatJar, mainJarPath);
+
         // 3. Fat Jar 环境：解压依赖到临时目录
         if (isFatJar && mainJarPath != null) {
             try {
-                Set<String> extractedPaths = extractFatJarDependencies(mainJarPath);
+                Set<String> extractedPaths = resolveFatJarClassPath(mainJarPath);
                 classpathEntries.addAll(extractedPaths);
+                log.info("DynamicCompiler extracted classpath entries from fat jar: {}", extractedPaths.size());
             } catch (Exception e) {
-
+                throw new IllegalStateException("解析Fat Jar编译路径失败: " + mainJarPath, e);
             }
         }
 
@@ -117,10 +153,45 @@ public class DynamicCompiler {
                     files.add(new File(entry));
                 }
                 standardFileManager.setLocation(StandardLocation.CLASS_PATH, files);
+                log.info("DynamicCompiler classpath initialized. totalEntries={}", files.size());
+                if (log.isDebugEnabled()) {
+                    int i = 0;
+                    for (File file : files) {
+                        if (i++ >= 20) {
+                            log.debug("DynamicCompiler classpath ... (truncated)");
+                            break;
+                        }
+                        log.debug("DynamicCompiler classpath[{}]={}", i, file.getAbsolutePath());
+                    }
+                }
             } catch (IOException e) {
                 throw new IllegalStateException("设置ClassPath失败: " + e.getMessage(), e);
             }
+        } else {
+            log.warn("DynamicCompiler classpath is empty after initialization");
         }
+    }
+
+    /**
+     * 解析 Fat Jar 编译类路径（带缓存）
+     * 首次提取后会复用缓存目录，避免每次动态编译都复制一份依赖
+     */
+    private Set<String> resolveFatJarClassPath(String jarPath) throws Exception {
+        File mainJar = new File(jarPath).getCanonicalFile();
+        if (!mainJar.exists()) {
+            log.warn("DynamicCompiler fat-jar main file does not exist: {}", jarPath);
+            return Collections.emptySet();
+        }
+
+        String jarIdentity = mainJar.getAbsolutePath() + "|" + mainJar.length() + "|" + mainJar.lastModified();
+        log.info("DynamicCompiler resolve fat-jar classpath: {}", mainJar.getAbsolutePath());
+        return FAT_JAR_CLASSPATH_CACHE.computeIfAbsent(jarIdentity, k -> {
+            try {
+                return extractFatJarDependencies(mainJar.getAbsolutePath(), jarIdentity);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     /**
@@ -142,12 +213,33 @@ public class DynamicCompiler {
     /**
      * 解压Fat Jar的依赖到临时目录
      */
-    private Set<String> extractFatJarDependencies(String jarPath) throws Exception {
+    private Set<String> extractFatJarDependencies(String jarPath, String jarIdentity) throws Exception {
         Set<String> paths = new LinkedHashSet<>();
 
-        File tempDir = new File(System.getProperty("java.io.tmpdir"), "dynamic-compiler-" + System.currentTimeMillis());
-        tempDir.mkdirs();
-        tempDir.deleteOnExit();
+        File cacheRoot = new File(System.getProperty("java.io.tmpdir"), FAT_JAR_CACHE_ROOT);
+        if (!cacheRoot.exists()) {
+            cacheRoot.mkdirs();
+        }
+
+        String cacheKey = sha256(jarIdentity);
+        File cacheDir = new File(cacheRoot, cacheKey);
+        File readyMarker = new File(cacheDir, CACHE_READY_MARKER);
+        File classpathIndex = new File(cacheDir, CACHE_CLASSPATH_INDEX);
+
+        if (readyMarker.exists() && classpathIndex.exists()) {
+            Set<String> cached = readClasspathIndex(classpathIndex.toPath());
+            if (!cached.isEmpty() && allPathsExist(cached)) {
+                log.info("DynamicCompiler fat-jar classpath cache hit: key={}, entries={}", cacheKey, cached.size());
+                return cached;
+            }
+            log.warn("DynamicCompiler fat-jar cache invalid, rebuilding. key={}", cacheKey);
+        }
+
+        if (cacheDir.exists()) {
+            deleteDirectory(cacheDir.toPath());
+        }
+        cacheDir.mkdirs();
+
         try (java.util.jar.JarFile jar = new java.util.jar.JarFile(jarPath)) {
             java.util.Enumeration<java.util.jar.JarEntry> entries = jar.entries();
 
@@ -157,26 +249,29 @@ public class DynamicCompiler {
 
                 // 解压 BOOT-INF/lib/*.jar
                 if (name.startsWith("BOOT-INF/lib/") && name.endsWith(".jar")) {
-                    File outFile = new File(tempDir, name.substring("BOOT-INF/lib/".length()));
+                    File outFile = new File(cacheDir, "lib/" + name.substring("BOOT-INF/lib/".length()));
                     extractEntry(jar, entry, outFile);
                     paths.add(outFile.getAbsolutePath());
-                    outFile.deleteOnExit();
                 }
                 // 解压 BOOT-INF/classes/
                 else if (name.startsWith("BOOT-INF/classes/") && !entry.isDirectory()) {
                     String relativePath = name.substring("BOOT-INF/classes/".length());
-                    File outFile = new File(tempDir, "classes/" + relativePath);
+                    File outFile = new File(cacheDir, "classes/" + relativePath);
                     extractEntry(jar, entry, outFile);
-                    outFile.deleteOnExit();
                 }
             }
 
             // 添加 classes 目录
-            File classesDir = new File(tempDir, "classes");
+            File classesDir = new File(cacheDir, "classes");
             if (classesDir.exists()) {
                 paths.add(classesDir.getAbsolutePath());
             }
         }
+
+        writeClasspathIndex(classpathIndex.toPath(), paths);
+        Files.write(readyMarker.toPath(), Collections.singletonList("ok"), StandardCharsets.UTF_8);
+        log.info("DynamicCompiler fat-jar classpath cache built: key={}, entries={}, cacheDir={}",
+            cacheKey, paths.size(), cacheDir.getAbsolutePath());
 
         return paths;
     }
@@ -260,6 +355,134 @@ public class DynamicCompiler {
         } catch (Exception e) {
             return path;
         }
+    }
+
+    /**
+     * 从 java.class.path 或当前类 CodeSource 探测 Spring Boot Fat Jar 主包路径
+     */
+    private String detectFatJarMainPath(String javaClassPath) {
+        // 优先从 java.class.path 探测
+        if (javaClassPath != null && !javaClassPath.isEmpty()) {
+            for (String cp : javaClassPath.split(File.pathSeparator)) {
+                File f = new File(cp);
+                if (isSpringBootFatJar(f)) {
+                    try {
+                        return f.getCanonicalPath();
+                    } catch (IOException e) {
+                        return f.getAbsolutePath();
+                    }
+                }
+            }
+        }
+
+        // 再从当前类的 CodeSource 探测
+        try {
+            URL location = DynamicCompiler.class.getProtectionDomain().getCodeSource().getLocation();
+            if (location != null) {
+                File f = new File(location.toURI());
+                if (isSpringBootFatJar(f)) {
+                    return f.getCanonicalPath();
+                }
+            }
+        } catch (Exception e) {
+            // ignore
+        }
+
+        return null;
+    }
+
+    /**
+     * 判断一个 jar 是否是 Spring Boot Fat Jar
+     */
+    private boolean isSpringBootFatJar(File file) {
+        if (file == null || !file.exists() || !file.isFile()) {
+            return false;
+        }
+        String name = file.getName().toLowerCase(Locale.ROOT);
+        if (!name.endsWith(".jar")) {
+            return false;
+        }
+
+        try (java.util.jar.JarFile jar = new java.util.jar.JarFile(file)) {
+            if (jar.getEntry("BOOT-INF/classes/") != null) {
+                return true;
+            }
+            java.util.Enumeration<java.util.jar.JarEntry> entries = jar.entries();
+            while (entries.hasMoreElements()) {
+                String entryName = entries.nextElement().getName();
+                if (entryName.startsWith("BOOT-INF/lib/") && entryName.endsWith(".jar")) {
+                    return true;
+                }
+            }
+        } catch (Exception e) {
+            return false;
+        }
+
+        return false;
+    }
+
+    private String getCodeSourceLocation() {
+        try {
+            URL location = DynamicCompiler.class.getProtectionDomain().getCodeSource().getLocation();
+            return location == null ? "unknown" : location.toString();
+        } catch (Exception e) {
+            return "unknown";
+        }
+    }
+
+    private Set<String> readClasspathIndex(Path indexPath) throws IOException {
+        Set<String> paths = new LinkedHashSet<>();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(indexPath.toFile()), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String trimmed = line.trim();
+                if (!trimmed.isEmpty()) {
+                    paths.add(trimmed);
+                }
+            }
+        }
+        return paths;
+    }
+
+    private void writeClasspathIndex(Path indexPath, Set<String> paths) throws IOException {
+        if (indexPath.getParent() != null) {
+            Files.createDirectories(indexPath.getParent());
+        }
+        Files.write(indexPath, paths, StandardCharsets.UTF_8);
+    }
+
+    private boolean allPathsExist(Set<String> paths) {
+        for (String path : paths) {
+            if (!new File(path).exists()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private String sha256(String input) throws Exception {
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        byte[] digest = md.digest(input.getBytes(StandardCharsets.UTF_8));
+        StringBuilder sb = new StringBuilder();
+        for (byte b : digest) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
+    }
+
+    private void deleteDirectory(Path directory) throws IOException {
+        if (!Files.exists(directory)) {
+            return;
+        }
+        Files.walk(directory)
+            .sorted(Comparator.reverseOrder())
+            .forEach(path -> {
+                try {
+                    Files.deleteIfExists(path);
+                } catch (IOException e) {
+                    throw new RuntimeException("删除缓存目录失败: " + path, e);
+                }
+            });
     }
 
     /**
@@ -458,6 +681,27 @@ public class DynamicCompiler {
 
         void addClass(String name, JavaClassInMemory classFile) {
             classFiles.put(name, classFile);
+        }
+
+        @Override
+        protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+            synchronized (getClassLoadingLock(name)) {
+                Class<?> loadedClass = findLoadedClass(name);
+                if (loadedClass == null) {
+                    // 对动态编译产生的类采用 child-first，避免被父加载器中的同名旧类遮蔽
+                    JavaClassInMemory dynamicClass = classFiles.get(name);
+                    if (dynamicClass != null) {
+                        byte[] bytes = dynamicClass.getBytes();
+                        loadedClass = defineClass(name, bytes, 0, bytes.length);
+                    } else {
+                        loadedClass = super.loadClass(name, false);
+                    }
+                }
+                if (resolve) {
+                    resolveClass(loadedClass);
+                }
+                return loadedClass;
+            }
         }
 
         @Override

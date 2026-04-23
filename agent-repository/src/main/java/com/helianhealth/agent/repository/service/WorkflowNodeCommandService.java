@@ -2,6 +2,8 @@ package com.helianhealth.agent.repository.service;
 
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 
+import java.util.Map;
+
 /**
  * 工作流节点写操作服务
  */
@@ -29,6 +31,11 @@ public interface WorkflowNodeCommandService {
      * @param extensionParam 扩展参数JSON字符串
      */
     void updateExtensionParam(Integer nodeId, String extensionParam);
+
+    /**
+     * 持久化节点的扩展参数Map（序列化为JSON后写入DB）
+     */
+    void saveExtensionParam(Integer nodeId, Map<String, String> extensionParam);
 
     int updateScheduleFields(Integer nodeId, String scheduleParamSourceType, String scheduleExpr);
 

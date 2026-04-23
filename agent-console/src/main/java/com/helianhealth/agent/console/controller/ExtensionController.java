@@ -27,11 +27,8 @@ public class ExtensionController {
         this.dynamicSpiAdminService = dynamicSpiAdminService;
     }
 
-    /**
-     * 新增扩展配置并注册到SPI运行时
-     */
     @PostMapping("/{extensionType}/register")
-    public void register(@PathVariable String extensionType, @RequestBody NodeExtensionConfigCreateReq request) {
+    public void registerExtension(@PathVariable String extensionType, @RequestBody NodeExtensionConfigCreateReq request) {
         ExtensionType type = ExtensionType.fromCode(extensionType);
         request.setSpiInterface(type.getSpiInterface());
         validateNodeBinding(type, request);
@@ -39,11 +36,8 @@ public class ExtensionController {
         dynamicSpiAdminService.registerExtension(type, request);
     }
 
-    /**
-     * 更新扩展配置并热刷新SPI
-     */
     @PostMapping("/{extensionType}/update")
-    public void update(@PathVariable String extensionType, @RequestBody NodeExtensionConfigUpdateReq request) {
+    public void updateExtension(@PathVariable String extensionType, @RequestBody NodeExtensionConfigUpdateReq request) {
         ExtensionType type = ExtensionType.fromCode(extensionType);
         request.setSpiInterface(type.getSpiInterface());
         validateNodeBindingForUpdate(type, request);
@@ -51,9 +45,6 @@ public class ExtensionController {
         dynamicSpiAdminService.updateExtension(type, request);
     }
 
-    /**
-     * 禁用并卸载SPI
-     */
     @PostMapping("/disable/{codeId}")
     public void disable(@PathVariable Integer codeId) {
         dynamicSpiAdminService.disableAndUnregister(codeId);
@@ -67,11 +58,6 @@ public class ExtensionController {
     @PostMapping("/delete/{codeId}")
     public void delete(@PathVariable Integer codeId) {
         dynamicSpiAdminService.deleteExtension(codeId);
-    }
-
-    @PostMapping("/refresh/{codeId}")
-    public void refresh(@PathVariable Integer codeId) throws Exception {
-        dynamicSpiAdminService.refresh(codeId);
     }
 
     @GetMapping("/{extensionType}/list")
