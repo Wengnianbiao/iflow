@@ -78,7 +78,7 @@ public class ContentTypeAdapter {
      * 将 JSON 字符串适配为 Map
      */
     private Map<String, Object> adaptJsonToMap(String json) {
-        return JsonUtils.fromJsonStringToObjectMap(json);
+        return JsonUtils.parseObjectMap(json);
     }
 
     /**

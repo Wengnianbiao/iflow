@@ -21,7 +21,7 @@ public final class WorkflowNodeAssembler {
         }
         Map<String, String> extensionParam = null;
         if (po.getExtensionParam() != null && !po.getExtensionParam().isEmpty()) {
-            extensionParam = JsonUtils.fromJsonStringToMap(po.getExtensionParam());
+            extensionParam = JsonUtils.parseStringMap(po.getExtensionParam());
         }
         return WorkflowNode.builder()
                 .nodeId(po.getNodeId())

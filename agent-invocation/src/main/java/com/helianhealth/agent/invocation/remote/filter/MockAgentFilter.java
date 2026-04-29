@@ -102,7 +102,7 @@ public class MockAgentFilter implements AgentFilter {
         switch (flowNode.getNodeType()) {
             case HTTP:
             case DATABASE:
-                return JsonUtils.toMap(rawResponse);
+                return JsonUtils.parseObjectMap(rawResponse);
             case WEBSERVICE:
                 return soapRequestHandler.parseSoapResponse(flowNode, rawResponse);
             default:

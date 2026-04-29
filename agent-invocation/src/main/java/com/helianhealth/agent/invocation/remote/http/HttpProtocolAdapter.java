@@ -39,7 +39,7 @@ public class HttpProtocolAdapter extends AbstractProtocolAdapter {
     @Override
     @SuppressWarnings("unchecked")
     protected String executeInvoke(WorkflowNode flowNode, String resolvedParam) {
-        Map<String, Object> metaInfo = JsonUtils.toMap(flowNode.getMetaInfo());
+        Map<String, Object> metaInfo = JsonUtils.parseMetaInfo(flowNode.getMetaInfo());
         if (metaInfo == null || !metaInfo.containsKey(MetaInfoKeyConstants.URL)) {
             throw new AgentConfigException(AgentErrorCode.HTTP_CONFIG_MISSING, "HTTP请求信息中缺少URL");
         }
@@ -59,7 +59,7 @@ public class HttpProtocolAdapter extends AbstractProtocolAdapter {
     @Override
     protected Map<String, Object> parseResponse(WorkflowNode flowNode, String rawResponse) {
         try {
-            return JsonUtils.toMap(rawResponse);
+            return JsonUtils.parseObjectMap(rawResponse);
         } catch (Exception e) {
             throw new AgentInvocationException(AgentErrorCode.REMOTE_RESPONSE_PARSE_ERROR, "HTTP响应解析失败: " + e.getMessage(), e);
         }

@@ -134,7 +134,7 @@ public class McpWorkflowNodeController {
                 .scheduleExpr(request.getScheduleExpr())
                 .splitField(request.getSplitField())
                 .remoteExtension(request.getRemoteExtension())
-                .extensionParam(request.getExtensionParam() != null ? JsonUtils.fromJsonStringToMap(request.getExtensionParam()) : null)
+                .extensionParam(request.getExtensionParam() != null ? JsonUtils.parseStringMap(request.getExtensionParam()) : null)
                 .scheduleParamSourceType(parseScheduleParamSourceType(request.getScheduleParamSourceType()))
                 .build();
     }
@@ -153,7 +153,7 @@ public class McpWorkflowNodeController {
                 .keywordField(request.getKeywordField())
                 .splitField(request.getSplitField())
                 .remoteExtension(request.getRemoteExtension())
-                .extensionParam(request.getExtensionParam() != null ? JsonUtils.fromJsonStringToMap(request.getExtensionParam()) : null)
+                .extensionParam(request.getExtensionParam() != null ? JsonUtils.parseStringMap(request.getExtensionParam()) : null)
                 .scheduleExpr(request.getScheduleExpr())
                 .scheduleParamSourceType(parseScheduleParamSourceType(request.getScheduleParamSourceType()))
                 .build();

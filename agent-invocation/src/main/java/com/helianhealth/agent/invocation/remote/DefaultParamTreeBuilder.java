@@ -50,7 +50,7 @@ public class DefaultParamTreeBuilder extends AbstractParamTreeBuilder {
                 return businessData;
             // 若为对象直接返回
             case OBJECT:
-                return JsonUtils.toMap(sourceValue);
+                return JsonUtils.fromBean(sourceValue);
             // 若为数组则需要转换成当前数组的首个索引对应的对象的key-value格式
             case ARRAY:
                 if (sourceValue == null) {
@@ -73,7 +73,7 @@ public class DefaultParamTreeBuilder extends AbstractParamTreeBuilder {
                             "First element of array must be a Map, but got: " + firstItem.getClass().getSimpleName());
                 }
 
-                return JsonUtils.toMap(list.get(0));
+                return JsonUtils.fromBean(list.get(0));
             default:
                 return new HashMap<>();
         }
@@ -146,8 +146,8 @@ public class DefaultParamTreeBuilder extends AbstractParamTreeBuilder {
                 // 源参数是Object，包装成大小为1的数组
                 List<ParamTreeNode> arrayChildren = buildPostParamTree(allNodes,
                         config.getConfigId(),
-                        JsonUtils.toMap(sourceValue),
-                        JsonUtils.toMap(sourceValue),
+                        JsonUtils.fromBean(sourceValue),
+                        JsonUtils.fromBean(sourceValue),
                         context.getRootInputData(),
                         context.getRootResponseData());
                 node.setChildren(arrayChildren);
@@ -176,8 +176,8 @@ public class DefaultParamTreeBuilder extends AbstractParamTreeBuilder {
                 for (Object item : sourceList) {
                     List<ParamTreeNode> nestedArrayChildren = buildPostParamTree(allNodes,
                             config.getConfigId(),
-                            JsonUtils.toMap(item),
-                            JsonUtils.toMap(item),
+                            JsonUtils.fromBean(item),
+                            JsonUtils.fromBean(item),
                             context.getRootInputData(),
                             context.getRootResponseData());
                     allArrayChildren.addAll(nestedArrayChildren);
@@ -189,8 +189,8 @@ public class DefaultParamTreeBuilder extends AbstractParamTreeBuilder {
                     itemMap.put(config.getTargetParamKey(), item);
                     List<ParamTreeNode> nestedArrayChildren = buildPostParamTree(allNodes,
                             config.getConfigId(),
-                            JsonUtils.toMap(itemMap),
-                            JsonUtils.toMap(itemMap),
+                            itemMap,
+                            itemMap,
                             context.getRootInputData(),
                             context.getRootResponseData());
                     allArrayChildren.addAll(nestedArrayChildren);
@@ -202,8 +202,8 @@ public class DefaultParamTreeBuilder extends AbstractParamTreeBuilder {
             itemMap.put(config.getTargetParamKey(), sourceValue);
             List<ParamTreeNode> nestedArrayChildren = buildPostParamTree(allNodes,
                     config.getConfigId(),
-                    JsonUtils.toMap(itemMap),
-                    JsonUtils.toMap(itemMap),
+                    itemMap,
+                    itemMap,
                     context.getRootInputData(),
                     context.getRootResponseData());
             allArrayChildren.addAll(nestedArrayChildren);
@@ -228,7 +228,7 @@ public class DefaultParamTreeBuilder extends AbstractParamTreeBuilder {
             // 源参数是Object，包装成大小为1的数组
             List<ParamTreeNode> arrayChildren = buildPreParamTree(allNodes,
                     config.getConfigId(),
-                    JsonUtils.toMap(sourceValue),
+                    JsonUtils.fromBean(sourceValue),
                     context.getCurrentData(),
                     context.getRootData());
             node.setChildren(arrayChildren);
@@ -256,7 +256,7 @@ public class DefaultParamTreeBuilder extends AbstractParamTreeBuilder {
                 for (Object item : sourceList) {
                     List<ParamTreeNode> nestedArrayChildren = buildPreParamTree(allNodes,
                             config.getConfigId(),
-                            JsonUtils.toMap(item),
+                            JsonUtils.fromBean(item),
                             context.getCurrentData(),
                             context.getRootData());
                     allArrayChildren.addAll(nestedArrayChildren);
@@ -268,7 +268,7 @@ public class DefaultParamTreeBuilder extends AbstractParamTreeBuilder {
                     itemMap.put(config.getTargetParamKey(), item);
                     List<ParamTreeNode> nestedArrayChildren = buildPreParamTree(allNodes,
                             config.getConfigId(),
-                            JsonUtils.toMap(itemMap),
+                            itemMap,
                             context.getCurrentData(),
                             context.getRootData());
                     allArrayChildren.addAll(nestedArrayChildren);
@@ -280,7 +280,7 @@ public class DefaultParamTreeBuilder extends AbstractParamTreeBuilder {
             itemMap.put(config.getTargetParamKey(), sourceValue);
             List<ParamTreeNode> nestedArrayChildren = buildPreParamTree(allNodes,
                     config.getConfigId(),
-                    JsonUtils.toMap(itemMap),
+                    itemMap,
                     context.getCurrentData(),
                     context.getRootData());
             allArrayChildren.addAll(nestedArrayChildren);

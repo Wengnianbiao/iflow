@@ -5,6 +5,7 @@ import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.TypeReference;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class JsonUtils {
@@ -18,7 +19,7 @@ public class JsonUtils {
         }
     }
 
-    public static Map<String, String> fromJsonStringToMap(String jsonString) {
+    public static Map<String, String> parseStringMap(String jsonString) {
         if (jsonString == null) {
             throw new IllegalArgumentException("JSON字符串不能为空");
         }
@@ -29,7 +30,7 @@ public class JsonUtils {
         }
     }
 
-    public static Map<String, Object> fromJsonStringToObjectMap(String jsonString) {
+    public static Map<String, Object> parseObjectMap(String jsonString) {
         if (jsonString == null) {
             throw new IllegalArgumentException("JSON字符串不能为空");
         }
@@ -41,38 +42,41 @@ public class JsonUtils {
     }
 
     /**
-     * 将不同类型的对象转换为 Map<String, Object>
-     * 支持 JSONObject、String、Map 等类型
-     * @param obj 输入对象
-     * @return 转换后的 Map
+     * 将 Java Bean / DTO 转换为新的 Map<String, Object>。
+     *
+     * @param bean Bean实例
+     * @return 转换后的Map；当入参为null时返回null
      */
-    public static Map<String, Object> toMap(Object obj) {
-        if (obj == null) {
+    public static Map<String, Object> fromBean(Object bean) {
+        if (bean == null) {
             return null;
         }
 
         try {
-            // 如果已经是 Map，直接返回
-            if (obj instanceof Map) {
-                return (Map<String, Object>) obj;
+            Object parsed = JSON.parse(JSON.toJSONString(bean));
+            if (!(parsed instanceof JSONObject)) {
+                throw new IllegalArgumentException("Bean转换结果不是JSON对象");
             }
-
-            // 如果是字符串，解析为 Map
-            if (obj instanceof String) {
-                String str = (String) obj;
-                if (str.trim().isEmpty()) {
-                    return null;
-                }
-                return JSON.parseObject(str, new TypeReference<Map<String, Object>>() {});
-            }
-
-            // 其他类型，先序列化再反序列化（向后兼容）
-            String jsonStr = JSON.toJSONString(obj);
-            return JSON.parseObject(jsonStr, new TypeReference<Map<String, Object>>() {});
-
+            return new LinkedHashMap<>((JSONObject) parsed);
+        } catch (IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
-            throw new IllegalArgumentException("对象转换为Map失败: " + e.getMessage(), e);
+            throw new IllegalArgumentException("Bean转换为Map失败: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * 将 JSONObject 转换为新的 Map<String, Object>。
+     *
+     * @param jsonObject JSONObject实例
+     * @return 转换后的Map；当入参为null时返回null
+     */
+    public static Map<String, Object> fromJsonObject(JSONObject jsonObject) {
+        if (jsonObject == null) {
+            return null;
+        }
+
+        return new LinkedHashMap<>(jsonObject);
     }
 
     /**
@@ -109,24 +113,6 @@ public class JsonUtils {
 
         try {
             return JSON.parseObject(metaInfo, new TypeReference<Map<String, Object>>() {});
-        } catch (Exception e) {
-            throw new IllegalArgumentException("metaInfo解析失败: " + e.getMessage(), e);
-        }
-    }
-
-    /**
-     * 解析metaInfo JSON字符串为JSONObject
-     *
-     * @param metaInfo 包含元信息的JSON字符串
-     * @return 解析后的JSONObject
-     */
-    public static JSONObject parseMetaInfo2JsonObject(String metaInfo) {
-        if (metaInfo == null || metaInfo.isEmpty()) {
-            return new JSONObject();
-        }
-
-        try {
-            return JSON.parseObject(metaInfo);
         } catch (Exception e) {
             throw new IllegalArgumentException("metaInfo解析失败: " + e.getMessage(), e);
         }

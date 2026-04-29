@@ -133,7 +133,7 @@ public class HttpRequestHandler implements ParamResolver {
         if ("GET".equalsIgnoreCase(method)) {
             return httpApiClientManager.executeGet(url, headers);
         }
-        
+
         // 检查Content-Type，判断使用JSON还是Form格式
         String contentType = headers != null ? headers.get("Content-Type") : null;
         if (contentType != null && contentType.contains("application/x-www-form-urlencoded")) {
@@ -141,11 +141,11 @@ public class HttpRequestHandler implements ParamResolver {
             Map<String, String> formParams = convertJsonToFormParams(requestBody);
             return httpApiClientManager.executePostForm(url, headers, formParams);
         }
-        
+
         // 默认JSON格式
         return httpApiClientManager.executePost(url, headers, requestBody);
     }
-    
+
     /**
      * 将JSON字符串转换为Form参数Map
      * 只支持一级扁平结构：{"key1":"value1", "key2":"value2"}
@@ -155,9 +155,9 @@ public class HttpRequestHandler implements ParamResolver {
         if (jsonBody == null || jsonBody.trim().isEmpty()) {
             return formParams;
         }
-        
+
         try {
-            Map<String, Object> jsonMap = JsonUtils.toMap(jsonBody);
+            Map<String, Object> jsonMap = JsonUtils.parseObjectMap(jsonBody);
             if (jsonMap != null) {
                 jsonMap.forEach((key, value) -> {
                     if (value != null) {
@@ -168,7 +168,7 @@ public class HttpRequestHandler implements ParamResolver {
         } catch (Exception e) {
             throw new AgentConfigException(AgentErrorCode.CONTENT_TYPE_ADAPT_ERROR, "JSON转Form参数失败: " + jsonBody, e);
         }
-        
+
         return formParams;
     }
 }

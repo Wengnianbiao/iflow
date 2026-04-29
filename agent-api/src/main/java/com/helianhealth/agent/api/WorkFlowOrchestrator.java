@@ -12,7 +12,6 @@ import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.repository.service.WorkflowQueryService;
 import com.helianhealth.agent.schedule.WorkflowScheduler;
 import com.helianhealth.agent.schedule.builder.WorkFlowNodeBuilder;
-import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -51,9 +50,8 @@ public class WorkFlowOrchestrator {
         try {
             Optional<Workflow> workflowOptional = workflowService.findByInterfaceUri(request.getBusinessMethod());
             if (workflowOptional.isPresent()) {
-                // 兼容jarvis的API调用入参,理论上jarvis应当统一入参格式
-                Map<String, Object> businessData = request.getBusinessMethod().equals("GetItemResult") ?
-                        JsonUtils.toMap(request) : JsonUtils.toMap(request.getData());
+                // 兼容jarvis的API调用入参,从契约精神考量jarvis应当统一入参格式
+                Map<String, Object> businessData = resolveJarvisRequest(request);
                 List<WorkflowNode> workflowNodes = workFlowNodeBuilder.build(workflowOptional.get()
                         .getFirstFlowNodes());
                 Map<String, Object> scheduleRsp = workflowScheduler.schedule(workflowNodes,
@@ -71,6 +69,12 @@ public class WorkFlowOrchestrator {
             log.error("jarvis调度未知异常, businessMethod={}", request.getBusinessMethod(), e);
             return JarvisResultData.error(request.getBusinessMethod() + " | " + extractRootCauseMessage(e));
         }
+    }
+
+    private Map<String, Object> resolveJarvisRequest(JarvisRequest request) {
+        return request.getBusinessMethod().equals("GetItemResult")
+                ? JsonUtils.fromBean(request)
+                : JsonUtils.fromJsonObject(request.getData());
     }
 
     private JarvisResultData<Object> processJarvisRsp(Map<String, Object> flowNodeResponse) {

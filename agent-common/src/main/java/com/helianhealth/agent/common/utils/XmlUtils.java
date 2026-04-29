@@ -116,7 +116,7 @@ public class XmlUtils {
         String dataType = (String) metaMap.get(MetaInfoKeyConstants.DATA_TYPE);
         if (dataType != null && dataType.equalsIgnoreCase(MetaInfoKeyConstants.DATA_TYPE_JSON)) {
             // JSON 格式，直接返回
-            return JsonUtils.toMap(dataContent);
+            return JsonUtils.parseObjectMap(dataContent);
         }
 
         // 3. XML 格式，解析为 Document

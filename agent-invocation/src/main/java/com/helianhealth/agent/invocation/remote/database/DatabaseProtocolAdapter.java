@@ -34,7 +34,7 @@ public class DatabaseProtocolAdapter extends AbstractProtocolAdapter {
     @Override
     protected Map<String, Object> parseResponse(WorkflowNode flowNode, String rawResponse) {
         try {
-            return JsonUtils.toMap(rawResponse);
+            return JsonUtils.parseObjectMap(rawResponse);
         } catch (Exception e) {
             throw new AgentInvocationException(AgentErrorCode.REMOTE_RESPONSE_PARSE_ERROR, "数据库响应解析失败: " + e.getMessage(), e);
         }

@@ -119,7 +119,7 @@ public class ExampleInvoker implements InterfaceRemoteInvoker {
             LogCollector.collectInvokeResponse(responseJson);
 
             // 7. 转换响应为上游格式
-            Map<String, Object> response = JsonUtils.fromJsonStringToObjectMap(responseJson);
+            Map<String, Object> response = JsonUtils.parseObjectMap(responseJson);
             return convertToUpstreamResponse(response);
 
         } catch (IOException | ParseException e) {
@@ -225,7 +225,7 @@ public class DynamicSignInvoker implements InterfaceRemoteInvoker {
             LogCollector.collectInvokeResponse(responseJson);
 
             // 7. 转换响应
-            Map<String, Object> response = JsonUtils.fromJsonStringToObjectMap(responseJson);
+            Map<String, Object> response = JsonUtils.parseObjectMap(responseJson);
             return convertToUpstreamResponse(response);
 
         } catch (IOException | ParseException e) {
@@ -333,7 +333,7 @@ public class DynamicTokenInvoker implements InterfaceRemoteInvoker {
             LogCollector.collectInvokeResponse(responseJson);
 
             // 6. 转换响应
-            Map<String, Object> response = JsonUtils.fromJsonStringToObjectMap(responseJson);
+            Map<String, Object> response = JsonUtils.parseObjectMap(responseJson);
             return convertToUpstreamResponse(response);
 
         } catch (IOException | ParseException e) {
@@ -361,7 +361,7 @@ public class DynamicTokenInvoker implements InterfaceRemoteInvoker {
             params.put("grant_type", "client_credentials");
 
             String responseStr = HttpUtils.post(tokenUrl, JsonUtils.toJsonString(params));
-            Map<String, Object> response = JsonUtils.fromJsonStringToObjectMap(responseStr);
+            Map<String, Object> response = JsonUtils.parseObjectMap(responseStr);
 
             String token = (String) response.get("access_token");
             int expiresIn = response.get("expires_in") != null
@@ -465,10 +465,10 @@ public class AesEncryptInvoker implements InterfaceRemoteInvoker {
             LogCollector.collectInvokeResponse(responseJson);
 
             // 5. 解密响应（如果需要）
-            Map<String, Object> response = JsonUtils.fromJsonStringToObjectMap(responseJson);
+            Map<String, Object> response = JsonUtils.parseObjectMap(responseJson);
             if (response.containsKey("encryptedResponse")) {
                 String decrypted = decrypt((String) response.get("encryptedResponse"), aesKey);
-                response = JsonUtils.fromJsonStringToObjectMap(decrypted);
+                response = JsonUtils.parseObjectMap(decrypted);
             }
 
             return convertToUpstreamResponse(response);

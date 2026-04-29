@@ -94,7 +94,7 @@ public class JsonUtilsTest {
         void fromJsonStringToMap_Normal() {
             String json = "{\"patientCode\":\"P001\",\"name\":\"张三\",\"sex\":\"1\"}";
 
-            Map<String, String> result = JsonUtils.fromJsonStringToMap(json);
+            Map<String, String> result = JsonUtils.parseStringMap(json);
 
             assertEquals("P001", result.get("patientCode"));
             assertEquals("张三", result.get("name"));
@@ -104,7 +104,7 @@ public class JsonUtilsTest {
         @Test
         @DisplayName("空JSON对象反序列化")
         void fromJsonStringToMap_Empty() {
-            Map<String, String> result = JsonUtils.fromJsonStringToMap("{}");
+            Map<String, String> result = JsonUtils.parseStringMap("{}");
 
             assertNotNull(result);
             assertTrue(result.isEmpty());
@@ -114,14 +114,14 @@ public class JsonUtilsTest {
         @DisplayName("null输入抛出异常")
         void fromJsonStringToMap_Null() {
             assertThrows(RuntimeException.class, () ->
-                    JsonUtils.fromJsonStringToMap(null));
+                    JsonUtils.parseStringMap(null));
         }
 
         @Test
         @DisplayName("无效JSON抛出异常")
         void fromJsonStringToMap_Invalid() {
             assertThrows(RuntimeException.class, () ->
-                    JsonUtils.fromJsonStringToMap("not a json"));
+                    JsonUtils.parseStringMap("not a json"));
         }
 
         @Test
@@ -129,7 +129,7 @@ public class JsonUtilsTest {
         void fromJsonStringToObjectMap_Normal() {
             String json = "{\"code\":\"200\",\"count\":10,\"success\":true}";
 
-            Map<String, Object> result = JsonUtils.fromJsonStringToObjectMap(json);
+            Map<String, Object> result = JsonUtils.parseObjectMap(json);
 
             assertEquals("200", result.get("code"));
             assertEquals(10, result.get("count"));
@@ -141,7 +141,7 @@ public class JsonUtilsTest {
         void fromJsonStringToObjectMap_Nested() {
             String json = "{\"data\":{\"hisOrderId\":\"12345\",\"patientId\":\"P001\"}}";
 
-            Map<String, Object> result = JsonUtils.fromJsonStringToObjectMap(json);
+            Map<String, Object> result = JsonUtils.parseObjectMap(json);
 
             assertInstanceOf(Map.class, result.get("data"));
             @SuppressWarnings("unchecked")
@@ -154,7 +154,7 @@ public class JsonUtilsTest {
         void fromJsonStringToObjectMap_WithArray() {
             String json = "{\"items\":[\"a\",\"b\",\"c\"]}";
 
-            Map<String, Object> result = JsonUtils.fromJsonStringToObjectMap(json);
+            Map<String, Object> result = JsonUtils.parseObjectMap(json);
 
             assertInstanceOf(List.class, result.get("items"));
             @SuppressWarnings("unchecked")
@@ -164,66 +164,52 @@ public class JsonUtilsTest {
         }
     }
 
-    // ==================== 类型转换场景 ====================
-
     @Nested
-    @DisplayName("类型转换场景")
-    class TypeConversionTests {
+    @DisplayName("对象转换场景")
+    class ObjectConversionTests {
 
         @Test
-        @DisplayName("Map转Map - 直接返回")
-        void toMap_FromMap() {
-            Map<String, Object> original = new HashMap<>();
-            original.put("key", "value");
+        @DisplayName("Bean转换为Map")
+        void fromBean_Normal() {
+            DemoBean bean = new DemoBean();
+            bean.setPatientCode("P001");
+            bean.setPatientName("张三");
 
-            Map<String, Object> result = JsonUtils.toMap(original);
+            Map<String, Object> result = JsonUtils.fromBean(bean);
 
-            assertSame(original, result);
+            assertNotNull(result);
+            assertEquals("P001", result.get("patientCode"));
+            assertEquals("张三", result.get("patientName"));
         }
 
         @Test
-        @DisplayName("JSONObject转Map")
-        void toMap_FromJSONObject() {
+        @DisplayName("null Bean返回null")
+        void fromBean_Null() {
+            assertNull(JsonUtils.fromBean(null));
+        }
+
+        @Test
+        @DisplayName("JSONObject转换为新Map")
+        void fromJsonObject_Normal() {
             JSONObject jsonObject = new JSONObject();
             jsonObject.put("code", "200");
             jsonObject.put("message", "成功");
 
-            Map<String, Object> result = JsonUtils.toMap(jsonObject);
+            Map<String, Object> result = JsonUtils.fromJsonObject(jsonObject);
 
+            assertNotNull(result);
             assertEquals("200", result.get("code"));
             assertEquals("成功", result.get("message"));
+            assertNotSame(jsonObject, result);
+
+            result.put("extra", "value");
+            assertFalse(jsonObject.containsKey("extra"));
         }
 
         @Test
-        @DisplayName("JSON字符串转Map")
-        void toMap_FromString() {
-            String json = "{\"returnCode\":\"1\",\"errorMessage\":\"操作成功\"}";
-
-            Map<String, Object> result = JsonUtils.toMap(json);
-
-            assertEquals("1", result.get("returnCode"));
-            assertEquals("操作成功", result.get("errorMessage"));
-        }
-
-        @Test
-        @DisplayName("空字符串转Map返回null")
-        void toMap_EmptyString() {
-            Map<String, Object> result = JsonUtils.toMap("  ");
-            assertNull(result);
-        }
-
-        @Test
-        @DisplayName("null转Map返回null")
-        void toMap_Null() {
-            Map<String, Object> result = JsonUtils.toMap(null);
-            assertNull(result);
-        }
-
-        @Test
-        @DisplayName("无效JSON字符串抛出异常")
-        void toMap_InvalidString() {
-            assertThrows(RuntimeException.class, () ->
-                    JsonUtils.toMap("invalid json"));
+        @DisplayName("null JSONObject返回null")
+        void fromJsonObject_Null() {
+            assertNull(JsonUtils.fromJsonObject(null));
         }
     }
 
@@ -353,28 +339,6 @@ public class JsonUtilsTest {
             assertTrue(result2.isEmpty());
         }
 
-        @Test
-        @DisplayName("解析metaInfo为JSONObject")
-        void parseMetaInfo2JsonObject_Normal() {
-            String metaInfo = "{\"elementName\":\"Result\",\"dataType\":\"json\"}";
-
-            JSONObject result = JsonUtils.parseMetaInfo2JsonObject(metaInfo);
-
-            assertEquals("Result", result.getString("elementName"));
-            assertEquals("json", result.getString("dataType"));
-        }
-
-        @Test
-        @DisplayName("空metaInfo返回空JSONObject")
-        void parseMetaInfo2JsonObject_Empty() {
-            JSONObject result1 = JsonUtils.parseMetaInfo2JsonObject(null);
-            JSONObject result2 = JsonUtils.parseMetaInfo2JsonObject("");
-
-            assertNotNull(result1);
-            assertTrue(result1.isEmpty());
-            assertNotNull(result2);
-            assertTrue(result2.isEmpty());
-        }
     }
 
     // ==================== 业务数据处理场景 ====================
@@ -388,7 +352,7 @@ public class JsonUtilsTest {
         void processHisResponse() {
             String hisResponse = "{\"returnCode\":\"1\",\"errorMessage\":\"成功\",\"data\":{\"hisPatientId\":\"HIS001\"}}";
 
-            Map<String, Object> result = JsonUtils.toMap(hisResponse);
+            Map<String, Object> result = JsonUtils.parseObjectMap(hisResponse);
 
             assertEquals("1", result.get("returnCode"));
             @SuppressWarnings("unchecked")
@@ -401,7 +365,7 @@ public class JsonUtilsTest {
         void processChargeNotification() {
             String notification = "{\"chargeType\":\"CHARGED\",\"data\":{\"hisOrderId\":\"35857670\",\"patientId\":\"5023461\"}}";
 
-            Map<String, Object> result = JsonUtils.toMap(notification);
+            Map<String, Object> result = JsonUtils.parseObjectMap(notification);
 
             assertEquals("CHARGED", result.get("chargeType"));
             @SuppressWarnings("unchecked")
@@ -414,13 +378,53 @@ public class JsonUtilsTest {
         void processOrderDetails() {
             String orderJson = "{\"orderId\":\"ORD001\",\"orderDetails\":[{\"itemId\":\"I001\",\"price\":100},{\"itemId\":\"I002\",\"price\":200}]}";
 
-            Map<String, Object> result = JsonUtils.toMap(orderJson);
+            Map<String, Object> result = JsonUtils.parseObjectMap(orderJson);
 
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> details = (List<Map<String, Object>>) result.get("orderDetails");
             assertEquals(2, details.size());
             assertEquals("I001", details.get(0).get("itemId"));
             assertEquals(100, details.get(0).get("price"));
+        }
+    }
+
+    @Test
+    @DisplayName("parseObjectMap在null输入时抛出异常")
+    void parseObjectMap_Null() {
+        assertThrows(IllegalArgumentException.class, () -> JsonUtils.parseObjectMap(null));
+    }
+
+    @Test
+    @DisplayName("parseObjectMap在非法JSON输入时抛出异常")
+    void parseObjectMap_Invalid() {
+        assertThrows(IllegalArgumentException.class, () -> JsonUtils.parseObjectMap("not a json"));
+    }
+
+    @Test
+    @DisplayName("parseMetaInfo在非法JSON输入时抛出异常")
+    void parseMetaInfo_Invalid() {
+        assertThrows(IllegalArgumentException.class, () -> JsonUtils.parseMetaInfo("{invalid}"));
+    }
+
+    @SuppressWarnings("unused")
+    private static class DemoBean {
+        private String patientCode;
+        private String patientName;
+
+        public String getPatientCode() {
+            return patientCode;
+        }
+
+        public void setPatientCode(String patientCode) {
+            this.patientCode = patientCode;
+        }
+
+        public String getPatientName() {
+            return patientName;
+        }
+
+        public void setPatientName(String patientName) {
+            this.patientName = patientName;
         }
     }
 }
