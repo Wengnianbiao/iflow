@@ -25,7 +25,7 @@ export function useNodeImportExport(refreshCallback) {
       loading.value = true;
       const response = await request.get(`/v1/console/node/export-node/${node.nodeId}`);
 
-      if (response.status !== 200 || response.data.code !== '200') {
+      if (response.status !== 200 || response.data.code !== 200) {
         const errorMsg = response.data?.message || '导出接口响应异常';
         Message.error(`节点配置导出失败: ${errorMsg}`);
         return;
@@ -60,7 +60,7 @@ export function useNodeImportExport(refreshCallback) {
       loading.value = true;
       const response = await request.get(`/v1/console/node/export/${node.nodeId}`);
 
-      if (response.status !== 200 || response.data.code !== '200') {
+      if (response.status !== 200 || response.data.code !== 200) {
         const errorMsg = response.data?.message || '导出接口响应异常';
         Message.error(`参数配置导出失败: ${errorMsg}`);
         return;
