@@ -48,7 +48,7 @@ public class HttpRequestHandler implements ParamResolver {
 
         params.forEach(param -> queryParams.put(param.getParamKey(), extractValueFromNode(param)));
 
-        return JsonUtils.toJsonString(queryParams);
+        return JsonUtils.toJsonStringWithNulls(queryParams);
     }
 
     private Object extractValueFromNode(ParamTreeNode node) {

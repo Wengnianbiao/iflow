@@ -2,6 +2,7 @@ package com.helianhealth.agent.common.utils;
 
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
+import com.alibaba.fastjson2.JSONWriter;
 import com.alibaba.fastjson2.TypeReference;
 
 import java.util.HashMap;
@@ -15,6 +16,14 @@ public class JsonUtils {
             return JSON.toJSONString(object);
         }
         catch (Exception e) {
+            throw new IllegalArgumentException("JSON序列化失败: " + e.getMessage(), e);
+        }
+    }
+
+    public static String toJsonStringWithNulls(Object object) {
+        try {
+            return JSON.toJSONString(object, JSONWriter.Feature.WriteNulls);
+        } catch (Exception e) {
             throw new IllegalArgumentException("JSON序列化失败: " + e.getMessage(), e);
         }
     }

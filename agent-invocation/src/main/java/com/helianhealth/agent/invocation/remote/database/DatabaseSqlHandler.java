@@ -276,7 +276,7 @@ public class DatabaseSqlHandler implements ParamResolver {
      */
     public String executeSqlAndGetRawResponse(WorkflowNode flowNode, String sql) {
         Map<String, Object> result = invokeSqlAndConvertResult(flowNode, sql);
-        return JsonUtils.toJsonString(result);
+        return JsonUtils.toJsonStringWithNulls(result);
     }
 
     public Map<String, Object> invokeSqlAndConvertResult(WorkflowNode flowNode, String sql) {

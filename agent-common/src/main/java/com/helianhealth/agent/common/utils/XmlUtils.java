@@ -250,7 +250,7 @@ public class XmlUtils {
             Object childValue = elementToMap(childElement);
 
             // 如果子元素是纯文本节点，直接提取值
-            if (childValue instanceof Map && ((Map<?, ?>) childValue).size() == 1) {
+            if (((Map<?, ?>) childValue).size() == 1) {
                 Map<?, ?> childMap = (Map<?, ?>) childValue;
                 Object firstValue = childMap.values().iterator().next();
                 // 如果子节点只包含自身标签和文本值，直接使用文本值
@@ -338,6 +338,7 @@ public class XmlUtils {
     /**
      * 构建业务数据XML
      */
+    @SuppressWarnings("unchecked")
     private static String buildBusinessXml(Map<String, Object> scheduleRsp, Map<String, Object> metaMap) throws Exception {
         // 获取配置信息
         String namespaceURI = (String) metaMap.get("responseNamespace");

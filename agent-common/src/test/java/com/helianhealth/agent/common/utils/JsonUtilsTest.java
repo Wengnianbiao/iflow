@@ -81,6 +81,36 @@ public class JsonUtilsTest {
             String json = JsonUtils.toJsonString(null);
             assertEquals("null", json);
         }
+
+        @Test
+        @DisplayName("Map中的null值序列化时会省略对应key")
+        void toJsonString_MapWithNullValue() {
+            Map<String, Object> data = new HashMap<>();
+            data.put("code", "200");
+            data.put("message", null);
+
+            String json = JsonUtils.toJsonString(data);
+            assertTrue(json.contains("\"code\":\"200\""));
+            assertFalse(json.contains("\"message\""));
+        }
+
+        @Test
+        @DisplayName("Map中的null值序列化时保留key")
+        void toJsonString_MapKeepNullValue() {
+            Map<String, Object> data = new HashMap<>();
+            data.put("code", "200");
+            data.put("message", null);
+
+            String json = JsonUtils.toJsonStringWithNulls(data);
+            assertNotNull(json);
+            assertTrue(json.contains("\"code\":\"200\""));
+            assertTrue(json.contains("\"message\":null"));
+
+            Map<String, Object> result = JsonUtils.parseObjectMap(json);
+            assertTrue(result.containsKey("message"));
+            assertNull(result.get("message"));
+            assertEquals("200", result.get("code"));
+        }
     }
 
     // ==================== 反序列化场景 ====================
