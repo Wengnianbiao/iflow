@@ -28,6 +28,8 @@ import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.SSLContext;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
@@ -131,7 +133,7 @@ public class HttpApiClientManager {
      */
     public String executePost(String url,  Map<String, String> headers, String requestBody) throws IOException, ParseException {
         logger.info("执行 POST 请求，URL: [{}]，请求体: [{}]", url, requestBody);
-        HttpPost httpPost = new HttpPost(url);
+        HttpPost httpPost = new HttpPost(encodeUrl(url));
         // 设置请求头
         if (headers != null && !headers.isEmpty()) {
             headers.forEach(httpPost::setHeader);
@@ -140,7 +142,8 @@ public class HttpApiClientManager {
             headers.forEach(httpPost::setHeader);
         }
         if (requestBody != null && !requestBody.isEmpty()) {
-            httpPost.setEntity(new StringEntity(requestBody, ContentType.APPLICATION_JSON.withCharset(StandardCharsets.UTF_8)));
+            ContentType entityContentType = resolveContentType(headers);
+            httpPost.setEntity(new StringEntity(requestBody, entityContentType));
         }
         try (CloseableHttpResponse response = httpClient.execute(httpPost)) {
             String responseEntity = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
@@ -160,7 +163,7 @@ public class HttpApiClientManager {
      */
     public String executeGet(String url,  Map<String, String> headers) throws IOException, ParseException {
         logger.info("执行 GET 请求，URL: [{}]", url);
-        HttpGet httpGet = new HttpGet(url);
+        HttpGet httpGet = new HttpGet(encodeUrl(url));
         // 设置请求头
         if (headers != null && !headers.isEmpty()) {
             headers.forEach(httpGet::setHeader);
@@ -190,7 +193,7 @@ public class HttpApiClientManager {
      */
     public String executePostForm(String url, Map<String, String> headers, Map<String, String> formParams) throws IOException, ParseException {
         logger.info("执行 POST Form 请求，URL: [{}]，参数: [{}]", url, formParams);
-        HttpPost httpPost = new HttpPost(url);
+        HttpPost httpPost = new HttpPost(encodeUrl(url));
 
         // 设置请求头（默认 application/x-www-form-urlencoded）
         if (headers != null && !headers.isEmpty()) {
@@ -227,7 +230,7 @@ public class HttpApiClientManager {
      */
     public byte[] executeGetBytes(String url, Map<String, String> headers) throws IOException {
         logger.info("执行 GET 请求下载二进制文件，URL: [{}]", url);
-        HttpGet httpGet = new HttpGet(url);
+        HttpGet httpGet = new HttpGet(encodeUrl(url));
         // 设置请求头
         if (headers != null && !headers.isEmpty()) {
             headers.forEach(httpGet::setHeader);
@@ -255,6 +258,61 @@ public class HttpApiClientManager {
      */
     public String getPoolStats() {
         return connectionManager.getTotalStats().toString();
+    }
+
+    /**
+     * 根据请求头中的 Content-Type 解析实体内容类型
+     * @param headers 请求头
+     * @return 对应的 ContentType，默认 application/json;charset=UTF-8
+     */
+    private ContentType resolveContentType(Map<String, String> headers) {
+        if (headers != null && !headers.isEmpty()) {
+            String ct = getHeaderIgnoreCase(headers, "Content-Type");
+            if (ct != null && !ct.isEmpty()) {
+                try {
+                    return ContentType.parse(ct);
+                } catch (Exception e) {
+                    logger.warn("Content-Type解析失败: [{}]，使用默认JSON", ct);
+                }
+            }
+        }
+        return ContentType.APPLICATION_JSON.withCharset(StandardCharsets.UTF_8);
+    }
+
+    /**
+     * 大小写无关地读取请求头值
+     */
+    private String getHeaderIgnoreCase(Map<String, String> headers, String headerName) {
+        for (Map.Entry<String, String> entry : headers.entrySet()) {
+            if (headerName.equalsIgnoreCase(entry.getKey())) {
+                return entry.getValue();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 对 URL 进行编码，处理中文等非 ASCII 字符
+     * <p>
+     * java.net.URI 不接受未编码的非 ASCII 字符，直接传入会抛出 IllegalArgumentException。
+     * 此方法通过 URI 多参数构造器自动对各部分进行 RFC 2396 编码，再转为 ASCII 字符串。
+     *
+     * @param url 原始 URL（可能包含中文等非 ASCII 字符）
+     * @return 编码后的 URI
+     */
+    private URI encodeUrl(String url) {
+        try {
+            // 利用 java.net.URL 解析原始 URL 的各个部分
+            URL parsed = new URL(url);
+            // URI 多参数构造器会对 path、query、fragment 中的非 ASCII 字符进行编码，
+            // 再转换为 ASCII 形式，确保请求行不会携带原始中文路径。
+            URI encodedUri = new URI(parsed.getProtocol(), parsed.getAuthority(),
+                    parsed.getPath(), parsed.getQuery(), parsed.getRef());
+            return URI.create(encodedUri.toASCIIString());
+        } catch (Exception e) {
+            logger.error("URL编码失败，使用原始URL: [{}]", url, e);
+            return URI.create(url);
+        }
     }
 
     /**
