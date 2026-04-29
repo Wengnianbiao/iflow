@@ -1,7 +1,5 @@
 package com.helianhealth.agent.common.utils;
 
-import com.helianhealth.agent.common.exception.AgentConfigException;
-import com.helianhealth.agent.common.exception.AgentErrorCode;
 import org.springframework.expression.BeanResolver;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
@@ -16,7 +14,6 @@ import java.util.regex.Pattern;
  * SpEL表达式解析工具类
  * <p>
  * 工具类只负责解析，解析失败即抛出异常，由调用方决定处理策略。
- * 例如 ValueResolverSelector 捕获异常后静默返回 null，保证单个字段解析失败不阻断整个参数转换流程。
  * </p>
  */
 public class SpelUtils {
@@ -80,7 +77,7 @@ public class SpelUtils {
 
             return deepCopyMap;
         } catch (Exception e) {
-            throw new AgentConfigException(AgentErrorCode.FILTER_EXPRESSION_PARSE_ERROR, expression, e);
+            throw new IllegalArgumentException("业务数据过滤表达式解析失败: " + expression, e);
         }
     }
 
@@ -145,26 +142,28 @@ public class SpelUtils {
         try {
             StandardEvaluationContext context = new StandardEvaluationContext();
             context.setVariable("data", preFlowNodeResponse);
-            Object parser = PARSER.parseExpression(expression).getValue(context);
-            if (parser == null) {
+            Object parsedResult = PARSER.parseExpression(expression).getValue(context);
+            if (parsedResult == null) {
                 return null;
             }
 
-            if (!(parser instanceof List)) {
-                throw new IllegalArgumentException("期望List<Integer>，实际类型: " + parser.getClass().getSimpleName());
+            if (!(parsedResult instanceof List)) {
+                throw new IllegalStateException("期望List<Integer>，实际类型: " + parsedResult.getClass().getSimpleName());
             }
 
-            List<?> resultList = (List<?>) parser;
+            List<?> resultList = (List<?>) parsedResult;
             for (Object item : resultList) {
                 if (!(item instanceof Integer)) {
                     String itemType = item == null ? "null" : item.getClass().getSimpleName();
-                    throw new IllegalArgumentException("元素类型错误，期望Integer，实际类型: " + itemType);
+                    throw new IllegalStateException("元素类型错误，期望Integer，实际类型: " + itemType);
                 }
             }
 
-            return (List<Integer>) parser;
+            return (List<Integer>) parsedResult;
+        } catch (IllegalStateException e) {
+            throw e;
         } catch (Exception e) {
-            throw new AgentConfigException(AgentErrorCode.SCHEDULE_EXPRESSION_PARSE_ERROR, expression, e);
+            throw new IllegalArgumentException("调度表达式解析失败: " + expression, e);
         }
     }
 

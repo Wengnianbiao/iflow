@@ -1,6 +1,5 @@
 package com.helianhealth.agent.common.utils;
 
-import com.helianhealth.agent.common.exception.AgentConfigException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -81,11 +80,11 @@ public class SpelUtilsTest {
         }
 
         @Test
-        @DisplayName("无效表达式抛出 AgentConfigException")
+        @DisplayName("无效表达式抛出 IllegalArgumentException")
         void filterInvalidExpression() {
             Map<String, Object> data = new HashMap<>();
             data.put("key", "value");
-            assertThrows(AgentConfigException.class, () ->
+            assertThrows(IllegalArgumentException.class, () ->
                     SpelUtils.businessDataFilter("#data[", data));
         }
 
@@ -340,23 +339,23 @@ public class SpelUtilsTest {
         }
 
         @Test
-        @DisplayName("SpEL语法错误抛出 AgentConfigException")
+        @DisplayName("SpEL语法错误抛出 IllegalArgumentException")
         void spelSyntaxError() {
-            assertThrows(AgentConfigException.class, () ->
+            assertThrows(IllegalArgumentException.class, () ->
                     SpelUtils.parseScheduleExpression("#data[", new HashMap<>()));
         }
 
         @Test
-        @DisplayName("返回类型错误时抛出异常")
+        @DisplayName("返回类型错误时抛出 IllegalStateException")
         void invalidReturnType() {
-            assertThrows(AgentConfigException.class, () ->
+            assertThrows(IllegalStateException.class, () ->
                     SpelUtils.parseScheduleExpression("'not a list'", new HashMap<>()));
         }
 
         @Test
-        @DisplayName("元素类型错误时抛出异常")
+        @DisplayName("元素类型错误时抛出 IllegalStateException")
         void invalidElementType() {
-            assertThrows(AgentConfigException.class, () ->
+            assertThrows(IllegalStateException.class, () ->
                     SpelUtils.parseScheduleExpression("T(java.util.Arrays).asList('a', 'b')", new HashMap<>()));
         }
     }

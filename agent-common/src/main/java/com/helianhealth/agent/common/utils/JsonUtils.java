@@ -3,8 +3,6 @@ package com.helianhealth.agent.common.utils;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.TypeReference;
-import com.helianhealth.agent.common.exception.AgentErrorCode;
-import com.helianhealth.agent.common.exception.AgentException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -16,29 +14,29 @@ public class JsonUtils {
             return JSON.toJSONString(object);
         }
         catch (Exception e) {
-            throw new AgentException(AgentErrorCode.JSON_SERIALIZE_ERROR, e.getMessage(), e);
+            throw new IllegalArgumentException("JSON序列化失败: " + e.getMessage(), e);
         }
     }
 
     public static Map<String, String> fromJsonStringToMap(String jsonString) {
         if (jsonString == null) {
-            throw new AgentException(AgentErrorCode.JSON_PARSE_ERROR, "JSON string cannot be null");
+            throw new IllegalArgumentException("JSON字符串不能为空");
         }
         try {
             return JSON.parseObject(jsonString, new TypeReference<Map<String, String>>() {});
         } catch (Exception e) {
-            throw new AgentException(AgentErrorCode.JSON_PARSE_ERROR, e.getMessage(), e);
+            throw new IllegalArgumentException("JSON解析失败: " + e.getMessage(), e);
         }
     }
 
     public static Map<String, Object> fromJsonStringToObjectMap(String jsonString) {
         if (jsonString == null) {
-            throw new AgentException(AgentErrorCode.JSON_PARSE_ERROR, "JSON string cannot be null");
+            throw new IllegalArgumentException("JSON字符串不能为空");
         }
         try {
             return JSON.parseObject(jsonString, new TypeReference<Map<String, Object>>() {});
         } catch (Exception e) {
-            throw new AgentException(AgentErrorCode.JSON_PARSE_ERROR, e.getMessage(), e);
+            throw new IllegalArgumentException("JSON解析失败: " + e.getMessage(), e);
         }
     }
 
@@ -73,7 +71,7 @@ public class JsonUtils {
             return JSON.parseObject(jsonStr, new TypeReference<Map<String, Object>>() {});
 
         } catch (Exception e) {
-            throw new AgentException(AgentErrorCode.JSON_PARSE_ERROR, e.getMessage(), e);
+            throw new IllegalArgumentException("对象转换为Map失败: " + e.getMessage(), e);
         }
     }
 
@@ -94,7 +92,7 @@ public class JsonUtils {
             // 反序列化：将 JSON 字符串转为新的 Map（重新创建所有嵌套对象，实现深度隔离）
             return JSON.parseObject(jsonStr, new TypeReference<Map<String, Object>>() {});
         } catch (Exception e) {
-            throw new AgentException(AgentErrorCode.JSON_DEEP_COPY_ERROR, e.getMessage(), e);
+            throw new IllegalArgumentException("Map深拷贝失败: " + e.getMessage(), e);
         }
     }
 
@@ -112,7 +110,7 @@ public class JsonUtils {
         try {
             return JSON.parseObject(metaInfo, new TypeReference<Map<String, Object>>() {});
         } catch (Exception e) {
-            throw new AgentException(AgentErrorCode.JSON_PARSE_ERROR, "Error parsing metaInfo: " + e.getMessage(), e);
+            throw new IllegalArgumentException("metaInfo解析失败: " + e.getMessage(), e);
         }
     }
 
@@ -130,8 +128,7 @@ public class JsonUtils {
         try {
             return JSON.parseObject(metaInfo);
         } catch (Exception e) {
-            throw new AgentException(AgentErrorCode.JSON_PARSE_ERROR, "Error parsing metaInfo: " + e.getMessage(), e);
+            throw new IllegalArgumentException("metaInfo解析失败: " + e.getMessage(), e);
         }
     }
 }
-
