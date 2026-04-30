@@ -15,6 +15,14 @@ import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,9 +35,9 @@ import java.util.Map;
 @Component
 public class SoapRequestHandler implements ParamResolver {
 
-    private final HttpApiClientManager httpApiClientManager;
-
     private static final String INPUT_PARAM_PLACEHOLDER_KEY = "${inputParam}";
+
+    private final HttpApiClientManager httpApiClientManager;
 
     public SoapRequestHandler() {
         this.httpApiClientManager = HttpApiClientManager.getInstance();
@@ -99,6 +107,9 @@ public class SoapRequestHandler implements ParamResolver {
         }
 
         try {
+            if (useCompatibleSoapSender(metaInfo)) {
+                return sendSoapRequestWithUrlConnection(endpointUrl, headers, soapMessage);
+            }
             return httpApiClientManager.executePost(endpointUrl, headers, soapMessage);
         } catch (Exception e) {
             throw new AgentInvocationException(AgentErrorCode.WS_CALL_FAILED, e.getMessage(), e);
@@ -154,5 +165,62 @@ public class SoapRequestHandler implements ParamResolver {
         }
 
         return xml.toString();
+    }
+
+    private boolean useCompatibleSoapSender(Map<String, Object> metaInfo) {
+        Object compatibleSender = metaInfo.get(MetaInfoKeyConstants.SOAP_USE_COMPATIBLE_SENDER_KEY);
+        if (compatibleSender instanceof Boolean) {
+            return (Boolean) compatibleSender;
+        }
+        if (compatibleSender instanceof String) {
+            return Boolean.parseBoolean((String) compatibleSender);
+        }
+        return false;
+    }
+
+    private String sendSoapRequestWithUrlConnection(String endpointUrl,
+                                                    Map<String, String> headers,
+                                                    String soapMessage) throws IOException {
+        HttpURLConnection conn = null;
+        try {
+            conn = (HttpURLConnection) URI.create(endpointUrl).toURL().openConnection();
+            conn.setRequestMethod("POST");
+            conn.setDoOutput(true);
+            conn.setDoInput(true);
+            conn.setConnectTimeout(30000);
+            conn.setReadTimeout(60000);
+
+            headers.forEach(conn::setRequestProperty);
+
+            byte[] body = soapMessage.getBytes(StandardCharsets.UTF_8);
+            conn.setRequestProperty("Content-Length", String.valueOf(body.length));
+            try (OutputStream os = conn.getOutputStream()) {
+                os.write(body);
+                os.flush();
+            }
+
+            int status = conn.getResponseCode();
+            InputStream is = (status >= 200 && status < 300) ? conn.getInputStream() : conn.getErrorStream();
+            if (is == null) {
+                throw new IOException("SOAP请求无响应，HTTP状态码: " + status);
+            }
+
+            StringBuilder sb = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    sb.append(line);
+                }
+            }
+            String responseBody = sb.toString();
+            if (status < 200 || status >= 300) {
+                log.error("SOAP兼容通道返回非成功状态码: {}, 响应: {}", status, responseBody);
+            }
+            return responseBody;
+        } finally {
+            if (conn != null) {
+                conn.disconnect();
+            }
+        }
     }
 }

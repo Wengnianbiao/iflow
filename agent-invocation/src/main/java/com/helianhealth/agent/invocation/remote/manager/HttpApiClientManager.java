@@ -304,11 +304,9 @@ public class HttpApiClientManager {
         try {
             // 利用 java.net.URL 解析原始 URL 的各个部分
             URL parsed = new URL(url);
-            // URI 多参数构造器会对 path、query、fragment 中的非 ASCII 字符进行编码，
-            // 再转换为 ASCII 形式，确保请求行不会携带原始中文路径。
-            URI encodedUri = new URI(parsed.getProtocol(), parsed.getAuthority(),
+            // URI 多参数构造器会自动对 path、query、fragment 中的非 ASCII 字符进行编码
+            return new URI(parsed.getProtocol(), parsed.getAuthority(),
                     parsed.getPath(), parsed.getQuery(), parsed.getRef());
-            return URI.create(encodedUri.toASCIIString());
         } catch (Exception e) {
             logger.error("URL编码失败，使用原始URL: [{}]", url, e);
             return URI.create(url);

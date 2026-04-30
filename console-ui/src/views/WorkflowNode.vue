@@ -255,6 +255,12 @@
                   <el-option label="XML" value="xml"></el-option>
                 </el-select>
               </el-form-item>
+              <el-form-item label="兼容型SOAP通道">
+                <el-switch v-model="metaFields.soapUseCompatibleSender"></el-switch>
+                <span style="font-size: 12px; color: #999; margin-left: 10px;">
+                  默认关闭，开启后将使用兼容型 SOAP 发送通道
+                </span>
+              </el-form-item>
 
               <!-- 响应数据解析分割线 -->
               <el-divider content-position="left">响应数据解析</el-divider>
@@ -440,6 +446,7 @@ export default {
       // WEBSERVICE 专用字段
       soupTemplate: '',
       dataType: '',
+      soapUseCompatibleSender: false,
       escape: false,
       elementName: '',
       isCDATA: true,
@@ -790,6 +797,7 @@ export default {
         // WEBSERVICE 专用
         soupTemplate: '',
         dataType: '',
+        soapUseCompatibleSender: false,
         escape: false,
         elementName: '',
         isCDATA: true,
@@ -833,6 +841,7 @@ export default {
         if (form.nodeType === 'WEBSERVICE') {
           metaFields.soupTemplate = metaInfo.soupTemplate || '';
           metaFields.dataType = metaInfo.dataType || '';
+          metaFields.soapUseCompatibleSender = metaInfo.soapUseCompatibleSender === true;
           metaFields.escape = metaInfo.escape || false;
           metaFields.elementName = metaInfo.elementName || '';
           metaFields.isCDATA = metaInfo.isCDATA !== undefined ? metaInfo.isCDATA : true;
@@ -881,6 +890,7 @@ export default {
         metaInfo.url = metaFields.url;
         if (metaFields.soupTemplate) metaInfo.soupTemplate = metaFields.soupTemplate;
         if (metaFields.dataType) metaInfo.dataType = metaFields.dataType;
+        metaInfo.soapUseCompatibleSender = metaFields.soapUseCompatibleSender;
         if (metaFields.responseType) metaInfo.responseType = metaFields.responseType;
         if (metaFields.escape !== undefined) metaInfo.escape = metaFields.escape;
         if (metaFields.elementName) metaInfo.elementName = metaFields.elementName;

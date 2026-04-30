@@ -75,6 +75,11 @@ public class MetaInfoKeyConstants {
     public static final String INNER_ELEMENT_NAME = "innerElementName";
 
     /**
+     * 是否使用兼容型 SOAP 发送通道（基于 HttpURLConnection）
+     */
+    public static final String SOAP_USE_COMPATIBLE_SENDER_KEY = "soapUseCompatibleSender";
+
+    /**
      * 是否使用CDATA包裹
      */
     public static final String IS_CDATA = "isCDATA";
@@ -83,6 +88,11 @@ public class MetaInfoKeyConstants {
      * 对象标签 - 指定哪些父元素应保留对象结构
      */
     public static final String OBJECT_TAG = "objectTag";
+
+    /**
+     * 是否启用兼容型 SOAP 发送通道（基于 HttpURLConnection）
+     */
+    public static final String SOAP_USE_COMPATIBLE_SENDER = "soapUseCompatibleSender";
 
 
     // ==================== Database协议专用 ====================
