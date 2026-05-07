@@ -97,6 +97,7 @@ public class InterfaceWorkflowServiceImpl implements InterfaceWorkflowService {
         WorkflowFullExportRsp.WorkflowInfo workflowInfo = new WorkflowFullExportRsp.WorkflowInfo();
         workflowInfo.setFlowName(workflow.getFlowName());
         workflowInfo.setInterfaceUri(workflow.getInterfaceUri());
+        workflowInfo.setRouteExtension(workflow.getRouteExtension());
         workflowInfo.setContentType(workflow.getContentType() != null ? workflow.getContentType().name() : null);
         workflowInfo.setContentMetaInfo(workflow.getContentMetaInfo());
         workflowInfo.setStatus(workflow.getStatus());
@@ -193,6 +194,7 @@ public class InterfaceWorkflowServiceImpl implements InterfaceWorkflowService {
                 .firstFlowNodes(new ArrayList<>())
                 .status(workflowInfo.getStatus())
                 .build();
+        workflow.setRouteExtension(workflowInfo.getRouteExtension());
         workflowCommandService.createWorkflow(workflow);
         Integer flowId = workflow.getFlowId();
 

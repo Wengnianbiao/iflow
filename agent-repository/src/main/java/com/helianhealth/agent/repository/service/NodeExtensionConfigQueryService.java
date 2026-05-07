@@ -9,7 +9,7 @@ import java.util.List;
  */
 public interface NodeExtensionConfigQueryService {
 
-    NodeExtensionConfig selectById(Integer codeId);
+    NodeExtensionConfig selectById(Integer configId);
 
     NodeExtensionConfig selectBySpiInterfaceAndExtension(String spiInterface, String extensionName);
 

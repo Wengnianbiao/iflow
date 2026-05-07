@@ -4,8 +4,8 @@
 <mapper namespace="com.helianhealth.agent.repository.mapper.agent.NodeExtensionConfigMapper">
 
     <resultMap id="BaseResultMap" type="com.helianhealth.agent.repository.model.po.NodeExtensionConfigPO">
-        <id column="code_id" property="codeId" />
-        <result column="node_id" property="nodeId"
+        <id column="config_id" property="configId" />
+        <result column="binding_ids" property="bindingIds"
                 typeHandler="com.helianhealth.agent.common.typehandler.ListIntegerTypeHandler" />
         <result column="spi_interface" property="spiInterface" />
         <result column="extension_name" property="extensionName" />
@@ -18,20 +18,20 @@
 
     <!-- 根据启用状态查询 -->
     <select id="selectByEnabled" resultMap="BaseResultMap">
-        SELECT * FROM node_extension_config
+        SELECT * FROM spi_extension_config
         WHERE enabled = #{enabled}
-        ORDER BY code_id DESC
+        ORDER BY config_id DESC
     </select>
 
     <!-- 根据ID查询 -->
     <select id="selectById" resultMap="BaseResultMap">
-        SELECT * FROM node_extension_config
-        WHERE code_id = #{codeId}
+        SELECT * FROM spi_extension_config
+        WHERE config_id = #{configId}
     </select>
 
     <!-- 根据SPI接口和扩展名称查询 -->
     <select id="selectBySpiInterfaceAndExtension" resultMap="BaseResultMap">
-        SELECT * FROM node_extension_config
+        SELECT * FROM spi_extension_config
         WHERE spi_interface = #{spiInterface}
         AND extension_name = #{extensionName}
     </select>
@@ -40,10 +40,10 @@
     <insert id="insert"
             parameterType="com.helianhealth.agent.repository.model.po.NodeExtensionConfigPO"
             useGeneratedKeys="true"
-            keyProperty="codeId"
-            keyColumn="code_id">
-        INSERT INTO node_extension_config (
-            node_id,
+            keyProperty="configId"
+            keyColumn="config_id">
+        INSERT INTO spi_extension_config (
+            binding_ids,
             spi_interface,
             extension_name,
             class_name,
@@ -52,7 +52,7 @@
             enabled,
             extension_mode
         ) VALUES (
-            #{nodeId, typeHandler=com.helianhealth.agent.common.typehandler.ListIntegerTypeHandler},
+            #{bindingIds, typeHandler=com.helianhealth.agent.common.typehandler.ListIntegerTypeHandler},
             #{spiInterface},
             #{extensionName},
             #{className},
@@ -65,28 +65,28 @@
 
     <!-- 更新记录 -->
     <update id="update" parameterType="com.helianhealth.agent.repository.model.po.NodeExtensionConfigPO">
-        UPDATE node_extension_config
-        SET node_id = #{nodeId, typeHandler=com.helianhealth.agent.common.typehandler.ListIntegerTypeHandler},
+        UPDATE spi_extension_config
+        SET binding_ids = #{bindingIds, typeHandler=com.helianhealth.agent.common.typehandler.ListIntegerTypeHandler},
             class_name = #{className},
             source_code = #{sourceCode},
             description = #{description},
             enabled = #{enabled},
             extension_name = #{extensionName},
             extension_mode = #{extensionMode}
-        WHERE code_id = #{codeId}
+        WHERE config_id = #{configId}
     </update>
 
     <!-- 根据ID删除 -->
     <delete id="deleteById">
-        DELETE FROM node_extension_config
-        WHERE code_id = #{codeId}
+        DELETE FROM spi_extension_config
+        WHERE config_id = #{configId}
     </delete>
 
     <!-- 根据SPI接口查询所有配置 -->
     <select id="selectBySpiInterface" resultMap="BaseResultMap">
-        SELECT * FROM node_extension_config
+        SELECT * FROM spi_extension_config
         WHERE spi_interface = #{spiInterface}
-        ORDER BY code_id DESC
+        ORDER BY config_id DESC
     </select>
 
 </mapper>

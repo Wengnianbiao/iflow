@@ -11,13 +11,13 @@ import java.util.List;
 public class NodeExtensionConfigCreateReq {
 
     /**
-     * 关联的节点ID（如 "[1,2,3]"）
+     * 绑定的流程节点 ID 列表（JSON 数组；与库表 binding_ids 一致）
      * <ul>
-     * <li>RemoteInvoker扩展：单节点绑定，如 "[1]"，自动更新节点的 remote_extension 字段</li>
-     * <li>Filter扩展：多节点绑定，如 "[1,2,3]"，自动更新节点的 extension_param 字段</li>
+     * <li>RemoteInvoker扩展：单节点绑定，如 {@code [1]}，自动更新节点的 remote_extension 字段</li>
+     * <li>Filter扩展：多节点绑定，如 {@code [1,2,3]}，自动更新节点的 extension_param 字段</li>
      * </ul>
      */
-    private List<Integer> nodeId;
+    private List<Integer> bindingIds;
 
     /**
      * SPI接口（对应SPI接口的全限定名），例如: InterfaceRemoteInvoker, InterfaceClientProxy等
@@ -64,4 +64,10 @@ public class NodeExtensionConfigCreateReq {
      * 用于拓展spi为Filter的扩展方式
      */
     private String extensionParamValue;
+
+    /**
+     * 仅 OpenApiRouteHandler / JarvisRouteHandler：保存后要绑定的工作流 ID，
+     * 会写入该工作流 {@code route_extension} 为当前扩展名，并在注册/更新时与 SPI 扩展一并生效。
+     */
+    private Integer bindFlowId;
 }

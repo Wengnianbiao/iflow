@@ -61,10 +61,15 @@
         <el-menu-item index="4-1">Mock场景管理</el-menu-item>
         <el-menu-item index="4-2">Mock调用测试</el-menu-item>
       </el-submenu>
-      <el-menu-item index="5">
-        <i class="el-icon-cpu"></i>
-        <span slot="title">SPI节点扩展</span>
-      </el-menu-item>
+      <el-submenu index="5">
+        <template slot="title">
+          <i class="el-icon-cpu"></i>
+          <span>SPI扩展管理</span>
+        </template>
+        <el-menu-item index="5-1">工作流扩展</el-menu-item>
+        <el-menu-item index="5-2">工作流节点扩展</el-menu-item>
+        <el-menu-item index="5-3">过滤器扩展</el-menu-item>
+      </el-submenu>
       <el-submenu index="6">
         <template slot="title">
           <i class="el-icon-reading"></i>
@@ -166,9 +171,19 @@ export default {
             this.$router.push('/mock/test');
           }
           break;
-        case '5':
-          if (currentPath !== '/node/extension') {
-            this.$router.push('/node/extension');
+        case '5-1':
+          if (currentPath !== '/extensions/workflow') {
+            this.$router.push('/extensions/workflow');
+          }
+          break;
+        case '5-2':
+          if (currentPath !== '/extensions/workflow-node') {
+            this.$router.push('/extensions/workflow-node');
+          }
+          break;
+        case '5-3':
+          if (currentPath !== '/extensions/filter') {
+            this.$router.push('/extensions/filter');
           }
           break;
         case '6-1':
@@ -222,8 +237,12 @@ export default {
       this.activeIndex = '4-1';
     } else if (currentPath === '/mock/test') {
       this.activeIndex = '4-2';
-    } else if (currentPath === '/node/extension') {
-      this.activeIndex = '5';
+    } else if (currentPath === '/extensions/workflow') {
+      this.activeIndex = '5-1';
+    } else if (currentPath === '/extensions/workflow-node') {
+      this.activeIndex = '5-2';
+    } else if (currentPath === '/extensions/filter') {
+      this.activeIndex = '5-3';
     } else if (currentPath === '/settings') {
       this.activeIndex = '7';
     }
@@ -256,8 +275,12 @@ export default {
         this.activeIndex = '4-1';
       } else if (to.path === '/mock/test') {
         this.activeIndex = '4-2';
-      } else if (to.path === '/node/extension') {
-        this.activeIndex = '5';
+      } else if (to.path === '/extensions/workflow') {
+        this.activeIndex = '5-1';
+      } else if (to.path === '/extensions/workflow-node') {
+        this.activeIndex = '5-2';
+      } else if (to.path === '/extensions/filter') {
+        this.activeIndex = '5-3';
       } else if (to.path === '/settings') {
         this.activeIndex = '7';
       }

@@ -125,29 +125,33 @@ public class McpWorkflowController {
         if (request == null) {
             return null;
         }
-        return Workflow.builder()
+        Workflow workflow = Workflow.builder()
                 .flowName(request.getFlowName())
                 .interfaceUri(request.getInterfaceUri())
+                .routeExtension(request.getRouteExtension())
                 .contentType(parseContentType(request.getContentType()))
                 .contentMetaInfo(request.getContentMetaInfo())
                 .firstFlowNodes(request.getFirstFlowNodes())
                 .status(request.getStatus())
                 .build();
+        return workflow;
     }
 
     private Workflow toWorkflowDomain(WorkflowUpdateMcpRequest request) {
         if (request == null) {
             return null;
         }
-        return Workflow.builder()
+        Workflow workflow = Workflow.builder()
                 .flowId(request.getFlowId())
                 .flowName(request.getFlowName())
                 .interfaceUri(request.getInterfaceUri())
+                .routeExtension(request.getRouteExtension())
                 .contentType(parseContentType(request.getContentType()))
                 .contentMetaInfo(request.getContentMetaInfo())
                 .firstFlowNodes(request.getFirstFlowNodes())
                 .status(request.getStatus())
                 .build();
+        return workflow;
     }
 
     private WorkflowContentType parseContentType(String value) {

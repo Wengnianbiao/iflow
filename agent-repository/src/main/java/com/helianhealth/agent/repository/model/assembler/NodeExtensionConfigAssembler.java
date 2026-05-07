@@ -16,8 +16,8 @@ public final class NodeExtensionConfigAssembler {
             return null;
         }
         return NodeExtensionConfig.builder()
-                .codeId(po.getCodeId())
-                .nodeId(po.getNodeId())
+                .configId(po.getConfigId())
+                .bindingIds(po.getBindingIds())
                 .spiInterface(po.getSpiInterface())
                 .extensionName(po.getExtensionName())
                 .className(po.getClassName())
@@ -34,8 +34,8 @@ public final class NodeExtensionConfigAssembler {
             return null;
         }
         NodeExtensionConfigPO po = new NodeExtensionConfigPO();
-        po.setCodeId(config.getCodeId());
-        po.setNodeId(config.getNodeId());
+        po.setConfigId(config.getConfigId());
+        po.setBindingIds(config.getBindingIds());
         po.setSpiInterface(config.getSpiInterface());
         po.setExtensionName(config.getExtensionName());
         po.setClassName(config.getClassName());

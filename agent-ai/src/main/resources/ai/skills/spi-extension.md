@@ -550,11 +550,11 @@ public class AesEncryptInvoker implements InterfaceRemoteInvoker {
 
 ### 方式二：在线注册（通过控制台）
 
-使用节点扩展配置表 `node_extension_config` 注册：
+使用 SPI 扩展配置表 `spi_extension_config` 注册：
 
 ```sql
-INSERT INTO node_extension_config 
-(node_id, spi_interface, extension_name, class_name, source_code, enabled, extension_mode)
+INSERT INTO spi_extension_config 
+(binding_ids, spi_interface, extension_name, class_name, source_code, enabled, extension_mode)
 VALUES 
 ('[8]', 
  'com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker',

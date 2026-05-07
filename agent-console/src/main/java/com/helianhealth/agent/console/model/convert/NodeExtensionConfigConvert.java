@@ -20,7 +20,7 @@ public class NodeExtensionConfigConvert {
             return null;
         }
         return NodeExtensionConfig.builder()
-                .nodeId(request.getNodeId())
+                .bindingIds(request.getBindingIds())
                 .spiInterface(request.getSpiInterface())
                 .extensionName(request.getExtensionName())
                 .className(request.getClassName())
@@ -40,8 +40,8 @@ public class NodeExtensionConfigConvert {
             return null;
         }
         return NodeExtensionConfig.builder()
-                .codeId(request.getCodeId())
-                .nodeId(request.getNodeId())
+                .configId(request.getConfigId())
+                .bindingIds(request.getBindingIds())
                 .spiInterface(request.getSpiInterface())
                 .extensionName(request.getExtensionName())
                 .className(request.getClassName())
@@ -62,8 +62,8 @@ public class NodeExtensionConfigConvert {
         }
 
         NodeExtensionConfigDetailResponse response = new NodeExtensionConfigDetailResponse();
-        response.setCodeId(config.getCodeId());
-        response.setNodeId(config.getNodeId());
+        response.setConfigId(config.getConfigId());
+        response.setBindingIds(config.getBindingIds());
         response.setSpiInterface(config.getSpiInterface());
         response.setExtensionName(config.getExtensionName());
         response.setClassName(config.getClassName());

@@ -11,18 +11,14 @@ import java.util.List;
 public class NodeExtensionConfigUpdateReq {
 
     /**
-     * 主键ID（更新时必填）
+     * 主键（更新时必填，库列 config_id）
      */
-    private Integer codeId;
+    private Integer configId;
 
     /**
-     * 关联的节点ID（如 "[1,2,3]"）
-     * <ul>
-     * <li>RemoteInvoker扩展：单节点绑定，如 "[1]"，自动更新节点的 remote_extension 字段</li>
-     * <li>Filter扩展：多节点绑定，如 "[1,2,3]"，自动更新节点的 extension_param 字段</li>
-     * </ul>
+     * 绑定的流程节点 ID 列表
      */
-    private List<Integer> nodeId;
+    private List<Integer> bindingIds;
 
     /**
      * SPI接口（对应SPI接口的全限定名），例如: InterfaceRemoteInvoker, InterfaceClientProxy等
@@ -68,4 +64,9 @@ public class NodeExtensionConfigUpdateReq {
      * 用于存储扩展执行时需要的参数配置
      */
     private String extensionParamValue;
+
+    /**
+     * 仅工作流路由类扩展：要绑定的工作流 ID，同步更新 {@code interface_workflow.route_extension}。
+     */
+    private Integer bindFlowId;
 }

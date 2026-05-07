@@ -39,6 +39,9 @@ public class InterfaceWorkflowPO {
     @Column(name = "interface_uri")
     private String interfaceUri;
 
+    @Column(name = "route_extension")
+    private String routeExtension;
+
     @Column(name = "content_type")
     @Enumerated(EnumType.STRING)
     private WorkflowContentType contentType;

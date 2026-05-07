@@ -11,5 +11,5 @@ public interface NodeExtensionConfigCommandService {
 
     void update(NodeExtensionConfig config);
 
-    void deleteById(Integer codeId);
+    void deleteById(Integer configId);
 }

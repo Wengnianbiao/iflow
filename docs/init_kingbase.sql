@@ -8,6 +8,8 @@ CREATE TABLE interface_workflow (
     flow_name VARCHAR(100) NULL,
     -- 接口URI，上游(如Jarvis)调用接口的路由地址，与工作流一对一映射，允许为空
     interface_uri VARCHAR(150) NULL,
+    -- 开放接口接入层SPI扩展名，配置后优先走扩展handler
+    route_extension VARCHAR(100) NULL,
     -- 接口入参参数类型,JSON、XML
     content_type VARCHAR(20) NULL,
     -- 接口入参元数据信息
@@ -123,11 +125,10 @@ CREATE TABLE mock_config (
 );
 
 -- 节点扩展配置表（SPI动态扩展）
-CREATE TABLE node_extension_config (
-    -- 主键ID，自增
-    code_id SERIAL PRIMARY KEY,
-    -- 关联的节点ID（JSON数组格式，如 "[1,2,3]"），支持单节点或多节点关联
-    node_id VARCHAR(50) NULL,
+CREATE TABLE spi_extension_config (
+    -- 主键，自增
+    config_id SERIAL PRIMARY KEY,
+    binding_ids VARCHAR(50) NULL,
     -- SPI接口（全限定名），例如: com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker
     spi_interface VARCHAR(255) NOT NULL,
     -- 扩展名称（用于SPI配置的key），例如: custom-http

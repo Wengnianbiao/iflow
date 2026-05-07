@@ -187,12 +187,35 @@ const routes = [
     }
   },
   {
-    path: '/node/extension',
-    name: 'NodeExtensionConfig',
-    component: () => import('@/views/NodeExtensionConfig.vue'),
+    path: '/extensions/workflow',
+    name: 'WorkflowSpiExtensionConfig',
+    component: () => import('@/views/WorkflowSpiExtensionConfig.vue'),
     meta: {
       breadcrumb: [
-        { name: 'SPI节点扩展', path: '/node/extension', icon: 'el-icon-cpu' }
+        { name: 'SPI扩展管理', path: '/extensions/workflow', icon: 'el-icon-cpu' },
+        { name: '工作流扩展', path: '/extensions/workflow' }
+      ]
+    }
+  },
+  {
+    path: '/extensions/workflow-node',
+    name: 'WorkflowNodeSpiExtensionConfig',
+    component: () => import('@/views/WorkflowNodeSpiExtensionConfig.vue'),
+    meta: {
+      breadcrumb: [
+        { name: 'SPI扩展管理', path: '/extensions/workflow', icon: 'el-icon-cpu' },
+        { name: '工作流节点扩展', path: '/extensions/workflow-node' }
+      ]
+    }
+  },
+  {
+    path: '/extensions/filter',
+    name: 'FilterSpiExtensionConfig',
+    component: () => import('@/views/FilterSpiExtensionConfig.vue'),
+    meta: {
+      breadcrumb: [
+        { name: 'SPI扩展管理', path: '/extensions/workflow', icon: 'el-icon-cpu' },
+        { name: '过滤器扩展', path: '/extensions/filter' }
       ]
     }
   }

@@ -11,14 +11,14 @@ import java.util.List;
 public class NodeExtensionConfigDetailResponse {
 
     /**
-     * 主键ID
+     * 主键（config_id）
      */
-    private Integer codeId;
+    private Integer configId;
 
     /**
-     * 关联的节点ID
+     * 绑定的流程节点 ID 列表（binding_ids）
      */
-    private List<Integer> nodeId;
+    private List<Integer> bindingIds;
 
     /**
      * SPI接口

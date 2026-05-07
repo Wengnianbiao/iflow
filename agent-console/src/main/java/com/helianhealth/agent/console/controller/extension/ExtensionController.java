@@ -1,4 +1,4 @@
-package com.helianhealth.agent.console.controller;
+package com.helianhealth.agent.console.controller.extension;
 
 import com.helianhealth.agent.console.controller.request.NodeExtensionConfigCreateReq;
 import com.helianhealth.agent.console.enums.ExtensionType;
@@ -45,19 +45,19 @@ public class ExtensionController {
         dynamicSpiAdminService.updateExtension(type, request);
     }
 
-    @PostMapping("/disable/{codeId}")
-    public void disable(@PathVariable Integer codeId) {
-        dynamicSpiAdminService.disableAndUnregister(codeId);
+    @PostMapping("/disable/{configId}")
+    public void disable(@PathVariable Integer configId) {
+        dynamicSpiAdminService.disableAndUnregister(configId);
     }
 
-    @PostMapping("/enable/{codeId}")
-    public void enable(@PathVariable Integer codeId) {
-        dynamicSpiAdminService.enableAndRegister(codeId);
+    @PostMapping("/enable/{configId}")
+    public void enable(@PathVariable Integer configId) {
+        dynamicSpiAdminService.enableAndRegister(configId);
     }
 
-    @PostMapping("/delete/{codeId}")
-    public void delete(@PathVariable Integer codeId) {
-        dynamicSpiAdminService.deleteExtension(codeId);
+    @PostMapping("/delete/{configId}")
+    public void delete(@PathVariable Integer configId) {
+        dynamicSpiAdminService.deleteExtension(configId);
     }
 
     @GetMapping("/{extensionType}/list")
@@ -66,9 +66,9 @@ public class ExtensionController {
         return dynamicSpiAdminService.listExtensionsBySpiInterface(type.getSpiInterface());
     }
 
-    @GetMapping("/detail/{codeId}")
-    public NodeExtensionConfigDetailResponse getDetail(@PathVariable Integer codeId) {
-        return dynamicSpiAdminService.getExtensionDetailById(codeId);
+    @GetMapping("/detail/{configId}")
+    public NodeExtensionConfigDetailResponse getDetail(@PathVariable Integer configId) {
+        return dynamicSpiAdminService.getExtensionDetailById(configId);
     }
 
     @GetMapping("/enabled-configs")
@@ -87,9 +87,12 @@ public class ExtensionController {
     }
 
     private void validateNodeBinding(ExtensionType type, NodeExtensionConfigCreateReq request) {
+        if (!isNodeScopedType(type)) {
+            return;
+        }
         if (type.isMultiNodeSupported()) {
             // 多节点类型：至少绑定一个节点
-            if (request.getNodeId() == null || request.getNodeId().isEmpty()) {
+            if (request.getBindingIds() == null || request.getBindingIds().isEmpty()) {
                 throw new IllegalArgumentException(type.getDescription() + "必须至少绑定一个节点");
             }
         }
@@ -97,12 +100,19 @@ public class ExtensionController {
     }
 
     private void validateNodeBindingForUpdate(ExtensionType type, NodeExtensionConfigUpdateReq request) {
+        if (!isNodeScopedType(type)) {
+            return;
+        }
         if (type.isMultiNodeSupported()) {
             // 多节点类型：至少绑定一个节点
-            if (request.getNodeId() == null || request.getNodeId().isEmpty()) {
+            if (request.getBindingIds() == null || request.getBindingIds().isEmpty()) {
                 throw new IllegalArgumentException(type.getDescription() + "必须至少绑定一个节点");
             }
         }
         // 单节点类型不做强制校验，允许为空（通用扩展）
+    }
+
+    private boolean isNodeScopedType(ExtensionType type) {
+        return type == ExtensionType.REMOTE || type == ExtensionType.FILTER;
     }
 }

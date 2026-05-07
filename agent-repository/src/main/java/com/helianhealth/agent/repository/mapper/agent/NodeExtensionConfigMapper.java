@@ -14,7 +14,7 @@ public interface NodeExtensionConfigMapper {
 
     List<NodeExtensionConfigPO> selectByEnabled(@Param("enabled") Integer enabled);
 
-    NodeExtensionConfigPO selectById(@Param("codeId") Integer codeId);
+    NodeExtensionConfigPO selectById(@Param("configId") Integer configId);
 
     NodeExtensionConfigPO selectBySpiInterfaceAndExtension(@Param("spiInterface") String spiInterface,
                                                            @Param("extensionName") String extensionName);
@@ -23,7 +23,7 @@ public interface NodeExtensionConfigMapper {
 
     void update(NodeExtensionConfigPO record);
 
-    void deleteById(@Param("codeId") Integer codeId);
+    void deleteById(@Param("configId") Integer configId);
 
     List<NodeExtensionConfigPO> selectBySpiInterface(@Param("spiInterface") String spiInterface);
 }

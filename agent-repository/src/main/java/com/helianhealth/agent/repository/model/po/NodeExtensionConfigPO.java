@@ -9,22 +9,22 @@ import javax.persistence.*;
 import java.util.List;
 
 /**
- * 节点扩展配置持久化对象
+ * SPI 扩展配置持久化对象
  * 对动态 SPI 节点实现的配置（包括类名、源码等）
  */
 @Data
 @Entity
-@Table(name = "node_extension_config")
+@Table(name = "spi_extension_config")
 public class NodeExtensionConfigPO {
 
     @Id
-    @Column(name = "code_id", nullable = false, updatable = false)
+    @Column(name = "config_id", nullable = false, updatable = false)
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer codeId;
+    private Integer configId;
 
-    @Column(name = "node_id")
+    @Column(name = "binding_ids")
     @ColumnType(typeHandler = ListIntegerTypeHandler.class, jdbcType = JdbcType.VARCHAR)
-    private List<Integer> nodeId;
+    private List<Integer> bindingIds;
 
     @Column(name = "spi_interface")
     private String spiInterface;

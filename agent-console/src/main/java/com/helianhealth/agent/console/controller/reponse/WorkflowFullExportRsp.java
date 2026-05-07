@@ -6,6 +6,7 @@ import com.helianhealth.agent.common.enums.NodeType;
 import com.helianhealth.agent.common.enums.ParamType;
 import com.helianhealth.agent.common.enums.ProcessType;
 import com.helianhealth.agent.common.enums.ScheduleParamSourceType;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import lombok.Data;
 
 import java.util.List;
@@ -44,6 +45,11 @@ public class WorkflowFullExportRsp {
          * 入参类型 (JSON/XML)
          */
         private String contentType;
+
+        /**
+         * 入口路由扩展
+         */
+        private String routeExtension;
 
         /**
          * 入参元信息

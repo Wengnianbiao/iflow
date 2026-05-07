@@ -5,7 +5,7 @@ import lombok.Getter;
 /**
  * 扩展类型枚举
  * 统一管理不同类型的 SPI 扩展接口
- * 目前开放两种spi拓展：过滤器扩展、远程调用扩展
+ * 当前开放四种 SPI 拓展：过滤器扩展、远程调用扩展、Open API 工作流扩展、Jarvis 工作流扩展
  */
 @Getter
 public enum ExtensionType {
@@ -22,7 +22,22 @@ public enum ExtensionType {
      * - 单节点绑定
      * - 自动更新节点的 remote_extension 字段
      */
-    REMOTE("remote", "com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker", "远程调用扩展", false);
+    REMOTE("remote", "com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker", "远程调用扩展", false),
+
+    /**
+     * 开放接口工作流扩展（OpenApiRouteHandler）
+     * - 不绑定节点
+     * - 由 workflow.route_extension（领域 routeExtension）决定是否接管入口
+     */
+    WORKFLOW("workflow", "com.helianhealth.agent.api.OpenApiRouteHandler", "Open API工作流接入扩展", false),
+
+    /**
+     * Jarvis 工作流扩展（JarvisRouteHandler）
+     * - 不绑定节点
+     * - 由 workflow.route_extension（领域 routeExtension）决定是否接管入口
+     */
+    JARVIS_WORKFLOW("jarvis-workflow", "com.helianhealth.agent.api.JarvisRouteHandler",
+            "Jarvis工作流接入扩展", false);
 
     /**
      * 扩展类型代码（用于前端标识）

@@ -36,6 +36,7 @@ Workflow 是对上游暴露的入口，按 `interfaceUri` 进行路由匹配。
 | flowId | Integer | 自动 | 主键                                                                   |
 | flowName | String | 是 | 工作流名称，通常使用业务名称                                                       |
 | interfaceUri | String | 是 | **路由键**；上游是Jarvis 的业务场景使用对应业务的固定值，非 Jarvis 场景推荐 `/agent-open-api/**` |
+| routeExtension | String | 否 | **入口路由扩展名**（DB 列 `route_extension`），与节点 `remoteExtension` 对称；绑定 `OpenApiRouteHandler` / `JarvisRouteHandler` 扩展后优先走自定义入口编排 |
 | contentType | WorkflowContentType | 是 | 请求与响应主格式：`JSON` / `XML`                                              |
 | contentMetaInfo | String(JSON) | 否 | 仅 `contentType=XML` 时生效，用于 XML 解析控制（见下方说明）                           |
 | firstFlowNodes | List<Integer> | 是 | 首节点 ID 列表，支持并行；**元素必须是已存在的 nodeId**                                  |

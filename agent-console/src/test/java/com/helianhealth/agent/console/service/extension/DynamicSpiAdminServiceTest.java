@@ -48,6 +48,8 @@ class DynamicSpiAdminServiceTest {
     @Mock
     private NodeExtensionConfigConvert extensionConfigConvert;
     @Mock
+    private WorkflowExtensionBindingService workflowExtensionBindingService;
+    @Mock
     private AgentExtensionLoader<Object> mockLoader;
 
     private DynamicSpiAdminService service;
@@ -64,14 +66,15 @@ class DynamicSpiAdminServiceTest {
                 extensionConfigCommandService,
                 extensionNodeUpdateService,
                 workflowNodeQueryService,
-                extensionConfigConvert
+                extensionConfigConvert,
+                workflowExtensionBindingService
         );
     }
 
     private NodeExtensionConfig buildConfig(Integer enabled) {
         return NodeExtensionConfig.builder()
-                .codeId(1)
-                .nodeId(NODE_IDS)
+                .configId(1)
+                .bindingIds(NODE_IDS)
                 .spiInterface(SPI_INTERFACE)
                 .extensionName(EXTENSION_NAME)
                 .className(CLASS_NAME)
@@ -83,7 +86,7 @@ class DynamicSpiAdminServiceTest {
 
     private NodeExtensionConfigCreateReq buildCreateReq() {
         NodeExtensionConfigCreateReq req = new NodeExtensionConfigCreateReq();
-        req.setNodeId(NODE_IDS);
+        req.setBindingIds(NODE_IDS);
         req.setSpiInterface(SPI_INTERFACE);
         req.setExtensionName(EXTENSION_NAME);
         req.setClassName(CLASS_NAME);
@@ -95,8 +98,8 @@ class DynamicSpiAdminServiceTest {
 
     private NodeExtensionConfigUpdateReq buildUpdateReq() {
         NodeExtensionConfigUpdateReq req = new NodeExtensionConfigUpdateReq();
-        req.setCodeId(1);
-        req.setNodeId(NODE_IDS);
+        req.setConfigId(1);
+        req.setBindingIds(NODE_IDS);
         req.setSpiInterface(SPI_INTERFACE);
         req.setExtensionName(EXTENSION_NAME);
         req.setClassName(CLASS_NAME);

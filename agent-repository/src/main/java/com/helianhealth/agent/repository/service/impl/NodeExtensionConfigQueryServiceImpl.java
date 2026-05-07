@@ -20,8 +20,8 @@ public class NodeExtensionConfigQueryServiceImpl implements NodeExtensionConfigQ
     private NodeExtensionConfigMapper nodeExtensionConfigMapper;
 
     @Override
-    public NodeExtensionConfig selectById(Integer codeId) {
-        return NodeExtensionConfigAssembler.toDomain(nodeExtensionConfigMapper.selectById(codeId));
+    public NodeExtensionConfig selectById(Integer configId) {
+        return NodeExtensionConfigAssembler.toDomain(nodeExtensionConfigMapper.selectById(configId));
     }
 
     @Override

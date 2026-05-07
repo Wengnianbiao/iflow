@@ -28,7 +28,7 @@ public class NodeExtensionConfigCommandServiceImpl implements NodeExtensionConfi
     }
 
     @Override
-    public void deleteById(Integer codeId) {
-        nodeExtensionConfigMapper.deleteById(codeId);
+    public void deleteById(Integer configId) {
+        nodeExtensionConfigMapper.deleteById(configId);
     }
 }

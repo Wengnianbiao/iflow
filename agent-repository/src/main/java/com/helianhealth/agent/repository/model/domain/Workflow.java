@@ -33,6 +33,11 @@ public class Workflow {
     private String interfaceUri;
 
     /**
+     * 入口路由扩展名（与节点 {@code remoteExtension} 对称，对应 Open API / Jarvis 路由 Handler 扩展）
+     */
+    private String routeExtension;
+
+    /**
      * 内容类型
      */
     private WorkflowContentType contentType;
