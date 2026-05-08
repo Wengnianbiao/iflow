@@ -691,8 +691,6 @@ export default {
       copied.nodeName = `${copied.nodeName}（副本）`;
       copied.flowId = null;
       copied.scheduleExpr = '';
-      copied.paramFilterExpr = '';
-      copied.keywordField = '';
       copied.splitField = '';
       copied.remoteExtension = '';
 
