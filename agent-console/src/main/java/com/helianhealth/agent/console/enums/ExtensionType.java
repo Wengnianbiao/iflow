@@ -19,10 +19,10 @@ public enum ExtensionType {
 
     /**
      * 远程调用扩展（InterfaceRemoteInvoker）
-     * - 单节点绑定
-     * - 自动更新节点的 remote_extension 字段
+     * - 支持多节点绑定
+     * - 自动更新各节点的 remote_extension 字段（同一扩展名）
      */
-    REMOTE("remote", "com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker", "远程调用扩展", false),
+    REMOTE("remote", "com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker", "远程调用扩展", true),
 
     /**
      * 开放接口工作流扩展（OpenApiRouteHandler）

@@ -13,7 +13,7 @@ public class NodeExtensionConfigCreateReq {
     /**
      * 绑定的流程节点 ID 列表（JSON 数组；与库表 binding_ids 一致）
      * <ul>
-     * <li>RemoteInvoker扩展：单节点绑定，如 {@code [1]}，自动更新节点的 remote_extension 字段</li>
+     * <li>RemoteInvoker扩展：可多节点绑定，如 {@code [1,2]}，为每个节点更新 remote_extension 字段</li>
      * <li>Filter扩展：多节点绑定，如 {@code [1,2,3]}，自动更新节点的 extension_param 字段</li>
      * </ul>
      */

@@ -16,7 +16,7 @@ import java.util.List;
  * 扩展节点字段更新服务
  * 职责：
  * - 根据扩展类型更新节点的不同字段
- * - REMOTE类型：更新节点的 remote_extension 字段（单节点绑定）
+ * - REMOTE类型：更新节点的 remote_extension 字段（可多节点绑定，每个节点写入同一扩展名）
  * - FILTER类型：更新节点的 extension_param 字段（多节点绑定）
  * - 与SPI注册逻辑完全解耦
  */
@@ -78,13 +78,14 @@ public class NodeExtensionConfigService {
     }
 
     private void updateRemoteExtensionField(String extensionName, List<Integer> nodeIds) {
-        if (nodeIds.size() != 1) {
+        if (nodeIds == null || nodeIds.isEmpty()) {
             throw new AgentException(AgentErrorCode.INVALID_NODE_ID_LIST,
-                    "Invoker接口拓展节点ID列表为空或大小不是1");
+                    "Invoker接口拓展节点ID列表不能为空");
         }
-        Integer nodeId = nodeIds.get(0);
-        WorkflowNode node = getNodeOrThrow(nodeId, "注册接口拓展类节点不存在: ");
-        workflowNodeCommandService.updateRemoteExtension(node.getNodeId(), extensionName);
+        for (Integer nodeId : nodeIds) {
+            WorkflowNode node = getNodeOrThrow(nodeId, "注册接口拓展类节点不存在: ");
+            workflowNodeCommandService.updateRemoteExtension(node.getNodeId(), extensionName);
+        }
     }
 
     private void updateExtensionParamField(String extensionName, List<Integer> nodeIds, String extensionParamValue) {

@@ -255,7 +255,7 @@ export default {
       this.dialogTitle = '编辑工作流节点扩展';
       this.interfaceExtensionForm = {
         ...detailRow,
-        bindingIds: Array.isArray(bindingIds) && bindingIds.length > 0 ? [bindingIds[0]] : [],
+        bindingIds: Array.isArray(bindingIds) ? [...bindingIds] : [],
         extensionMode: mode,
         spiType: 'InterfaceRemoteInvoker',
         selectedFlowId: null

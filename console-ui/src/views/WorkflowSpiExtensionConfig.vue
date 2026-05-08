@@ -319,7 +319,10 @@ export default {
             : null;
         this.interfaceExtensionForm = {
           ...detailRow,
-          bindingIds: Array.isArray(bindingIds) && bindingIds.length > 0 ? [bindingIds[0]] : [],
+          bindingIds:
+            spiType === 'InterfaceRemoteInvoker'
+              ? (Array.isArray(bindingIds) ? [...bindingIds] : [])
+              : [],
           extensionMode: mode,
           spiType,
           selectedFlowId

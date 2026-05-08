@@ -36,26 +36,35 @@
       <!-- 工作流节点扩展：关联节点在基础信息最前 -->
       <template v-if="formModel.spiType === 'InterfaceRemoteInvoker'">
         <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="关联节点" prop="bindingIds" required>
-              <el-select v-model="remoteBindingNodeId" placeholder="请选择要关联的节点（单选）" style="width: 100%" filterable>
+          <el-col :span="24">
+            <el-form-item label="关联节点" prop="bindingIds" :rules="nodeBindingRules">
+              <el-select
+                v-model="formModel.bindingIds"
+                multiple
+                filterable
+                collapse-tags
+                placeholder="请选择要关联的节点（可多选）"
+                style="width: 100%"
+              >
                 <el-option v-for="node in nodeList" :key="node.nodeId" :label="node.nodeName" :value="node.nodeId"></el-option>
               </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="扩展名称" prop="extensionName">
-              <el-input v-model="formModel.extensionName" placeholder="例如: pacs"></el-input>
             </el-form-item>
           </el-col>
         </el-row>
         <el-row :gutter="20">
           <el-col :span="12">
+            <el-form-item label="扩展名称" prop="extensionName">
+              <el-input v-model="formModel.extensionName" placeholder="例如: pacs"></el-input>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
             <el-form-item label="实现类全名" prop="className">
               <el-input v-model="formModel.className" placeholder="例如: com.helianhealth.agent.custom.MyRemoteInvoker"></el-input>
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="24">
             <el-form-item label="描述" prop="description">
               <el-input v-model="formModel.description" placeholder="请输入扩展描述"></el-input>
             </el-form-item>
@@ -135,15 +144,19 @@ export default {
     };
   },
   computed: {
-    /** 远程 Invoker：bindingIds 仅存 0 或 1 个节点 ID */
-    remoteBindingNodeId: {
-      get() {
-        const b = this.formModel.bindingIds;
-        return Array.isArray(b) && b.length ? b[0] : null;
-      },
-      set(v) {
-        this.$set(this.formModel, 'bindingIds', v != null ? [v] : []);
-      }
+    nodeBindingRules() {
+      return [
+        {
+          validator: (rule, value, callback) => {
+            if (!Array.isArray(value) || value.length === 0) {
+              callback(new Error('请选择至少一个关联节点'));
+            } else {
+              callback();
+            }
+          },
+          trigger: 'change'
+        }
+      ];
     },
     dialogVisible: {
       get() {
