@@ -5,7 +5,7 @@ import com.helianhealth.agent.common.exception.AgentConfigException;
 import com.helianhealth.agent.common.exception.AgentErrorCode;
 import com.helianhealth.agent.common.extension.AgentActivate;
 import com.helianhealth.agent.common.utils.JsonUtils;
-import com.helianhealth.agent.invocation.context.LogCollector;
+import com.helianhealth.agent.invocation.support.LogCollector;
 import com.helianhealth.agent.invocation.remote.InterfaceClientProxy;
 import com.helianhealth.agent.invocation.remote.database.DatabaseSqlHandler;
 import com.helianhealth.agent.invocation.remote.http.HttpRequestHandler;

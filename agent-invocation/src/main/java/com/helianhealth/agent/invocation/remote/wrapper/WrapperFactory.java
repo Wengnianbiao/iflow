@@ -34,7 +34,7 @@ public class WrapperFactory {
      * @return 包装后的调用器对象
      */
     public static InterfaceRemoteInvoker createRemoteInvokerChain(InterfaceRemoteInvoker original,
-                                                                   InterfaceInvokeLogService logService) {
+                                                                  InterfaceInvokeLogService logService) {
         return new InterfaceRemoteInvokerLogWrapper(original, logService);
     }
 }

@@ -75,7 +75,7 @@ SPI 扩展的本质：**转换上游入参 → 封装三方接口入参 → 调�
 package com.helianhealth.agent.extension;
 
 import com.helianhealth.agent.common.utils.JsonUtils;
-import com.helianhealth.agent.invocation.context.LogCollector;
+import com.helianhealth.agent.invocation.support.LogCollector;
 import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
 import com.helianhealth.agent.invocation.support.HttpUtils;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
@@ -171,7 +171,7 @@ public class ExampleInvoker implements InterfaceRemoteInvoker {
 package com.helianhealth.agent.extension;
 
 import com.helianhealth.agent.common.utils.JsonUtils;
-import com.helianhealth.agent.invocation.context.LogCollector;
+import com.helianhealth.agent.invocation.support.LogCollector;
 import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
 import com.helianhealth.agent.invocation.support.HttpUtils;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
@@ -279,7 +279,7 @@ public class DynamicSignInvoker implements InterfaceRemoteInvoker {
 package com.helianhealth.agent.extension;
 
 import com.helianhealth.agent.common.utils.JsonUtils;
-import com.helianhealth.agent.invocation.context.LogCollector;
+import com.helianhealth.agent.invocation.support.LogCollector;
 import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
 import com.helianhealth.agent.invocation.support.HttpUtils;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
@@ -415,7 +415,7 @@ public class DynamicTokenInvoker implements InterfaceRemoteInvoker {
 package com.helianhealth.agent.extension;
 
 import com.helianhealth.agent.common.utils.JsonUtils;
-import com.helianhealth.agent.invocation.context.LogCollector;
+import com.helianhealth.agent.invocation.support.LogCollector;
 import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
 import com.helianhealth.agent.invocation.support.HttpUtils;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;

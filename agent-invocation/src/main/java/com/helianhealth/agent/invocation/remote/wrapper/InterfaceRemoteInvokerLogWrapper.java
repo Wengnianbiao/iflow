@@ -1,7 +1,8 @@
 package com.helianhealth.agent.invocation.remote.wrapper;
 
-import com.helianhealth.agent.invocation.context.LogCollector;
 import com.helianhealth.agent.invocation.context.LogContext;
+import com.helianhealth.agent.invocation.context.LogLifecycle;
+import com.helianhealth.agent.invocation.support.LogCollector;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
 import com.helianhealth.agent.invocation.remote.model.Invocation;
@@ -17,13 +18,13 @@ import java.util.Map;
 @Slf4j
 public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker {
 
-    private final InterfaceInvokeLogService interfaceInvokeLogService;
-
     private final InterfaceRemoteInvoker interfaceRemoteInvoker;
+
+    private final InterfaceInvokeLogService interfaceInvokeLogService;
 
 
     public InterfaceRemoteInvokerLogWrapper(InterfaceRemoteInvoker interfaceRemoteInvoker,
-                                           InterfaceInvokeLogService interfaceInvokeLogService) {
+                                            InterfaceInvokeLogService interfaceInvokeLogService) {
         this.interfaceRemoteInvoker = interfaceRemoteInvoker;
         this.interfaceInvokeLogService = interfaceInvokeLogService;
     }
@@ -33,8 +34,8 @@ public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker 
     public Map<String, Object> remoteInvoke(WorkflowNode flowNode, Invocation invocation) {
         long startTime = System.currentTimeMillis();
 
-        // 使用门面初始化日志上下文
-        LogCollector.init();
+        // 初始化日志上下文（框架内部生命周期 API）
+        LogLifecycle.init();
         LogCollector.collectNodeName(flowNode.getNodeName());
 
         Map<String, Object> businessData = invocation.getBusinessData();
@@ -64,7 +65,7 @@ public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker 
             throw e;
         } finally {
             try {
-                LogContext context = LogCollector.getContext();
+                LogContext context = LogLifecycle.getContext();
                 if (context != null && context.getInvokeTime() == null) {
                     context.setInvokeTime(String.valueOf(System.currentTimeMillis() - startTime));
                 }
@@ -74,7 +75,7 @@ public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker 
                 log.error("日志保存失败", e);
             } finally {
                 // 清除ThreadLocal数据，防止内存泄漏
-                LogCollector.clear();
+                LogLifecycle.clear();
             }
         }
     }
@@ -140,6 +141,9 @@ public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker 
     }
 
     private void saveAllCollectedLogs(LogContext context) {
+        if (context == null) {
+            return;
+        }
         try {
             InvokeLogDTO dto = InvokeLogDTO.builder()
                     .nodeName(context.getNodeName())

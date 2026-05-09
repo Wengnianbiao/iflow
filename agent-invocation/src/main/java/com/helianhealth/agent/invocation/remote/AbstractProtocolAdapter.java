@@ -1,7 +1,7 @@
 package com.helianhealth.agent.invocation.remote;
 
 import com.helianhealth.agent.common.utils.JsonUtils;
-import com.helianhealth.agent.invocation.context.LogCollector;
+import com.helianhealth.agent.invocation.support.LogCollector;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 
