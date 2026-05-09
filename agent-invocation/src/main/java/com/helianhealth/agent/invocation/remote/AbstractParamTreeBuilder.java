@@ -201,8 +201,10 @@ public abstract class AbstractParamTreeBuilder implements ParamTree {
                 // 基本类型：从业务数据中取值（根据mappingRule映射）
                 Map<String, Object> dataSource = config.getMappingSource() == MappingSource.INPUT ?
                         context.getCurrentInputData() : context.getCurrentResponseData();
-                node.setParamValue(resolveValue(config, dataSource,
-                        context.getRootInputData(), context.getRootResponseData()));
+                Object rawValue = resolveValue(config, dataSource,
+                        context.getRootInputData(), context.getRootResponseData());
+                Object convertedValue = typeHandler.convert(rawValue, config.getTargetParamType());
+                node.setParamValue(convertedValue);
         }
 
         return node;
