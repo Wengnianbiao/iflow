@@ -1,4 +1,4 @@
-package com.helianhealth.agent.repository.mapper.hems;
+package com.helianhealth.agent.mapper.hems;
 
 import org.apache.ibatis.annotations.Select;
 

@@ -1,4 +1,4 @@
-package com.helianhealth.agent.repository.config;
+package com.helianhealth.agent.config;
 
 import com.alibaba.druid.spring.boot.autoconfigure.DruidDataSourceBuilder;
 import org.apache.ibatis.session.SqlSessionFactory;
