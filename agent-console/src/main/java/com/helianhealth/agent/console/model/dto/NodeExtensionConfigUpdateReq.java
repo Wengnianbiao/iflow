@@ -65,8 +65,4 @@ public class NodeExtensionConfigUpdateReq {
      */
     private String extensionParamValue;
 
-    /**
-     * 仅工作流路由类扩展：要绑定的工作流 ID，同步更新 {@code interface_workflow.route_extension}。
-     */
-    private Integer bindFlowId;
 }

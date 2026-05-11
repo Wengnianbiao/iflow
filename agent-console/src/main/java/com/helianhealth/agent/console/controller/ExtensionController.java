@@ -1,9 +1,11 @@
-package com.helianhealth.agent.console.controller.extension;
+package com.helianhealth.agent.console.controller;
 
 import com.helianhealth.agent.console.controller.request.NodeExtensionConfigCreateReq;
+import com.helianhealth.agent.console.controller.request.WorkflowExtensionBindingUpdateReq;
 import com.helianhealth.agent.console.enums.ExtensionType;
 import com.helianhealth.agent.console.model.dto.NodeExtensionConfigDetailResponse;
 import com.helianhealth.agent.console.model.dto.NodeExtensionConfigUpdateReq;
+import com.helianhealth.agent.console.model.dto.WorkflowExtensionBindingDTO;
 import com.helianhealth.agent.console.service.extension.DynamicSpiAdminService;
 import com.helianhealth.agent.repository.model.domain.NodeExtensionConfig;
 import lombok.extern.slf4j.Slf4j;
@@ -31,7 +33,6 @@ public class ExtensionController {
     public void registerExtension(@PathVariable String extensionType, @RequestBody NodeExtensionConfigCreateReq request) {
         ExtensionType type = ExtensionType.fromCode(extensionType);
         request.setSpiInterface(type.getSpiInterface());
-        validateNodeBinding(type, request);
 
         dynamicSpiAdminService.registerExtension(type, request);
     }
@@ -40,7 +41,6 @@ public class ExtensionController {
     public void updateExtension(@PathVariable String extensionType, @RequestBody NodeExtensionConfigUpdateReq request) {
         ExtensionType type = ExtensionType.fromCode(extensionType);
         request.setSpiInterface(type.getSpiInterface());
-        validateNodeBindingForUpdate(type, request);
 
         dynamicSpiAdminService.updateExtension(type, request);
     }
@@ -86,17 +86,16 @@ public class ExtensionController {
         return ExtensionType.values();
     }
 
-    private void validateNodeBinding(ExtensionType type, NodeExtensionConfigCreateReq request) {
-        if (!isNodeScopedType(type)) {
-            return;
-        }
-        if (type.isMultiNodeSupported()) {
-            // 多节点类型：至少绑定一个节点
-            if (request.getBindingIds() == null || request.getBindingIds().isEmpty()) {
-                throw new IllegalArgumentException(type.getDescription() + "必须至少绑定一个节点");
-            }
-        }
-        // 单节点类型不做强制校验，允许为空（通用扩展）
+    // ==================== 工作流-路由扩展绑定（维护 interface_workflow.route_extension）====================
+
+    @GetMapping("/workflow/binding/list")
+    public List<WorkflowExtensionBindingDTO> listWorkflowBindings() {
+        return dynamicSpiAdminService.listWorkflowBindings();
+    }
+
+    @PostMapping("/workflow/binding/update")
+    public void updateWorkflowBinding(@RequestBody WorkflowExtensionBindingUpdateReq request) {
+        dynamicSpiAdminService.updateWorkflowBinding(request);
     }
 
     private void validateNodeBindingForUpdate(ExtensionType type, NodeExtensionConfigUpdateReq request) {

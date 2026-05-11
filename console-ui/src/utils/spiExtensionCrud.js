@@ -1,58 +1,31 @@
 import {
-  disableFilterExtension,
-  disableWorkflowExtension,
-  disableWorkflowNodeExtension,
-  deleteFilterExtension,
-  deleteWorkflowExtension,
-  deleteWorkflowNodeExtension,
-  enableFilterExtension,
-  enableWorkflowExtension,
-  enableWorkflowNodeExtension,
-  getFilterExtensionDetail,
-  getWorkflowExtensionDetail,
-  getWorkflowNodeExtensionDetail
+  deleteExtension,
+  disableExtension,
+  enableExtension,
+  getExtensionDetail
 } from '@/api/extension';
 
-/** @param {{ spiInterface: string, configId: number }} row */
+/**
+ * 后端 ExtensionController 已提供统一的 detail/enable/disable/delete 接口（按 configId 操作），
+ * 不再需要按 spiInterface 分发到不同 URL。以下函数保留 row 参数签名以减少调用方改动。
+ */
+
+/** @param {{ configId: number }} row */
 export function loadExtensionDetailRequest(row) {
-  if (row.spiInterface === 'com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker') {
-    return getWorkflowNodeExtensionDetail(row.configId);
-  }
-  if (row.spiInterface === 'com.helianhealth.agent.invocation.remote.filter.AgentFilter') {
-    return getFilterExtensionDetail(row.configId);
-  }
-  return getWorkflowExtensionDetail(row.configId);
+  return getExtensionDetail(row.configId);
 }
 
-/** @param {{ spiInterface: string, configId: number }} row */
+/** @param {{ configId: number }} row */
 export function enableExtensionRequest(row) {
-  if (row.spiInterface === 'com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker') {
-    return enableWorkflowNodeExtension(row.configId);
-  }
-  if (row.spiInterface === 'com.helianhealth.agent.invocation.remote.filter.AgentFilter') {
-    return enableFilterExtension(row.configId);
-  }
-  return enableWorkflowExtension(row.configId);
+  return enableExtension(row.configId);
 }
 
-/** @param {{ spiInterface: string, configId: number }} row */
+/** @param {{ configId: number }} row */
 export function disableExtensionRequest(row) {
-  if (row.spiInterface === 'com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker') {
-    return disableWorkflowNodeExtension(row.configId);
-  }
-  if (row.spiInterface === 'com.helianhealth.agent.invocation.remote.filter.AgentFilter') {
-    return disableFilterExtension(row.configId);
-  }
-  return disableWorkflowExtension(row.configId);
+  return disableExtension(row.configId);
 }
 
-/** @param {{ spiInterface: string, configId: number }} row */
+/** @param {{ configId: number }} row */
 export function deleteExtensionRequest(row) {
-  if (row.spiInterface === 'com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker') {
-    return deleteWorkflowNodeExtension(row.configId);
-  }
-  if (row.spiInterface === 'com.helianhealth.agent.invocation.remote.filter.AgentFilter') {
-    return deleteFilterExtension(row.configId);
-  }
-  return deleteWorkflowExtension(row.configId);
+  return deleteExtension(row.configId);
 }

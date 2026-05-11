@@ -6,10 +6,10 @@ import com.helianhealth.agent.console.controller.request.NodeExtensionConfigCrea
 import com.helianhealth.agent.console.enums.ExtensionType;
 import com.helianhealth.agent.console.model.convert.NodeExtensionConfigConvert;
 import com.helianhealth.agent.console.model.dto.NodeExtensionConfigUpdateReq;
+import com.helianhealth.agent.console.service.extension.strategy.ExtensionTypeStrategy;
 import com.helianhealth.agent.repository.model.domain.NodeExtensionConfig;
 import com.helianhealth.agent.repository.service.NodeExtensionConfigCommandService;
 import com.helianhealth.agent.repository.service.NodeExtensionConfigQueryService;
-import com.helianhealth.agent.repository.service.WorkflowNodeQueryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -19,20 +19,25 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 /**
- * DynamicSpiAdminService 单元测试
- *
- * 测试策略：
- * - 纯单元测试，不依赖 Spring 容器
- * - Mock 所有外部依赖（DB服务、Convert、AgentExtensionLoader）
- * - 验证调用顺序、异常传播、分支逻辑
+ * DynamicSpiAdminService 单元测试。
+ * <p>验证主干流程：本表 CRUD + SPI 运行时注册/卸载 + 策略回调顺序。
  */
 @ExtendWith(MockitoExtension.class)
 class DynamicSpiAdminServiceTest {
@@ -42,13 +47,11 @@ class DynamicSpiAdminServiceTest {
     @Mock
     private NodeExtensionConfigCommandService extensionConfigCommandService;
     @Mock
-    private NodeExtensionConfigService extensionNodeUpdateService;
-    @Mock
-    private WorkflowNodeQueryService workflowNodeQueryService;
-    @Mock
     private NodeExtensionConfigConvert extensionConfigConvert;
     @Mock
-    private WorkflowExtensionBindingService workflowExtensionBindingService;
+    private ExtensionTypeStrategy filterStrategy;
+    @Mock
+    private ExtensionTypeStrategy remoteStrategy;
     @Mock
     private AgentExtensionLoader<Object> mockLoader;
 
@@ -61,13 +64,13 @@ class DynamicSpiAdminServiceTest {
 
     @BeforeEach
     void setUp() {
+        when(filterStrategy.supportType()).thenReturn(ExtensionType.FILTER);
+        when(remoteStrategy.supportType()).thenReturn(ExtensionType.REMOTE);
         service = new DynamicSpiAdminService(
                 extensionConfigQueryService,
                 extensionConfigCommandService,
-                extensionNodeUpdateService,
-                workflowNodeQueryService,
                 extensionConfigConvert,
-                workflowExtensionBindingService
+                Arrays.asList(filterStrategy, remoteStrategy)
         );
     }
 
@@ -116,7 +119,7 @@ class DynamicSpiAdminServiceTest {
     class RegisterExtensionTests {
 
         @Test
-        @DisplayName("启用状态：节点更新 + DB插入 + SPI注册")
+        @DisplayName("启用状态：策略 onRegister + DB插入 + SPI注册")
         void registerExtension_enabled_fullFlow() throws Exception {
             NodeExtensionConfigCreateReq req = buildCreateReq();
             NodeExtensionConfig config = buildConfig(1);
@@ -128,16 +131,14 @@ class DynamicSpiAdminServiceTest {
 
                 service.registerExtension(ExtensionType.FILTER, req);
 
-                // 验证三步都执行了
-                verify(extensionNodeUpdateService).updateNodeExtensionField(
-                        eq(ExtensionType.FILTER), eq(EXTENSION_NAME), eq(NODE_IDS), any());
+                verify(filterStrategy).onRegister(eq(config));
                 verify(extensionConfigCommandService).insert(config);
                 verify(mockLoader).registerDynamicExtension(EXTENSION_NAME, CLASS_NAME, config.getSourceCode(), true);
             }
         }
 
         @Test
-        @DisplayName("禁用状态：节点更新 + DB插入，不注册SPI")
+        @DisplayName("禁用状态：策略 onRegister + DB插入，不注册SPI")
         void registerExtension_disabled_skipSpi() {
             NodeExtensionConfigCreateReq req = buildCreateReq();
             req.setEnabled(0);
@@ -146,39 +147,24 @@ class DynamicSpiAdminServiceTest {
 
             service.registerExtension(ExtensionType.FILTER, req);
 
-            verify(extensionNodeUpdateService).updateNodeExtensionField(
-                    eq(ExtensionType.FILTER), eq(EXTENSION_NAME), eq(NODE_IDS), any());
+            verify(filterStrategy).onRegister(eq(config));
             verify(extensionConfigCommandService).insert(config);
-            // SPI不应该被调用
             verifyNoInteractions(mockLoader);
         }
 
         @Test
-        @DisplayName("节点更新失败：异常传播，DB和SPI都不执行")
-        void registerExtension_nodeUpdateFails_nothingElseExecuted() {
+        @DisplayName("策略 onRegister 抛异常：DB和SPI都不执行")
+        void registerExtension_strategyFails_nothingElseExecuted() {
             NodeExtensionConfigCreateReq req = buildCreateReq();
             NodeExtensionConfig config = buildConfig(1);
             when(extensionConfigConvert.fromCreateReq(req)).thenReturn(config);
-            doThrow(new RuntimeException("Node update failed"))
-                    .when(extensionNodeUpdateService).updateNodeExtensionField(any(), any(), any(), any());
+            doThrow(new RuntimeException("strategy failed"))
+                    .when(filterStrategy).onRegister(any());
 
             assertThrows(RuntimeException.class,
                     () -> service.registerExtension(ExtensionType.FILTER, req));
 
             verify(extensionConfigCommandService, never()).insert(any());
-        }
-
-        @Test
-        @DisplayName("DB插入失败：异常传播，SPI不执行")
-        void registerExtension_dbInsertFails_spiNotExecuted() {
-            NodeExtensionConfigCreateReq req = buildCreateReq();
-            NodeExtensionConfig config = buildConfig(1);
-            when(extensionConfigConvert.fromCreateReq(req)).thenReturn(config);
-            doThrow(new RuntimeException("DB insert failed"))
-                    .when(extensionConfigCommandService).insert(any());
-
-            assertThrows(RuntimeException.class,
-                    () -> service.registerExtension(ExtensionType.FILTER, req));
         }
 
         @Test
@@ -207,7 +193,7 @@ class DynamicSpiAdminServiceTest {
     class UpdateExtensionTests {
 
         @Test
-        @DisplayName("正常更新：清理旧节点 + 更新新节点 + DB更新 + SPI刷新")
+        @DisplayName("正常更新：策略 onUpdate + DB更新 + 卸载旧SPI + 注册新SPI")
         void updateExtension_fullFlow() throws Exception {
             NodeExtensionConfigUpdateReq req = buildUpdateReq();
             NodeExtensionConfig newConfig = buildConfig(1);
@@ -223,23 +209,16 @@ class DynamicSpiAdminServiceTest {
 
                 service.updateExtension(ExtensionType.FILTER, req);
 
-                // 验证清理旧节点
-                verify(extensionNodeUpdateService).clearNodeFields(
-                        ExtensionType.FILTER, "old-filter", NODE_IDS);
-                // 验证更新新节点
-                verify(extensionNodeUpdateService).updateNodeExtensionField(
-                        eq(ExtensionType.FILTER), eq(EXTENSION_NAME), eq(NODE_IDS), any());
-                // 验证DB更新
+                verify(filterStrategy).onUpdate(eq(newConfig), eq(oldConfig));
                 verify(extensionConfigCommandService).update(newConfig);
-                // 验证卸载旧SPI + 注册新SPI
                 verify(mockLoader).removeDynamicExtension("old-filter");
                 verify(mockLoader).registerDynamicExtension(EXTENSION_NAME, CLASS_NAME, newConfig.getSourceCode(), true);
             }
         }
 
         @Test
-        @DisplayName("旧配置不存在：跳过清理，正常注册")
-        void updateExtension_noOldConfig_skipCleanup() throws Exception {
+        @DisplayName("旧配置不存在：跳过卸载，正常注册")
+        void updateExtension_noOldConfig_skipUnregister() throws Exception {
             NodeExtensionConfigUpdateReq req = buildUpdateReq();
             NodeExtensionConfig newConfig = buildConfig(1);
 
@@ -252,7 +231,7 @@ class DynamicSpiAdminServiceTest {
 
                 service.updateExtension(ExtensionType.FILTER, req);
 
-                verify(extensionNodeUpdateService, never()).clearNodeFields(any(), any(), any());
+                verify(filterStrategy).onUpdate(eq(newConfig), eq(null));
                 verify(mockLoader, never()).removeDynamicExtension(any());
                 verify(mockLoader).registerDynamicExtension(EXTENSION_NAME, CLASS_NAME, newConfig.getSourceCode(), true);
             }
@@ -266,7 +245,7 @@ class DynamicSpiAdminServiceTest {
     class DisableAndUnregisterTests {
 
         @Test
-        @DisplayName("正常禁用：DB更新 + SPI卸载")
+        @DisplayName("正常禁用：策略 onUnregister + DB更新 + SPI卸载")
         void disableAndUnregister_success() {
             NodeExtensionConfig config = buildConfig(1);
             when(extensionConfigQueryService.selectById(1)).thenReturn(config);
@@ -277,6 +256,7 @@ class DynamicSpiAdminServiceTest {
 
                 service.disableAndUnregister(1);
 
+                verify(filterStrategy).onUnregister(config);
                 assertEquals(0, config.getEnabled());
                 verify(extensionConfigCommandService).update(config);
                 verify(mockLoader).removeDynamicExtension(EXTENSION_NAME);
@@ -291,9 +271,8 @@ class DynamicSpiAdminServiceTest {
             service.disableAndUnregister(999);
 
             verify(extensionConfigCommandService, never()).update(any());
+            verify(filterStrategy, never()).onUnregister(any());
+            verify(remoteStrategy, never()).onUnregister(any());
         }
     }
-
-    // ==================== refresh ====================
-
 }

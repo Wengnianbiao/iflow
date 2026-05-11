@@ -5,10 +5,10 @@ spring:
   datasource:
     agent:
       type: com.alibaba.druid.pool.DruidDataSource
-      driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
-      url: jdbc:sqlserver://10.20.4.245:1433;DatabaseName=interface_agent_http;encrypt=false;trustServerCertificate=false
-      username: sa
-      password: Hjk@2022!@
+      driver-class-name: com.mysql.cj.jdbc.Driver
+      url: jdbc:mysql://127.0.0.1:3306/interface_agent?useUnicode=true&characterEncoding=utf8&useSSL=false
+      username: root
+      password: weng@617
       initial-size: 10
       max-active: 100
       min-idle: 10
@@ -17,10 +17,10 @@ spring:
       test-while-idle: true
     hems:
       type: com.alibaba.druid.pool.DruidDataSource
-      driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
-      url: jdbc:sqlserver://10.20.4.245:1433;DatabaseName=HEMS_V5
-      username: sa
-      password: Hjk@2022!@
+      driver-class-name: org.opengauss.Driver
+      url: jdbc:opengauss://10.20.4.98:5433/mydb?currentSchema=hems
+      username: myuser
+      password: Helian!123
       initial-size: 10
       max-active: 100
       min-idle: 10
@@ -29,5 +29,5 @@ spring:
       test-while-idle: true
 
 pagehelper:
-  helper-dialect: sqlserver
+  helper-dialect: mysql
 

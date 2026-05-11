@@ -398,32 +398,20 @@ export default {
       this.saveLoading = true;
       try {
         const bindFlowId = this.interfaceExtensionForm.selectedFlowId || null;
+        const isRouteType =
+          this.interfaceExtensionForm.spiType === 'OpenApiRouteHandler' ||
+          this.interfaceExtensionForm.spiType === 'JarvisRouteHandler';
         const submitData = {
           ...this.interfaceExtensionForm,
-          bindFlowId:
-            this.interfaceExtensionForm.spiType === 'OpenApiRouteHandler' ||
-            this.interfaceExtensionForm.spiType === 'JarvisRouteHandler'
-              ? bindFlowId
-              : undefined,
-          bindingIds:
-            this.interfaceExtensionForm.spiType === 'OpenApiRouteHandler' ||
-            this.interfaceExtensionForm.spiType === 'JarvisRouteHandler'
-              ? []
-              : Array.isArray(this.interfaceExtensionForm.bindingIds) &&
-                  this.interfaceExtensionForm.bindingIds.length
+          bindingIds: isRouteType
+            ? (bindFlowId != null ? [bindFlowId] : [])
+            : (Array.isArray(this.interfaceExtensionForm.bindingIds) &&
+                this.interfaceExtensionForm.bindingIds.length
                 ? this.interfaceExtensionForm.bindingIds
-                : []
+                : [])
         };
         delete submitData.selectedFlowId;
         if (submitData.extensionMode === 'PROJECT') delete submitData.sourceCode;
-        if (
-          !(
-            this.interfaceExtensionForm.spiType === 'OpenApiRouteHandler' ||
-            this.interfaceExtensionForm.spiType === 'JarvisRouteHandler'
-          )
-        ) {
-          delete submitData.bindFlowId;
-        }
 
         const isWorkflowType = this.interfaceExtensionForm.spiType === 'OpenApiRouteHandler';
         const isJarvisWorkflowType = this.interfaceExtensionForm.spiType === 'JarvisRouteHandler';
