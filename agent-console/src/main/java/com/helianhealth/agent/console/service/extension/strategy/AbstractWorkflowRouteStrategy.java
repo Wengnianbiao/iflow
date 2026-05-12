@@ -87,10 +87,7 @@ public abstract class AbstractWorkflowRouteStrategy implements ExtensionTypeStra
             validateExtensionEnabled(routeExtension);
         }
 
-        Workflow update = new Workflow();
-        update.setFlowId(request.getFlowId());
-        update.setRouteExtension(routeExtension);
-        workflowCommandService.updateWorkflow(update);
+        workflowCommandService.updateRouteExtension(request.getFlowId(), routeExtension);
     }
 
     /**
@@ -111,17 +108,11 @@ public abstract class AbstractWorkflowRouteStrategy implements ExtensionTypeStra
                 continue;
             }
             if (re.equals(target) || (re.equals(prev))) {
-                Workflow clear = new Workflow();
-                clear.setFlowId(w.getFlowId());
-                clear.setRouteExtension(null);
-                workflowCommandService.updateWorkflow(clear);
+                workflowCommandService.updateRouteExtension(w.getFlowId(), null);
             }
         }
         if (bindFlowId != null) {
-            Workflow bind = new Workflow();
-            bind.setFlowId(bindFlowId);
-            bind.setRouteExtension(target);
-            workflowCommandService.updateWorkflow(bind);
+            workflowCommandService.updateRouteExtension(bindFlowId, target);
         }
     }
 

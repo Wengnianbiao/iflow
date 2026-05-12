@@ -54,4 +54,10 @@
         from interface_workflow
         where status = 1
     </select>
+
+    <update id="updateRouteExtension">
+        UPDATE interface_workflow
+        SET route_extension = #{routeExtension}
+        WHERE flow_id = #{flowId}
+    </update>
 </mapper>

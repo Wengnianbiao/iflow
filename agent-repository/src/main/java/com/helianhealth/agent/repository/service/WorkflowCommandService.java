@@ -12,4 +12,9 @@ public interface WorkflowCommandService {
     int updateWorkflow(Workflow workflow);
 
     void deleteWorkflow(Integer flowId);
+
+    /**
+     * 更新工作流的 route_extension 字段（支持置空）
+     */
+    int updateRouteExtension(Integer flowId, String routeExtension);
 }

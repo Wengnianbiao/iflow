@@ -38,4 +38,9 @@ public class WorkflowCommandServiceImpl implements WorkflowCommandService {
         workflowMapper.deleteByPrimaryKey(flowId);
     }
 
+    @Override
+    public int updateRouteExtension(Integer flowId, String routeExtension) {
+        return workflowMapper.updateRouteExtension(flowId, routeExtension);
+    }
+
 }
