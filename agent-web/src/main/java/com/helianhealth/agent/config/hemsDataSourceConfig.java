@@ -17,19 +17,19 @@ import javax.sql.DataSource;
 
 @Configuration
 @MapperScan(
-    basePackages = {"com.helianhealth.agent.repository.mapper.hems"},
-    sqlSessionTemplateRef = "repositoryHemsSqlSessionTemplate"
+    basePackages = {"com.helianhealth.agent.mapper.hems"},
+    sqlSessionTemplateRef = "hemsSqlSessionTemplate"
 )
-public class RepositoryHemsDataSourceConfig {
+public class hemsDataSourceConfig {
 
-    @Bean(name = "repositoryHemsDataSource")
+    @Bean(name = "hemsDataSource")
     @ConfigurationProperties(prefix = "spring.datasource.hems")
     public DataSource dataSource() {
         return DruidDataSourceBuilder.create().build();
     }
 
-    @Bean(name = "repositoryHemsSqlSessionFactory")
-    public SqlSessionFactory sqlSessionFactory(@Qualifier("repositoryHemsDataSource") DataSource dataSource) throws Exception {
+    @Bean(name = "hemsSqlSessionFactory")
+    public SqlSessionFactory sqlSessionFactory(@Qualifier("hemsDataSource") DataSource dataSource) throws Exception {
         SqlSessionFactoryBean bean = new SqlSessionFactoryBean();
         bean.setDataSource(dataSource);
         bean.setMapperLocations(new PathMatchingResourcePatternResolver()
@@ -40,13 +40,13 @@ public class RepositoryHemsDataSourceConfig {
         return bean.getObject();
     }
 
-    @Bean(name = "repositoryHemsSqlSessionTemplate")
-    public SqlSessionTemplate sqlSessionTemplate(@Qualifier("repositoryHemsSqlSessionFactory") SqlSessionFactory sqlSessionFactory) {
+    @Bean(name = "hemsSqlSessionTemplate")
+    public SqlSessionTemplate sqlSessionTemplate(@Qualifier("hemsSqlSessionFactory") SqlSessionFactory sqlSessionFactory) {
         return new SqlSessionTemplate(sqlSessionFactory);
     }
 
-    @Bean(name = "repositoryHemsTransactionManager")
-    public DataSourceTransactionManager transactionManager(@Qualifier("repositoryHemsDataSource") DataSource ds) {
+    @Bean(name = "hemsTransactionManager")
+    public DataSourceTransactionManager transactionManager(@Qualifier("hemsDataSource") DataSource ds) {
         return new DataSourceTransactionManager(ds);
     }
 
@@ -55,7 +55,7 @@ public class RepositoryHemsDataSourceConfig {
      * 供自定义 SPI 扩展执行动态 SQL
      */
     @Bean(name = "hemsJdbcTemplate")
-    public JdbcTemplate hemsJdbcTemplate(@Qualifier("repositoryHemsDataSource") DataSource dataSource) {
+    public JdbcTemplate hemsJdbcTemplate(@Qualifier("hemsDataSource") DataSource dataSource) {
         return new JdbcTemplate(dataSource);
     }
 }
