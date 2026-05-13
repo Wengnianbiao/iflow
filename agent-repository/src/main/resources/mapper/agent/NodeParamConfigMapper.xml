@@ -157,4 +157,31 @@
             mapping_rule = #{mappingRule,jdbcType=VARCHAR}
         WHERE config_id = #{configId}
     </update>
+    <select id="selectByPrimaryKey" resultMap="NodeParamConfigResultMap">
+        SELECT * FROM node_param_config WHERE config_id = #{configId}
+    </select>
+
+    <update id="updateByPrimaryKeySelective" parameterType="com.helianhealth.agent.repository.model.po.NodeParamConfigPO">
+        UPDATE node_param_config
+        <set>
+            <if test="processType != null">process_type = #{processType},</if>
+            <if test="nodeId != null">node_id = #{nodeId},</if>
+            <if test="parentId != null">parent_id = #{parentId},</if>
+            <if test="sourceParamKey != null">source_param_key = #{sourceParamKey},</if>
+            <if test="sourceParamType != null">source_param_type = #{sourceParamType},</if>
+            <if test="paramDesc != null">param_desc = #{paramDesc},</if>
+            <if test="targetParamKey != null">target_param_key = #{targetParamKey},</if>
+            <if test="targetParamType != null">target_param_type = #{targetParamType},</if>
+            <if test="keepSingleElementKey != null">keep_single_element_key = #{keepSingleElementKey},</if>
+            <if test="sort != null">sort = #{sort},</if>
+            <if test="mappingSource != null">mapping_source = #{mappingSource},</if>
+            <if test="mappingType != null">mapping_type = #{mappingType},</if>
+            <if test="mappingRule != null">mapping_rule = #{mappingRule},</if>
+        </set>
+        WHERE config_id = #{configId}
+    </update>
+
+    <delete id="deleteByPrimaryKey">
+        DELETE FROM node_param_config WHERE config_id = #{configId}
+    </delete>
 </mapper>

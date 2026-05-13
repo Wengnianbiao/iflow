@@ -1,20 +1,14 @@
-package com.helianhealth.agent.repository.model.dto;
+package com.helianhealth.agent.ai.model;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.util.Date;
 
 /**
- * 调用日志查询响应
+ * MCP 调用日志视图
  */
 @Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class InvokeLogVO {
+public class InvokeLogMcpView {
 
     private Long logId;
 
@@ -28,9 +22,6 @@ public class InvokeLogVO {
 
     private String remoteInvokeResponse;
 
-    /**
-     * 接口响应解析后数据
-     */
     private String remoteInvokeResponseParsed;
 
     private String paramAfterInvoke;

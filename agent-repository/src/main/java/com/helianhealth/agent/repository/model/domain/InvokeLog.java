@@ -1,18 +1,22 @@
-package com.helianhealth.agent.repository.model.dto;
+package com.helianhealth.agent.repository.model.domain;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.Date;
+
 /**
- * 调用日志写入请求
+ * 接口调用日志领域模型
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class InvokeLogDTO {
+public class InvokeLog {
+
+    private Long logId;
 
     private String nodeName;
 
@@ -31,4 +35,6 @@ public class InvokeLogDTO {
     private String invokeTime;
 
     private String errorMessage;
+
+    private Date createTime;
 }

@@ -12,18 +12,24 @@ import java.util.List;
 @Mapper
 public interface NodeExtensionConfigMapper {
 
+    /** 根据启用状态查询 */
     List<NodeExtensionConfigPO> selectByEnabled(@Param("enabled") Integer enabled);
 
-    NodeExtensionConfigPO selectById(@Param("configId") Integer configId);
+    /** 根据ID查询 */
+    NodeExtensionConfigPO selectById(Integer configId);
 
-    NodeExtensionConfigPO selectBySpiInterfaceAndExtension(@Param("spiInterface") String spiInterface,
-                                                           @Param("extensionName") String extensionName);
+    /** 根据SPI接口和扩展名称查询 */
+    NodeExtensionConfigPO selectBySpiInterfaceAndExtension(@Param("spiInterface") String spiInterface, @Param("extensionName") String extensionName);
 
-    void insert(NodeExtensionConfigPO record);
+    /** 插入新记录 */
+    int insert(NodeExtensionConfigPO config);
 
-    void update(NodeExtensionConfigPO record);
+    /** 更新记录 */
+    int update(NodeExtensionConfigPO config);
 
-    void deleteById(@Param("configId") Integer configId);
+    /** 根据ID删除 */
+    int deleteById(Integer configId);
 
+    /** 根据SPI接口查询所有配置 */
     List<NodeExtensionConfigPO> selectBySpiInterface(@Param("spiInterface") String spiInterface);
 }

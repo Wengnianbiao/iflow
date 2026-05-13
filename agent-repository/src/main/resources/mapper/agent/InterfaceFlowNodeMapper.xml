@@ -144,4 +144,8 @@
             schedule_expr = #{scheduleExpr,jdbcType=VARCHAR}
         WHERE node_id = #{nodeId}
     </update>
+
+    <delete id="deleteByNodeId">
+        DELETE FROM interface_workflow_node WHERE node_id = #{nodeId}
+    </delete>
 </mapper>

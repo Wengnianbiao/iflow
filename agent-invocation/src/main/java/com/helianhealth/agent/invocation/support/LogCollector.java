@@ -3,7 +3,7 @@ package com.helianhealth.agent.invocation.support;
 import com.helianhealth.agent.common.utils.SpringContextHolder;
 import com.helianhealth.agent.invocation.context.InvocationLogContextHolder;
 import com.helianhealth.agent.invocation.context.LogContext;
-import com.helianhealth.agent.repository.model.dto.InvokeLogDTO;
+import com.helianhealth.agent.repository.model.domain.InvokeLog;
 import com.helianhealth.agent.repository.service.InterfaceInvokeLogService;
 import lombok.extern.slf4j.Slf4j;
 
@@ -140,7 +140,7 @@ public final class LogCollector {
                                      long invokeTimeMs) {
         try {
             InterfaceInvokeLogService logService = SpringContextHolder.getBean(InterfaceInvokeLogService.class);
-            logService.saveInvokeLog(InvokeLogDTO.builder()
+            logService.saveInvokeLog(InvokeLog.builder()
                     .nodeName(nodeName)
                     .keyword(keyword)
                     .businessData(request)

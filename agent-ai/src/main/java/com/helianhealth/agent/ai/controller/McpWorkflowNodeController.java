@@ -1,13 +1,15 @@
 package com.helianhealth.agent.ai.controller;
 
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.TypeReference;
 import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.common.enums.NodeType;
 import com.helianhealth.agent.common.enums.ScheduleParamSourceType;
 import com.helianhealth.agent.common.utils.JsonUtils;
+import com.helianhealth.agent.ai.model.WorkflowNodeMcpView;
 import com.helianhealth.agent.ai.model.WorkflowNodeCreateMcpRequest;
 import com.helianhealth.agent.ai.model.WorkflowNodeUpdateMcpRequest;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
-import com.helianhealth.agent.repository.model.dto.InterfaceWorkflowNodeView;
 import com.helianhealth.agent.repository.service.WorkflowNodeCommandService;
 import com.helianhealth.agent.repository.service.WorkflowNodeQueryService;
 import lombok.AllArgsConstructor;
@@ -21,6 +23,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * MCP接口 - 工作流节点管理
@@ -40,10 +44,12 @@ public class McpWorkflowNodeController {
      * 用于AI获取当前系统中的所有节点及其ID
      */
     @GetMapping("/list")
-    public ResultData<List<InterfaceWorkflowNodeView>> listAllNodes() {
+    public ResultData<List<WorkflowNodeMcpView>> listAllNodes() {
         try {
             log.info("MCP查询所有工作流节点");
-            List<InterfaceWorkflowNodeView> views = workflowNodeQueryService.selectAllNodes(null);
+            List<WorkflowNodeMcpView> views = workflowNodeQueryService.selectAllNodes(null).stream()
+                    .map(this::toNodeView)
+                    .collect(Collectors.toList());
             return ResultData.ok(views);
         } catch (Exception e) {
             log.error("MCP查询工作流节点列表失败", e);
@@ -134,7 +140,7 @@ public class McpWorkflowNodeController {
                 .scheduleExpr(request.getScheduleExpr())
                 .splitField(request.getSplitField())
                 .remoteExtension(request.getRemoteExtension())
-                .extensionParam(request.getExtensionParam() != null ? JsonUtils.parseStringMap(request.getExtensionParam()) : null)
+                .extensionParam(parseExtensionParam(request.getExtensionParam()))
                 .scheduleParamSourceType(parseScheduleParamSourceType(request.getScheduleParamSourceType()))
                 .build();
     }
@@ -153,7 +159,7 @@ public class McpWorkflowNodeController {
                 .keywordField(request.getKeywordField())
                 .splitField(request.getSplitField())
                 .remoteExtension(request.getRemoteExtension())
-                .extensionParam(request.getExtensionParam() != null ? JsonUtils.parseStringMap(request.getExtensionParam()) : null)
+                .extensionParam(parseExtensionParam(request.getExtensionParam()))
                 .scheduleExpr(request.getScheduleExpr())
                 .scheduleParamSourceType(parseScheduleParamSourceType(request.getScheduleParamSourceType()))
                 .build();
@@ -171,5 +177,29 @@ public class McpWorkflowNodeController {
             return null;
         }
         return NodeType.valueOf(value.trim().toUpperCase());
+    }
+
+    private Map<String, String> parseExtensionParam(String extensionParam) {
+        if (extensionParam == null || extensionParam.trim().isEmpty()) {
+            return null;
+        }
+        return JSON.parseObject(extensionParam, new TypeReference<Map<String, String>>() {});
+    }
+
+    private WorkflowNodeMcpView toNodeView(WorkflowNode node) {
+        WorkflowNodeMcpView view = new WorkflowNodeMcpView();
+        view.setNodeId(node.getNodeId());
+        view.setNodeName(node.getNodeName());
+        view.setFlowId(node.getFlowId());
+        view.setParamFilterExpr(node.getParamFilterExpr());
+        view.setNodeType(node.getNodeType());
+        view.setMetaInfo(node.getMetaInfo());
+        view.setSplitField(node.getSplitField());
+        view.setScheduleExpr(node.getScheduleExpr());
+        view.setScheduleParamSourceType(node.getScheduleParamSourceType());
+        view.setKeywordField(node.getKeywordField());
+        view.setRemoteExtension(node.getRemoteExtension());
+        view.setExtensionParam(node.getExtensionParam() == null ? null : JsonUtils.toJsonString(node.getExtensionParam()));
+        return view;
     }
 }

@@ -2,7 +2,6 @@ package com.helianhealth.agent.repository.service;
 
 import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
-import com.helianhealth.agent.repository.model.dto.InterfaceWorkflowNodeView;
 
 import java.util.List;
 
@@ -16,10 +15,10 @@ public interface WorkflowNodeQueryService {
     /**
      * 查询所有节点
      */
-    List<InterfaceWorkflowNodeView> selectAllNodes(Integer flowId);
+    List<WorkflowNode> selectAllNodes(Integer flowId);
 
     /**
      * 分页查询节点
      */
-    PageList<InterfaceWorkflowNodeView> selectAllNodesPaged(Integer flowId, int pageNum, int pageSize);
+    PageList<WorkflowNode> selectAllNodesPaged(Integer flowId, int pageNum, int pageSize);
 }

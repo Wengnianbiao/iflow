@@ -30,12 +30,12 @@ public class WorkflowCommandServiceImpl implements WorkflowCommandService {
     @Override
     public int updateWorkflow(Workflow workflow) {
         InterfaceWorkflowPO po = WorkflowAssembler.toPO(workflow);
-        return workflowMapper.updateByPrimaryKeySelective(po);
+        return workflowMapper.updateWorkflow(po);
     }
 
     @Override
     public void deleteWorkflow(Integer flowId) {
-        workflowMapper.deleteByPrimaryKey(flowId);
+        workflowMapper.deleteByFlowId(flowId);
     }
 
     @Override

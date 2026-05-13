@@ -4,10 +4,10 @@ import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.repository.mapper.agent.InterfaceInvokeLogMapper;
+import com.helianhealth.agent.repository.model.assembler.InvokeLogAssembler;
+import com.helianhealth.agent.repository.model.domain.InvokeLog;
+import com.helianhealth.agent.repository.model.domain.InvokeStats;
 import com.helianhealth.agent.repository.model.po.InterfaceInvokeLogPO;
-import com.helianhealth.agent.repository.model.dto.InvokeLogDTO;
-import com.helianhealth.agent.repository.model.dto.InvokeLogVO;
-import com.helianhealth.agent.repository.model.dto.InvokeStatsVO;
 import com.helianhealth.agent.repository.service.InterfaceInvokeLogService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,104 +31,62 @@ public class InterfaceInvokeLogServiceImpl implements InterfaceInvokeLogService 
     }
 
     @Override
-    public void saveInvokeLog(InvokeLogDTO dto) {
+    public void saveInvokeLog(InvokeLog logModel) {
         try {
-            InterfaceInvokeLogPO logDO = InterfaceInvokeLogPO.builder()
-                    .nodeName(dto.getNodeName())
-                    .keyword(dto.getKeyword())
-                    .businessData(dto.getBusinessData())
-                    .paramBeforeInvoke(dto.getParamBeforeInvoke())
-                    .remoteInvokeResponse(dto.getRemoteInvokeResponse())
-                    .remoteInvokeResponseParsed(dto.getRemoteInvokeResponseParsed())
-                    .paramAfterInvoke(dto.getParamAfterInvoke())
-                    .invokeTime(dto.getInvokeTime())
-                    .errorMessage(dto.getErrorMessage())
-                    .createTime(new Date())
-                    .build();
-
-            interfaceInvokeLogMapper.insertLog(logDO);
+            InterfaceInvokeLogPO logPO = InvokeLogAssembler.toPO(logModel);
+            logPO.setCreateTime(new Date());
+            interfaceInvokeLogMapper.insertLog(logPO);
         } catch (Exception e) {
             log.error("保存接口调用日志失败", e);
         }
     }
 
     @Override
-    public PageList<InvokeLogVO> findAllInvokeLogs(String nodeName, String keyword, int pageNum, int pageSize) {
-        try {
-            PageHelper.startPage(pageNum, pageSize);
-            List<InterfaceInvokeLogPO> invokeLogs = interfaceInvokeLogMapper.selectAllInvokeLogs(nodeName, keyword);
-            PageInfo<InterfaceInvokeLogPO> pageInfo = new PageInfo<>(invokeLogs);
+    public PageList<InvokeLog> findAllInvokeLogs(String nodeName, String keyword, int pageNum, int pageSize) {
+        PageHelper.startPage(pageNum, pageSize);
+        List<InterfaceInvokeLogPO> invokeLogs = interfaceInvokeLogMapper.selectAllInvokeLogs(nodeName, keyword);
+        PageInfo<InterfaceInvokeLogPO> pageInfo = new PageInfo<>(invokeLogs);
 
-            List<InvokeLogVO> voList = invokeLogs.stream()
-                    .map(this::convertToVO)
-                    .collect(Collectors.toList());
+        List<InvokeLog> logList = invokeLogs.stream()
+                .map(InvokeLogAssembler::toDomain)
+                .collect(Collectors.toList());
 
-            PageList<InvokeLogVO> pageList = new PageList<>();
-            pageList.setRows(voList);
-            pageList.setTotal(pageInfo.getTotal());
-            pageList.setPageNum(pageInfo.getPageNum());
-            pageList.setPageSize(pageInfo.getPageSize());
-            return pageList;
-        } catch (Exception e) {
-            log.error("获取接口调用日志列表失败", e);
-            throw new RuntimeException("获取接口调用日志列表失败: " + e.getMessage());
-        }
+        PageList<InvokeLog> pageList = new PageList<>();
+        pageList.setRows(logList);
+        pageList.setTotal(pageInfo.getTotal());
+        pageList.setPageNum(pageInfo.getPageNum());
+        pageList.setPageSize(pageInfo.getPageSize());
+        return pageList;
     }
 
     @Override
-    public List<InvokeStatsVO> getTodayStats() {
-        try {
-            Calendar calendar = Calendar.getInstance();
-            calendar.set(Calendar.HOUR_OF_DAY, 0);
-            calendar.set(Calendar.MINUTE, 0);
-            calendar.set(Calendar.SECOND, 0);
-            calendar.set(Calendar.MILLISECOND, 0);
-            Date startTime = calendar.getTime();
+    public List<InvokeStats> getTodayStats() {
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Calendar.HOUR_OF_DAY, 0);
+        calendar.set(Calendar.MINUTE, 0);
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
+        Date startTime = calendar.getTime();
 
-            List<InterfaceInvokeLogPO> logs = interfaceInvokeLogMapper.selectLogsByTimeRange(startTime);
-            return calculateStats(logs);
-        } catch (Exception e) {
-            log.error("获取今日统计失败", e);
-            throw new RuntimeException("获取今日统计失败: " + e.getMessage());
-        }
+        List<InterfaceInvokeLogPO> logs = interfaceInvokeLogMapper.selectLogsByTimeRange(startTime);
+        return calculateStats(logs);
     }
 
     @Override
-    public List<InvokeStatsVO> getLast7DaysStats() {
-        try {
-            Calendar calendar = Calendar.getInstance();
-            calendar.add(Calendar.DAY_OF_MONTH, -7);
-            calendar.set(Calendar.HOUR_OF_DAY, 0);
-            calendar.set(Calendar.MINUTE, 0);
-            calendar.set(Calendar.SECOND, 0);
-            calendar.set(Calendar.MILLISECOND, 0);
-            Date startTime = calendar.getTime();
+    public List<InvokeStats> getLast7DaysStats() {
+        Calendar calendar = Calendar.getInstance();
+        calendar.add(Calendar.DAY_OF_MONTH, -7);
+        calendar.set(Calendar.HOUR_OF_DAY, 0);
+        calendar.set(Calendar.MINUTE, 0);
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
+        Date startTime = calendar.getTime();
 
-            List<InterfaceInvokeLogPO> logs = interfaceInvokeLogMapper.selectLogsByTimeRange(startTime);
-            return calculateStats(logs);
-        } catch (Exception e) {
-            log.error("获取最近7天统计失败", e);
-            throw new RuntimeException("获取最近7天统计失败: " + e.getMessage());
-        }
+        List<InterfaceInvokeLogPO> logs = interfaceInvokeLogMapper.selectLogsByTimeRange(startTime);
+        return calculateStats(logs);
     }
 
-    private InvokeLogVO convertToVO(InterfaceInvokeLogPO logDO) {
-        return InvokeLogVO.builder()
-                .logId(logDO.getLogId())
-                .nodeName(logDO.getNodeName())
-                .keyword(logDO.getKeyword())
-                .businessData(logDO.getBusinessData())
-                .paramBeforeInvoke(logDO.getParamBeforeInvoke())
-                .remoteInvokeResponse(logDO.getRemoteInvokeResponse())
-                .remoteInvokeResponseParsed(logDO.getRemoteInvokeResponseParsed())
-                .paramAfterInvoke(logDO.getParamAfterInvoke())
-                .invokeTime(logDO.getInvokeTime())
-                .errorMessage(logDO.getErrorMessage())
-                .createTime(logDO.getCreateTime())
-                .build();
-    }
-
-    private List<InvokeStatsVO> calculateStats(List<InterfaceInvokeLogPO> logs) {
+    private List<InvokeStats> calculateStats(List<InterfaceInvokeLogPO> logs) {
         if (logs == null || logs.isEmpty()) {
             return new ArrayList<>();
         }
@@ -150,7 +108,7 @@ public class InterfaceInvokeLogServiceImpl implements InterfaceInvokeLogService 
                     int minTime = times.stream().mapToInt(Integer::intValue).min().orElse(0);
                     int maxTime = times.stream().mapToInt(Integer::intValue).max().orElse(0);
 
-                    return InvokeStatsVO.builder()
+                    return InvokeStats.builder()
                             .nodeName(nodeName)
                             .count(count)
                             .averageTime(averageTime)
@@ -158,7 +116,7 @@ public class InterfaceInvokeLogServiceImpl implements InterfaceInvokeLogService 
                             .maxTime(maxTime)
                             .build();
                 })
-                .sorted(Comparator.comparing(InvokeStatsVO::getCount).reversed())
+                .sorted(Comparator.comparing(InvokeStats::getCount).reversed())
                 .collect(Collectors.toList());
     }
 
@@ -177,13 +135,8 @@ public class InterfaceInvokeLogServiceImpl implements InterfaceInvokeLogService 
 
     @Override
     public int deleteLogsBefore(Date beforeTime) {
-        try {
-            int deletedCount = interfaceInvokeLogMapper.deleteLogsBefore(beforeTime);
-            log.info("删除{}之前的日志，共{}条", beforeTime, deletedCount);
-            return deletedCount;
-        } catch (Exception e) {
-            log.error("删除日志失败", e);
-            throw new RuntimeException("删除日志失败: " + e.getMessage());
-        }
+        int deletedCount = interfaceInvokeLogMapper.deleteLogsBefore(beforeTime);
+        log.info("删除{}之前的日志，共{}条", beforeTime, deletedCount);
+        return deletedCount;
     }
 }

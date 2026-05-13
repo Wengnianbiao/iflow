@@ -34,7 +34,7 @@ public class WorkflowQueryServiceImpl implements WorkflowQueryService {
 
     @Override
     public Workflow selectByFlowId(Integer flowId) {
-        return WorkflowAssembler.toDomain(workflowMapper.selectByPrimaryKey(flowId));
+        return WorkflowAssembler.toDomain(workflowMapper.selectByFlowId(flowId));
     }
 
     @Override

@@ -2,15 +2,15 @@ package com.helianhealth.agent.console.controller;
 
 import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.common.base.ResultData;
-import com.helianhealth.agent.repository.model.domain.WorkflowNode;
-import com.helianhealth.agent.repository.model.dto.InterfaceWorkflowNodeView;
 import com.helianhealth.agent.console.controller.reponse.NodeConfigExportRsp;
+import com.helianhealth.agent.console.controller.reponse.WorkflowNodeViewRsp;
 import com.helianhealth.agent.console.controller.reponse.NodeParamConfigExportRsp;
 import com.helianhealth.agent.console.controller.request.WorkflowNodeCreateReq;
 import com.helianhealth.agent.console.controller.request.WorkflowNodeScheduleUpdateReq;
 import com.helianhealth.agent.console.controller.request.WorkflowNodeUpdateReq;
 import com.helianhealth.agent.console.service.InterfaceWorkflowNodeService;
 import com.helianhealth.agent.console.service.NodeParamConfigService;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -38,12 +38,12 @@ public class WorkflowNodeController {
     private final NodeParamConfigService nodeParamConfigService;
 
     @GetMapping("/all")
-    public ResultData<PageList<InterfaceWorkflowNodeView>> getAllNodes(
+    public ResultData<PageList<WorkflowNodeViewRsp>> getAllNodes(
             @RequestParam(value = "flowId", required = false) Integer flowId,
             @RequestParam(value = "pageNum", defaultValue = "1") int pageNum,
             @RequestParam(value = "pageSize", defaultValue = "10") int pageSize) {
         try {
-            PageList<InterfaceWorkflowNodeView> nodes = interfaceFlowNodeService.getAllNodes(flowId, pageNum, pageSize);
+            PageList<WorkflowNodeViewRsp> nodes = interfaceFlowNodeService.getAllNodes(flowId, pageNum, pageSize);
 
             return ResultData.ok(nodes);
         } catch (Exception e) {
@@ -53,9 +53,9 @@ public class WorkflowNodeController {
     }
 
     @GetMapping("/all-unpaged")
-    public ResultData<List<InterfaceWorkflowNodeView>> getAllNodesWithoutPaged() {
+    public ResultData<List<WorkflowNodeViewRsp>> getAllNodesWithoutPaged() {
         try {
-            List<InterfaceWorkflowNodeView> nodes = interfaceFlowNodeService.getAllNodesWithoutPaged();
+            List<WorkflowNodeViewRsp> nodes = interfaceFlowNodeService.getAllNodesWithoutPaged();
 
             return ResultData.ok(nodes);
         } catch (Exception e) {
@@ -221,9 +221,9 @@ public class WorkflowNodeController {
      * 获取节点的下游调度节点
      */
     @GetMapping("/{nodeId}/downstream")
-    public ResultData<List<InterfaceWorkflowNodeView>> getDownstreamNodes(@PathVariable Integer nodeId) {
+    public ResultData<List<WorkflowNodeViewRsp>> getDownstreamNodes(@PathVariable Integer nodeId) {
         try {
-            List<InterfaceWorkflowNodeView> downstreamNodes = interfaceFlowNodeService.getDownstreamNodes(nodeId);
+            List<WorkflowNodeViewRsp> downstreamNodes = interfaceFlowNodeService.getDownstreamNodes(nodeId);
             return ResultData.ok(downstreamNodes);
         } catch (Exception e) {
             log.error("获取下游节点失败", e);

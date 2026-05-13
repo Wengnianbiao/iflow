@@ -53,7 +53,7 @@
     </select>
 
     <insert id="insert" parameterType="com.helianhealth.agent.repository.model.po.MockConfigPO"
-            useGeneratedKeys="true" keyProperty="mockId">
+            useGeneratedKeys="true" keyProperty="mockId" keyColumn="mock_id">
         INSERT INTO mock_config (node_id, case_name, case_desc, mock_response)
         VALUES (#{nodeId}, #{caseName}, #{caseDesc}, #{mockResponse})
     </insert>

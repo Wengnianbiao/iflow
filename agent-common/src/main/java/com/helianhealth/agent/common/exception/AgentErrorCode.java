@@ -45,6 +45,11 @@ public enum AgentErrorCode {
     DB_CONNECTION_FAILED(21001, "数据库连接失败，请核对用户名和密码"),
     DB_EXECUTION_FAILED(21002, "SQL执行失败"),
 
+    // ---- 仓储层错误 (3xxxx) ----
+    REPOSITORY_QUERY_ERROR(30001, "仓储层查询异常"),
+    REPOSITORY_SAVE_ERROR(30002, "仓储层保存异常"),
+    REPOSITORY_DELETE_ERROR(30003, "仓储层删除异常"),
+
     // HTTP调用 (22xxx)
     HTTP_CALL_FAILED(22001, "HTTP调用失败"),
     HTTP_CONFIG_MISSING(22002, "HTTP请求配置缺失"),

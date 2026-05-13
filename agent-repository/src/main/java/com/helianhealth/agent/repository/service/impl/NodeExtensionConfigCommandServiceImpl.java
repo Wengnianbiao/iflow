@@ -3,6 +3,7 @@ package com.helianhealth.agent.repository.service.impl;
 import com.helianhealth.agent.repository.mapper.agent.NodeExtensionConfigMapper;
 import com.helianhealth.agent.repository.model.assembler.NodeExtensionConfigAssembler;
 import com.helianhealth.agent.repository.model.domain.NodeExtensionConfig;
+import com.helianhealth.agent.repository.model.po.NodeExtensionConfigPO;
 import com.helianhealth.agent.repository.service.NodeExtensionConfigCommandService;
 import org.springframework.stereotype.Service;
 
@@ -19,12 +20,15 @@ public class NodeExtensionConfigCommandServiceImpl implements NodeExtensionConfi
 
     @Override
     public void insert(NodeExtensionConfig config) {
-        nodeExtensionConfigMapper.insert(NodeExtensionConfigAssembler.toPO(config));
+        NodeExtensionConfigPO po = NodeExtensionConfigAssembler.toPO(config);
+        nodeExtensionConfigMapper.insert(po);
+        config.setConfigId(po.getConfigId());
     }
 
     @Override
     public void update(NodeExtensionConfig config) {
-        nodeExtensionConfigMapper.update(NodeExtensionConfigAssembler.toPO(config));
+        NodeExtensionConfigPO po = NodeExtensionConfigAssembler.toPO(config);
+        nodeExtensionConfigMapper.update(po);
     }
 
     @Override

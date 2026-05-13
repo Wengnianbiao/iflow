@@ -41,6 +41,9 @@ public class NodeParamConfigQueryServiceImpl implements NodeParamConfigQueryServ
 
     @Override
     public NodeParamConfig selectConfigById(Integer configId) {
+        if (configId == null) {
+            return null;
+        }
         NodeParamConfigPO po = nodeParamConfigMapper.selectByPrimaryKey(configId);
         return po != null ? NodeParamConfigAssembler.toDomain(po) : null;
     }

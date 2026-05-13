@@ -7,7 +7,9 @@ import com.helianhealth.agent.common.exception.AgentException;
 import com.helianhealth.agent.common.enums.NodeType;
 import com.helianhealth.agent.common.enums.ScheduleParamSourceType;
 import com.helianhealth.agent.common.utils.SpelUtils;
+import com.helianhealth.agent.common.utils.JsonUtils;
 import com.helianhealth.agent.console.controller.reponse.NodeConfigExportRsp;
+import com.helianhealth.agent.console.controller.reponse.WorkflowNodeViewRsp;
 import com.helianhealth.agent.console.controller.reponse.NodeParamConfigExportRsp;
 import com.helianhealth.agent.console.controller.request.WorkflowNodeCreateReq;
 import com.helianhealth.agent.console.controller.request.WorkflowNodeScheduleUpdateReq;
@@ -18,9 +20,7 @@ import com.helianhealth.agent.console.model.dto.NodeParamConfigImportDTO;
 import com.helianhealth.agent.console.service.InterfaceWorkflowNodeService;
 import com.helianhealth.agent.console.service.NodeParamConfigService;
 import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
-import com.helianhealth.agent.repository.model.assembler.WorkflowNodeAssembler;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
-import com.helianhealth.agent.repository.model.dto.InterfaceWorkflowNodeView;
 import com.helianhealth.agent.repository.service.WorkflowNodeCommandService;
 import com.helianhealth.agent.repository.service.WorkflowNodeQueryService;
 import lombok.extern.slf4j.Slf4j;
@@ -63,9 +63,10 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
     }
 
     @Override
-    public PageList<InterfaceWorkflowNodeView> getAllNodes(Integer flowId, int pageNum, int pageSize) {
+    public PageList<WorkflowNodeViewRsp> getAllNodes(Integer flowId, int pageNum, int pageSize) {
         try {
-            return workflowNodeQueryService.selectAllNodesPaged(flowId, pageNum, pageSize);
+            PageList<WorkflowNode> nodePage = workflowNodeQueryService.selectAllNodesPaged(flowId, pageNum, pageSize);
+            return toNodeViewPage(nodePage);
         } catch (Exception e) {
             log.error("获取工作流节点列表失败", e);
             throw new AgentException(AgentErrorCode.CONSOLE_OPERATION_FAILED, "获取工作流节点列表失败: " + e.getMessage(), e);
@@ -73,8 +74,10 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
     }
 
     @Override
-    public List<InterfaceWorkflowNodeView> getAllNodesWithoutPaged() {
-        return workflowNodeQueryService.selectAllNodes(null);
+    public List<WorkflowNodeViewRsp> getAllNodesWithoutPaged() {
+        return workflowNodeQueryService.selectAllNodes(null).stream()
+                .map(this::toNodeView)
+                .collect(Collectors.toList());
     }
 
 
@@ -404,7 +407,7 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
     }
 
     @Override
-    public List<InterfaceWorkflowNodeView> getDownstreamNodes(Integer nodeId) {
+    public List<WorkflowNodeViewRsp> getDownstreamNodes(Integer nodeId) {
         WorkflowNode currentNode = workflowNodeQueryService.selectByNodeId(nodeId);
         if (currentNode == null || currentNode.getScheduleExpr() == null || currentNode.getScheduleExpr().trim().isEmpty()) {
             return Collections.emptyList();
@@ -418,10 +421,41 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
         return downstreamNodeIds.stream()
                 .map(id -> {
                     WorkflowNode node = workflowNodeQueryService.selectByNodeId(id);
-                    return node != null ? WorkflowNodeAssembler.toView(node) : null;
+                    return node != null ? toNodeView(node) : null;
                 })
                 .filter(view -> view != null)
                 .collect(Collectors.toList());
+    }
+
+    private PageList<WorkflowNodeViewRsp> toNodeViewPage(PageList<WorkflowNode> nodePage) {
+        PageList<WorkflowNodeViewRsp> page = new PageList<>();
+        page.setTotal(nodePage.getTotal());
+        page.setPageNum(nodePage.getPageNum());
+        page.setPageSize(nodePage.getPageSize());
+        page.setRows(nodePage.getRows().stream()
+                .map(this::toNodeView)
+                .collect(Collectors.toList()));
+        return page;
+    }
+
+    private WorkflowNodeViewRsp toNodeView(WorkflowNode node) {
+        if (node == null) {
+            return null;
+        }
+        WorkflowNodeViewRsp view = new WorkflowNodeViewRsp();
+        view.setNodeId(node.getNodeId());
+        view.setNodeName(node.getNodeName());
+        view.setFlowId(node.getFlowId());
+        view.setParamFilterExpr(node.getParamFilterExpr());
+        view.setNodeType(node.getNodeType());
+        view.setMetaInfo(node.getMetaInfo());
+        view.setSplitField(node.getSplitField());
+        view.setScheduleExpr(node.getScheduleExpr());
+        view.setScheduleParamSourceType(node.getScheduleParamSourceType());
+        view.setKeywordField(node.getKeywordField());
+        view.setRemoteExtension(node.getRemoteExtension());
+        view.setExtensionParam(node.getExtensionParam() == null ? null : JsonUtils.toJsonString(node.getExtensionParam()));
+        return view;
     }
 
 }

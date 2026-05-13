@@ -58,7 +58,7 @@ public class WorkflowNodeCommandServiceImpl implements WorkflowNodeCommandServic
 
     @Override
     public void deleteNode(Integer nodeId) {
-        flowNodeMapper.deleteByPrimaryKey(nodeId);
+        flowNodeMapper.deleteByNodeId(nodeId);
     }
 
 }

@@ -6,7 +6,7 @@ import tk.mybatis.mapper.common.Mapper;
 
 import java.util.List;
 
-public interface InterfaceFlowNodeMapper extends Mapper<InterfaceWorkflowNodePO> {
+public interface InterfaceFlowNodeMapper {
 
     InterfaceWorkflowNodePO selectByNodeId(@Param("nodeId") Integer nodeId);
     List<InterfaceWorkflowNodePO> selectAllNodes(@Param("flowId") Integer flowId);
@@ -46,4 +46,6 @@ public interface InterfaceFlowNodeMapper extends Mapper<InterfaceWorkflowNodePO>
     int updateScheduleFields(@Param("nodeId") Integer nodeId,
                              @Param("scheduleParamSourceType") String scheduleParamSourceType,
                              @Param("scheduleExpr") String scheduleExpr);
+
+    int deleteByNodeId(Integer nodeId);
 }

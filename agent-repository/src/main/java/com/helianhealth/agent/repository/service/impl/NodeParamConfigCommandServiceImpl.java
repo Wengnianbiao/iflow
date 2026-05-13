@@ -8,7 +8,7 @@ import com.helianhealth.agent.repository.service.NodeParamConfigCommandService;
 import org.springframework.stereotype.Service;
 
 /**
- * 节点参数配置写操作服务实现
+ * 节点参数配置写操作服务基础实现
  */
 @Service
 public class NodeParamConfigCommandServiceImpl implements NodeParamConfigCommandService {
@@ -30,7 +30,7 @@ public class NodeParamConfigCommandServiceImpl implements NodeParamConfigCommand
     @Override
     public int updateConfig(NodeParamConfig config) {
         NodeParamConfigPO po = NodeParamConfigAssembler.toPO(config);
-        return nodeParamConfigMapper.updateNodeParamConfig(po);
+        return nodeParamConfigMapper.updateByPrimaryKeySelective(po);
     }
 
     @Override

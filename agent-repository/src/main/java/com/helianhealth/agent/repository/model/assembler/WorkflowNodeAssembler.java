@@ -1,14 +1,15 @@
 package com.helianhealth.agent.repository.model.assembler;
 
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.TypeReference;
 import com.helianhealth.agent.common.utils.JsonUtils;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
-import com.helianhealth.agent.repository.model.dto.InterfaceWorkflowNodeView;
 import com.helianhealth.agent.repository.model.po.InterfaceWorkflowNodePO;
 
 import java.util.Map;
 
 /**
- * 工作流节点 PO/Domain/View 转换器
+ * 工作流节点 PO/Domain 转换器
  */
 public final class WorkflowNodeAssembler {
 
@@ -21,7 +22,7 @@ public final class WorkflowNodeAssembler {
         }
         Map<String, String> extensionParam = null;
         if (po.getExtensionParam() != null && !po.getExtensionParam().isEmpty()) {
-            extensionParam = JsonUtils.parseStringMap(po.getExtensionParam());
+            extensionParam = JSON.parseObject(po.getExtensionParam(), new TypeReference<Map<String, String>>() {});
         }
         return WorkflowNode.builder()
                 .nodeId(po.getNodeId())
@@ -62,44 +63,5 @@ public final class WorkflowNodeAssembler {
                 .remoteExtension(node.getRemoteExtension())
                 .extensionParam(extensionParamStr)
                 .build();
-    }
-
-    public static InterfaceWorkflowNodeView toView(InterfaceWorkflowNodePO po) {
-        if (po == null) {
-            return null;
-        }
-        InterfaceWorkflowNodeView view = new InterfaceWorkflowNodeView();
-        view.setNodeId(po.getNodeId());
-        view.setNodeName(po.getNodeName());
-        view.setFlowId(po.getFlowId());
-        view.setParamFilterExpr(po.getParamFilterExpr());
-        view.setNodeType(po.getNodeType());
-        view.setMetaInfo(po.getMetaInfo());
-        view.setSplitField(po.getSplitField());
-        view.setScheduleExpr(po.getScheduleExpr());
-        view.setScheduleParamSourceType(po.getScheduleParamSourceType());
-        view.setKeywordField(po.getKeywordField());
-        view.setRemoteExtension(po.getRemoteExtension());
-        view.setExtensionParam(po.getExtensionParam());
-        return view;
-    }
-
-    public static InterfaceWorkflowNodeView toView(WorkflowNode node) {
-        if (node == null) {
-            return null;
-        }
-        InterfaceWorkflowNodeView view = new InterfaceWorkflowNodeView();
-        view.setNodeId(node.getNodeId());
-        view.setNodeName(node.getNodeName());
-        view.setFlowId(node.getFlowId());
-        view.setParamFilterExpr(node.getParamFilterExpr());
-        view.setNodeType(node.getNodeType());
-        view.setMetaInfo(node.getMetaInfo());
-        view.setSplitField(node.getSplitField());
-        view.setScheduleExpr(node.getScheduleExpr());
-        view.setScheduleParamSourceType(node.getScheduleParamSourceType());
-        view.setKeywordField(node.getKeywordField());
-        view.setRemoteExtension(node.getRemoteExtension());
-        return view;
     }
 }

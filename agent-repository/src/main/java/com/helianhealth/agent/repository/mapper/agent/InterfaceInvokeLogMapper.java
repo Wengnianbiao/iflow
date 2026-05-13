@@ -7,7 +7,7 @@ import tk.mybatis.mapper.common.Mapper;
 import java.util.Date;
 import java.util.List;
 
-public interface InterfaceInvokeLogMapper extends Mapper<InterfaceInvokeLogPO> {
+public interface InterfaceInvokeLogMapper {
     void insertLog(InterfaceInvokeLogPO logDO);
 
     List<InterfaceInvokeLogPO> selectAllInvokeLogs(@Param("nodeName") String nodeName, @Param("keyword") String keyword);

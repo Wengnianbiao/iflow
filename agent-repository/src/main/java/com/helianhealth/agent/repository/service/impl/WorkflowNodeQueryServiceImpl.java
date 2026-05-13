@@ -6,7 +6,6 @@ import com.helianhealth.agent.common.base.PageList;
 import com.helianhealth.agent.repository.mapper.agent.InterfaceFlowNodeMapper;
 import com.helianhealth.agent.repository.model.assembler.WorkflowNodeAssembler;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
-import com.helianhealth.agent.repository.model.dto.InterfaceWorkflowNodeView;
 import com.helianhealth.agent.repository.model.po.InterfaceWorkflowNodePO;
 import com.helianhealth.agent.repository.service.WorkflowNodeQueryService;
 import org.springframework.stereotype.Service;
@@ -33,20 +32,20 @@ public class WorkflowNodeQueryServiceImpl implements WorkflowNodeQueryService {
     }
 
     @Override
-    public List<InterfaceWorkflowNodeView> selectAllNodes(Integer flowId) {
+    public List<WorkflowNode> selectAllNodes(Integer flowId) {
         return flowNodeMapper.selectAllNodes(flowId).stream()
-                .map(WorkflowNodeAssembler::toView)
+                .map(WorkflowNodeAssembler::toDomain)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public PageList<InterfaceWorkflowNodeView> selectAllNodesPaged(Integer flowId, int pageNum, int pageSize) {
+    public PageList<WorkflowNode> selectAllNodesPaged(Integer flowId, int pageNum, int pageSize) {
         PageHelper.startPage(pageNum, pageSize);
         List<InterfaceWorkflowNodePO> poList = flowNodeMapper.selectAllNodes(flowId);
         PageInfo<InterfaceWorkflowNodePO> pageInfo = new PageInfo<>(poList);
-        List<InterfaceWorkflowNodeView> views = poList.stream().map(WorkflowNodeAssembler::toView).collect(Collectors.toList());
-        PageList<InterfaceWorkflowNodeView> pageList = new PageList<>();
-        pageList.setRows(views);
+        List<WorkflowNode> nodes = poList.stream().map(WorkflowNodeAssembler::toDomain).collect(Collectors.toList());
+        PageList<WorkflowNode> pageList = new PageList<>();
+        pageList.setRows(nodes);
         pageList.setTotal(pageInfo.getTotal());
         pageList.setPageNum(pageInfo.getPageNum());
         pageList.setPageSize(pageInfo.getPageSize());

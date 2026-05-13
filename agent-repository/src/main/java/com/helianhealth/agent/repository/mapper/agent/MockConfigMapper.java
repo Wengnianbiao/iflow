@@ -12,21 +12,21 @@ import java.util.List;
 @Mapper
 public interface MockConfigMapper {
 
-    List<MockConfigPO> selectEnabledByNodeId(@Param("nodeId") Integer nodeId);
+    List<MockConfigPO> selectEnabledByNodeId(Integer nodeId);
 
-    List<MockConfigPO> selectByNodeId(@Param("nodeId") Integer nodeId);
+    List<MockConfigPO> selectByNodeId(Integer nodeId);
 
-    MockConfigPO selectById(@Param("mockId") Integer mockId);
+    MockConfigPO selectById(Integer mockId);
 
     List<MockConfigPO> selectByPage(@Param("nodeId") Integer nodeId);
 
-    Integer countByCondition(@Param("nodeId") Integer nodeId);
+    int countByCondition(@Param("nodeId") Integer nodeId);
 
     int insert(MockConfigPO mockConfig);
 
     int update(MockConfigPO mockConfig);
 
-    int deleteById(@Param("mockId") Integer mockId);
+    int deleteById(Integer mockId);
 
-    int deleteByNodeId(@Param("nodeId") Integer nodeId);
+    int deleteByNodeId(Integer nodeId);
 }

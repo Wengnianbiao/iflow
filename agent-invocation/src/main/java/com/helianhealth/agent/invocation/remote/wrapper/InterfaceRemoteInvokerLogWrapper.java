@@ -4,9 +4,9 @@ import com.helianhealth.agent.invocation.context.LogContext;
 import com.helianhealth.agent.invocation.context.LogLifecycle;
 import com.helianhealth.agent.invocation.support.LogCollector;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
+import com.helianhealth.agent.repository.model.domain.InvokeLog;
 import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
 import com.helianhealth.agent.invocation.remote.model.Invocation;
-import com.helianhealth.agent.repository.model.dto.InvokeLogDTO;
 import com.helianhealth.agent.repository.service.InterfaceInvokeLogService;
 import com.helianhealth.agent.common.utils.JsonUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -145,7 +145,7 @@ public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker 
             return;
         }
         try {
-            InvokeLogDTO dto = InvokeLogDTO.builder()
+            InvokeLog logModel = InvokeLog.builder()
                     .nodeName(context.getNodeName())
                     .keyword(context.getKeyword())
                     .businessData(context.getBusinessData())
@@ -156,7 +156,7 @@ public class InterfaceRemoteInvokerLogWrapper implements InterfaceRemoteInvoker 
                     .invokeTime(context.getInvokeTime())
                     .errorMessage(context.getErrorMessage())
                     .build();
-            interfaceInvokeLogService.saveInvokeLog(dto);
+            interfaceInvokeLogService.saveInvokeLog(logModel);
         } catch (Exception e) {
             log.error("保存接口调用日志失败", e);
         }
