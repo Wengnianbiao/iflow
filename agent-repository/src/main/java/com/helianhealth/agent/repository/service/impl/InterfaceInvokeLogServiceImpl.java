@@ -30,15 +30,33 @@ public class InterfaceInvokeLogServiceImpl implements InterfaceInvokeLogService 
         this.interfaceInvokeLogMapper = interfaceInvokeLogMapper;
     }
 
+    private static final int MAX_LOG_LENGTH = 20000;
+
     @Override
     public void saveInvokeLog(InvokeLog logModel) {
         try {
             InterfaceInvokeLogPO logPO = InvokeLogAssembler.toPO(logModel);
+            
+            // 安全截断保护，防止大对象撑爆数据库
+            logPO.setRemoteInvokeResponse(truncateString(logPO.getRemoteInvokeResponse(), "remoteInvokeResponse"));
+            logPO.setRemoteInvokeResponseParsed(truncateString(logPO.getRemoteInvokeResponseParsed(), "remoteInvokeResponseParsed"));
+            logPO.setBusinessData(truncateString(logPO.getBusinessData(), "businessData"));
+            logPO.setParamBeforeInvoke(truncateString(logPO.getParamBeforeInvoke(), "paramBeforeInvoke"));
+            logPO.setParamAfterInvoke(truncateString(logPO.getParamAfterInvoke(), "paramAfterInvoke"));
+
             logPO.setCreateTime(new Date());
             interfaceInvokeLogMapper.insertLog(logPO);
         } catch (Exception e) {
             log.error("保存接口调用日志失败", e);
         }
+    }
+
+    private String truncateString(String value, String fieldName) {
+        if (value != null && value.length() > MAX_LOG_LENGTH) {
+            log.warn("检测到字段 {} 内容过长 ({})，进行安全截断保护", fieldName, value.length());
+            return value.substring(0, MAX_LOG_LENGTH) + "...[内容过长已截断]";
+        }
+        return value;
     }
 
     @Override
