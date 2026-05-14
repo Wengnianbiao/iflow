@@ -21,7 +21,6 @@
 import { Message, MessageBox } from 'element-ui';
 import {
   getJarvisWorkflowRouteExtensions,
-  getWorkflowExtensionBindings,
   getWorkflowRouteExtensions,
   registerInterfaceExtension,
   registerJarvisWorkflowRouteExtension,
@@ -315,7 +314,7 @@ export default {
               : '编辑工作流节点扩展';
         const selectedFlowId =
           spiType === 'OpenApiRouteHandler' || spiType === 'JarvisRouteHandler'
-            ? await this.loadWorkflowBindingsForExtension(detailRow.extensionName)
+            ? (Array.isArray(bindingIds) && bindingIds.length ? bindingIds[0] : null)
             : null;
         this.interfaceExtensionForm = {
           ...detailRow,
@@ -463,34 +462,30 @@ export default {
 
     async refreshRouteExtensionAssociationLabels() {
       try {
-        const response = await getWorkflowExtensionBindings();
-        const result = response && response.data ? response.data : [];
-        const list = Array.isArray(result.data) ? result.data : Array.isArray(result) ? result : [];
+        if (!this.workflowList || this.workflowList.length === 0) {
+          await this.loadWorkflowList();
+        }
+        const OPENAPI_SPI = 'com.helianhealth.agent.api.OpenApiRouteHandler';
+        const JARVIS_SPI = 'com.helianhealth.agent.api.JarvisRouteHandler';
         const map = {};
-        for (const b of list) {
-          const extName = b.routeExtension != null ? String(b.routeExtension).trim() : '';
-          if (!extName) continue;
-          const flowName = b.flowName || (b.flowId != null ? `工作流${b.flowId}` : '工作流');
-          const uri = b.interfaceUri != null ? String(b.interfaceUri) : '';
-          map[extName] = uri ? `${flowName} (${uri})` : flowName;
+        for (const row of this.extensionList) {
+          const spi = row.spiInterface;
+          if (spi !== OPENAPI_SPI && spi !== JARVIS_SPI) continue;
+          const name = row.extensionName != null ? String(row.extensionName).trim() : '';
+          if (!name) continue;
+          const ids = parseBindingIds(row);
+          const flowId = ids && ids.length ? ids[0] : null;
+          if (flowId == null) continue;
+          const wf = this.workflowList.find(w => w.flowId === flowId);
+          if (!wf) continue;
+          const flowName = wf.flowName || (flowId != null ? `工作流${flowId}` : '工作流');
+          const uri = wf.interfaceUri != null ? String(wf.interfaceUri) : '';
+          map[name] = uri ? `${flowName} (${uri})` : flowName;
         }
         this.routeExtensionAssociationLabels = map;
       } catch (error) {
         this.routeExtensionAssociationLabels = {};
-        console.error('加载工作流路由扩展绑定失败:', error);
-      }
-    },
-
-    async loadWorkflowBindingsForExtension(extensionName) {
-      try {
-        const response = await getWorkflowExtensionBindings();
-        const result = response && response.data ? response.data : [];
-        const list = Array.isArray(result.data) ? result.data : Array.isArray(result) ? result : [];
-        const matched = list.find(item => item.routeExtension === extensionName);
-        return matched ? matched.flowId : null;
-      } catch (error) {
-        Message.error('加载扩展关联工作流失败：' + (error.message || '未知错误'));
-        return null;
+        console.error('刷新工作流路由扩展关联展示失败:', error);
       }
     }
   }

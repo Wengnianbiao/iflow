@@ -5,13 +5,10 @@ import com.helianhealth.agent.common.exception.AgentErrorCode;
 import com.helianhealth.agent.common.exception.AgentException;
 import com.helianhealth.agent.common.extension.AgentExtensionLoader;
 import com.helianhealth.agent.console.controller.request.NodeExtensionConfigCreateReq;
-import com.helianhealth.agent.console.controller.request.WorkflowExtensionBindingUpdateReq;
 import com.helianhealth.agent.console.enums.ExtensionType;
 import com.helianhealth.agent.console.model.convert.NodeExtensionConfigConvert;
 import com.helianhealth.agent.console.model.dto.NodeExtensionConfigDetailResponse;
 import com.helianhealth.agent.console.model.dto.NodeExtensionConfigUpdateReq;
-import com.helianhealth.agent.console.model.dto.WorkflowExtensionBindingDTO;
-import com.helianhealth.agent.console.service.extension.strategy.AbstractWorkflowRouteStrategy;
 import com.helianhealth.agent.console.service.extension.strategy.ExtensionTypeStrategy;
 import com.helianhealth.agent.repository.model.domain.NodeExtensionConfig;
 import com.helianhealth.agent.repository.service.NodeExtensionConfigCommandService;
@@ -179,26 +176,6 @@ public class DynamicSpiAdminService {
                 ExtensionType.WORKFLOW.getSpiInterface(),
                 ExtensionType.JARVIS_WORKFLOW.getSpiInterface()
         );
-    }
-
-    // ==================== 工作流-路由扩展绑定（委托给 WorkflowRouteStrategy）====================
-
-    public List<WorkflowExtensionBindingDTO> listWorkflowBindings() {
-        return workflowRouteStrategy().listBindings();
-    }
-
-    public void updateWorkflowBinding(WorkflowExtensionBindingUpdateReq request) {
-        workflowRouteStrategy().updateBinding(request);
-    }
-
-    private AbstractWorkflowRouteStrategy workflowRouteStrategy() {
-        // OpenApi / Jarvis 共享父类的 listBindings/updateBinding 逻辑，任选一个即可
-        ExtensionTypeStrategy strategy = strategies.get(ExtensionType.WORKFLOW);
-        if (!(strategy instanceof AbstractWorkflowRouteStrategy)) {
-            throw new AgentException(AgentErrorCode.UNSUPPORTED_EXTENSION_TYPE,
-                    "工作流路由扩展策略未注册");
-        }
-        return (AbstractWorkflowRouteStrategy) strategy;
     }
 
     private ExtensionTypeStrategy strategyOf(ExtensionType type) {

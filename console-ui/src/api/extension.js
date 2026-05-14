@@ -168,20 +168,3 @@ export function disableWorkflowExtension(configId) {
 export function deleteWorkflowExtension(configId) {
   return deleteExtension(configId);
 }
-
-// ==================== 工作流-扩展绑定管理 ====================
-
-export function getWorkflowExtensionBindings() {
-  return request({
-    url: '/api/extension/workflow/binding/list',
-    method: 'get'
-  });
-}
-
-export function updateWorkflowExtensionBinding(data) {
-  return request({
-    url: '/api/extension/workflow/binding/update',
-    method: 'post',
-    data
-  });
-}

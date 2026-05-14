@@ -48,6 +48,13 @@
             <version>${project.version}</version>
         </dependency>
 
+        <!-- Console 模块（复用扩展管理 Service） -->
+        <dependency>
+            <groupId>com.helianhealth</groupId>
+            <artifactId>agent-console</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <!-- lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>

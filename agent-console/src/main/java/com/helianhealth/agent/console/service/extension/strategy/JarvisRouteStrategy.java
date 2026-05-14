@@ -1,7 +1,6 @@
 package com.helianhealth.agent.console.service.extension.strategy;
 
 import com.helianhealth.agent.console.enums.ExtensionType;
-import com.helianhealth.agent.repository.service.NodeExtensionConfigQueryService;
 import com.helianhealth.agent.repository.service.WorkflowCommandService;
 import com.helianhealth.agent.repository.service.WorkflowQueryService;
 import org.springframework.stereotype.Component;
@@ -13,9 +12,8 @@ import org.springframework.stereotype.Component;
 public class JarvisRouteStrategy extends AbstractWorkflowRouteStrategy {
 
     public JarvisRouteStrategy(WorkflowQueryService workflowQueryService,
-                               WorkflowCommandService workflowCommandService,
-                               NodeExtensionConfigQueryService nodeExtensionConfigQueryService) {
-        super(workflowQueryService, workflowCommandService, nodeExtensionConfigQueryService);
+                               WorkflowCommandService workflowCommandService) {
+        super(workflowQueryService, workflowCommandService);
     }
 
     @Override
