@@ -66,7 +66,23 @@ class AgentExtensionLoaderTest {
         @DisplayName("null类型抛出IllegalArgumentException")
         void getExtensionLoader_null() {
             assertThrows(IllegalArgumentException.class,
-                    () -> AgentExtensionLoader.getExtensionLoader(null));
+                    () -> AgentExtensionLoader.getExtensionLoader((Class<?>) null));
+        }
+
+        @Test
+        @DisplayName("空字符串 FQCN 抛出 IllegalArgumentException")
+        void getExtensionLoader_blankFqcn() {
+            assertThrows(IllegalArgumentException.class,
+                    () -> AgentExtensionLoader.getExtensionLoader((String) null));
+            assertThrows(IllegalArgumentException.class,
+                    () -> AgentExtensionLoader.getExtensionLoader(""));
+        }
+
+        @Test
+        @DisplayName("FQCN 类不存在抛出 IllegalArgumentException")
+        void getExtensionLoader_classNotFound() {
+            assertThrows(IllegalArgumentException.class,
+                    () -> AgentExtensionLoader.getExtensionLoader("com.no.such.Class"));
         }
 
         @Test

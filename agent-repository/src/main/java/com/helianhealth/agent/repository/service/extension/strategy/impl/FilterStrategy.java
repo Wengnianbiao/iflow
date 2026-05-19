@@ -1,12 +1,13 @@
-package com.helianhealth.agent.console.service.extension.strategy;
+package com.helianhealth.agent.repository.service.extension.strategy.impl;
 
+import com.helianhealth.agent.common.enums.ExtensionType;
 import com.helianhealth.agent.common.exception.AgentErrorCode;
 import com.helianhealth.agent.common.exception.AgentException;
-import com.helianhealth.agent.console.enums.ExtensionType;
 import com.helianhealth.agent.repository.model.domain.NodeExtensionConfig;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.repository.service.WorkflowNodeCommandService;
 import com.helianhealth.agent.repository.service.WorkflowNodeQueryService;
+import com.helianhealth.agent.repository.service.extension.strategy.ExtensionTypeStrategy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 

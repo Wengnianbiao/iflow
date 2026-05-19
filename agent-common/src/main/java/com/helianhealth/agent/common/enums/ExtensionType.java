@@ -1,4 +1,4 @@
-package com.helianhealth.agent.console.enums;
+package com.helianhealth.agent.common.enums;
 
 import lombok.Getter;
 

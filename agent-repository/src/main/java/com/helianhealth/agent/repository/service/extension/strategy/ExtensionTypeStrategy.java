@@ -1,6 +1,6 @@
-package com.helianhealth.agent.console.service.extension.strategy;
+package com.helianhealth.agent.repository.service.extension.strategy;
 
-import com.helianhealth.agent.console.enums.ExtensionType;
+import com.helianhealth.agent.common.enums.ExtensionType;
 import com.helianhealth.agent.repository.model.domain.NodeExtensionConfig;
 
 /**

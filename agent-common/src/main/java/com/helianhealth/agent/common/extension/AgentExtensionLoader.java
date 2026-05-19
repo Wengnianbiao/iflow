@@ -134,6 +134,27 @@ public class AgentExtensionLoader<T> {
     }
 
     /**
+     * 获取扩展加载器（按 SPI 接口全限定名）。
+     * <p>用于动态 SPI 管理场景：调用方仅持有接口字符串（库表字段），
+     * 无需自行处理 {@link Class#forName(String)} 与 {@link ClassNotFoundException}。
+     *
+     * @param spiInterfaceFqcn SPI 接口的全限定名（必须为接口且标注 {@code @AgentSPI}）
+     * @throws IllegalArgumentException 若类未找到或不是合法的 SPI 接口
+     */
+    public static AgentExtensionLoader<?> getExtensionLoader(String spiInterfaceFqcn) {
+        if (spiInterfaceFqcn == null || spiInterfaceFqcn.isEmpty()) {
+            throw new IllegalArgumentException("Extension type FQCN is blank");
+        }
+        Class<?> type;
+        try {
+            type = Class.forName(spiInterfaceFqcn);
+        } catch (ClassNotFoundException e) {
+            throw new IllegalArgumentException("SPI 接口类未找到: " + spiInterfaceFqcn, e);
+        }
+        return getExtensionLoader(type);
+    }
+
+    /**
      * 获取扩展加载器
      *
      * @param type 接口类型（必须标注@AgentSPI）

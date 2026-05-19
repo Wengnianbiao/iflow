@@ -3,9 +3,9 @@ package com.helianhealth.agent.ai.convert;
 import com.helianhealth.agent.ai.model.ExtensionMcpView;
 import com.helianhealth.agent.ai.model.ExtensionRegisterMcpRequest;
 import com.helianhealth.agent.ai.model.ExtensionUpdateMcpRequest;
-import com.helianhealth.agent.console.controller.request.NodeExtensionConfigCreateReq;
-import com.helianhealth.agent.console.model.dto.NodeExtensionConfigUpdateReq;
 import com.helianhealth.agent.repository.model.domain.NodeExtensionConfig;
+import com.helianhealth.agent.repository.model.dto.NodeExtensionConfigCreateReq;
+import com.helianhealth.agent.repository.model.dto.NodeExtensionConfigUpdateReq;
 
 import java.util.List;
 import java.util.stream.Collectors;

@@ -1,11 +1,11 @@
 package com.helianhealth.agent.console.controller;
 
-import com.helianhealth.agent.console.controller.request.NodeExtensionConfigCreateReq;
-import com.helianhealth.agent.console.enums.ExtensionType;
-import com.helianhealth.agent.console.model.dto.NodeExtensionConfigDetailResponse;
-import com.helianhealth.agent.console.model.dto.NodeExtensionConfigUpdateReq;
-import com.helianhealth.agent.console.service.extension.DynamicSpiAdminService;
+import com.helianhealth.agent.common.enums.ExtensionType;
 import com.helianhealth.agent.repository.model.domain.NodeExtensionConfig;
+import com.helianhealth.agent.repository.model.dto.NodeExtensionConfigCreateReq;
+import com.helianhealth.agent.repository.model.dto.NodeExtensionConfigDetailResponse;
+import com.helianhealth.agent.repository.model.dto.NodeExtensionConfigUpdateReq;
+import com.helianhealth.agent.repository.service.extension.DynamicSpiAdminService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;

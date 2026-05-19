@@ -1,9 +1,10 @@
-package com.helianhealth.agent.console.service.extension.strategy;
+package com.helianhealth.agent.repository.service.extension.strategy.impl;
 
 import com.helianhealth.agent.repository.model.domain.NodeExtensionConfig;
 import com.helianhealth.agent.repository.model.domain.Workflow;
 import com.helianhealth.agent.repository.service.WorkflowCommandService;
 import com.helianhealth.agent.repository.service.WorkflowQueryService;
+import com.helianhealth.agent.repository.service.extension.strategy.ExtensionTypeStrategy;
 
 import java.util.List;
 
