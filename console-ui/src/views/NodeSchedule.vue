@@ -420,8 +420,10 @@ export default {
           pageSize: 1000
         });
 
-        if (res.code === 200) {
-          this.allNodes = res.data.rows || [];
+        // 与 WorkflowNode 等页面一致：axios 的 data 为完整 ResultData，分页列表在 data.data.rows
+        if (res.status === 200 && res.data.code === 200) {
+          const pageList = res.data.data || {};
+          this.allNodes = pageList.rows || [];
 
           // 筛选出有调度配置的节点
           this.scheduleList = this.allNodes.filter(node =>
@@ -431,7 +433,9 @@ export default {
             nextNodeIds: this.parseNextNodeIds(node.scheduleExpr)
           }));
         } else {
-          this.$message.error('加载节点列表失败：' + (res.message || '未知错误'));
+          const msg =
+            (res.data && res.data.message) || res.message || '未知错误';
+          this.$message.error('加载节点列表失败：' + msg);
         }
       } catch (error) {
         console.error('加载节点列表失败:', error);
