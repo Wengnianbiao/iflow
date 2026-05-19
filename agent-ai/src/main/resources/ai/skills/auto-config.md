@@ -58,24 +58,46 @@ description: 通过 MCP 接口完成接口对接的自动化配置，支持创�
 
 ---
 
-## MCP 接口
+## 对接方式
 
-### 基础路径
+interface-agent 同时暴露两套入口，按场景选用即可：
+
+### A. MCP 协议入口（推荐外部 Agent 使用）
+
+JSON-RPC 2.0 over HTTP，全部域级 Tool 在一个入口下：
+
+- 协议端点：`POST /mcp`
+- 支持方法：`initialize` / `tools/list` / `tools/call` / `ping`
+- 工具粒度：7 个域级 Tool，每个 Tool 用 `action` 字段区分 CRUD
+  | Tool | 覆盖能力 |
+  |------|---------|
+  | `agent_workflow` | 工作流 CRUD |
+  | `agent_workflow_node` | 工作流节点 CRUD |
+  | `agent_node_param_config` | 参数映射 list/export/import/update/delete/delete_all |
+  | `agent_mock_config` | Mock 配置 CRUD + delete_by_node |
+  | `agent_mock_invoke` | Mock 链路验证 invoke / batch_invoke |
+  | `agent_invoke_log` | 日志查询 list/latest/by_keyword/by_node |
+  | `agent_spi_extension` | SPI 扩展 list/register/update/delete/enable/disable |
+
+启用/关闭通过 `interface-agent.mcp.enabled` 控制（默认开启），路径可通过 `interface-agent.mcp.base-path` 调整。
+
+### B. Ops REST 接口（底层能力面，内部脚本/调试用）
 
 | 领域模型 | 路径 |
 |------|------|
-| Workflow | `/v1/ai/mcp/workflow` |
-| WorkflowNode | `/v1/ai/mcp/workflow-node` |
-| NodeParamConfig | `/v1/ai/mcp/node-param-config` |
-| MockConfig | `/v1/ai/mcp/mock-config` |
-| MockInvoke | `/v1/ai/mcp/mock-invoke` |
-| InvokeLog | `/v1/ai/mcp/invoke-log` |
+| Workflow | `/v1/ai/ops/workflow` |
+| WorkflowNode | `/v1/ai/ops/workflow-node` |
+| NodeParamConfig | `/v1/ai/ops/node-param-config` |
+| MockConfig | `/v1/ai/ops/mock-config` |
+| MockInvoke | `/v1/ai/ops/mock-invoke` |
+| InvokeLog | `/v1/ai/ops/invoke-log` |
+| Extension | `/v1/ai/ops/extension` |
 
 ---
 
 ## 步骤1：创建节点
 
-**POST /v1/ai/mcp/workflow-node/create**
+**POST /v1/ai/ops/workflow-node/create**
 
 ```json
 {
@@ -97,7 +119,7 @@ description: 通过 MCP 接口完成接口对接的自动化配置，支持创�
 
 ## 步骤2：导入参数映射
 
-**POST /v1/ai/mcp/node-param-config/import**
+**POST /v1/ai/ops/node-param-config/import**
 
 ```json
 {
@@ -229,7 +251,7 @@ description: 通过 MCP 接口完成接口对接的自动化配置，支持创�
 
 ### 创建 Mock
 
-**POST /v1/ai/mcp/mock-config/create**
+**POST /v1/ai/ops/mock-config/create**
 
 ```json
 {
@@ -241,7 +263,7 @@ description: 通过 MCP 接口完成接口对接的自动化配置，支持创�
 
 ### 执行调用
 
-**POST /v1/ai/mcp/mock-invoke/invoke?nodeId=8&mockId=15**
+**POST /v1/ai/ops/mock-invoke/invoke?nodeId=8&mockId=15**
 
 ```json
 {
@@ -252,7 +274,7 @@ description: 通过 MCP 接口完成接口对接的自动化配置，支持创�
 
 ### 查询日志
 
-**GET /v1/ai/mcp/invoke-log/latest?limit=1**
+**GET /v1/ai/ops/invoke-log/latest?limit=1**
 
 **验证项**：
 - `paramBeforeInvoke` → 前置映射结果
@@ -262,7 +284,7 @@ description: 通过 MCP 接口完成接口对接的自动化配置，支持创�
 
 ## 步骤4：创建工作流
 
-**POST /v1/ai/mcp/workflow/create**
+**POST /v1/ai/ops/workflow/create**
 
 ```json
 {

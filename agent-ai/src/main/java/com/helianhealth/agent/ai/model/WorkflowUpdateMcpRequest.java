@@ -1,6 +1,5 @@
 package com.helianhealth.agent.ai.model;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
 import lombok.Data;
 
 import java.util.List;
@@ -11,7 +10,6 @@ public class WorkflowUpdateMcpRequest {
     private Integer flowId;
     private String flowName;
     private String interfaceUri;
-    @JsonAlias("spiExtensionName")
     private String routeExtension;
     private String contentType;
     private String contentMetaInfo;

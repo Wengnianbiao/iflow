@@ -9,6 +9,9 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * Interface Agent 自动配置类
+ *
+ * <p>注：{@code McpServerProperties} 由 {@code agent-ai} 模块内的
+ * {@code McpServerConfiguration} 自行注册，无需在此重复声明。</p>
  */
 @Configuration
 @ConditionalOnProperty(prefix = "interface-agent", name = "enabled", havingValue = "true", matchIfMissing = true)
