@@ -29,11 +29,6 @@ public class ApiController {
         this.apiService = apiService;
     }
 
-    @GetMapping("/HLOpenApi/Hjk")
-    public JarvisResultData<Object> healthCheck() {
-        return JarvisResultData.ok();
-    }
-
     @PostMapping("/HLOpenApi/Hjk")
     public JarvisResultData<Object> invokeJarvisApi(@RequestBody JarvisRequest request) {
         return apiService.invokeJarvisApi(request);
