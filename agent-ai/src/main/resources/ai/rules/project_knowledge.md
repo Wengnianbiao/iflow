@@ -1,7 +1,7 @@
 ---
 trigger: always_on
-version: v5.1
-last_updated: 2026-05-15
+version: v5.2
+last_updated: 2026-05-25
 audience: ai_agent
 ---
 
@@ -198,9 +198,104 @@ AI 生成 `interfaceUri` 时须区分两条入口的**匹配键**与**未命中�
 
 **`ARRAY` / `PURE_ARRAY`**：`PURE_ARRAY` **仅作源侧**（顶层即数组）；通常需 **`sourceParamType=NONE` + `targetParamType=OBJECT` 的虚拟父节点**，下挂元素；虚拟节点名惯例带 `Node` 后缀。
 
-**`sourceParamKey`**：`NAME` 等从 Map 取值时，支持 **点号路径** 钻取嵌套 Map（`a.b.c`，见 `ProxyConvertHelper.convertSourceValue`）。**SpEL 映射**仍建议 **`#data['key']`** 风格，二者不要混用同一字段的不同风格以免排障困难。
+**`sourceParamKey`**：仅**源侧**支持 **点号路径** 钻取嵌套 Map（`patientInfo.hisOrgId`、`doctorInfo.number`，见 `ProxyConvertHelper.convertSourceValue`）。**SpEL 映射**仍建议 **`#data['key']`** 风格。
+
+**`targetParamKey`**：**禁止含 `.`**。框架按参数树 `childParam` 递归拼装目标 JSON/XML，**一层 key 对应树上一级节点**；若写成 `Body.TjNo`，产出是字面量键 `"Body.TjNo"` 的**平铺 Map**，**不会**变成 `{ "Body": { "TjNo": ... } }`。
 
 **`mappingType=NAME`**：源 key 与目标 key 按名拷贝（需类型与树结构匹配）。
+
+### 6.1 嵌套目标结构：OBJECT + childParam（易错）
+
+三方接口文档常写 `Body.TjNo`、`Head.TradeCode`，AI **不得**把点号写进 `targetParamKey`。应拆成 **OBJECT 父节点 + 子字段**：
+
+| 文档路径 | 错误 ❌ | 正确 ✅ |
+|----------|---------|---------|
+| `Body.TjNo` | `"targetParamKey": "Body.TjNo"` | 父：`targetParamKey=Body`，`targetParamType=OBJECT`；子：`targetParamKey=TjNo` |
+| `Head.TradeCode` | `"targetParamKey": "Head.TradeCode"` | 父：`targetParamKey=Head`，`targetParamType=OBJECT`；子：`targetParamKey=TradeCode` |
+
+**错误产出示例**（禁止）：
+
+```json
+{
+  "Body.TjNo": "2509050001",
+  "Head.TradeCode": "PAT202"
+}
+```
+
+**正确产出示例**：
+
+```json
+{
+  "Body": {
+    "TjNo": "2509050001",
+    "patName": "测试账号"
+  },
+  "Head": {
+    "TradeCode": "PAT202",
+    "SystemCode": "TJ"
+  }
+}
+```
+
+**正确映射片段**（PRE_PROCESS，MCP import 嵌套字段名为 `childParams`）：
+
+```json
+[
+  {
+    "processType": "PRE_PROCESS",
+    "sourceParamType": "NONE",
+    "targetParamKey": "Body",
+    "targetParamType": "OBJECT",
+    "mappingType": "NAME",
+    "sort": 1,
+    "childParams": [
+      {
+        "processType": "PRE_PROCESS",
+        "sourceParamKey": "patientCode",
+        "sourceParamType": "STRING",
+        "targetParamKey": "TjNo",
+        "targetParamType": "STRING",
+        "mappingType": "NAME",
+        "sort": 1
+      },
+      {
+        "processType": "PRE_PROCESS",
+        "sourceParamKey": "patientName",
+        "sourceParamType": "STRING",
+        "targetParamKey": "patName",
+        "targetParamType": "STRING",
+        "mappingType": "NAME",
+        "sort": 2
+      }
+    ]
+  },
+  {
+    "processType": "PRE_PROCESS",
+    "sourceParamType": "NONE",
+    "targetParamKey": "Head",
+    "targetParamType": "OBJECT",
+    "mappingType": "NAME",
+    "sort": 2,
+    "childParams": [
+      {
+        "processType": "PRE_PROCESS",
+        "sourceParamType": "NONE",
+        "targetParamKey": "TradeCode",
+        "targetParamType": "STRING",
+        "mappingType": "CONSTANT",
+        "mappingRule": "PAT202",
+        "sort": 1
+      }
+    ]
+  }
+]
+```
+
+**规则小结**：
+
+- **`.` 只用于 `sourceParamKey`**（从上游嵌套数据取值），或 `splitField` / `keywordField` 等同理路径字段。
+- **目标嵌套一律用 `targetParamType=OBJECT`（或 ARRAY）+ `childParam`/`childParams`**，子节点 `targetParamKey` 仅为**当前层**字段名。
+- OBJECT 父节点若仅作结构容器、不映射源对象：`sourceParamType=NONE`，`mappingType=NAME`（常见写法）。
 
 ---
 
@@ -264,29 +359,4 @@ AI 描述流程时需对齐以下**硬行为**：
 
 控制台 **`buildWithMock`** 会向 `extensionParam` 写入 **`filter.mock`**（与手工配置等价）。
 
----
 
-## 11. 配置持久化提示（生成 JSON 时）
-
-- `WorkflowNode.extensionParam`：存储为 **JSON 对象字符串**（key-value 均为字符串最佳实践）。
-- 生成 `metaInfo` / `contentMetaInfo`：合法 JSON，键与 §3.1、§5 一致。
-
----
-
-## 12. AI 自检清单（输出配置前）
-
-- [ ] `interfaceUri` 与 **Open API 全 URI** 或 **Jarvis `businessMethod`** 一致？  
-- [ ] `scheduleExpr` 非空 ⇒ **`scheduleParamSourceType` 已填**？  
-- [ ] `scheduleExpr` 返回 **`List<Integer>` 或 null**，且 list 内为 **Integer**？  
-- [ ] `#data` 在调度中 = **当前节点响应**，不是原始请求？  
-- [ ] `nodeType=NONE` ⇒ 不依赖外呼体，POST 从 `#input`/`#response` 构造？  
-- [ ] POST 映射 `mappingSource` 父子一致或有意跨源？  
-- [ ] XML/SOAP：`contentMetaInfo` 与节点 `metaInfo` 解析键是否覆盖唯一标签、CDATA、内层标签？
-- [ ] 工作流 **`status=1`** 才能被 **`interfaceUri` 命中**？
-- [ ] **Jarvis** 非 `GetItemResult` 时 **`data` 非空**（默认 Handler）？最终是否按需填 **`code`/`message`/`rsp`**？
-- [ ] **`splitField` 路径**上的类型是否为 **Map→…→List**？**NONE+`filter.mock`** 是否误配？
-- [ ] 期望「原样返回下游 JSON」时，是否误忘了配 **POST_PROCESS**（否则会落成 **`{}`**）？
-
----
-
-**说明**：本文件是**规则与语义**摘要；具体表结构、控制台字段名与运维环境以当前部署为准。SPI 实现类位于 `agent-invocation`、`agent-api` 等模块，扩展名以 `META-INF/agent/` 与运行时注册为准。

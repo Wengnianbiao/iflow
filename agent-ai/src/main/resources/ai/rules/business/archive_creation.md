@@ -1,60 +1,31 @@
----
-trigger: model_decision
-description: 
----
-# 档案创建接口配置指南
+# 档案创建
 
-> **业务专用指南**：提供档案创建（建档）场景的完整配置示例和步骤
+## 档案创建 -> 业务要点
 
----
+**上下游关系**：上游为**体检系统**，下游为**三方系统**（HIS 等）。体检系统将患者档案信息同步至三方；三方建档成功后返回档案挂号标识。
 
-## 目的
+**节点关键字**：`keywordField` 配置为 `patientCode`（体检编号），用于调用日志检索与问题排查。
 
-在HIS系统中创建患者档案信息，获取HIS分配的患者ID（档案号）和就诊号，用于后续业务流程。
+**三方典型回参**（后置映射需回填至体检系统）：
 
----
+| 含义 | 说明 | 体检系统常见字段 |
+|------|------|------------------|
+| 档案 ID | 一个客户唯一标识，终身不变 | `rsp.outPatientCode` / `hisPatientId` |
+| 门诊号 | 对应一次体检记录，每次体检可能不同 | `rsp.visitNo` / `visitNo` |
 
-## 场景识别
+**常见值转换**（前置映射，以三方接口文档为准）：
 
-当客户提到「建档」「创建档案」「患者登记」「挂号建档」时，明确为档案创建场景。
+| 字段 | 体检系统值 | 三方可能要求 | 转换示例 |
+|------|-----------|-------------|----------|
+| 性别 | `"1"` / `"2"` | `"男"` / `"女"` | `#data == '1' ? '男' : '女'` |
+| 婚姻 | `"1"` / `"2"` | `"未婚"` / `"已婚"` | `#data == '1' ? '未婚' : '已婚'` |
+| 证件类型 | `"1"` | `"0"` | `#data == "1" ? "0" : "1"` |
 
----
-
-## 业务要点
-
-### 1. 节点关键字配置
-
-**keywordField**：`patientCode`
-
-用于日志检索和问题排查，框架会从Jarvis入参中提取此字段值作为业务关键字记录到调用日志中。
-
-**配置位置**：节点配置的 `keywordField` 字段
-
-### 2. 常见字段转换
-
-建档接口常见的值转换场景：
-
-| 字段 | Jarvis值 | his可能要求 | 转换示例 |
-|------|----------|-------------|----------|
-| 性别 | "1"/"2" | "男"/"女" | `#data == '1' ? '男' : '女'` |
-| 婚姻 | "1"/"2" | "未婚"/"已婚" | `#data == '1' ? '未婚' : '已婚'` |
-| 证件类型 | "1" | "0" | `#data == "1" ? "0" : "1"` |
-| 体检类型 | 0/1 | "1"/"2" | `#data == 0 ? "1" : "2"` |
-
-### 3. 嵌套字段提取
-
-Jarvis入参中部分字段在嵌套对象内，需用EXPRESSION提取：
-
-| 目标 | 来源 | 映射规则 |
-|------|------|----------|
-| 操作员ID | `doctorInfo.number` | `#data[number]` |
-| 操作员姓名 | `doctorInfo.userName` | `#data[userName]` |
-| 登记时间 | `patientInfo.registertime` | `#data[registertime]` |
-| 单位ID | `patientInfo.hisOrgId` | `#data[hisOrgId]` |
+**嵌套字段**（`doctorInfo`、`patientInfo` 等）用 EXPRESSION 提取，如 `#data[number]`、`#data[hisOrgId]`。
 
 ---
 
-## Jarvis入参
+## 档案创建 -> 上游入参（体检系统）
 
 ```json
 {
@@ -78,13 +49,10 @@ Jarvis入参中部分字段在嵌套对象内，需用EXPRESSION提取：
   "orgName": "测试单位",
   "patientInfo": {
     "sex": "2",
-    "vpInvoiceTitle": null,
-    "vpSocialCode": null,
     "age": 53,
     "marriage": "2",
     "identitycard": "330511197202254629",
     "cardType": "1",
-    "patientLevelName": "普通体检人",
     "phone": "13059970500",
     "birthday": "1972-02-25",
     "hisOrgId": "85330",
@@ -108,47 +76,37 @@ Jarvis入参中部分字段在嵌套对象内，需用EXPRESSION提取：
 }
 ```
 
-**关键字段**：
-- `patientCode` - keywordField，体检编号
-- `identitycard` - 身份证号（必填）
-- `patientName` - 患者姓名（必填）
-- `sex` - 性别（常需转换为中文）
-- `marriage` - 婚姻状况（常需转换为中文）
-- `doctorInfo.number` - 操作员编号（从嵌套对象提取）
-- `patientInfo.hisOrgId` - 单位ID（从嵌套对象提取）
-- `hisPatientId` / `visitNo` - 建档前为null，后置映射时回填
+建档前 `hisPatientId`、`visitNo` 通常为 `null`，由后置映射从三方响应回填。
 
 ---
 
-## Jarvis出参
+## 档案创建 -> 上游出参（体检系统）
 
 ```json
 {
   "code": "200",
   "message": "成功",
   "rsp": {
-    "outPatientCode": "his客户ID",
-    "visitNo": "就诊卡号"
+    "outPatientCode": "三方档案ID",
+    "visitNo": "门诊号"
   }
 }
 ```
 
-**字段说明**：
-
 | 字段 | 说明 |
 |------|------|
-| code | 状态码，200成功 |
-| message | 响应消息 |
-| rsp.outPatientCode | HIS分配的患者档案号 |
-| rsp.visitNo | HIS分配的就诊号 |
+| `code` | 状态码，`200` 表示成功 |
+| `message` | 响应消息 |
+| `rsp.outPatientCode` | 三方档案 ID（一客一号） |
+| `rsp.visitNo` | 门诊号（本次体检记录） |
 
 ---
 
-## 映射配置示例
+## 档案创建 -> 映射配置
 
-> **重要说明**：以下示例仅用于说明映射配置方法，实际HIS接口的入参、出参字段必须以客户提供的接口文档或实际出入参为准。
+> 以下三方出入参仅为示例，实际字段以提供的三方接口文档为准。
 
-### HIS入参示例
+### 三方入参示例
 
 ```json
 {
@@ -166,7 +124,7 @@ Jarvis入参中部分字段在嵌套对象内，需用EXPRESSION提取：
 }
 ```
 
-### HIS响应示例
+### 三方响应示例
 
 ```json
 {
@@ -181,49 +139,166 @@ Jarvis入参中部分字段在嵌套对象内，需用EXPRESSION提取：
 }
 ```
 
-### 前置处理映射（Jarvis → HIS）
+### 参数映射
 
-| Jarvis字段 | 源参数类型 | HIS字段 | 目标参数类型 | 映射类型 | 映射规则 |
-|-------------|-----------|----------|-------------|----------|----------|
-| patientName | STRING | name | STRING | NAME | - |
-| identitycard | STRING | idCard | STRING | NAME | - |
-| phone | STRING | phone | STRING | NAME | - |
-| birthday | STRING | birthday | STRING | NAME | - |
-| address | STRING | address | STRING | NAME | - |
-| sex | STRING | sex | STRING | EXPRESSION | `#data == '1' ? '男' : '女'` |
-| marriage | STRING | marriage | STRING | EXPRESSION | `#data == '1' ? '未婚' : '已婚'` |
-| doctorInfo | OBJECT | operatorId | STRING | EXPRESSION | `#data['number']` |
-| doctorInfo | OBJECT | operatorName | STRING | EXPRESSION | `#data['userName']` |
-| patientInfo | OBJECT | orgId | STRING | EXPRESSION | `#data['hisOrgId']` |
-| - | NONE | type | STRING | CONSTANT | `"1"` |
-
-
-### 后置处理映射（HIS → Jarvis）
-
-| HIS字段 | 源参数类型 | Jarvis字段 | 目标参数类型 | 映射类型 | 映射数据源 | 映射规则 |
-|---------|-----------|-------------|-------------|----------|-----------|----------|
-| returnCode | STRING | code | STRING | EXPRESSION | RESPONSE | `#data == "1" ? "200" : "-1"` |
-| errorMessage | STRING | message | STRING | NAME | RESPONSE | - |
-| data | OBJECT | rsp | OBJECT | NAME | RESPONSE | 嵌套映射 |
-| └─ patientId | STRING | └─ outPatientCode | STRING | NAME | RESPONSE | - |
-| └─ clinicId | STRING | └─ visitNo | STRING | NAME | RESPONSE | - |
-
----
-
-## AI配置步骤
-
-### 步骤1：获取HIS接口信息
-
-询问客户提供HIS接口文档，或明确以下信息：
-
-**必须信息**：
-1. HIS建档接口的入参字段及格式
-2. HIS建档接口的响应字段及格式
-
-### 步骤2：生成前置映射（Jarvis → HIS）
-
-参考上述前置处理映射表
-
-### 步骤3：生成后置映射（HIS → Jarvis）
-
-参考上述后置处理映射表
+```json
+[
+  {
+    "processType": "PRE_PROCESS",
+    "sourceParamKey": "patientName",
+    "sourceParamType": "STRING",
+    "targetParamKey": "name",
+    "targetParamType": "STRING",
+    "mappingType": "NAME",
+    "sort": 1
+  },
+  {
+    "processType": "PRE_PROCESS",
+    "sourceParamKey": "identitycard",
+    "sourceParamType": "STRING",
+    "targetParamKey": "idCard",
+    "targetParamType": "STRING",
+    "mappingType": "NAME",
+    "sort": 2
+  },
+  {
+    "processType": "PRE_PROCESS",
+    "sourceParamKey": "phone",
+    "sourceParamType": "STRING",
+    "targetParamKey": "phone",
+    "targetParamType": "STRING",
+    "mappingType": "NAME",
+    "sort": 3
+  },
+  {
+    "processType": "PRE_PROCESS",
+    "sourceParamKey": "birthday",
+    "sourceParamType": "STRING",
+    "targetParamKey": "birthday",
+    "targetParamType": "STRING",
+    "mappingType": "NAME",
+    "sort": 4
+  },
+  {
+    "processType": "PRE_PROCESS",
+    "sourceParamKey": "address",
+    "sourceParamType": "STRING",
+    "targetParamKey": "address",
+    "targetParamType": "STRING",
+    "mappingType": "NAME",
+    "sort": 5
+  },
+  {
+    "processType": "PRE_PROCESS",
+    "sourceParamKey": "sex",
+    "sourceParamType": "STRING",
+    "targetParamKey": "sex",
+    "targetParamType": "STRING",
+    "mappingType": "EXPRESSION",
+    "mappingRule": "#data == '1' ? '男' : '女'",
+    "sort": 6
+  },
+  {
+    "processType": "PRE_PROCESS",
+    "sourceParamKey": "marriage",
+    "sourceParamType": "STRING",
+    "targetParamKey": "marriage",
+    "targetParamType": "STRING",
+    "mappingType": "EXPRESSION",
+    "mappingRule": "#data == '1' ? '未婚' : '已婚'",
+    "sort": 7
+  },
+  {
+    "processType": "PRE_PROCESS",
+    "sourceParamKey": "doctorInfo",
+    "sourceParamType": "OBJECT",
+    "targetParamKey": "operatorId",
+    "targetParamType": "STRING",
+    "mappingType": "EXPRESSION",
+    "mappingRule": "#data['number']",
+    "sort": 8
+  },
+  {
+    "processType": "PRE_PROCESS",
+    "sourceParamKey": "doctorInfo",
+    "sourceParamType": "OBJECT",
+    "targetParamKey": "operatorName",
+    "targetParamType": "STRING",
+    "mappingType": "EXPRESSION",
+    "mappingRule": "#data['userName']",
+    "sort": 9
+  },
+  {
+    "processType": "PRE_PROCESS",
+    "sourceParamKey": "patientInfo",
+    "sourceParamType": "OBJECT",
+    "targetParamKey": "orgId",
+    "targetParamType": "STRING",
+    "mappingType": "EXPRESSION",
+    "mappingRule": "#data['hisOrgId']",
+    "sort": 10
+  },
+  {
+    "processType": "PRE_PROCESS",
+    "sourceParamType": "NONE",
+    "targetParamKey": "type",
+    "targetParamType": "STRING",
+    "mappingType": "CONSTANT",
+    "mappingRule": "1",
+    "sort": 11
+  },
+  {
+    "processType": "POST_PROCESS",
+    "sourceParamKey": "returnCode",
+    "sourceParamType": "STRING",
+    "targetParamKey": "code",
+    "targetParamType": "STRING",
+    "mappingType": "EXPRESSION",
+    "mappingSource": "RESPONSE",
+    "mappingRule": "#data == '1' ? '200' : '-1'",
+    "sort": 12
+  },
+  {
+    "processType": "POST_PROCESS",
+    "sourceParamKey": "errorMessage",
+    "sourceParamType": "STRING",
+    "targetParamKey": "message",
+    "targetParamType": "STRING",
+    "mappingType": "NAME",
+    "mappingSource": "RESPONSE",
+    "sort": 13
+  },
+  {
+    "processType": "POST_PROCESS",
+    "sourceParamKey": "data",
+    "sourceParamType": "OBJECT",
+    "targetParamKey": "rsp",
+    "targetParamType": "OBJECT",
+    "mappingType": "NAME",
+    "mappingSource": "RESPONSE",
+    "sort": 14,
+    "childParam": [
+      {
+        "processType": "POST_PROCESS",
+        "sourceParamKey": "patientId",
+        "sourceParamType": "STRING",
+        "targetParamKey": "outPatientCode",
+        "targetParamType": "STRING",
+        "mappingType": "NAME",
+        "mappingSource": "RESPONSE",
+        "sort": 1
+      },
+      {
+        "processType": "POST_PROCESS",
+        "sourceParamKey": "clinicId",
+        "sourceParamType": "STRING",
+        "targetParamKey": "visitNo",
+        "targetParamType": "STRING",
+        "mappingType": "NAME",
+        "mappingSource": "RESPONSE",
+        "sort": 2
+      }
+    ]
+  }
+]
+```

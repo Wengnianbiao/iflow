@@ -130,7 +130,7 @@ agent-common (基础层)
 
 | 方式 | 入口 | 适用场景 |
 |------|------|---------|
-| **MCP 协议** | `POST /mcp`（JSON-RPC 2.0） | 外部 AI Agent / Claude Desktop / Cursor 等 MCP 客户端，统一通过 7 个域级 Tool 操作 |
+| **MCP 协议** | `POST /mcp`（JSON-RPC 2.0） | 外部 AI Agent / Claude Desktop / Cursor 等 MCP 客户端，统一通过 8 个域级 Tool 操作 |
 | **Ops REST**  | `/v1/ai/ops/*`                | 内部脚本、人工调试，按域拆分的细粒度 REST 端点 |
 
 MCP Server 与 Spring 同进程托管，由 starter 默认开启，可通过 `interface-agent.mcp.enabled=false` 关闭：
@@ -144,7 +144,7 @@ interface-agent:
     server-version: 1.0.0
 ```
 
-7 个域级 Tool：`agent_workflow` / `agent_workflow_node` / `agent_node_param_config` /
+8 个域级 Tool：`agent_health` / `agent_workflow` / `agent_workflow_node` / `agent_node_param_config` /
 `agent_mock_config` / `agent_mock_invoke` / `agent_invoke_log` / `agent_spi_extension`，
 每个 Tool 用 `action` 字段区分 CRUD 操作。
 

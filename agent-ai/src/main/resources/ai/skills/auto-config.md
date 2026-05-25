@@ -1,8 +1,3 @@
----
-name: auto-config
-description: 通过 MCP 接口完成接口对接的自动化配置，支持创建节点、参数映射、工作流和Mock验证
----
-
 # 自动化配置 Skill
 
 > 通过 MCP 接口完成接口对接的自动化配置
@@ -33,18 +28,35 @@ description: 通过 MCP 接口完成接口对接的自动化配置，支持创�
 
 在调用任何 MCP 接口前，**必须先校验本地服务是否启动**。
 
-### 健康检查接口
+### MCP 健康检查（推荐）
 
-**GET http://localhost:8099/HLOpenApi/Hjk**
+**POST /mcp** — `tools/call`：
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/call",
+  "params": {
+    "name": "agent_health",
+    "arguments": { "action": "check" }
+  }
+}
+```
+
+| action | 说明 |
+|--------|------|
+| `ping` | 仅确认 MCP 进程存活（不查库） |
+| `check` | 确认 MCP + agent 数据源可用（**自动化配置前用这个**） |
+
+成功时 `result.content[0].text` 内 `ResultData.rsp.status` 为 `UP`；`database` 为 `UP` 表示数据库正常。
 
 ### 校验逻辑
 
 ```
-调用健康检查接口
+agent_health.check 返回 status=UP 且 database=UP → 继续执行
      ↓
-响应成功(200) → 继续执行后续步骤
-     ↓
-响应失败/超时 → 停止执行，提示用户启动服务,或者让用户告知端口是什么
+否则 → 停止执行，提示用户启动服务或检查数据源配置
 ```
 
 ### 服务未启动提示
@@ -68,9 +80,10 @@ JSON-RPC 2.0 over HTTP，全部域级 Tool 在一个入口下：
 
 - 协议端点：`POST /mcp`
 - 支持方法：`initialize` / `tools/list` / `tools/call` / `ping`
-- 工具粒度：7 个域级 Tool，每个 Tool 用 `action` 字段区分 CRUD
+- 工具粒度：8 个域级 Tool，每个 Tool 用 `action` 字段区分 CRUD
   | Tool | 覆盖能力 |
   |------|---------|
+  | `agent_health` | 健康检查 ping / check（配置前必调） |
   | `agent_workflow` | 工作流 CRUD |
   | `agent_workflow_node` | 工作流节点 CRUD |
   | `agent_node_param_config` | 参数映射 list/export/import/update/delete/delete_all |

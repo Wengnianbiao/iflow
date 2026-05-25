@@ -1,25 +1,77 @@
 ---
 name: spi-extension
-description: 为无法配置化的接口场景生成 SPI 扩展代码，支持动态签名、动态Token、特殊加密等场景
+description: 为无法配置化的场景生成 SPI 扩展代码，覆盖四种 ExtensionType 及 PROJECT/ONLINE 注册方式
 ---
 
 # SPI 扩展 Skill
 
-> 为无法配置化的接口场景生成 SPI 扩展代码
+> 当自动化配置（节点 + 参数映射 + Mock）无法完成对接时，编写 SPI 扩展代码。
 
 ---
 
-## 使用场景
+## 一、何时需要 SPI（与配置化的边界）
 
-- 可行性评估结果为"需要 SPI 扩展"
-- 用户要求编写扩展代码
-- 常见场景：动态签名、动态 Token、特殊加密、参数转换
+**优先走配置化**（见 `auto-config` skill）：`interfaceUri`、节点 `nodeType` + `metaInfo`、PRE/POST 参数映射、SpEL 过滤/调度/拆批、`responseType`、XML `contentMetaInfo` 等。
+
+**必须 SPI** 的典型场景：
+
+| 场景 | 推荐扩展类型 |
+|------|-------------|
+| 外呼需自定义签名、Token、加解密、非标准 HTTP 流程 | `remote`（或 `filter`，见下） |
+| 需在标准外呼链上统一改请求头、Mock 拦截、前后置处理 | `filter` |
+| Open API 入口协议/编排与默认不一致 | `workflow` |
+| Jarvis 入口协议/编排与默认不一致 | `jarvis-workflow` |
+
+**选型提示**：
+
+- 只需在**已有参数映射 + 协议客户端**基础上加签名/Token → 优先 `filter`（包在 `InterfaceClientProxy` 外，仍走默认参数树）。
+- 需**完全接管**某节点的调用流程（自己组请求、调 HTTP、转响应）→ 用 `remote`（替换 `DefaultInterfaceRemoteInvoker`，不再自动走 PRE/POST 映射，除非自己在代码里实现）。
 
 ---
 
-## SPI 扩展机制
+## 二、框架提供的四种扩展类型
 
-### 核心接口
+来源：`ExtensionType` 枚举。SPI 机制基于 `AgentExtensionLoader`（类 Dubbo ExtensionLoader）。
+
+| code | 名称 | SPI 接口 | 绑定对象 | 触发字段 | 默认实现 |
+|------|------|----------|----------|----------|----------|
+| `remote` | 远程调用扩展 | `com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker` | 工作流节点（可多节点） | 节点 `remoteExtension` | `DefaultInterfaceRemoteInvoker` |
+| `filter` | 过滤器扩展 | `com.helianhealth.agent.invocation.remote.filter.AgentFilter` | 工作流节点（可多节点） | 节点 `extensionParam` 中 `filter.{扩展名}` | 内置 `MockAgentFilter` 等 |
+| `workflow` | Open API 工作流扩展 | `com.helianhealth.agent.api.OpenApiRouteHandler` | 工作流（单 flowId） | 工作流 `routeExtension` | `DefaultOpenApiRouteHandler` |
+| `jarvis-workflow` | Jarvis 工作流扩展 | `com.helianhealth.agent.api.JarvisRouteHandler` | 工作流（单 flowId） | 工作流 `routeExtension` | `DefaultJarvisRouteHandler` |
+
+---
+
+## 三、如何注册扩展
+
+扩展配置持久化在表 `spi_extension_config`（领域模型 `NodeExtensionConfig`）。注册后框架会同步写关联字段（`remote_extension` / `extension_param` / `route_extension`）并加载到 SPI 运行时。
+
+### 3.1 两种扩展方式
+
+| 方式 | extensionMode | 适用 | 说明 |
+|------|---------------|------|------|
+| **项目扩展** | `PROJECT` | 复杂逻辑、需 Spring 注入、可引第三方库 | 类放在 classpath（如 `agent-web/.../extension/`），注册时填 `className`，**无需** `sourceCode`；需重启或重新注册后生效 |
+| **在线扩展** | `ONLINE` | 快速调试、简单逻辑 | 控制台/MCP 提交 Java 源码，运行时动态编译，**无需重启** |
+
+> 内置扩展（如 `default`、`http`、`mock`）通过 `META-INF/agent/{SPI接口全限定名}` 静态声明，与上述两种用户扩展方式独立。
+
+### 3.2 注册入口
+
+- **控制台**：工作流节点扩展 / 过滤器扩展 / 工作流扩展 三个管理页。
+- **MCP Tool**：`agent_spi_extension`，`action`: `list` / `register` / `update` / `delete` / `enable` / `disable`；`type` 取上表 `code`。
+
+注册时 `bindingIds` 含义：
+
+- `remote` / `filter`：节点 ID 列表，如 `[8, 9]`
+- `workflow` / `jarvis-workflow`：工作流 ID 列表（仅第一个生效），如 `[3]`
+
+---
+
+## 四、各类型写代码要点
+
+### 4.1 remote — `InterfaceRemoteInvoker`
+
+**接口**：
 
 ```java
 @AgentSPI("default")
@@ -29,555 +81,206 @@ public interface InterfaceRemoteInvoker {
 }
 ```
 
-### 扩展方式
+**职责**：完整实现「入参转换 → 外呼 → 响应转换」。框架外层已有 `InterfaceRemoteInvokerLogWrapper` 负责上游入参/最终响应/耗时日志；扩展内用 `LogCollector` 记录外呼细节。
 
-1. **直接实现接口**：`implements InterfaceRemoteInvoker`
-2. **实现 remoteInvoke 方法**：完整控制调用流程
-3. **节点配置**：`remoteExtension` 字段指定扩展名
+**可用工具**：
 
----
+| 类 | 用途 |
+|----|------|
+| `invocation.getBusinessData()` | 上游业务入参 |
+| `flowNode.getMetaInfo()` / `JsonUtils.parseMetaInfo()` | 节点协议配置（如 url） |
+| `flowNode.getExtensionParam()` | 扩展参数（密钥等） |
+| `HttpUtils` | HTTP GET/POST/Form |
+| `JsonUtils` | JSON 序列化/反序列化 |
+| `LogCollector.collectInvokeRequest/Response/InvokeTime/Error` | 外呼过程日志 |
 
-## 标准流程
-
-SPI 扩展的本质：**转换上游入参 → 封装三方接口入参 → 调用 → 接收响应 → 记录日志 → 转换响应 → 记录调用时间**
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  1. 获取上游入参 invocation.getBusinessData()               │
-│  2. 记录开始时间 startTime                                  │
-│  3. 转换入参为下游格式 convertToDownstreamParam()           │
-│  4. 收集调用前日志 LogCollector.collectParamBeforeInvoke()  │
-│  5. 发起 HTTP 请求 HttpUtils.post(url, requestJson)         │
-│  6. 收集响应日志 LogCollector.collectRemoteInvokeResponse() │
-│  7. 转换响应为上游格式                                      │
-│  8. 异常处理 catch → LogCollector.collectError()            │
-│  9. finally 记录调用时间 LogCollector.collectInvokeTime()   │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 框架工具类
-
-| 工具类 | 用途 | 常用方法 |
-|--------|------|----------|
-| `HttpUtils` | HTTP 请求 | `post(url, body)`, `get(url)`, `postForm(url, params)` |
-| `JsonUtils` | JSON 处理 | `toJsonString(obj)`, `fromJsonStringToObjectMap(json)`, `parseMetaInfo(str)` |
-| `LogCollector` | 日志收集 | `collectParamBeforeInvoke()`, `collectRemoteInvokeResponse()`, `collectInvokeTime()`, `collectError()` |
-
----
-
-## 代码模板
-
-### 基础模板（参数转换场景）
+**模板**（扩展名 `my-invoker`，节点 `remoteExtension: "my-invoker"`）：
 
 ```java
 package com.helianhealth.agent.extension;
 
 import com.helianhealth.agent.common.utils.JsonUtils;
-import com.helianhealth.agent.invocation.support.LogCollector;
 import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
-import com.helianhealth.agent.invocation.support.HttpUtils;
-import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.invocation.remote.model.Invocation;
+import com.helianhealth.agent.invocation.support.HttpUtils;
+import com.helianhealth.agent.invocation.support.LogCollector;
+import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.hc.core5.http.ParseException;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * SPI 扩展示例
- * 使用方式：节点 remoteExtension 配置为 "example"
- */
 @Slf4j
-public class ExampleInvoker implements InterfaceRemoteInvoker {
+public class MyInvoker implements InterfaceRemoteInvoker {
 
     @Override
     public Map<String, Object> remoteInvoke(WorkflowNode flowNode, Invocation invocation) {
-        // 1. 获取上游业务入参
         Map<String, Object> businessData = invocation.getBusinessData();
         long startTime = System.currentTimeMillis();
-
         try {
-            // 2. 转换入参为下游接口格式
-            Map<String, Object> request = convertToDownstreamParam(businessData);
+            Map<String, Object> request = convertRequest(businessData);
             String requestJson = JsonUtils.toJsonString(request);
-
-            // 3. 收集调用前日志
             LogCollector.collectInvokeRequest(requestJson);
 
-            // 4. 获取节点 URL
             Map<String, Object> metaInfo = JsonUtils.parseMetaInfo(flowNode.getMetaInfo());
             String url = (String) metaInfo.get("url");
 
-            // 5. 发起 HTTP POST 请求
             String responseJson = HttpUtils.post(url, requestJson);
-
-            // 6. 收集调用后日志
             LogCollector.collectInvokeResponse(responseJson);
 
-            // 7. 转换响应为上游格式
-            Map<String, Object> response = JsonUtils.parseObjectMap(responseJson);
-            return convertToUpstreamResponse(response);
-
-        } catch (IOException | ParseException e) {
-            log.error("调用远程接口失败", e);
+            return convertResponse(JsonUtils.parseObjectMap(responseJson));
+        } catch (Exception e) {
+            log.error("远程调用失败", e);
             LogCollector.collectError(e.getMessage());
-
-            Map<String, Object> result = new HashMap<>();
-            result.put("code", "500");
-            result.put("message", "调用失败：" + e.getMessage());
-            return result;
-        } finally {
-            // 8. 记录调用耗时
-            long durationMs = System.currentTimeMillis() - startTime;
-            LogCollector.collectInvokeTime(durationMs);
-        }
-    }
-
-    /**
-     * 将上游入参转换为下游接口格式
-     */
-    private Map<String, Object> convertToDownstreamParam(Map<String, Object> upstreamData) {
-        Map<String, Object> downstreamParam = new HashMap<>();
-
-        // TODO: 根据实际业务进行字段映射
-        // 示例：downstreamParam.put("targetField", upstreamData.get("sourceField"));
-        downstreamParam.putAll(upstreamData);
-
-        return downstreamParam;
-    }
-
-    /**
-     * 将下游响应转换为上游格式
-     */
-    private Map<String, Object> convertToUpstreamResponse(Map<String, Object> downstreamResponse) {
-        Map<String, Object> result = new HashMap<>();
-
-        // TODO: 根据实际业务提取响应字段
-        result.put("code", downstreamResponse.get("code"));
-        result.put("message", downstreamResponse.get("message"));
-
-        return result;
-    }
-}
-```
-
-### 动态签名扩展
-
-```java
-package com.helianhealth.agent.extension;
-
-import com.helianhealth.agent.common.utils.JsonUtils;
-import com.helianhealth.agent.invocation.support.LogCollector;
-import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
-import com.helianhealth.agent.invocation.support.HttpUtils;
-import com.helianhealth.agent.repository.model.domain.WorkflowNode;
-import com.helianhealth.agent.invocation.remote.model.Invocation;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.hc.core5.http.ParseException;
-
-import java.io.IOException;
-import java.security.MessageDigest;
-import java.util.HashMap;
-import java.util.Map;
-
-/**
- * 动态签名扩展
- * 使用方式：节点 remoteExtension 配置为 "dynamic-sign"
- */
-@Slf4j
-public class DynamicSignInvoker implements InterfaceRemoteInvoker {
-
-    @Override
-    public Map<String, Object> remoteInvoke(WorkflowNode flowNode, Invocation invocation) {
-        Map<String, Object> businessData = invocation.getBusinessData();
-        long startTime = System.currentTimeMillis();
-
-        try {
-            // 1. 获取签名密钥
-            Map<String, String> extParams = flowNode.getExtensionParam();
-            String secretKey = extParams.getOrDefault("secretKey", "default_secret");
-
-            // 2. 转换入参
-            Map<String, Object> request = convertToDownstreamParam(businessData);
-            String requestJson = JsonUtils.toJsonString(request);
-
-            // 3. 生成签名
-            long timestamp = System.currentTimeMillis();
-            String sign = generateSign(requestJson, timestamp, secretKey);
-
-            // 4. 收集调用前日志
-            LogCollector.collectInvokeRequest(requestJson);
-
-            // 5. 构建带签名的请求头
-            Map<String, Object> metaInfo = JsonUtils.parseMetaInfo(flowNode.getMetaInfo());
-            String url = (String) metaInfo.get("url");
-            Map<String, String> headers = new HashMap<>();
-            headers.put("Content-Type", "application/json");
-            headers.put("X-Sign", sign);
-            headers.put("X-Timestamp", String.valueOf(timestamp));
-
-            // 6. 发起请求
-            String responseJson = HttpUtils.post(url, headers, requestJson);
-            LogCollector.collectInvokeResponse(responseJson);
-
-            // 7. 转换响应
-            Map<String, Object> response = JsonUtils.parseObjectMap(responseJson);
-            return convertToUpstreamResponse(response);
-
-        } catch (IOException | ParseException e) {
-            log.error("调用远程接口失败", e);
-            LogCollector.collectError(e.getMessage());
-            return buildErrorResponse(e.getMessage());
+            Map<String, Object> err = new HashMap<>();
+            err.put("code", "500");
+            err.put("message", e.getMessage());
+            return err;
         } finally {
             LogCollector.collectInvokeTime(System.currentTimeMillis() - startTime);
         }
     }
 
-    private String generateSign(String body, long timestamp, String secret) {
-        try {
-            String content = body + timestamp + secret;
-            MessageDigest md = MessageDigest.getInstance("MD5");
-            byte[] digest = md.digest(content.getBytes());
-            StringBuilder sb = new StringBuilder();
-            for (byte b : digest) {
-                sb.append(String.format("%02x", b));
-            }
-            return sb.toString();
-        } catch (Exception e) {
-            throw new RuntimeException("签名生成失败", e);
-        }
+    private Map<String, Object> convertRequest(Map<String, Object> upstream) {
+        // 字段映射
+        return new HashMap<>(upstream);
     }
 
-    private Map<String, Object> convertToDownstreamParam(Map<String, Object> upstreamData) {
-        // TODO: 实现入参转换逻辑
-        return new HashMap<>(upstreamData);
-    }
-
-    private Map<String, Object> convertToUpstreamResponse(Map<String, Object> response) {
+    private Map<String, Object> convertResponse(Map<String, Object> downstream) {
         Map<String, Object> result = new HashMap<>();
-        result.put("code", response.get("code"));
-        result.put("message", response.get("message"));
-        return result;
-    }
-
-    private Map<String, Object> buildErrorResponse(String message) {
-        Map<String, Object> result = new HashMap<>();
-        result.put("code", "500");
-        result.put("message", "调用失败：" + message);
+        result.put("code", downstream.get("code"));
+        result.put("message", downstream.get("message"));
         return result;
     }
 }
 ```
 
-### 动态 Token 扩展
+**PROJECT 模式可注入 Spring Bean**（参考 `TestInvoker` 注入 `JdbcTemplate`）：构造器注入，框架通过 `AgentExtensionFactory` 自动解析依赖。
+
+---
+
+### 4.2 filter — `AgentFilter`
+
+**接口**：
+
+```java
+@AgentSPI
+public interface AgentFilter {
+    Map<String, Object> doInvoke(InterfaceClientProxy next, WorkflowNode flowNode, List<ParamTreeNode> params);
+}
+```
+
+**职责**：在 `InterfaceClientProxy.doInvoke` 之前/之后拦截，典型用于动态请求头、签名、Mock。责任链模式：不拦截时调用 `next.doInvoke(flowNode, params)`。
+
+**激活条件**：
+
+1. 注册 filter 扩展时，框架自动写节点 `extensionParam`：`filter.{扩展名} = {extensionParamValue}`（默认 `"true"`）。
+2. 实现类需标注 `@AgentActivate(value = "filter.{扩展名}")`，与上述 key 对应。
+3. 内置 `MockAgentFilter`（`filter.mock`）、`HeaderAgentFilter`（`filter.header`）走同样机制。
+
+**模板**（扩展名 `my-filter`）：
 
 ```java
 package com.helianhealth.agent.extension;
 
+import com.helianhealth.agent.common.extension.AgentActivate;
 import com.helianhealth.agent.common.utils.JsonUtils;
-import com.helianhealth.agent.invocation.support.LogCollector;
-import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
-import com.helianhealth.agent.invocation.support.HttpUtils;
+import com.helianhealth.agent.common.base.MetaInfoKeyConstants;
+import com.helianhealth.agent.invocation.remote.InterfaceClientProxy;
+import com.helianhealth.agent.invocation.remote.filter.AgentFilter;
+import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
-import com.helianhealth.agent.invocation.remote.model.Invocation;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.hc.core5.http.ParseException;
 
-import java.io.IOException;
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * 动态 Token 扩展
- * 使用方式：节点 remoteExtension 配置为 "dynamic-token"
- */
-@Slf4j
-public class DynamicTokenInvoker implements InterfaceRemoteInvoker {
-
-    private static final Map<String, TokenInfo> TOKEN_CACHE = new ConcurrentHashMap<>();
+@AgentActivate(value = "filter.my-filter", order = 50)
+public class MyFilter implements AgentFilter {
 
     @Override
-    public Map<String, Object> remoteInvoke(WorkflowNode flowNode, Invocation invocation) {
-        Map<String, Object> businessData = invocation.getBusinessData();
-        long startTime = System.currentTimeMillis();
-
-        try {
-            // 1. 获取 Token 配置
-            Map<String, String> extParams = flowNode.getExtensionParam();
-            String tokenUrl = extParams.get("tokenUrl");
-            String clientId = extParams.get("clientId");
-            String clientSecret = extParams.get("clientSecret");
-
-            // 2. 获取有效 Token
-            String token = getValidToken(tokenUrl, clientId, clientSecret);
-
-            // 3. 转换入参
-            Map<String, Object> request = convertToDownstreamParam(businessData);
-            String requestJson = JsonUtils.toJsonString(request);
-            LogCollector.collectInvokeRequest(requestJson);
-
-            // 4. 构建带 Token 的请求头
-            Map<String, Object> metaInfo = JsonUtils.parseMetaInfo(flowNode.getMetaInfo());
-            String url = (String) metaInfo.get("url");
-            Map<String, String> headers = new HashMap<>();
-            headers.put("Content-Type", "application/json");
-            headers.put("Authorization", "Bearer " + token);
-
-            // 5. 发起请求
-            String responseJson = HttpUtils.post(url, headers, requestJson);
-            LogCollector.collectInvokeResponse(responseJson);
-
-            // 6. 转换响应
-            Map<String, Object> response = JsonUtils.parseObjectMap(responseJson);
-            return convertToUpstreamResponse(response);
-
-        } catch (IOException | ParseException e) {
-            log.error("调用远程接口失败", e);
-            LogCollector.collectError(e.getMessage());
-            return buildErrorResponse(e.getMessage());
-        } finally {
-            LogCollector.collectInvokeTime(System.currentTimeMillis() - startTime);
-        }
-    }
-
-    private String getValidToken(String tokenUrl, String clientId, String clientSecret) {
-        String cacheKey = clientId + "_" + tokenUrl;
-        TokenInfo cached = TOKEN_CACHE.get(cacheKey);
-
-        if (cached != null && !cached.isExpired()) {
-            return cached.token;
-        }
-
-        try {
-            // 请求新 Token
-            Map<String, String> params = new HashMap<>();
-            params.put("client_id", clientId);
-            params.put("client_secret", clientSecret);
-            params.put("grant_type", "client_credentials");
-
-            String responseStr = HttpUtils.post(tokenUrl, JsonUtils.toJsonString(params));
-            Map<String, Object> response = JsonUtils.parseObjectMap(responseStr);
-
-            String token = (String) response.get("access_token");
-            int expiresIn = response.get("expires_in") != null
-                    ? ((Number) response.get("expires_in")).intValue() : 3600;
-
-            TOKEN_CACHE.put(cacheKey, new TokenInfo(token, expiresIn));
-            return token;
-        } catch (Exception e) {
-            log.error("获取 Token 失败, tokenUrl={}", tokenUrl, e);
-            throw new RuntimeException("获取 Token 失败", e);
-        }
-    }
-
-    private Map<String, Object> convertToDownstreamParam(Map<String, Object> upstreamData) {
-        return new HashMap<>(upstreamData);
-    }
-
-    private Map<String, Object> convertToUpstreamResponse(Map<String, Object> response) {
-        Map<String, Object> result = new HashMap<>();
-        result.put("code", response.get("code"));
-        result.put("message", response.get("message"));
-        return result;
-    }
-
-    private Map<String, Object> buildErrorResponse(String message) {
-        Map<String, Object> result = new HashMap<>();
-        result.put("code", "500");
-        result.put("message", "调用失败：" + message);
-        return result;
-    }
-
-    private static class TokenInfo {
-        final String token;
-        final long expireTime;
-
-        TokenInfo(String token, int expiresIn) {
-            this.token = token;
-            this.expireTime = System.currentTimeMillis() + (expiresIn - 60) * 1000L;
-        }
-
-        boolean isExpired() {
-            return System.currentTimeMillis() > expireTime;
-        }
+    public Map<String, Object> doInvoke(InterfaceClientProxy next, WorkflowNode flowNode, List<ParamTreeNode> params) {
+        // 例：向 metaInfo.headers 追加签名头
+        Map<String, Object> metaInfo = JsonUtils.parseMetaInfo(flowNode.getMetaInfo());
+        // ... 修改 headers ...
+        flowNode.setMetaInfo(JsonUtils.toJsonString(metaInfo));
+        return next.doInvoke(flowNode, params);
     }
 }
 ```
 
-### AES 加密扩展
+> 继承 `AbstractHeaderAgentFilter` 可复用请求头修改模板（检查 `filter.header=true` 时生效）。
+
+---
+
+### 4.3 workflow — `OpenApiRouteHandler`
+
+**接口**：
+
+```java
+@AgentSPI("default")
+public interface OpenApiRouteHandler {
+    @AgentAdaptive("routeExtension")
+    String handle(Workflow workflow, String requestBody);
+}
+```
+
+**职责**：接管 Open API 入口。默认实现会解析请求 → 调度工作流节点 → 拼装响应；自定义实现需自行完成全流程或按需委托。
+
+**日志**：无节点上下文时用 `LogCollector.saveInvokeLog(...)` 直接入库。
+
+**模板**：
 
 ```java
 package com.helianhealth.agent.extension;
 
-import com.helianhealth.agent.common.utils.JsonUtils;
-import com.helianhealth.agent.invocation.support.LogCollector;
-import com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker;
-import com.helianhealth.agent.invocation.support.HttpUtils;
-import com.helianhealth.agent.repository.model.domain.WorkflowNode;
-import com.helianhealth.agent.invocation.remote.model.Invocation;
+import com.helianhealth.agent.api.OpenApiRouteHandler;
+import com.helianhealth.agent.repository.model.domain.Workflow;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.hc.core5.http.ParseException;
 
-import javax.crypto.Cipher;
-import javax.crypto.spec.SecretKeySpec;
-import java.io.IOException;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
-
-/**
- * AES 加密扩展
- * 使用方式：节点 remoteExtension 配置为 "aes-encrypt"
- */
 @Slf4j
-public class AesEncryptInvoker implements InterfaceRemoteInvoker {
+public class MyOpenApiHandler implements OpenApiRouteHandler {
 
     @Override
-    public Map<String, Object> remoteInvoke(WorkflowNode flowNode, Invocation invocation) {
-        Map<String, Object> businessData = invocation.getBusinessData();
-        long startTime = System.currentTimeMillis();
-
-        try {
-            // 1. 获取加密密钥
-            Map<String, String> extParams = flowNode.getExtensionParam();
-            String aesKey = extParams.get("aesKey");
-
-            // 2. 转换并加密入参
-            Map<String, Object> request = convertToDownstreamParam(businessData);
-            String requestJson = JsonUtils.toJsonString(request);
-            String encryptedData = encrypt(requestJson, aesKey);
-
-            // 3. 构建加密请求体
-            Map<String, Object> encryptedRequest = new HashMap<>();
-            encryptedRequest.put("encryptedData", encryptedData);
-            String encryptedRequestJson = JsonUtils.toJsonString(encryptedRequest);
-            LogCollector.collectInvokeRequest(encryptedRequestJson);
-
-            // 4. 发起请求
-            Map<String, Object> metaInfo = JsonUtils.parseMetaInfo(flowNode.getMetaInfo());
-            String url = (String) metaInfo.get("url");
-            String responseJson = HttpUtils.post(url, encryptedRequestJson);
-            LogCollector.collectInvokeResponse(responseJson);
-
-            // 5. 解密响应（如果需要）
-            Map<String, Object> response = JsonUtils.parseObjectMap(responseJson);
-            if (response.containsKey("encryptedResponse")) {
-                String decrypted = decrypt((String) response.get("encryptedResponse"), aesKey);
-                response = JsonUtils.parseObjectMap(decrypted);
-            }
-
-            return convertToUpstreamResponse(response);
-
-        } catch (IOException | ParseException e) {
-            log.error("调用远程接口失败", e);
-            LogCollector.collectError(e.getMessage());
-            return buildErrorResponse(e.getMessage());
-        } finally {
-            LogCollector.collectInvokeTime(System.currentTimeMillis() - startTime);
-        }
-    }
-
-    private String encrypt(String content, String key) {
-        try {
-            SecretKeySpec keySpec = new SecretKeySpec(key.getBytes(), "AES");
-            Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
-            cipher.init(Cipher.ENCRYPT_MODE, keySpec);
-            byte[] encrypted = cipher.doFinal(content.getBytes());
-            return Base64.getEncoder().encodeToString(encrypted);
-        } catch (Exception e) {
-            throw new RuntimeException("加密失败", e);
-        }
-    }
-
-    private String decrypt(String content, String key) {
-        try {
-            SecretKeySpec keySpec = new SecretKeySpec(key.getBytes(), "AES");
-            Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
-            cipher.init(Cipher.DECRYPT_MODE, keySpec);
-            byte[] decrypted = cipher.doFinal(Base64.getDecoder().decode(content));
-            return new String(decrypted);
-        } catch (Exception e) {
-            throw new RuntimeException("解密失败", e);
-        }
-    }
-
-    private Map<String, Object> convertToDownstreamParam(Map<String, Object> upstreamData) {
-        return new HashMap<>(upstreamData);
-    }
-
-    private Map<String, Object> convertToUpstreamResponse(Map<String, Object> response) {
-        Map<String, Object> result = new HashMap<>();
-        result.put("code", response.get("code"));
-        result.put("message", response.get("message"));
-        return result;
-    }
-
-    private Map<String, Object> buildErrorResponse(String message) {
-        Map<String, Object> result = new HashMap<>();
-        result.put("code", "500");
-        result.put("message", "调用失败：" + message);
-        return result;
+    public String handle(Workflow workflow, String requestBody) {
+        log.info("自定义 Open API 处理, uri={}", workflow.getInterfaceUri());
+        // TODO: 解析 requestBody → 调度 → 返回响应字符串
+        return "{}";
     }
 }
 ```
 
+注册后框架将工作流 `routeExtension` 设为扩展名；请求命中该工作流时路由到此实现。
+
 ---
 
-## 节点配置示例
+### 4.4 jarvis-workflow — `JarvisRouteHandler`
 
-```json
-{
-  "nodeName": "需要签名的HIS接口",
-  "nodeType": "HTTP",
-  "metaInfo": "{\"url\":\"http://his.example.com/api\"}",
-  "remoteExtension": "dynamic-sign",
-  "extensionParam": "{\"secretKey\":\"your_secret_key\"}"
+**接口**：
+
+```java
+@AgentSPI("default")
+public interface JarvisRouteHandler {
+    @AgentAdaptive("routeExtension")
+    JarvisResultData<Object> handle(Workflow workflow, JarvisRequest request);
 }
 ```
 
----
-
-## 扩展注册
-
-### 方式一：项目代码注册
-
-将扩展类放到 `agent-web/src/main/java/com/helianhealth/agent/extension/` 目录，框架会自动扫描加载。
-
-### 方式二：在线注册（通过控制台）
-
-使用 SPI 扩展配置表 `spi_extension_config` 注册：
-
-```sql
-INSERT INTO spi_extension_config 
-(binding_ids, spi_interface, extension_name, class_name, source_code, enabled, extension_mode)
-VALUES 
-('[8]', 
- 'com.helianhealth.agent.invocation.remote.InterfaceRemoteInvoker',
- 'dynamic-sign',
- 'com.helianhealth.agent.extension.DynamicSignInvoker',
- '-- Java源码 --',
- 1,
- 'ONLINE');
-```
+**职责**：接管 Jarvis 入口，返回 `JarvisResultData`。绑定与触发方式同 `workflow`，区别在 SPI 接口和请求/响应模型。
 
 ---
 
-## 生成代码输出
+## 五、生成代码后的输出格式
 
 ```
-✅ SPI 扩展代码已生成！
+✅ SPI 扩展代码已生成
 
-扩展名称：dynamic-sign
-扩展类：DynamicSignInvoker
-功能：动态 MD5 签名
+扩展类型：remote | filter | workflow | jarvis-workflow
+扩展名称：my-invoker
+实现类：com.helianhealth.agent.extension.MyInvoker
+扩展方式：PROJECT | ONLINE
 
 使用方式：
-1. 将代码放到 agent-web/src/main/java/com/helianhealth/agent/extension/
-2. 节点配置 remoteExtension: "dynamic-sign"
-3. 节点配置 extensionParam: {"secretKey": "xxx"}
+1. PROJECT：代码放到 agent-web/src/main/java/com/helianhealth/agent/extension/，通过控制台或 MCP 注册（extensionMode=PROJECT）
+2. ONLINE：通过控制台或 MCP 直接提交源码注册（extensionMode=ONLINE）
+3. 注册时指定 bindingIds，框架自动写入 remoteExtension / extensionParam / routeExtension
 ```

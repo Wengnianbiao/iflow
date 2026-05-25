@@ -1,6 +1,21 @@
 {
-  "$comment": "Interface Agent MCP Server - 7 个域级 Tool 的 JSON Schema。McpToolRegistry 启动时载入，由 tools/list 返回给 MCP 客户端。",
+  "$comment": "Interface Agent MCP Server - 8 个域级 Tool 的 JSON Schema。McpToolRegistry 启动时载入，由 tools/list 返回给 MCP 客户端。",
   "tools": [
+    {
+      "name": "agent_health",
+      "description": "Interface Agent 健康检查。AI 自动化配置前应先调用：ping 仅探测 MCP 进程存活；check 额外验证 agent 数据源可用。",
+      "inputSchema": {
+        "type": "object",
+        "required": ["action"],
+        "properties": {
+          "action": { "type": "string", "enum": ["ping", "check"] }
+        },
+        "oneOf": [
+          { "properties": { "action": { "const": "ping" } } },
+          { "properties": { "action": { "const": "check" } } }
+        ]
+      }
+    },
     {
       "name": "agent_workflow",
       "description": "管理 Interface Agent 中的工作流（一条对外暴露的接口/路由）。一个 workflow 由若干 workflow_node 串联组成。AI 在配置新接口时通常先 create 一个 workflow，再向其下挂载 workflow_node。",
