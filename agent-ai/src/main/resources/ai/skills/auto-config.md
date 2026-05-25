@@ -94,6 +94,24 @@ JSON-RPC 2.0 over HTTP，全部域级 Tool 在一个入口下：
 
 启用/关闭通过 `interface-agent.mcp.enabled` 控制（默认开启），路径可通过 `interface-agent.mcp.base-path` 调整。
 
+**MCP 错误返回约定**（Tool 业务失败时）：
+
+```json
+{
+  "result": {
+    "isError": true,
+    "error": "[agent_workflow_node.create] 缺少必填字段: nodeName",
+    "content": [{
+      "type": "text",
+      "text": "{\"success\":false,\"code\":-1,\"error\":\"缺少必填字段: nodeName\",\"message\":\"缺少必填字段: nodeName\",\"tool\":\"agent_workflow_node\",\"action\":\"create\"}"
+    }]
+  }
+}
+```
+
+- 优先读 `result.error` 或 `content[0].text` 里的 `error` / `message` 字段，据此修正参数后重试
+- 协议级错误（method 不存在、params 缺失）走 JSON-RPC `error` 字段
+
 ### B. Ops REST 接口（底层能力面，内部脚本/调试用）
 
 | 领域模型 | 路径 |
@@ -110,16 +128,19 @@ JSON-RPC 2.0 over HTTP，全部域级 Tool 在一个入口下：
 
 ## 步骤1：创建节点
 
-**POST /v1/ai/ops/workflow-node/create**
+MCP `agent_workflow_node` create（**`flowId` 可选**；节点与工作流的关联主要靠创建工作流时的 `firstFlowNodes`）：
 
 ```json
 {
+  "action": "create",
   "nodeName": "业务描述名称",
   "nodeType": "HTTP",
-  "metaInfo": "{\"url\":\"http://xxx\"}",
+  "metaInfo": "{\"url\":\"http://xxx\",\"method\":\"POST\"}",
   "keywordField": "patientCode"
 }
 ```
+
+Ops REST 等价：**POST /v1/ai/ops/workflow-node/create**（同上字段）
 
 **nodeType 选择**：
 - HTTP → RESTful API
@@ -297,10 +318,11 @@ JSON-RPC 2.0 over HTTP，全部域级 Tool 在一个入口下：
 
 ## 步骤4：创建工作流
 
-**POST /v1/ai/ops/workflow/create**
+创建工作流时用 `firstFlowNodes` 关联已创建的 `nodeId`（此时不必给节点填 `flowId`）：
 
 ```json
 {
+  "action": "create",
   "flowName": "个人建档接口",
   "interfaceUri": "CreateArchives",
   "contentType": "JSON",
@@ -308,6 +330,8 @@ JSON-RPC 2.0 over HTTP，全部域级 Tool 在一个入口下：
   "status": 1
 }
 ```
+
+Ops REST 等价：**POST /v1/ai/ops/workflow/create**
 
 **interfaceUri 规则**：
 - Jarvis 上游 → 使用具体的业务名称，如 CreateArchives

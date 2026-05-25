@@ -97,7 +97,7 @@
             "properties": {
               "action": { "const": "create" },
               "nodeName": { "type": "string" },
-              "flowId": { "type": "integer" },
+              "flowId": { "type": "integer", "description": "可选。归属工作流 ID；可先不传，创建工作流时在 firstFlowNodes 中关联 nodeId" },
               "nodeType": { "type": "string", "enum": ["HTTP", "WEBSERVICE", "DATABASE", "NONE"] },
               "metaInfo": { "type": "string", "description": "节点元信息 JSON：HTTP 含 url/method/headers；WEBSERVICE 含 wsdl/operation；DATABASE 含 dataSource/sql" },
               "paramFilterExpr": { "type": "string", "description": "节点级入参过滤表达式（SpEL）" },
@@ -108,7 +108,7 @@
               "remoteExtension": { "type": "string", "description": "InterfaceRemoteInvoker 扩展名" },
               "extensionParam": { "type": "string", "description": "节点级扩展参数 JSON" }
             },
-            "required": ["nodeName", "flowId", "nodeType"]
+            "required": ["nodeName", "nodeType"]
           },
           {
             "properties": {

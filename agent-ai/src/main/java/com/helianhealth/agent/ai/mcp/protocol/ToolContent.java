@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
  *
  * <p>MCP 规定 content 可以是 text / image / resource 等多种类型。
  * 本框架统一使用 {@code type="text"}，{@link #text} 中放序列化后的
- * {@link com.helianhealth.agent.common.base.ResultData} JSON 字符串。</p>
+ * {@link McpToolPayload} JSON 字符串。</p>
  */
 @Data
 @NoArgsConstructor

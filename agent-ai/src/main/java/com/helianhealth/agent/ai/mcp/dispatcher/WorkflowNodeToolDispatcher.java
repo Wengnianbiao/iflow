@@ -80,7 +80,7 @@ public class WorkflowNodeToolDispatcher extends McpDispatcherSupport implements 
     private Integer createNode(JsonNode args) {
         WorkflowNode node = WorkflowNode.builder()
                 .nodeName(requireString(args, "nodeName"))
-                .flowId(requireInt(args, "flowId"))
+                .flowId(optInt(args, "flowId"))
                 .nodeType(parseNodeType(requireString(args, "nodeType")))
                 .metaInfo(optString(args, "metaInfo"))
                 .paramFilterExpr(optString(args, "paramFilterExpr"))

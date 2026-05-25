@@ -6,10 +6,10 @@ import com.helianhealth.agent.ai.mcp.dispatcher.McpToolDispatcher;
 import com.helianhealth.agent.ai.mcp.jsonrpc.JsonRpcError;
 import com.helianhealth.agent.ai.mcp.jsonrpc.JsonRpcRequest;
 import com.helianhealth.agent.ai.mcp.jsonrpc.JsonRpcResponse;
+import com.helianhealth.agent.ai.mcp.protocol.McpToolPayload;
 import com.helianhealth.agent.ai.mcp.protocol.ToolCallParams;
 import com.helianhealth.agent.ai.mcp.protocol.ToolCallResult;
 import com.helianhealth.agent.ai.mcp.protocol.ToolDefinition;
-import com.helianhealth.agent.common.base.ResultData;
 import com.helianhealth.agent.common.exception.AgentException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -42,7 +42,7 @@ import java.util.Map;
  * <ul>
  *   <li>协议级错误（方法不存在、参数缺失等）→ JSON-RPC {@code error} 字段</li>
  *   <li>业务级错误（业务校验失败、域异常）→ 正常 result，但 {@code isError=true}，
- *       text 中是 {@link ResultData} 的错误 JSON</li>
+ *       {@code error} 与 content.text 中均包含可读错误原因</li>
  * </ul>
  */
 @Slf4j
@@ -144,24 +144,43 @@ public class McpServerEndpoint {
         }
 
         JsonNode arguments = params.getArguments();
+        String toolName = params.getName();
+        String action = extractAction(arguments);
         try {
             Object data = dispatcher.call(arguments);
-            ResultData<Object> payload = ResultData.ok(data);
-            return ToolCallResult.ok(toJson(payload));
+            return ToolCallResult.ok(toJson(McpToolPayload.success(data)));
         } catch (IllegalArgumentException e) {
-            log.warn("Tool 调用参数校验失败: tool={}, message={}", params.getName(), e.getMessage());
-            ResultData<Object> payload = ResultData.error(e.getMessage());
-            return ToolCallResult.error(toJson(payload));
+            log.warn("Tool 调用参数校验失败: tool={}, action={}, message={}",
+                    toolName, action, e.getMessage());
+            return toolError(toolName, action, -1, e.getMessage());
         } catch (AgentException e) {
-            log.warn("Tool 业务异常: tool={}, code={}, message={}",
-                    params.getName(), e.getErrorCode(), e.getErrorMessage());
-            ResultData<Object> payload = ResultData.error(e.getErrorMessage());
-            return ToolCallResult.error(toJson(payload));
+            log.warn("Tool 业务异常: tool={}, action={}, code={}, message={}",
+                    toolName, action, e.getErrorCode(), e.getErrorMessage());
+            return toolError(toolName, action, e.getErrorCode(), e.getErrorMessage());
         } catch (Exception e) {
-            log.error("Tool 内部错误: tool={}", params.getName(), e);
-            ResultData<Object> payload = ResultData.error("服务端错误: " + e.getMessage());
-            return ToolCallResult.error(toJson(payload));
+            log.error("Tool 内部错误: tool={}, action={}", toolName, action, e);
+            return toolError(toolName, action, -1, "服务端错误: " + e.getMessage());
         }
+    }
+
+    private ToolCallResult toolError(String toolName, String action, int code, String message) {
+        String summary = formatToolError(toolName, action, message);
+        return ToolCallResult.error(toJson(McpToolPayload.failure(toolName, action, code, message)), summary);
+    }
+
+    private static String formatToolError(String toolName, String action, String message) {
+        if (action == null || action.isEmpty()) {
+            return "[" + toolName + "] " + message;
+        }
+        return "[" + toolName + "." + action + "] " + message;
+    }
+
+    private static String extractAction(JsonNode arguments) {
+        if (arguments == null || !arguments.hasNonNull("action")) {
+            return null;
+        }
+        String action = arguments.get("action").asText();
+        return action == null || action.isEmpty() ? null : action;
     }
 
     private String toJson(Object payload) {
