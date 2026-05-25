@@ -38,6 +38,7 @@ public class DatabaseUtils {
         try {
             connection = getConnection(metaInfo);
             statement = connection.createStatement();
+            statement.setQueryTimeout(DatabaseApiClientManager.DEFAULT_QUERY_TIMEOUT_SECONDS);
 
             resultSet = statement.executeQuery(sql);
             return resultSetToList(resultSet);
@@ -82,6 +83,7 @@ public class DatabaseUtils {
         try {
             connection = getConnection(metaInfo);
             statement = connection.createStatement();
+            statement.setQueryTimeout(DatabaseApiClientManager.DEFAULT_QUERY_TIMEOUT_SECONDS);
 
             logger.info("Executing direct update: {}", sql);
             return statement.executeUpdate(sql);

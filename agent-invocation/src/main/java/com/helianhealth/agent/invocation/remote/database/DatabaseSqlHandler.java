@@ -293,6 +293,7 @@ public class DatabaseSqlHandler implements ParamResolver {
 
         try {
             ps = connection.prepareStatement(sql);
+            ps.setQueryTimeout(DatabaseApiClientManager.DEFAULT_QUERY_TIMEOUT_SECONDS);
             String sqlType = sql.trim().toUpperCase();
             if (sqlType.startsWith(DatabaseSqlConstants.SQL_KEYWORD_SELECT)) {
                 rs = ps.executeQuery();

@@ -7,14 +7,49 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * 数据库连接管理器（线程安全单例）
+ * <p>
+ * 超时策略与 {@link HttpApiClientManager} 对齐，分为三层：
+ * connectTimeout（建连快速失败）、poolAcquireTimeout（从池借连接）、queryTimeout（SQL 执行/read）。
+ * </p>
  */
 public class DatabaseApiClientManager {
+
+    /**
+     * 建连超时，毫秒。三方库不可达时快速失败。
+     */
+    private static final int DEFAULT_CONNECT_TIMEOUT = 5000;
+
+    /**
+     * Socket/read 超时，毫秒。覆盖真实场景下较慢的 SQL 查询。
+     */
+    private static final int DEFAULT_QUERY_TIMEOUT = 10000;
+
+    /**
+     * 从连接池获取连接的超时，毫秒。对应 HTTP 的 connectionRequestTimeout。
+     */
+    private static final int DEFAULT_POOL_ACQUIRE_TIMEOUT = 5000;
+
+    /**
+     * 借出连接时健康检查（SELECT 1）超时，秒。
+     */
+    private static final int DEFAULT_VALIDATION_QUERY_TIMEOUT = 3;
+
+    /**
+     * SQL 执行超时，秒。供 Statement#setQueryTimeout 使用。
+     */
+    public static final int DEFAULT_QUERY_TIMEOUT_SECONDS = DEFAULT_QUERY_TIMEOUT / 1000;
+
+    /**
+     * 与 WorkFlowNodeExecutor 并发度对齐。
+     */
+    private static final int DEFAULT_MAX_ACTIVE = 5;
 
     private DatabaseApiClientManager() {
     }
@@ -86,7 +121,7 @@ public class DatabaseApiClientManager {
                 return existing.getConnection();
             }
 
-            // 先用原生JDBC预验证连接
+            // 先用原生JDBC预验证连接（带 connect 超时，不可用库快速失败）
             validateConnection(jdbcUrl, username, password, driverClassName);
 
             DruidDataSource dataSource = createDataSource(jdbcUrl, username, password, driverClassName);
@@ -113,12 +148,40 @@ public class DatabaseApiClientManager {
             throw new SQLException("Database driver not found: " + driverClassName
                     + ", please check if the driver dependency is correctly configured", e);
         }
-        try (Connection conn = DriverManager.getConnection(jdbcUrl, username, password)) {
+        Properties props = buildConnectionProperties(username, password);
+        try (Connection conn = DriverManager.getConnection(jdbcUrl, props)) {
             // 连接成功即验证通过
         } catch (SQLException e) {
             throw new SQLException("Database connection failed, please check the URL, username, and password."
                     + " URL: " + jdbcUrl + ", username: " + username, e);
         }
+    }
+
+    /**
+     * 构建 JDBC 连接属性，注入各驱动通用的 connect/read 超时参数。
+     */
+    private Properties buildConnectionProperties(String username, String password) {
+        Properties props = new Properties();
+        props.setProperty("user", username);
+        props.setProperty("password", password);
+        applyTimeoutProperties(props);
+        return props;
+    }
+
+    /**
+     * 注入常见 JDBC 驱动的 connect/read 超时参数。
+     */
+    private Properties buildDriverTimeoutProperties() {
+        Properties props = new Properties();
+        applyTimeoutProperties(props);
+        return props;
+    }
+
+    private void applyTimeoutProperties(Properties props) {
+        props.setProperty("connectTimeout", String.valueOf(DEFAULT_CONNECT_TIMEOUT));
+        props.setProperty("socketTimeout", String.valueOf(DEFAULT_QUERY_TIMEOUT));
+        props.setProperty("oracle.net.CONNECT_TIMEOUT", String.valueOf(DEFAULT_CONNECT_TIMEOUT));
+        props.setProperty("oracle.jdbc.ReadTimeout", String.valueOf(DEFAULT_QUERY_TIMEOUT));
     }
 
     /**
@@ -130,21 +193,24 @@ public class DatabaseApiClientManager {
         dataSource.setUsername(username);
         dataSource.setPassword(password);
         dataSource.setDriverClassName(driverClassName);
+        dataSource.setConnectTimeout(DEFAULT_CONNECT_TIMEOUT);
+        dataSource.setSocketTimeout(DEFAULT_QUERY_TIMEOUT);
+        dataSource.setConnectProperties(buildDriverTimeoutProperties());
 
-        // 连接池基础配置
-        dataSource.setInitialSize(2);
-        dataSource.setMaxActive(20);
-        dataSource.setMinIdle(2);
-        dataSource.setMaxWait(30000);
+        // 连接池基础配置（与 WorkFlowNodeExecutor 并发度对齐）
+        dataSource.setInitialSize(1);
+        dataSource.setMaxActive(DEFAULT_MAX_ACTIVE);
+        dataSource.setMinIdle(0);
+        dataSource.setMaxWait(DEFAULT_POOL_ACQUIRE_TIMEOUT);
 
-        // 连接失败保护配置（凭据已经前置JDBC校验，此处仅针对瞬时故障）
-        dataSource.setConnectionErrorRetryAttempts(2);
-        dataSource.setBreakAfterAcquireFailure(false);
+        // 连接失败保护：凭据已前置校验，连续建连失败时快速熔断，避免后台持续重试
+        dataSource.setConnectionErrorRetryAttempts(1);
+        dataSource.setBreakAfterAcquireFailure(true);
 
-        // 连接校验配置
+        // 连接校验配置：借出时做轻量健康检查，超时单独控制且应短于业务 SQL
         String validationQuery = jdbcUrl.contains("oracle") ? "SELECT 1 FROM DUAL" : "SELECT 1";
         dataSource.setValidationQuery(validationQuery);
-        dataSource.setValidationQueryTimeout(5);
+        dataSource.setValidationQueryTimeout(DEFAULT_VALIDATION_QUERY_TIMEOUT);
         dataSource.setTestWhileIdle(true);
         dataSource.setTestOnBorrow(true);
         dataSource.setTestOnReturn(false);
