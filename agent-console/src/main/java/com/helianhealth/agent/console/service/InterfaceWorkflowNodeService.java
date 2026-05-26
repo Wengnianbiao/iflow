@@ -16,7 +16,7 @@ public interface InterfaceWorkflowNodeService {
 
     WorkflowNode selectByNodeId(Integer nodeId);
 
-    PageList<WorkflowNodeViewRsp> getAllNodes(Integer flowId, int pageNum, int pageSize);
+    PageList<WorkflowNodeViewRsp> getAllNodes(Integer flowId, String nodeName, int pageNum, int pageSize);
 
     List<WorkflowNodeViewRsp> getAllNodesWithoutPaged();
 

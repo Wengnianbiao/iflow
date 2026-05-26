@@ -20,5 +20,5 @@ public interface WorkflowNodeQueryService {
     /**
      * 分页查询节点
      */
-    PageList<WorkflowNode> selectAllNodesPaged(Integer flowId, int pageNum, int pageSize);
+    PageList<WorkflowNode> selectAllNodesPaged(Integer flowId, String nodeName, int pageNum, int pageSize);
 }

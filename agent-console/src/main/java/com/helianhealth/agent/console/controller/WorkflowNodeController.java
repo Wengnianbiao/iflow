@@ -40,10 +40,11 @@ public class WorkflowNodeController {
     @GetMapping("/all")
     public ResultData<PageList<WorkflowNodeViewRsp>> getAllNodes(
             @RequestParam(value = "flowId", required = false) Integer flowId,
+            @RequestParam(value = "nodeName", required = false) String nodeName,
             @RequestParam(value = "pageNum", defaultValue = "1") int pageNum,
             @RequestParam(value = "pageSize", defaultValue = "10") int pageSize) {
         try {
-            PageList<WorkflowNodeViewRsp> nodes = interfaceFlowNodeService.getAllNodes(flowId, pageNum, pageSize);
+            PageList<WorkflowNodeViewRsp> nodes = interfaceFlowNodeService.getAllNodes(flowId, nodeName, pageNum, pageSize);
 
             return ResultData.ok(nodes);
         } catch (Exception e) {

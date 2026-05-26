@@ -36,12 +36,13 @@ public class NodeParamConfigController {
     @GetMapping("/all")
     public ResultData<PageList<NodeParamConfig>> getAllNodeParamConfigs(
             @RequestParam(value = "nodeId", required = false) Integer nodeId,
+            @RequestParam(value = "nodeName", required = false) String nodeName,
             @RequestParam(value = "processType", required = false) ProcessType processType,
             @RequestParam(value = "targetParam", required = false) String targetParam,
             @RequestParam(value = "pageNum", defaultValue = "1") int pageNum,
             @RequestParam(value = "pageSize", defaultValue = "10") int pageSize) {
         try {
-            PageList<NodeParamConfig> pageList = nodeParamConfigService.findAllNodeParamConfigs(nodeId, processType, targetParam, pageNum, pageSize);
+            PageList<NodeParamConfig> pageList = nodeParamConfigService.findAllNodeParamConfigs(nodeId, nodeName, processType, targetParam, pageNum, pageSize);
             return ResultData.ok(pageList);
         } catch (Exception e) {
             log.error("获取节点参数配置列表失败", e);

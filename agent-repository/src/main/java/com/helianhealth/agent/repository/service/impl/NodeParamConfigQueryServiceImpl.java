@@ -49,16 +49,16 @@ public class NodeParamConfigQueryServiceImpl implements NodeParamConfigQueryServ
     }
 
     @Override
-    public List<NodeParamConfig> selectAllConfigs(Integer nodeId, String processType, String targetParam) {
-        return nodeParamConfigMapper.selectAllParamConfig(nodeId, processType, targetParam).stream()
+    public List<NodeParamConfig> selectAllConfigs(Integer nodeId, String nodeName, String processType, String targetParam) {
+        return nodeParamConfigMapper.selectAllParamConfig(nodeId, nodeName, processType, targetParam).stream()
                 .map(NodeParamConfigAssembler::toDomain)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public PageList<NodeParamConfig> selectAllConfigsPaged(Integer nodeId, String processType, String targetParam, int pageNum, int pageSize) {
+    public PageList<NodeParamConfig> selectAllConfigsPaged(Integer nodeId, String nodeName, String processType, String targetParam, int pageNum, int pageSize) {
         PageHelper.startPage(pageNum, pageSize);
-        List<NodeParamConfigPO> poList = nodeParamConfigMapper.selectAllParamConfig(nodeId, processType, targetParam);
+        List<NodeParamConfigPO> poList = nodeParamConfigMapper.selectAllParamConfig(nodeId, nodeName, processType, targetParam);
         PageInfo<NodeParamConfigPO> pageInfo = new PageInfo<>(poList);
         List<NodeParamConfig> configs = poList.stream().map(NodeParamConfigAssembler::toDomain).collect(Collectors.toList());
         PageList<NodeParamConfig> pageList = new PageList<>();

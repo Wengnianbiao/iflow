@@ -22,10 +22,10 @@ public interface NodeParamConfigQueryService {
     /**
      * 查询所有参数配置
      */
-    List<NodeParamConfig> selectAllConfigs(Integer nodeId, String processType, String targetParam);
+    List<NodeParamConfig> selectAllConfigs(Integer nodeId, String nodeName, String processType, String targetParam);
 
     /**
      * 分页查询参数配置
      */
-    PageList<NodeParamConfig> selectAllConfigsPaged(Integer nodeId, String processType, String targetParam, int pageNum, int pageSize);
+    PageList<NodeParamConfig> selectAllConfigsPaged(Integer nodeId, String nodeName, String processType, String targetParam, int pageNum, int pageSize);
 }

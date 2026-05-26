@@ -63,9 +63,9 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
     }
 
     @Override
-    public PageList<WorkflowNodeViewRsp> getAllNodes(Integer flowId, int pageNum, int pageSize) {
+    public PageList<WorkflowNodeViewRsp> getAllNodes(Integer flowId, String nodeName, int pageNum, int pageSize) {
         try {
-            PageList<WorkflowNode> nodePage = workflowNodeQueryService.selectAllNodesPaged(flowId, pageNum, pageSize);
+            PageList<WorkflowNode> nodePage = workflowNodeQueryService.selectAllNodesPaged(flowId, nodeName, pageNum, pageSize);
             return toNodeViewPage(nodePage);
         } catch (Exception e) {
             log.error("获取工作流节点列表失败", e);

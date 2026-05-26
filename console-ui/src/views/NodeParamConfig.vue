@@ -3,10 +3,20 @@
     <!-- 搜索条件 -->
     <div style="margin-bottom: 20px; background-color: #f5f7fa; padding: 20px; border-radius: 4px;">
       <el-form :inline="true" :model="searchForm" style="display: flex; justify-content: center; flex-wrap: wrap; gap: 10px;">
-        <el-form-item label="节点">
-          <el-select v-model="searchForm.nodeId" placeholder="请选择节点" clearable>
-            <el-option label="全部" value=""></el-option>
-            <el-option v-for="node in nodeOptions" :key="node.nodeId" :label="node.nodeName" :value="node.nodeId"></el-option>
+        <el-form-item label="节点名称">
+          <el-select
+            v-model="searchForm.nodeId"
+            placeholder="请选择节点名称"
+            clearable
+            filterable
+            style="width: 240px;"
+          >
+            <el-option
+              v-for="node in nodeOptions"
+              :key="node.nodeId"
+              :label="node.nodeName"
+              :value="node.nodeId"
+            ></el-option>
           </el-select>
         </el-form-item>
 

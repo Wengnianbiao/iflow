@@ -44,10 +44,10 @@ public class NodeParamConfigServiceImpl implements NodeParamConfigService {
     }
 
     @Override
-    public PageList<NodeParamConfig> findAllNodeParamConfigs(Integer nodeId, ProcessType processType, String targetParam, int pageNum, int pageSize) {
+    public PageList<NodeParamConfig> findAllNodeParamConfigs(Integer nodeId, String nodeName, ProcessType processType, String targetParam, int pageNum, int pageSize) {
         try {
             String processTypeName = processType != null ? processType.name() : null;
-            return nodeParamConfigQueryService.selectAllConfigsPaged(nodeId, processTypeName, targetParam, pageNum, pageSize);
+            return nodeParamConfigQueryService.selectAllConfigsPaged(nodeId, nodeName, processTypeName, targetParam, pageNum, pageSize);
         } catch (Exception e) {
             log.error("获取节点参数配置列表失败", e);
             throw new AgentException(AgentErrorCode.CONSOLE_OPERATION_FAILED, "获取节点参数配置列表失败: " + e.getMessage(), e);
@@ -57,7 +57,7 @@ public class NodeParamConfigServiceImpl implements NodeParamConfigService {
     @Override
     public List<NodeParamConfig> findAllNodeParamConfigsUnpaged(Integer nodeId, ProcessType processType) {
         String processTypeName = processType != null ? processType.name() : null;
-        return nodeParamConfigQueryService.selectAllConfigs(nodeId, processTypeName, null);
+        return nodeParamConfigQueryService.selectAllConfigs(nodeId, null, processTypeName, null);
     }
 
     @Override

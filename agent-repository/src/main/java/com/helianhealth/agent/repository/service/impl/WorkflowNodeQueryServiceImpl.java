@@ -33,15 +33,15 @@ public class WorkflowNodeQueryServiceImpl implements WorkflowNodeQueryService {
 
     @Override
     public List<WorkflowNode> selectAllNodes(Integer flowId) {
-        return flowNodeMapper.selectAllNodes(flowId).stream()
+        return flowNodeMapper.selectAllNodes(flowId, null).stream()
                 .map(WorkflowNodeAssembler::toDomain)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public PageList<WorkflowNode> selectAllNodesPaged(Integer flowId, int pageNum, int pageSize) {
+    public PageList<WorkflowNode> selectAllNodesPaged(Integer flowId, String nodeName, int pageNum, int pageSize) {
         PageHelper.startPage(pageNum, pageSize);
-        List<InterfaceWorkflowNodePO> poList = flowNodeMapper.selectAllNodes(flowId);
+        List<InterfaceWorkflowNodePO> poList = flowNodeMapper.selectAllNodes(flowId, nodeName);
         PageInfo<InterfaceWorkflowNodePO> pageInfo = new PageInfo<>(poList);
         List<WorkflowNode> nodes = poList.stream().map(WorkflowNodeAssembler::toDomain).collect(Collectors.toList());
         PageList<WorkflowNode> pageList = new PageList<>();

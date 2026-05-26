@@ -12,7 +12,10 @@ public interface NodeParamConfigMapper {
 
     List<NodeParamConfigPO> selectPostProcessConfigByNodeId(Integer nodeId);
 
-    List<NodeParamConfigPO> selectAllParamConfig(@Param("nodeId") Integer nodeId, @Param("processType") String processType, @Param("targetParam") String targetParam);
+    List<NodeParamConfigPO> selectAllParamConfig(@Param("nodeId") Integer nodeId,
+                                                 @Param("nodeName") String nodeName,
+                                                 @Param("processType") String processType,
+                                                 @Param("targetParam") String targetParam);
 
     NodeParamConfigPO selectByPrimaryKey(Integer configId);
 

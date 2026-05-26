@@ -9,7 +9,8 @@ import java.util.List;
 public interface InterfaceFlowNodeMapper {
 
     InterfaceWorkflowNodePO selectByNodeId(@Param("nodeId") Integer nodeId);
-    List<InterfaceWorkflowNodePO> selectAllNodes(@Param("flowId") Integer flowId);
+    List<InterfaceWorkflowNodePO> selectAllNodes(@Param("flowId") Integer flowId,
+                                                 @Param("nodeName") String nodeName);
 
     /**
      * 创建工作流节点

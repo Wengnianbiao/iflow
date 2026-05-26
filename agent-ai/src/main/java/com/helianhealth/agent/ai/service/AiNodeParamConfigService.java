@@ -36,11 +36,11 @@ public class AiNodeParamConfigService {
 
     public List<NodeParamConfig> findAllNodeParamConfigsUnpaged(Integer nodeId, ProcessType processType) {
         String type = processType == null ? null : processType.name();
-        return nodeParamConfigQueryService.selectAllConfigs(nodeId, type, null);
+        return nodeParamConfigQueryService.selectAllConfigs(nodeId, null, type, null);
     }
 
     public NodeParamConfigMcpResponse exportNodeParamConfigs(Integer nodeId) {
-        List<NodeParamConfig> configs = nodeParamConfigQueryService.selectAllConfigs(nodeId, null, null);
+        List<NodeParamConfig> configs = nodeParamConfigQueryService.selectAllConfigs(nodeId, null, null, null);
         List<NodeParamConfigMcpView> preParams = buildTree(configs, null, ProcessType.PRE_PROCESS);
         List<NodeParamConfigMcpView> postParams = buildTree(configs, null, ProcessType.POST_PROCESS);
         String nodeName = getNodeName(nodeId);
@@ -56,7 +56,7 @@ public class AiNodeParamConfigService {
     }
 
     public void deleteAllNodeParamConfigs(Integer nodeId) {
-        List<NodeParamConfig> configs = nodeParamConfigQueryService.selectAllConfigs(nodeId, null, null);
+        List<NodeParamConfig> configs = nodeParamConfigQueryService.selectAllConfigs(nodeId, null, null, null);
         for (NodeParamConfig config : configs) {
             nodeParamConfigCommandService.deleteConfig(config.getConfigId());
         }

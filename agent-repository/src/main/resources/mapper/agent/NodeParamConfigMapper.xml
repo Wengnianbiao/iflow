@@ -124,17 +124,23 @@
     </select>
 
     <select id="selectAllParamConfig" resultMap="NodeParamConfigResultMap">
-        SELECT *
-        FROM node_param_config
+        SELECT npc.*
+        FROM node_param_config npc
+        <if test="nodeName != null and nodeName.trim() != ''">
+            INNER JOIN interface_workflow_node n ON npc.node_id = n.node_id
+        </if>
         <where>
             <if test="nodeId != null">
-                node_id = #{nodeId}
+                npc.node_id = #{nodeId}
+            </if>
+            <if test="nodeName != null and nodeName.trim() != ''">
+                AND n.node_name LIKE CONCAT('%', #{nodeName}, '%')
             </if>
             <if test="processType != null">
-                AND process_type = #{processType}
+                AND npc.process_type = #{processType}
             </if>
             <if test="targetParam != null and targetParam.trim() != '' ">
-                AND target_param_key LIKE CONCAT(#{targetParam}, '%')
+                AND npc.target_param_key LIKE CONCAT(#{targetParam}, '%')
             </if>
         </where>
     </select>

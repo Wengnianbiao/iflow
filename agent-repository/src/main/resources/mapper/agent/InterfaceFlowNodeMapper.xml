@@ -109,6 +109,9 @@
             <if test="flowId != null">
                 flow_id = #{flowId}
             </if>
+            <if test="nodeName != null and nodeName.trim() != ''">
+                AND node_name LIKE CONCAT('%', #{nodeName}, '%')
+            </if>
         </where>
     </select>
 

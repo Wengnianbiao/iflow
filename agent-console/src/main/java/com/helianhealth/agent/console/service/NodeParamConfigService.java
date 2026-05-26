@@ -14,7 +14,7 @@ public interface NodeParamConfigService {
 
     List<NodeParamConfig> selectPostProcessConfigByNodeId(Integer nodeId);
 
-    PageList<NodeParamConfig> findAllNodeParamConfigs(Integer nodeId, ProcessType processType, String targetParam, int pageNum, int pageSize);
+    PageList<NodeParamConfig> findAllNodeParamConfigs(Integer nodeId, String nodeName, ProcessType processType, String targetParam, int pageNum, int pageSize);
 
     List<NodeParamConfig> findAllNodeParamConfigsUnpaged(Integer nodeId, ProcessType processType);
 

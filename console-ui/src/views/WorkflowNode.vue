@@ -22,7 +22,21 @@
           </el-select>
         </div>
 
+        <!-- 节点名称搜索框 -->
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 14px; color: #666;">节点名称</span>
+          <el-input
+            v-model="filterNodeName"
+            placeholder="请输入节点名称"
+            clearable
+            style="width: 180px;"
+            @keyup.enter.native="handleFilterChange"
+            @clear="handleFilterChange"
+          ></el-input>
+        </div>
+
         <div style="display: flex; gap: 10px;">
+          <el-button type="primary" @click="handleFilterChange">查询</el-button>
           <el-button @click="resetFilters">重置</el-button>
           <el-dropdown trigger="click" @command="handleImportCommand">
             <el-button type="primary">
@@ -410,6 +424,7 @@ export default {
     const workflowOptions = ref([]);
     const flowIdToNameMap = ref(new Map());
     const filterFlowId = ref(null);
+    const filterNodeName = ref('');
     const formRef = ref(null);
     const metaFormRef = ref(null);
 
@@ -575,6 +590,9 @@ export default {
         if (filterFlowId.value) {
           params.flowId = filterFlowId.value;
         }
+        if (filterNodeName.value && filterNodeName.value.trim()) {
+          params.nodeName = filterNodeName.value.trim();
+        }
 
         const response = await getNodeList(params);
         if (response.status === 200 && response.data.code === 200) {
@@ -669,6 +687,7 @@ export default {
 
     const resetFilters = () => {
       filterFlowId.value = null;
+      filterNodeName.value = '';
       pagination.pageNum.value = 1;
       fetchData();
     };
@@ -942,6 +961,7 @@ export default {
       jsonImportDialog,
       nodeImportExport,
       filterFlowId,
+      filterNodeName,
       workflowOptions,
       form,
       rules,
