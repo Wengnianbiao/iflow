@@ -126,12 +126,9 @@ agent-common (基础层)
 - **零编码集成**：通过配置即可完成接口对接，无需编写代码
 - **工具无关**：支持任何 Coding Agent（Qoder、Cursor、Claude 等）
 
-### 两种对接方式
+### AI 对接方式
 
-| 方式 | 入口 | 适用场景 |
-|------|------|---------|
-| **MCP 协议** | `POST /mcp`（JSON-RPC 2.0） | 外部 AI Agent / Claude Desktop / Cursor 等 MCP 客户端，统一通过 8 个域级 Tool 操作 |
-| **Ops REST**  | `/v1/ai/ops/*`                | 内部脚本、人工调试，按域拆分的细粒度 REST 端点 |
+AI Agent 通过 **MCP 协议**（`POST /mcp`，JSON-RPC 2.0）统一操作配置；人工管理走控制台 API（`/v1/console/*`）。
 
 MCP Server 与 Spring 同进程托管，由 starter 默认开启，可通过 `interface-agent.mcp.enabled=false` 关闭：
 

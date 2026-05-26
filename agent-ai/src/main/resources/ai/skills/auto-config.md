@@ -72,11 +72,7 @@ agent_health.check 返回 status=UP 且 database=UP → 继续执行
 
 ## 对接方式
 
-interface-agent 同时暴露两套入口，按场景选用即可：
-
-### A. MCP 协议入口（推荐外部 Agent 使用）
-
-JSON-RPC 2.0 over HTTP，全部域级 Tool 在一个入口下：
+AI 自动化配置统一走 **MCP 协议入口**（JSON-RPC 2.0 over HTTP）：
 
 - 协议端点：`POST /mcp`
 - 支持方法：`initialize` / `tools/list` / `tools/call` / `ping`
@@ -112,18 +108,6 @@ JSON-RPC 2.0 over HTTP，全部域级 Tool 在一个入口下：
 - 优先读 `result.error` 或 `content[0].text` 里的 `error` / `message` 字段，据此修正参数后重试
 - 协议级错误（method 不存在、params 缺失）走 JSON-RPC `error` 字段
 
-### B. Ops REST 接口（底层能力面，内部脚本/调试用）
-
-| 领域模型 | 路径 |
-|------|------|
-| Workflow | `/v1/ai/ops/workflow` |
-| WorkflowNode | `/v1/ai/ops/workflow-node` |
-| NodeParamConfig | `/v1/ai/ops/node-param-config` |
-| MockConfig | `/v1/ai/ops/mock-config` |
-| MockInvoke | `/v1/ai/ops/mock-invoke` |
-| InvokeLog | `/v1/ai/ops/invoke-log` |
-| Extension | `/v1/ai/ops/extension` |
-
 ---
 
 ## 步骤1：创建节点
@@ -140,8 +124,6 @@ MCP `agent_workflow_node` create（**`flowId` 可选**；节点与工作流的�
 }
 ```
 
-Ops REST 等价：**POST /v1/ai/ops/workflow-node/create**（同上字段）
-
 **nodeType 选择**：
 - HTTP → RESTful API
 - WEBSERVICE → SOAP 接口
@@ -153,10 +135,11 @@ Ops REST 等价：**POST /v1/ai/ops/workflow-node/create**（同上字段）
 
 ## 步骤2：导入参数映射
 
-**POST /v1/ai/ops/node-param-config/import**
+MCP `agent_node_param_config` import：
 
 ```json
 {
+  "action": "import",
   "nodeId": 8,
   "clearBeforeImport": true,
   "params": [
@@ -285,10 +268,11 @@ Ops REST 等价：**POST /v1/ai/ops/workflow-node/create**（同上字段）
 
 ### 创建 Mock
 
-**POST /v1/ai/ops/mock-config/create**
+MCP `agent_mock_config` create：
 
 ```json
 {
+  "action": "create",
   "nodeId": 8,
   "caseName": "成功场景",
   "mockResponse": "{\"returnCode\":\"1\",\"message\":\"成功\"}"
@@ -297,18 +281,30 @@ Ops REST 等价：**POST /v1/ai/ops/workflow-node/create**（同上字段）
 
 ### 执行调用
 
-**POST /v1/ai/ops/mock-invoke/invoke?nodeId=8&mockId=15**
+MCP `agent_mock_invoke` invoke：
 
 ```json
 {
-  "patientCode": "TEST001",
-  "patientName": "测试"
+  "action": "invoke",
+  "nodeId": 8,
+  "mockId": 15,
+  "businessData": {
+    "patientCode": "TEST001",
+    "patientName": "测试"
+  }
 }
 ```
 
 ### 查询日志
 
-**GET /v1/ai/ops/invoke-log/latest?limit=1**
+MCP `agent_invoke_log` latest：
+
+```json
+{
+  "action": "latest",
+  "limit": 1
+}
+```
 
 **验证项**：
 - `paramBeforeInvoke` → 前置映射结果
@@ -330,8 +326,6 @@ Ops REST 等价：**POST /v1/ai/ops/workflow-node/create**（同上字段）
   "status": 1
 }
 ```
-
-Ops REST 等价：**POST /v1/ai/ops/workflow/create**
 
 **interfaceUri 规则**：
 - Jarvis 上游 → 使用具体的业务名称，如 CreateArchives

@@ -94,7 +94,6 @@ public class WorkflowToolDispatcher extends McpDispatcherSupport implements McpT
         return workflowCommandService.updateWorkflow(workflow);
     }
 
-    /** MCP 入参字段与 {@code WorkflowCreateMcpRequest} / {@code WorkflowUpdateMcpRequest} 的 routeExtension 一致。 */
     private String routeExtension(JsonNode args) {
         return optString(args, "routeExtension");
     }
