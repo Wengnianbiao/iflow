@@ -76,7 +76,7 @@ public class HealthCheckToolDispatcher extends McpDispatcherSupport implements M
                     .message("Interface Agent 服务与数据库均正常")
                     .build();
         } catch (Exception e) {
-            log.warn("健康检查数据库探测失败: {}", e.getMessage());
+            log.warn("Health check database probe failed: {}", e.getMessage());
             return builder
                     .status("DOWN")
                     .database("DOWN")

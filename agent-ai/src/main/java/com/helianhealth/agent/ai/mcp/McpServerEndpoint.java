@@ -1,48 +1,30 @@
 package com.helianhealth.agent.ai.mcp;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.helianhealth.agent.ai.mcp.dispatcher.McpToolDispatcher;
 import com.helianhealth.agent.ai.mcp.jsonrpc.JsonRpcError;
 import com.helianhealth.agent.ai.mcp.jsonrpc.JsonRpcRequest;
 import com.helianhealth.agent.ai.mcp.jsonrpc.JsonRpcResponse;
-import com.helianhealth.agent.ai.mcp.protocol.McpToolPayload;
-import com.helianhealth.agent.ai.mcp.protocol.ToolCallParams;
-import com.helianhealth.agent.ai.mcp.protocol.ToolCallResult;
-import com.helianhealth.agent.ai.mcp.protocol.ToolDefinition;
-import com.helianhealth.agent.common.exception.AgentException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-
 /**
- * MCP Server 协议入口。
+ * MCP Server 协议入口（Streamable HTTP，规范 2025-11-25）。
  *
- * <p>实现 JSON-RPC 2.0 over HTTP，支持以下方法：</p>
+ * <p>支持：</p>
  * <ul>
- *   <li>{@code initialize} - 协议握手，返回 protocolVersion / capabilities / serverInfo</li>
- *   <li>{@code tools/list} - 列出所有 Tool 的 schema</li>
- *   <li>{@code tools/call} - 调用具体 Tool</li>
- *   <li>{@code ping} - 心跳</li>
- *   <li>{@code notifications/initialized} - notification，无响应</li>
- * </ul>
- *
- * <p>路径来自 {@link McpServerProperties#getBasePath()}（默认 {@code /mcp}），
- * 可通过 {@code interface-agent.mcp.enabled=false} 关闭整个入口。</p>
- *
- * <h3>错误约定</h3>
- * <ul>
- *   <li>协议级错误（方法不存在、参数缺失等）→ JSON-RPC {@code error} 字段</li>
- *   <li>业务级错误（业务校验失败、域异常）→ 正常 result，但 {@code isError=true}，
- *       {@code error} 与 content.text 中均包含可读错误原因</li>
+ *   <li>{@code POST} — JSON-RPC 请求/通知（通知返回 202 Accepted）</li>
+ *   <li>{@code GET} — 本实现不提供 SSE 流，返回 405</li>
+ *   <li>{@code DELETE} — 终止 {@code MCP-Session-Id} 会话</li>
  * </ul>
  */
 @Slf4j
@@ -51,144 +33,128 @@ import java.util.Map;
 @ConditionalOnProperty(prefix = "interface-agent.mcp", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class McpServerEndpoint {
 
-    private final ObjectMapper objectMapper;
-    private final McpToolRegistry toolRegistry;
-    private final McpServerProperties properties;
+    public static final String HEADER_SESSION_ID = "MCP-Session-Id";
+    public static final String HEADER_PROTOCOL_VERSION = "MCP-Protocol-Version";
 
-    public McpServerEndpoint(ObjectMapper objectMapper,
-                             McpToolRegistry toolRegistry,
-                             McpServerProperties properties) {
-        this.objectMapper = objectMapper;
-        this.toolRegistry = toolRegistry;
+    private final McpServerProperties properties;
+    private final McpSessionManager sessionManager;
+    private final McpRequestProcessor requestProcessor;
+
+    public McpServerEndpoint(McpServerProperties properties,
+                             McpSessionManager sessionManager,
+                             McpRequestProcessor requestProcessor) {
         this.properties = properties;
+        this.sessionManager = sessionManager;
+        this.requestProcessor = requestProcessor;
     }
 
     @PostMapping
-    public JsonRpcResponse handle(@RequestBody JsonRpcRequest request) {
-        if (request == null) {
-            return JsonRpcResponse.failure(null, JsonRpcError.of(JsonRpcError.INVALID_REQUEST, "请求体为空"));
-        }
-        Object id = request.getId();
-        String method = request.getMethod();
-        if (method == null || method.trim().isEmpty()) {
-            return JsonRpcResponse.failure(id, JsonRpcError.of(JsonRpcError.INVALID_REQUEST, "method 不能为空"));
+    public ResponseEntity<?> handlePost(
+            @RequestHeader(value = HEADER_PROTOCOL_VERSION, required = false) String protocolVersionHeader,
+            @RequestHeader(value = HEADER_SESSION_ID, required = false) String sessionIdHeader,
+            @RequestHeader(value = HttpHeaders.ORIGIN, required = false) String origin,
+            @RequestBody(required = false) JsonRpcRequest request) {
+
+        if (properties.isValidateOrigin() && !isAllowedOrigin(origin)) {
+            log.warn("MCP Origin validation failed: origin={}", origin);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(JsonRpcResponse.failure(null,
+                            JsonRpcError.of(JsonRpcError.INVALID_REQUEST, "Invalid Origin")));
         }
 
-        try {
-            switch (method) {
-                case "initialize":
-                    return JsonRpcResponse.success(id, initialize());
-                case "notifications/initialized":
-                    return null; // notification，按 JSON-RPC 不返回响应
-                case "ping":
-                    return JsonRpcResponse.success(id, Collections.emptyMap());
-                case "tools/list":
-                    return JsonRpcResponse.success(id, listTools());
-                case "tools/call":
-                    return JsonRpcResponse.success(id, callTool(request.getParams()));
-                default:
-                    return JsonRpcResponse.failure(id,
-                            JsonRpcError.of(JsonRpcError.METHOD_NOT_FOUND, "未知方法: " + method));
+        String method = request != null ? request.getMethod() : null;
+        boolean isInitialize = "initialize".equals(method);
+
+        if (!isInitialize) {
+            ResponseEntity<?> protocolError = validateProtocolVersionHeader(protocolVersionHeader, sessionIdHeader);
+            if (protocolError != null) {
+                return protocolError;
             }
-        } catch (IllegalArgumentException e) {
-            log.warn("MCP 请求参数错误: method={}, message={}", method, e.getMessage());
-            return JsonRpcResponse.failure(id,
-                    JsonRpcError.of(JsonRpcError.INVALID_PARAMS, e.getMessage()));
-        } catch (AgentException e) {
-            log.warn("MCP 业务异常: method={}, code={}, message={}", method, e.getErrorCode(), e.getErrorMessage());
-            return JsonRpcResponse.failure(id,
-                    JsonRpcError.of(JsonRpcError.INTERNAL_ERROR, e.getErrorMessage()));
-        } catch (Exception e) {
-            log.error("MCP 内部错误: method={}", method, e);
-            return JsonRpcResponse.failure(id,
-                    JsonRpcError.of(JsonRpcError.INTERNAL_ERROR, "服务端错误: " + e.getMessage()));
-        }
-    }
-
-    private Map<String, Object> initialize() {
-        Map<String, Object> serverInfo = new LinkedHashMap<>();
-        serverInfo.put("name", properties.getServerName());
-        serverInfo.put("version", properties.getServerVersion());
-
-        Map<String, Object> toolsCapability = new LinkedHashMap<>();
-        toolsCapability.put("listChanged", false);
-
-        Map<String, Object> capabilities = new LinkedHashMap<>();
-        capabilities.put("tools", toolsCapability);
-
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("protocolVersion", properties.getProtocolVersion());
-        result.put("capabilities", capabilities);
-        result.put("serverInfo", serverInfo);
-        return result;
-    }
-
-    private Map<String, Object> listTools() {
-        List<ToolDefinition> tools = toolRegistry.listTools();
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("tools", tools);
-        return result;
-    }
-
-    private ToolCallResult callTool(JsonNode paramsNode) {
-        if (paramsNode == null || paramsNode.isNull()) {
-            throw new IllegalArgumentException("tools/call 缺少 params");
-        }
-        ToolCallParams params = objectMapper.convertValue(paramsNode, ToolCallParams.class);
-        if (params.getName() == null || params.getName().trim().isEmpty()) {
-            throw new IllegalArgumentException("tools/call.params.name 不能为空");
-        }
-        McpToolDispatcher dispatcher = toolRegistry.findDispatcher(params.getName());
-        if (dispatcher == null) {
-            throw new IllegalArgumentException("未注册的 tool: " + params.getName());
+            ResponseEntity<?> sessionError = validateSession(sessionIdHeader, method);
+            if (sessionError != null) {
+                return sessionError;
+            }
         }
 
-        JsonNode arguments = params.getArguments();
-        String toolName = params.getName();
-        String action = extractAction(arguments);
-        try {
-            Object data = dispatcher.call(arguments);
-            return ToolCallResult.ok(toJson(McpToolPayload.success(data)));
-        } catch (IllegalArgumentException e) {
-            log.warn("Tool 调用参数校验失败: tool={}, action={}, message={}",
-                    toolName, action, e.getMessage());
-            return toolError(toolName, action, -1, e.getMessage());
-        } catch (AgentException e) {
-            log.warn("Tool 业务异常: tool={}, action={}, code={}, message={}",
-                    toolName, action, e.getErrorCode(), e.getErrorMessage());
-            return toolError(toolName, action, e.getErrorCode(), e.getErrorMessage());
-        } catch (Exception e) {
-            log.error("Tool 内部错误: tool={}, action={}", toolName, action, e);
-            return toolError(toolName, action, -1, "服务端错误: " + e.getMessage());
+        McpSession session = sessionManager.get(sessionIdHeader);
+        McpRequestProcessor.ProcessResult result = requestProcessor.process(request, session);
+
+        if (result.isNotification()) {
+            return ResponseEntity.status(HttpStatus.ACCEPTED).build();
         }
-    }
 
-    private ToolCallResult toolError(String toolName, String action, int code, String message) {
-        String summary = formatToolError(toolName, action, message);
-        return ToolCallResult.error(toJson(McpToolPayload.failure(toolName, action, code, message)), summary);
-    }
-
-    private static String formatToolError(String toolName, String action, String message) {
-        if (action == null || action.isEmpty()) {
-            return "[" + toolName + "] " + message;
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        if (result.getNewSessionId() != null) {
+            headers.set(HEADER_SESSION_ID, result.getNewSessionId());
         }
-        return "[" + toolName + "." + action + "] " + message;
+        String protocolVersion = result.getNegotiatedProtocolVersion();
+        if (protocolVersion != null) {
+            headers.set(HEADER_PROTOCOL_VERSION, protocolVersion);
+        } else if (session != null) {
+            headers.set(HEADER_PROTOCOL_VERSION, session.getProtocolVersion());
+        } else if (protocolVersionHeader != null && !protocolVersionHeader.isEmpty()) {
+            headers.set(HEADER_PROTOCOL_VERSION, protocolVersionHeader);
+        }
+
+        return ResponseEntity.ok().headers(headers).body(result.getResponse());
     }
 
-    private static String extractAction(JsonNode arguments) {
-        if (arguments == null || !arguments.hasNonNull("action")) {
+    /**
+     * 规范允许 Server 不提供 SSE 流，此时对 GET 返回 405。
+     */
+    @GetMapping
+    public ResponseEntity<Void> handleGet() {
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).build();
+    }
+
+    @DeleteMapping
+    public ResponseEntity<Void> handleDelete(
+            @RequestHeader(value = HEADER_SESSION_ID, required = false) String sessionIdHeader) {
+        if (sessionIdHeader == null || sessionIdHeader.trim().isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+        sessionManager.invalidate(sessionIdHeader);
+        return ResponseEntity.noContent().build();
+    }
+
+    private ResponseEntity<?> validateProtocolVersionHeader(String protocolVersionHeader, String sessionIdHeader) {
+        if (protocolVersionHeader == null || protocolVersionHeader.trim().isEmpty()) {
             return null;
         }
-        String action = arguments.get("action").asText();
-        return action == null || action.isEmpty() ? null : action;
+        if (!McpProtocolVersions.isSupported(protocolVersionHeader.trim())) {
+            log.warn("Unsupported MCP protocol version: {}", protocolVersionHeader);
+            return ResponseEntity.badRequest()
+                    .body(JsonRpcResponse.failure(null,
+                            JsonRpcError.of(JsonRpcError.INVALID_PARAMS, "Unsupported MCP-Protocol-Version")));
+        }
+        return null;
     }
 
-    private String toJson(Object payload) {
-        try {
-            return objectMapper.writeValueAsString(payload);
-        } catch (Exception e) {
-            log.error("MCP 序列化业务返回失败", e);
-            return "{\"code\":-1,\"message\":\"序列化失败\"}";
+    private ResponseEntity<?> validateSession(String sessionIdHeader, String method) {
+        if (!properties.isSessionEnabled() || !properties.isStrictSession()) {
+            return null;
         }
+        if ("initialize".equals(method)) {
+            return null;
+        }
+        McpSession session = sessionManager.get(sessionIdHeader);
+        if (session == null) {
+            log.warn("MCP session missing or invalid: sessionId={}", sessionIdHeader);
+            return ResponseEntity.badRequest()
+                    .body(JsonRpcResponse.failure(null,
+                            JsonRpcError.of(JsonRpcError.INVALID_REQUEST, "Missing or invalid MCP-Session-Id")));
+        }
+        return null;
+    }
+
+    private boolean isAllowedOrigin(String origin) {
+        if (origin == null || origin.trim().isEmpty()) {
+            return true;
+        }
+        if (properties.getAllowedOrigins() == null || properties.getAllowedOrigins().isEmpty()) {
+            return true;
+        }
+        return properties.getAllowedOrigins().contains(origin.trim());
     }
 }

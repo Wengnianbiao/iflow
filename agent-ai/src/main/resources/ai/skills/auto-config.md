@@ -72,9 +72,11 @@ agent_health.check 返回 status=UP 且 database=UP → 继续执行
 
 ## 对接方式
 
-AI 自动化配置统一走 **MCP 协议入口**（JSON-RPC 2.0 over HTTP）：
+AI 自动化配置统一走 **MCP Streamable HTTP**（规范 `2025-11-25`，JSON-RPC 2.0 over HTTP）：
 
-- 协议端点：`POST /mcp`
+- 协议端点：`POST /mcp`（同一路径支持 `DELETE` 终止会话；`GET` 返回 405，本 Server 不提供 SSE 流）
+- 握手：`initialize` → 读取响应头 `MCP-Session-Id`、`MCP-Protocol-Version` → 发送 `notifications/initialized`（返回 `202 Accepted`）
+- 后续请求建议携带：`MCP-Session-Id`、`MCP-Protocol-Version`、`Accept: application/json, text/event-stream`
 - 支持方法：`initialize` / `tools/list` / `tools/call` / `ping`
 - 工具粒度：8 个域级 Tool，每个 Tool 用 `action` 字段区分 CRUD
   | Tool | 覆盖能力 |
@@ -88,7 +90,14 @@ AI 自动化配置统一走 **MCP 协议入口**（JSON-RPC 2.0 over HTTP）：
   | `agent_invoke_log` | 日志查询 list/latest/by_keyword/by_node |
   | `agent_spi_extension` | SPI 扩展 list/register/update/delete/enable/disable |
 
-启用/关闭通过 `interface-agent.mcp.enabled` 控制（默认开启），路径可通过 `interface-agent.mcp.base-path` 调整。
+启用/关闭通过 `interface-agent.mcp.enabled` 控制（默认开启），路径可通过 `interface-agent.mcp.base-path` 调整；协议版本默认 `2025-11-25`（兼容协商 `2024-11-05` 等旧版客户端）。
+
+**推荐握手顺序**（新客户端）：
+
+1. `POST /mcp` — `initialize`（params 含 `protocolVersion: "2025-11-25"`）
+2. 读取响应头 `MCP-Session-Id`，后续请求带上该头
+3. `POST /mcp` — `notifications/initialized`（无 id，响应 202）
+4. 再调用 `tools/call` 等
 
 **MCP 错误返回约定**（Tool 业务失败时）：
 

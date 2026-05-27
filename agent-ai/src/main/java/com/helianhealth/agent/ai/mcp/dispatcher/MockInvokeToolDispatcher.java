@@ -85,7 +85,7 @@ public class MockInvokeToolDispatcher extends McpDispatcherSupport implements Mc
                 Map<String, Object> result = doInvoke(nodeId, mockId, businessData);
                 results.add(new MockInvokeResult(mockId, true, "验证成功", result));
             } catch (Exception e) {
-                log.error("Mock 场景验证失败: mockId={}", mockId, e);
+                log.error("Mock scenario verification failed: mockId={}", mockId, e);
                 results.add(new MockInvokeResult(mockId, false, e.getMessage(), null));
             }
         }

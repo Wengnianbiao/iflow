@@ -55,7 +55,7 @@ public class ApplicationStartupListener implements ApplicationListener<Applicati
                 externalUrl = "http://" + hostAddress + ":" + port + contextPath;
             }
         } catch (Exception e) {
-            logger.warn("无法获取本机IP地址");
+            logger.warn("Failed to resolve local network IP address");
         }
 
         logger.info("\n" +
@@ -67,9 +67,9 @@ public class ApplicationStartupListener implements ApplicationListener<Applicati
                 "                                                           |___/                \n");
 
         logger.info("\n----------------------------------------------------------\n" +
-                "  配置后台访问地址：\n" +
-                "    本地访问: {}\n" +
-                (externalUrl != null ? "    外部访问: {}\n" : "") +
+                "  Admin console URL:\n" +
+                "    Local:   {}\n" +
+                (externalUrl != null ? "    Network: {}\n" : "") +
                 "----------------------------------------------------------",
                 localUrl,
                 externalUrl != null ? externalUrl : "");

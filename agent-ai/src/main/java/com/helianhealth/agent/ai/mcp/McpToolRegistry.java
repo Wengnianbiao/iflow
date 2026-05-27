@@ -77,7 +77,7 @@ public class McpToolRegistry {
                 tools.put(def.getName(), def);
                 dispatcherByTool.put(def.getName(), dispatcher);
             }
-            log.info("MCP Tool Registry 初始化完成，已注册 {} 个 tool: {}", tools.size(), tools.keySet());
+            log.info("MCP tool registry initialized, {} tools registered: {}", tools.size(), tools.keySet());
         } catch (Exception e) {
             throw new AgentException(AgentErrorCode.INTERNAL_ERROR,
                     "MCP Tool Registry 初始化失败: " + e.getMessage(), e);

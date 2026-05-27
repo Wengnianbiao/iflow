@@ -43,7 +43,7 @@ public class McpConfigService {
     @Transactional("repositoryAgentTransactionManager")
     public WorkflowCreationResult createFromConfigFile(String configFileName) {
         try {
-            log.info("开始从配置文件创建工作流: {}", configFileName);
+            log.info("Creating workflow from config file: {}", configFileName);
             
             // 1. 读取配置文件
             ClassPathResource resource = new ClassPathResource(configFileName);

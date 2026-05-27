@@ -128,7 +128,9 @@ agent-common (基础层)
 
 ### AI 对接方式
 
-AI Agent 通过 **MCP 协议**（`POST /mcp`，JSON-RPC 2.0）统一操作配置；人工管理走控制台 API（`/v1/console/*`）。
+AI Agent 通过 **MCP Streamable HTTP**（规范 `2025-11-25`，`POST /mcp`，JSON-RPC 2.0）统一操作配置；人工管理走控制台 API（`/v1/console/*`）。
+
+握手后 Server 会返回 `MCP-Session-Id` 与 `MCP-Protocol-Version` 响应头；notification（如 `notifications/initialized`）返回 `202 Accepted`。
 
 MCP Server 与 Spring 同进程托管，由 starter 默认开启，可通过 `interface-agent.mcp.enabled=false` 关闭：
 
@@ -136,7 +138,10 @@ MCP Server 与 Spring 同进程托管，由 starter 默认开启，可通过 `in
 interface-agent:
   mcp:
     enabled: true              # 是否启用 MCP 入口
-    base-path: /mcp            # JSON-RPC 入口路径
+    base-path: /mcp            # Streamable HTTP 端点
+    protocol-version: 2025-11-25
+    session-enabled: true      # initialize 时分配 MCP-Session-Id
+    strict-session: false      # 是否强制后续请求携带 Session
     server-name: interface-agent
     server-version: 1.0.0
 ```
