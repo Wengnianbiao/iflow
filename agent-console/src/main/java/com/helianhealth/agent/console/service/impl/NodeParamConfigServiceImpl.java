@@ -2,7 +2,6 @@ package com.helianhealth.agent.console.service.impl;
 
 import com.alibaba.fastjson2.JSON;
 import com.helianhealth.agent.common.base.PageList;
-import com.helianhealth.agent.common.enums.ParamType;
 import com.helianhealth.agent.common.enums.ProcessType;
 import com.helianhealth.agent.common.exception.AgentErrorCode;
 import com.helianhealth.agent.common.exception.AgentException;
@@ -34,16 +33,6 @@ public class NodeParamConfigServiceImpl implements NodeParamConfigService {
     }
 
     @Override
-    public List<NodeParamConfig> selectPreProcessConfigByNodeId(Integer nodeId) {
-        return nodeParamConfigQueryService.selectPreProcessConfigByNodeId(nodeId);
-    }
-
-    @Override
-    public List<NodeParamConfig> selectPostProcessConfigByNodeId(Integer nodeId) {
-        return nodeParamConfigQueryService.selectPostProcessConfigByNodeId(nodeId);
-    }
-
-    @Override
     public PageList<NodeParamConfig> findAllNodeParamConfigs(Integer nodeId, String nodeName, ProcessType processType, String targetParam, int pageNum, int pageSize) {
         try {
             String processTypeName = processType != null ? processType.name() : null;
@@ -66,14 +55,6 @@ public class NodeParamConfigServiceImpl implements NodeParamConfigService {
             if (config == null || config.getConfigId() == null) {
                 throw new IllegalArgumentException("参数不能为空，configId 必须存在");
             }
-            // 原参数类型为 null 时，将原参数名设置为null
-            if (config.getSourceParamType() == ParamType.NONE) {
-                config.setSourceParamKey(null);
-            }
-            // 为sort赋予默认值为1
-            if (config.getSort() == null) {
-                config.setSort(1);
-            }
 
             int result = nodeParamConfigCommandService.updateConfig(config);
 
@@ -94,10 +75,6 @@ public class NodeParamConfigServiceImpl implements NodeParamConfigService {
         try {
             if (config == null) {
                 throw new IllegalArgumentException("参数不能为空");
-            }
-            // 为sort赋予默认值为1
-            if (config.getSort() == null) {
-                config.setSort(1);
             }
 
             int result = nodeParamConfigCommandService.insertConfig(config);

@@ -7,6 +7,7 @@ import com.helianhealth.agent.common.enums.MappingType;
 import com.helianhealth.agent.common.enums.ParamType;
 import com.helianhealth.agent.common.enums.ProcessType;
 import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
+import com.helianhealth.agent.repository.support.NodeParamConfigNormalizer;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -229,7 +230,7 @@ public class NodeParamConfigMcpConverter {
         if (view == null) {
             return null;
         }
-        return NodeParamConfig.builder()
+        NodeParamConfig config = NodeParamConfig.builder()
                 .configId(view.getConfigId())
                 .processType(parseProcessType(view.getProcessType()))
                 .sourceParamKey(view.getSourceParamKey())
@@ -243,13 +244,15 @@ public class NodeParamConfigMcpConverter {
                 .mappingSource(parseMappingSource(view.getMappingSource()))
                 .mappingRule(view.getMappingRule())
                 .build();
+        NodeParamConfigNormalizer.normalize(config);
+        return config;
     }
 
     public static NodeParamConfig toDomain(NodeParamConfigMcpView view, Integer nodeId, Integer parentId) {
         if (view == null) {
             return null;
         }
-        return NodeParamConfig.builder()
+        NodeParamConfig config = NodeParamConfig.builder()
                 .processType(parseProcessType(view.getProcessType()))
                 .nodeId(nodeId)
                 .parentId(parentId)
@@ -264,5 +267,7 @@ public class NodeParamConfigMcpConverter {
                 .mappingSource(parseMappingSource(view.getMappingSource()))
                 .mappingRule(view.getMappingRule())
                 .build();
+        NodeParamConfigNormalizer.normalize(config);
+        return config;
     }
 }

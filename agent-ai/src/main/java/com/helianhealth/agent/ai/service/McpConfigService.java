@@ -4,7 +4,6 @@ import com.alibaba.fastjson2.JSON;
 import com.helianhealth.agent.common.enums.NodeType;
 import com.helianhealth.agent.common.exception.AgentErrorCode;
 import com.helianhealth.agent.common.exception.AgentException;
-import com.helianhealth.agent.common.enums.ParamType;
 import com.helianhealth.agent.common.enums.ScheduleParamSourceType;
 import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 import com.helianhealth.agent.repository.model.domain.Workflow;
@@ -88,7 +87,6 @@ public class McpConfigService {
             int paramCount = 0;
             for (NodeParamConfig paramConfig : paramsConfig) {
                 paramConfig.setNodeId(nodeId);
-                normalizeConfig(paramConfig);
                 nodeParamConfigCommandService.insertConfig(paramConfig);
                 paramCount++;
             }
@@ -154,14 +152,5 @@ public class McpConfigService {
             return null;
         }
         return ScheduleParamSourceType.valueOf(value.trim().toUpperCase());
-    }
-
-    private void normalizeConfig(NodeParamConfig config) {
-        if (config.getSort() == null) {
-            config.setSort(1);
-        }
-        if (config.getSourceParamType() == ParamType.NONE) {
-            config.setSourceParamKey(null);
-        }
     }
 }

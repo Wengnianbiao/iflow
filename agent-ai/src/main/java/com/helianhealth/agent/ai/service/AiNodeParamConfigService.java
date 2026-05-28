@@ -3,7 +3,6 @@ package com.helianhealth.agent.ai.service;
 import com.helianhealth.agent.ai.convert.NodeParamConfigMcpConverter;
 import com.helianhealth.agent.ai.model.NodeParamConfigMcpResponse;
 import com.helianhealth.agent.ai.model.NodeParamConfigMcpView;
-import com.helianhealth.agent.common.enums.ParamType;
 import com.helianhealth.agent.common.enums.ProcessType;
 import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
@@ -78,7 +77,6 @@ public class AiNodeParamConfigService {
 
     public NodeParamConfig updateNodeParamConfig(NodeParamConfigMcpView configView) {
         NodeParamConfig config = NodeParamConfigMcpConverter.toDomain(configView);
-        normalizeConfig(config);
         nodeParamConfigCommandService.updateConfig(config);
         return nodeParamConfigQueryService.selectConfigById(configView.getConfigId());
     }
@@ -100,18 +98,8 @@ public class AiNodeParamConfigService {
     }
 
     private NodeParamConfig save(NodeParamConfig config) {
-        normalizeConfig(config);
         nodeParamConfigCommandService.insertConfig(config);
         return config;
-    }
-
-    private void normalizeConfig(NodeParamConfig config) {
-        if (config.getSort() == null) {
-            config.setSort(1);
-        }
-        if (config.getSourceParamType() == ParamType.NONE) {
-            config.setSourceParamKey(null);
-        }
     }
 
     private List<NodeParamConfigMcpView> buildTree(List<NodeParamConfig> configs, Integer parentId, ProcessType processType) {

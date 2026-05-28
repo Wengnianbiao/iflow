@@ -5,6 +5,8 @@ import com.helianhealth.agent.repository.model.assembler.NodeParamConfigAssemble
 import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 import com.helianhealth.agent.repository.model.po.NodeParamConfigPO;
 import com.helianhealth.agent.repository.service.NodeParamConfigCommandService;
+import com.helianhealth.agent.repository.support.NodeParamConfigMergeSupport;
+import com.helianhealth.agent.repository.support.NodeParamConfigNormalizer;
 import org.springframework.stereotype.Service;
 
 /**
@@ -21,6 +23,7 @@ public class NodeParamConfigCommandServiceImpl implements NodeParamConfigCommand
 
     @Override
     public int insertConfig(NodeParamConfig config) {
+        NodeParamConfigNormalizer.normalize(config);
         NodeParamConfigPO po = NodeParamConfigAssembler.toPO(config);
         int result = nodeParamConfigMapper.insertNodeParamConfig(po);
         config.setConfigId(po.getConfigId());
@@ -29,13 +32,21 @@ public class NodeParamConfigCommandServiceImpl implements NodeParamConfigCommand
 
     @Override
     public int updateConfig(NodeParamConfig config) {
-        NodeParamConfigPO po = NodeParamConfigAssembler.toPO(config);
-        return nodeParamConfigMapper.updateByPrimaryKeySelective(po);
+        if (config == null || config.getConfigId() == null) {
+            return 0;
+        }
+        NodeParamConfigPO existingPo = nodeParamConfigMapper.selectByPrimaryKey(config.getConfigId());
+        if (existingPo == null) {
+            return 0;
+        }
+        NodeParamConfig existing = NodeParamConfigAssembler.toDomain(existingPo);
+        NodeParamConfig merged = NodeParamConfigMergeSupport.mergeForUpdate(existing, config);
+        NodeParamConfigNormalizer.normalize(merged);
+        return nodeParamConfigMapper.updateNodeParamConfig(NodeParamConfigAssembler.toPO(merged));
     }
 
     @Override
     public void deleteConfig(Integer configId) {
         nodeParamConfigMapper.deleteByPrimaryKey(configId);
     }
-
 }

@@ -19,7 +19,7 @@ public interface NodeParamConfigMapper {
 
     NodeParamConfigPO selectByPrimaryKey(Integer configId);
 
-    int updateByPrimaryKeySelective(NodeParamConfigPO record);
+    int updateNodeParamConfig(NodeParamConfigPO record);
 
     int deleteByPrimaryKey(Integer configId);
 }

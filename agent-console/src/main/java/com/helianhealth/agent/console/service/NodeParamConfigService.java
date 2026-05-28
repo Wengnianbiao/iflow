@@ -10,10 +10,6 @@ import java.util.List;
 
 public interface NodeParamConfigService {
 
-    List<NodeParamConfig> selectPreProcessConfigByNodeId(Integer nodeId);
-
-    List<NodeParamConfig> selectPostProcessConfigByNodeId(Integer nodeId);
-
     PageList<NodeParamConfig> findAllNodeParamConfigs(Integer nodeId, String nodeName, ProcessType processType, String targetParam, int pageNum, int pageSize);
 
     List<NodeParamConfig> findAllNodeParamConfigsUnpaged(Integer nodeId, ProcessType processType);
