@@ -1,6 +1,7 @@
 package com.helianhealth.agent.invocation.remote;
 
 import com.helianhealth.agent.common.base.MetaInfoKeyConstants;
+import com.helianhealth.agent.common.enums.ParamType;
 import com.helianhealth.agent.repository.model.domain.WorkflowNode;
 import com.helianhealth.agent.repository.model.domain.NodeParamConfig;
 import com.helianhealth.agent.invocation.remote.model.ParamTreeNode;
@@ -49,6 +50,9 @@ public class ProxyConvertHelper {
 
     @SuppressWarnings("unchecked")
     public static Object convertSourceValue(NodeParamConfig config, Map<String, Object> businessData) {
+        if (config.getSourceParamType() == ParamType.NONE) {
+            return businessData;
+        }
         String sourceParamKey = config.getSourceParamKey();
         // 如果源参数key为空，则说明不需要进行转化
         if (sourceParamKey == null || sourceParamKey.isEmpty()) {
@@ -74,6 +78,9 @@ public class ProxyConvertHelper {
 
     @SuppressWarnings("unchecked")
     public static Object convertSourceValueForObjectNode(NodeParamConfig config, Map<String, Object> businessData) {
+        if (config.getSourceParamType() == ParamType.NONE) {
+            return businessData;
+        }
         String sourceParamKey = config.getSourceParamKey();
         // 如果源参数key为空，则说明不需要进行转化
         if (sourceParamKey == null || sourceParamKey.isEmpty()) {

@@ -28,7 +28,7 @@ public class SpelUtils {
 
     /**
      * 解析表达式并返回结果
-     * @param expression SpEL表达式（如："#data.idCard == null ? #data.phone + 'hl' : #data.idCard"）
+     * @param expression SpEL表达式（如："#data[idCard] == null ? #data[phone] + 'hl' : #data[idCard]"）
      * @param businessData 业务数据Map（键为字段名，值为字段值）
      * @return 表达式执行结果
      */
