@@ -30,13 +30,13 @@ public class InterfaceInvokeLogServiceImpl implements InterfaceInvokeLogService 
         this.interfaceInvokeLogMapper = interfaceInvokeLogMapper;
     }
 
-    private static final int MAX_LOG_LENGTH = 20000;
+    private static final int MAX_LOG_LENGTH = 35000;
 
     @Override
     public void saveInvokeLog(InvokeLog logModel) {
         try {
             InterfaceInvokeLogPO logPO = InvokeLogAssembler.toPO(logModel);
-            
+
             // 安全截断保护，防止大对象撑爆数据库
             logPO.setRemoteInvokeResponse(truncateString(logPO.getRemoteInvokeResponse(), "remoteInvokeResponse"));
             logPO.setRemoteInvokeResponseParsed(truncateString(logPO.getRemoteInvokeResponseParsed(), "remoteInvokeResponseParsed"));
