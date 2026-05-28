@@ -44,7 +44,7 @@ public class MockScheduleService {
     private final MockConfigQueryService mockConfigQueryService;
     private final ParamFilterProcessor businessDataPostProcessor;
     private final BusinessDataSplitter splitBusinessDataPostProcessor;
-    private final ThreadPoolTaskExecutor taskExecutor;
+    private final ThreadPoolTaskExecutor splitExecutor;
     private final InterfaceRemoteInvoker interfaceRemoteInvoker;
 
     public MockScheduleService(InterfaceWorkflowNodeService flowNodeService,
@@ -53,13 +53,13 @@ public class MockScheduleService {
                                ParamFilterProcessor businessDataPostProcessor,
                                BusinessDataSplitter splitBusinessDataPostProcessor,
                                InterfaceInvokeLogService interfaceInvokeLogService,
-                               @Qualifier("WorkFlowNodeExecutor") ThreadPoolTaskExecutor taskExecutor) {
+                               @Qualifier("WorkFlowSplitExecutor") ThreadPoolTaskExecutor splitExecutor) {
         this.flowNodeService = flowNodeService;
         this.nodeParamConfigService = nodeParamConfigService;
         this.mockConfigQueryService = mockConfigQueryService;
         this.businessDataPostProcessor = businessDataPostProcessor;
         this.splitBusinessDataPostProcessor = splitBusinessDataPostProcessor;
-        this.taskExecutor = taskExecutor;
+        this.splitExecutor = splitExecutor;
         this.interfaceRemoteInvoker = WrapperFactory.createRemoteInvokerChain(
                 AgentExtensionLoader.getExtensionLoader(InterfaceRemoteInvoker.class).getAdaptiveExtension(),
                 interfaceInvokeLogService
@@ -227,7 +227,7 @@ public class MockScheduleService {
         List<CompletableFuture<Map<String, Object>>> futures = listBusinessData.stream()
                 .map(map -> CompletableFuture.supplyAsync(
                         () -> interfaceRemoteInvoker.remoteInvoke(node, buildInvocation(node, map)),
-                        taskExecutor
+                        splitExecutor
                 ).handle((result, ex) -> {
                     if (ex != null) {
                         log.error("节点[{}]并行执行失败，跳过该分片", node.getNodeName(), ex);

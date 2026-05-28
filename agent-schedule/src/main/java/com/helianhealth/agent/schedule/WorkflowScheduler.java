@@ -42,7 +42,8 @@ public class WorkflowScheduler {
     private final ParamFilterProcessor businessDataPostProcessor;
     private final BusinessDataSplitter splitBusinessDataPostProcessor;
     private final NodeParamConfigQueryService nodeParamConfigService;
-    private final ThreadPoolTaskExecutor taskExecutor;
+    private final ThreadPoolTaskExecutor nodeExecutor;
+    private final ThreadPoolTaskExecutor splitExecutor;
     private final InterfaceRemoteInvoker interfaceRemoteInvoker;
 
     public WorkflowScheduler(WorkFlowNodeBuilder workFlowNodeBuilder,
@@ -50,12 +51,14 @@ public class WorkflowScheduler {
                            BusinessDataSplitter splitBusinessDataPostProcessor,
                            NodeParamConfigQueryService nodeParamConfigService,
                            InterfaceInvokeLogService interfaceInvokeLogService,
-                           @Qualifier("WorkFlowNodeExecutor") ThreadPoolTaskExecutor taskExecutor) {
+                           @Qualifier("WorkFlowNodeExecutor") ThreadPoolTaskExecutor nodeExecutor,
+                           @Qualifier("WorkFlowSplitExecutor") ThreadPoolTaskExecutor splitExecutor) {
         this.workFlowNodeBuilder = workFlowNodeBuilder;
         this.businessDataPostProcessor = businessDataPostProcessor;
         this.splitBusinessDataPostProcessor = splitBusinessDataPostProcessor;
         this.nodeParamConfigService = nodeParamConfigService;
-        this.taskExecutor = taskExecutor;
+        this.nodeExecutor = nodeExecutor;
+        this.splitExecutor = splitExecutor;
         this.interfaceRemoteInvoker = WrapperFactory.createRemoteInvokerChain(
                 AgentExtensionLoader.getExtensionLoader(InterfaceRemoteInvoker.class).getAdaptiveExtension(),
                 interfaceInvokeLogService
@@ -140,7 +143,7 @@ public class WorkflowScheduler {
         List<CompletableFuture<Map<String, Object>>> futures = listBusinessData.stream()
                 .map(map -> CompletableFuture.supplyAsync(
                         () -> interfaceRemoteInvoker.remoteInvoke(flowNode, buildInvocation(flowNode, map)),
-                        taskExecutor
+                        splitExecutor
                 ).handle((result, ex) -> {
                     if (ex != null) {
                         log.error("节点[{}]并行执行失败，跳过该分片", flowNode.getNodeName(), ex);
@@ -182,7 +185,7 @@ public class WorkflowScheduler {
         List<CompletableFuture<Map<String, Object>>> futures = nodes.stream()
                 .map(node -> CompletableFuture.supplyAsync(
                         () -> processSingleNode(node, businessData),
-                        taskExecutor
+                        nodeExecutor
                 ).handle((result, ex) -> {
                     if (ex != null) {
                         log.error("节点[{}]并行执行失败，跳过该节点", node.getNodeName(), ex);
