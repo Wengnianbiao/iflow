@@ -137,6 +137,6 @@ public class WorkflowFullExportRsp {
         /**
          * 子参数列表
          */
-        private List<ParamConfigDTO> childParam;
+        private List<ParamConfigDTO> childParams;
     }
 }

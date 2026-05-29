@@ -277,7 +277,7 @@
     "mappingType": "NAME",
     "mappingSource": "RESPONSE",
     "sort": 14,
-    "childParam": [
+    "childParams": [
       {
         "processType": "POST_PROCESS",
         "sourceParamKey": "patientId",

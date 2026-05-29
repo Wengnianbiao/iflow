@@ -183,8 +183,8 @@ public class NodeParamConfigServiceImpl implements NodeParamConfigService {
         int count = 1;
 
         // 3. 递归处理子参数
-        if (paramConfigDTO.getChildParam() != null && !paramConfigDTO.getChildParam().isEmpty()) {
-            for (NodeParamConfigImportDTO.NodeParamConfigDTO child : paramConfigDTO.getChildParam()) {
+        if (paramConfigDTO.getChildParams() != null && !paramConfigDTO.getChildParams().isEmpty()) {
+            for (NodeParamConfigImportDTO.NodeParamConfigDTO child : paramConfigDTO.getChildParams()) {
                 count += processConfigRecursive(child, nodeId, savedConfig.getConfigId());
             }
         }

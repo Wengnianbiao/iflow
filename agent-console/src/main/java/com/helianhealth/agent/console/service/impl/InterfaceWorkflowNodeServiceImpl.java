@@ -253,7 +253,7 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
                     NodeConfigExportRsp.NodeParamConfigDTO dto = convertToNodeExportDTO(config);
                     List<NodeConfigExportRsp.NodeParamConfigDTO> childParams =
                             buildNodeParamTree(paramConfigs, config.getConfigId());
-                    dto.setChildParam(childParams.isEmpty() ? null : childParams);
+                    dto.setChildParams(childParams.isEmpty() ? null : childParams);
                     return dto;
                 })
                 .collect(java.util.stream.Collectors.toList());
@@ -362,7 +362,7 @@ public class InterfaceWorkflowNodeServiceImpl implements InterfaceWorkflowNodeSe
                     NodeParamConfigExportRsp.NodeParamConfigExportDTO dto = convertToExportDTO(config);
                     List<NodeParamConfigExportRsp.NodeParamConfigExportDTO> childParams =
                             buildParamTree(paramConfigs, config.getConfigId());
-                    dto.setChildParam(childParams.isEmpty() ? null : childParams);
+                    dto.setChildParams(childParams.isEmpty() ? null : childParams);
                     return dto;
                 })
                 .collect(java.util.stream.Collectors.toList());

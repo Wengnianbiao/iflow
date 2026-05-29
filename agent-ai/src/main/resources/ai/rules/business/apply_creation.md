@@ -83,7 +83,7 @@ description:
 - 源参数类型：`ARRAY`
 - 目标参数类型：`ARRAY`
 - 必须包含虚拟节点（`sourceParamType=NONE`, `targetParamType=OBJECT`）
-- 配置 `childParam` 进行子项字段映射
+- 配置 `childParams` 进行子项字段映射
 
 **虚拟节点命名**：通常使用目标字段名 + "Node" 后缀（如 `orderNode`）
 
@@ -92,7 +92,7 @@ description:
 **对象映射**：`items` → 三方申请单对象
 - 源参数类型：`OBJECT`
 - 目标参数类型：`OBJECT`
-- 直接配置 `childParam` 进行字段映射，无需虚拟节点
+- 直接配置 `childParams` 进行字段映射，无需虚拟节点
 - 框架会在工作流层自动拆分items数组，每个元素触发一次独立调用
 
 #### 后置数组映射(三方 → Jarvis)

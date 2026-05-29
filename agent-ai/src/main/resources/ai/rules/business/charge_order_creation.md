@@ -80,13 +80,13 @@ Jarvis入参中部分字段在嵌套对象内，需用EXPRESSION提取：
 
 **一级数组映射**：`chagPatientSheetDetail` → HIS明细数组
 - 映射类型：`OBJECT`
-- 配置 `childParam` 进行子项字段映射
+- 配置 `childParams` 进行子项字段映射
 - 示例：`chagPatientSheetDetail` → `orderDetails`
 
 **二级数组映射**：`consumeList` → HIS物价数组（嵌套在明细内）
 - 父节点：明细数组的 `consumeList` 字段
 - 映射类型：`OBJECT`
-- 再次配置 `childParam` 进行物价子项映射
+- 再次配置 `childParams` 进行物价子项映射
 - 示例：`consumeList` → `itemList`
 
 #### 后置数组映射（HIS → Jarvis）

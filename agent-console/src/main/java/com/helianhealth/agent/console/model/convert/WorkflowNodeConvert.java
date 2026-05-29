@@ -40,11 +40,11 @@ public class WorkflowNodeConvert {
         target.setMappingRule(source.getMappingRule());
 
         // 递归处理子参数
-        if (source.getChildParam() != null) {
-            List<NodeParamConfigImportDTO.NodeParamConfigDTO> childParams = source.getChildParam().stream()
+        if (source.getChildParams() != null) {
+            List<NodeParamConfigImportDTO.NodeParamConfigDTO> childParams = source.getChildParams().stream()
                     .map(this::convertNodeParamConfig)
                     .collect(Collectors.toList());
-            target.setChildParam(childParams);
+            target.setChildParams(childParams);
         }
 
         return target;

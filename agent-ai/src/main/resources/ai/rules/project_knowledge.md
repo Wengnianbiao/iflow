@@ -200,11 +200,11 @@ AI 生成 `interfaceUri` 时须区分两条入口的**匹配键**与**未命中�
 
 **`sourceParamKey`**：仅**源侧**支持 **点号路径** 钻取嵌套 Map（`patientInfo.hisOrgId`、`doctorInfo.number`，见 `ProxyConvertHelper.convertSourceValue`）。**SpEL 映射**仍建议 **`#data['key']`** 风格。
 
-**`targetParamKey`**：**禁止含 `.`**。框架按参数树 `childParam` 递归拼装目标 JSON/XML，**一层 key 对应树上一级节点**；若写成 `Body.TjNo`，产出是字面量键 `"Body.TjNo"` 的**平铺 Map**，**不会**变成 `{ "Body": { "TjNo": ... } }`。
+**`targetParamKey`**：**禁止含 `.`**。框架按参数树 `childParams` 递归拼装目标 JSON/XML，**一层 key 对应树上一级节点**；若写成 `Body.TjNo`，产出是字面量键 `"Body.TjNo"` 的**平铺 Map**，**不会**变成 `{ "Body": { "TjNo": ... } }`。
 
 **`mappingType=NAME`**：源 key 与目标 key 按名拷贝（需类型与树结构匹配）。
 
-### 6.1 嵌套目标结构：OBJECT + childParam（易错）
+### 6.1 嵌套目标结构：OBJECT + childParams（易错）
 
 三方接口文档常写 `Body.TjNo`、`Head.TradeCode`，AI **不得**把点号写进 `targetParamKey`。应拆成 **OBJECT 父节点 + 子字段**：
 
@@ -237,7 +237,7 @@ AI 生成 `interfaceUri` 时须区分两条入口的**匹配键**与**未命中�
 }
 ```
 
-**正确映射片段**（PRE_PROCESS，MCP import 嵌套字段名为 `childParams`）：
+**正确映射片段**（PRE_PROCESS，嵌套字段名为 `childParams`）：
 
 ```json
 [
@@ -294,7 +294,7 @@ AI 生成 `interfaceUri` 时须区分两条入口的**匹配键**与**未命中�
 **规则小结**：
 
 - **`.` 只用于 `sourceParamKey`**（从上游嵌套数据取值），或 `splitField` / `keywordField` 等同理路径字段。
-- **目标嵌套一律用 `targetParamType=OBJECT`（或 ARRAY）+ `childParam`/`childParams`**，子节点 `targetParamKey` 仅为**当前层**字段名。
+- **目标嵌套一律用 `targetParamType=OBJECT`（或 ARRAY）+ `childParams`**，子节点 `targetParamKey` 仅为**当前层**字段名。
 - OBJECT 父节点若仅作结构容器、不映射源对象：`sourceParamType=NONE`，`mappingType=NAME`（常见写法）。
 
 ---

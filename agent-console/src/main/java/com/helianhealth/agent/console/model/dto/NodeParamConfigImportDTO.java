@@ -36,6 +36,6 @@ public class NodeParamConfigImportDTO {
         private String mappingRule;
 
         // 子参数列表
-        private List<NodeParamConfigDTO> childParam;
+        private List<NodeParamConfigDTO> childParams;
     }
 }

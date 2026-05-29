@@ -41,6 +41,6 @@ public class NodeParamConfigExportRsp {
         private String mappingRule;
 
         // 子参数列表
-        private List<NodeParamConfigExportDTO> childParam;
+        private List<NodeParamConfigExportDTO> childParams;
     }
 }

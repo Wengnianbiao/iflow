@@ -174,7 +174,7 @@ public class InterfaceWorkflowServiceImpl implements InterfaceWorkflowService {
                     dto.setMappingRule(config.getMappingRule());
 
                     List<WorkflowFullExportRsp.ParamConfigDTO> children = buildParamTree(paramConfigs, config.getConfigId());
-                    dto.setChildParam(children.isEmpty() ? null : children);
+                    dto.setChildParams(children.isEmpty() ? null : children);
                     return dto;
                 })
                 .collect(Collectors.toList());
@@ -263,8 +263,8 @@ public class InterfaceWorkflowServiceImpl implements InterfaceWorkflowService {
             dto.setMappingType(p.getMappingType());
             dto.setMappingSource(p.getMappingSource());
             dto.setMappingRule(p.getMappingRule());
-            if (p.getChildParam() != null && !p.getChildParam().isEmpty()) {
-                dto.setChildParam(convertToImportDTO(p.getChildParam()));
+            if (p.getChildParams() != null && !p.getChildParams().isEmpty()) {
+                dto.setChildParams(convertToImportDTO(p.getChildParams()));
             }
             return dto;
         }).collect(Collectors.toList());
