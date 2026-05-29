@@ -129,7 +129,9 @@
             label-width="120px"
           >
             <el-form-item label="节点名称" prop="nodeName">
-              <el-input v-model="form.nodeName" placeholder="请输入节点名称"></el-input>
+              <OverflowRevealField :value="form.nodeName">
+                <el-input v-model="form.nodeName" placeholder="请输入节点名称"></el-input>
+              </OverflowRevealField>
             </el-form-item>
 
             <el-form-item label="所属工作流" prop="flowId">
@@ -153,15 +155,21 @@
             </el-form-item>
 
             <el-form-item label="关键字字段" prop="keywordField">
-              <el-input v-model="form.keywordField" placeholder="请输入关键字字段"></el-input>
+              <OverflowRevealField :value="form.keywordField">
+                <el-input v-model="form.keywordField" placeholder="请输入关键字字段"></el-input>
+              </OverflowRevealField>
             </el-form-item>
 
             <el-form-item label="拆分字段" prop="splitField">
-              <el-input v-model="form.splitField" placeholder="请输入拆分字段"></el-input>
+              <OverflowRevealField :value="form.splitField">
+                <el-input v-model="form.splitField" placeholder="请输入拆分字段"></el-input>
+              </OverflowRevealField>
             </el-form-item>
 
             <el-form-item label="参数过滤表达式" prop="paramFilterExpr">
-              <el-input v-model="form.paramFilterExpr" placeholder="请输入参数过滤表达式"></el-input>
+              <OverflowRevealField :value="form.paramFilterExpr">
+                <el-input v-model="form.paramFilterExpr" placeholder="请输入参数过滤表达式"></el-input>
+              </OverflowRevealField>
             </el-form-item>
           </el-form>
         </div>
@@ -178,7 +186,9 @@
             <!-- HTTP节点配置 -->
             <template v-if="form.nodeType === 'HTTP'">
               <el-form-item label="请求地址" prop="url" required>
-                <el-input v-model="metaFields.url" placeholder="例如: http://127.0.0.1:8807/api/create" style="width: 70%;"></el-input>
+                <OverflowRevealField :value="metaFields.url" style="width: 70%;">
+                  <el-input v-model="metaFields.url" placeholder="例如: http://127.0.0.1:8807/api/create" style="width: 100%;"></el-input>
+                </OverflowRevealField>
               </el-form-item>
               <el-form-item label="请求方法" prop="method">
                 <el-select v-model="metaFields.method" placeholder="请选择请求方法" style="width: 30%;">
@@ -189,25 +199,39 @@
               <el-form-item label="请求头">
                 <div class="headers-editor">
                   <div v-for="(header, index) in metaFields.headers" :key="index" class="header-row">
-                    <el-select v-model="header.key" placeholder="选择或输入Header名称" filterable allow-create style="flex: 0.8; min-width: 150px;">
-                      <el-option label="Content-Type" value="Content-Type"></el-option>
-                      <el-option label="Authorization" value="Authorization"></el-option>
-                    </el-select>
-                    <el-select
+                    <OverflowRevealField :value="header.key" style="flex: 0.8; min-width: 150px;">
+                      <el-select v-model="header.key" placeholder="选择或输入Header名称" filterable allow-create style="width: 100%;">
+                        <el-option label="Content-Type" value="Content-Type"></el-option>
+                        <el-option label="Authorization" value="Authorization"></el-option>
+                      </el-select>
+                    </OverflowRevealField>
+                    <OverflowRevealField
                       v-if="header.key === 'Content-Type'"
-                      v-model="header.value"
-                      placeholder="选择Content-Type"
+                      :value="header.value"
                       style="flex: 2.2; min-width: 200px;"
                     >
-                      <el-option label="application/json" value="application/json"></el-option>
-                      <el-option label="application/x-www-form-urlencoded" value="application/x-www-form-urlencoded"></el-option>
-                    </el-select>
-                    <el-input
+                      <el-select
+                        v-model="header.value"
+                        placeholder="选择或输入Content-Type"
+                        filterable
+                        allow-create
+                        style="width: 100%;"
+                      >
+                        <el-option label="application/json" value="application/json"></el-option>
+                        <el-option label="application/x-www-form-urlencoded" value="application/x-www-form-urlencoded"></el-option>
+                      </el-select>
+                    </OverflowRevealField>
+                    <OverflowRevealField
                       v-else
-                      v-model="header.value"
-                      placeholder="Header值"
+                      :value="header.value"
                       style="flex: 2.2; min-width: 180px;"
-                    ></el-input>
+                    >
+                      <el-input
+                        v-model="header.value"
+                        placeholder="Header值"
+                        style="width: 100%;"
+                      ></el-input>
+                    </OverflowRevealField>
                     <el-button @click="removeHeader(index)" icon="el-icon-delete" circle size="small"></el-button>
                   </div>
                   <el-button @click="addHeader" icon="el-icon-plus" size="small" style="margin-top: 10px;">添加Header</el-button>
@@ -225,31 +249,47 @@
             <!-- WEBSERVICE节点配置 -->
             <template v-if="form.nodeType === 'WEBSERVICE'">
               <el-form-item label="请求地址" prop="url" required>
-                <el-input v-model="metaFields.url" placeholder="例如: http://127.0.0.1:8080/services/HelloService"></el-input>
+                <OverflowRevealField :value="metaFields.url">
+                  <el-input v-model="metaFields.url" placeholder="例如: http://127.0.0.1:8080/services/HelloService" style="width: 100%;"></el-input>
+                </OverflowRevealField>
               </el-form-item>
               <el-form-item label="请求头">
                 <div class="headers-editor">
                   <div v-for="(header, index) in metaFields.headers" :key="index" class="header-row">
-                    <el-select v-model="header.key" placeholder="选择或输入Header名称" filterable allow-create style="flex: 0.8; min-width: 150px;">
-                      <el-option label="Content-Type" value="Content-Type"></el-option>
-                      <el-option label="Authorization" value="Authorization"></el-option>
-                      <el-option label="SOAPAction" value="SOAPAction"></el-option>
-                    </el-select>
-                    <el-select
+                    <OverflowRevealField :value="header.key" style="flex: 0.8; min-width: 150px;">
+                      <el-select v-model="header.key" placeholder="选择或输入Header名称" filterable allow-create style="width: 100%;">
+                        <el-option label="Content-Type" value="Content-Type"></el-option>
+                        <el-option label="Authorization" value="Authorization"></el-option>
+                        <el-option label="SOAPAction" value="SOAPAction"></el-option>
+                      </el-select>
+                    </OverflowRevealField>
+                    <OverflowRevealField
                       v-if="header.key === 'Content-Type'"
-                      v-model="header.value"
-                      placeholder="选择Content-Type"
+                      :value="header.value"
                       style="flex: 2.2; min-width: 200px;"
                     >
-                      <el-option label="text/xml;charset=UTF-8" value="text/xml;charset=UTF-8"></el-option>
-                      <el-option label="application/json" value="application/json"></el-option>
-                    </el-select>
-                    <el-input
+                      <el-select
+                        v-model="header.value"
+                        placeholder="选择或输入Content-Type"
+                        filterable
+                        allow-create
+                        style="width: 100%;"
+                      >
+                        <el-option label="text/xml;charset=UTF-8" value="text/xml;charset=UTF-8"></el-option>
+                        <el-option label="application/json" value="application/json"></el-option>
+                      </el-select>
+                    </OverflowRevealField>
+                    <OverflowRevealField
                       v-else
-                      v-model="header.value"
-                      placeholder="Header值"
+                      :value="header.value"
                       style="flex: 2.2; min-width: 200px;"
-                    ></el-input>
+                    >
+                      <el-input
+                        v-model="header.value"
+                        placeholder="Header值"
+                        style="width: 100%;"
+                      ></el-input>
+                    </OverflowRevealField>
                     <el-button @click="removeHeader(index)" icon="el-icon-delete" circle size="small"></el-button>
                   </div>
                   <el-button @click="addHeader" icon="el-icon-plus" size="small" style="margin-top: 10px;">添加Header</el-button>
@@ -412,12 +452,14 @@ import { useJsonViewer } from '@/composables/useJsonViewer';
 import { useNodeImportExport } from '@/composables/useNodeImportExport';
 import JsonViewerDialog from '@/components/common/JsonViewerDialog.vue';
 import JsonPreviewCell from '@/components/common/JsonPreviewCell.vue';
+import OverflowRevealField from '@/components/common/OverflowRevealField.vue';
 
 export default {
   name: 'WorkflowNode',
   components: {
     JsonViewerDialog,
-    JsonPreviewCell
+    JsonPreviewCell,
+    OverflowRevealField
   },
   setup() {
     const nodes = ref([]);
