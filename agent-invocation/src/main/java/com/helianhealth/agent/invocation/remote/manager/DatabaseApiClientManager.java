@@ -24,12 +24,12 @@ public class DatabaseApiClientManager {
     /**
      * 建连超时，毫秒。三方库不可达时快速失败。
      */
-    private static final int DEFAULT_CONNECT_TIMEOUT = 5000;
+    private static final int DEFAULT_CONNECT_TIMEOUT = 3000;
 
     /**
      * Socket/read 超时，毫秒。覆盖真实场景下较慢的 SQL 查询。
      */
-    private static final int DEFAULT_QUERY_TIMEOUT = 10000;
+    private static final int DEFAULT_QUERY_TIMEOUT = 20000;
 
     /**
      * 从连接池获取连接的超时，毫秒。对应 HTTP 的 connectionRequestTimeout。
@@ -47,9 +47,9 @@ public class DatabaseApiClientManager {
     public static final int DEFAULT_QUERY_TIMEOUT_SECONDS = DEFAULT_QUERY_TIMEOUT / 1000;
 
     /**
-     * 与 WorkFlowNodeExecutor 并发度对齐。
+     * 单个 JDBC 数据源 Druid 池默认最大活跃连接数（进程内共享，供所有 DATABASE 节点外呼复用）。
      */
-    private static final int DEFAULT_MAX_ACTIVE = 5;
+    private static final int DEFAULT_MAX_ACTIVE = 30;
 
     private DatabaseApiClientManager() {
     }
@@ -197,7 +197,7 @@ public class DatabaseApiClientManager {
         dataSource.setSocketTimeout(DEFAULT_QUERY_TIMEOUT);
         dataSource.setConnectProperties(buildDriverTimeoutProperties());
 
-        // 连接池基础配置（与 WorkFlowNodeExecutor 并发度对齐）
+        // 连接池基础配置（按数据源维度限流，与调度线程池解耦）
         dataSource.setInitialSize(1);
         dataSource.setMaxActive(DEFAULT_MAX_ACTIVE);
         dataSource.setMinIdle(0);
