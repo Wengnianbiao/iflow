@@ -27,7 +27,7 @@
         <maven.compiler.target>1.8</maven.compiler.target>
 
         <!-- 项目版本统一管理 -->
-        <revision>1.2.5</revision>
+        <revision>1.2.6</revision>
         <spring-boot.version>2.7.18</spring-boot.version>
         <spring.version>5.3.31</spring.version>
         <tk.mybatis.start.version>4.2.3</tk.mybatis.start.version>
