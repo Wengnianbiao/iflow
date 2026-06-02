@@ -722,17 +722,29 @@ public class XmlUtilsParseXmlForConfigTest {
         }
 
         @Test
-        @DisplayName("空Map抛出异常")
+        @DisplayName("空Map返回空字符串")
         void buildXml_EmptyMap() {
-            assertThrows(RuntimeException.class, () ->
-                    XmlUtils.buildResponseXml(new HashMap<>(), "{}"));
+            assertEquals("", XmlUtils.buildResponseXml(new HashMap<>(), "{}"));
         }
 
         @Test
-        @DisplayName("null Map抛出异常")
+        @DisplayName("空Map且配置SOAP模板仍走模板适配")
+        void buildXml_EmptyMap_WithSoapTemplate() {
+            String metaInfo = "{\"soapRspTemplate\":\"<soap>${outputParam}</soap>\"}";
+            assertEquals("<soap></soap>", XmlUtils.buildResponseXml(new HashMap<>(), metaInfo));
+        }
+
+        @Test
+        @DisplayName("null Map返回空字符串")
         void buildXml_NullMap() {
-            assertThrows(RuntimeException.class, () ->
-                    XmlUtils.buildResponseXml(null, "{}"));
+            assertEquals("", XmlUtils.buildResponseXml(null, "{}"));
+        }
+
+        @Test
+        @DisplayName("null Map且配置SOAP模板仍走模板适配")
+        void buildXml_NullMap_WithSoapTemplate() {
+            String metaInfo = "{\"soapRspTemplate\":\"<soap>${outputParam}</soap>\"}";
+            assertEquals("<soap></soap>", XmlUtils.buildResponseXml(null, metaInfo));
         }
     }
 

@@ -306,25 +306,19 @@ public class XmlUtils {
     /**
      * 将Map转换为XML字符串，支持自定义根元素名称和SOAP响应模板
      *
-     * @param scheduleRsp 需要转换的Map数据
+     * @param scheduleRsp 需要转换的Map数据；为 null 或空 Map 时不构建业务 XML（视为空串），仍按 metaInfo 做 SOAP 模板适配
      * @param metaInfo    元信息（包含命名空间、响应模板等配置）
      * @return 生成的XML字符串
      */
     public static String buildResponseXml(Map<String, Object> scheduleRsp, String metaInfo) {
         try {
-            if (scheduleRsp == null || scheduleRsp.isEmpty()) {
-                throw new IllegalArgumentException("scheduleRsp cannot be null or empty");
-            }
-
             Map<String, Object> metaInfoMap = JsonUtils.parseMetaInfo(metaInfo);
 
-            // 构建业务数据XML
-            String businessXml = buildBusinessXml(scheduleRsp, metaInfoMap);
+            String businessXml = doBuildResponseXml(scheduleRsp, metaInfoMap);
 
-            // 检查是否配置了SOAP响应模板
+            // 使用模板包装响应
             String soapRspTemplate = (String) metaInfoMap.get(SOAP_RSP_TEMPLATE_KEY);
             if (soapRspTemplate != null && !soapRspTemplate.trim().isEmpty()) {
-                // 使用模板包装响应
                 return soapRspTemplate.replace(SOAP_RSP_PLACEHOLDER, businessXml);
             }
 
@@ -336,10 +330,14 @@ public class XmlUtils {
     }
 
     /**
-     * 构建业务数据XML
+     * 构建业务数据XML；scheduleRsp 为 null 或空 Map 时返回空字符串。
      */
     @SuppressWarnings("unchecked")
-    private static String buildBusinessXml(Map<String, Object> scheduleRsp, Map<String, Object> metaMap) throws Exception {
+    private static String doBuildResponseXml(Map<String, Object> scheduleRsp, Map<String, Object> metaMap) throws Exception {
+        if (scheduleRsp == null || scheduleRsp.isEmpty()) {
+            return "";
+        }
+
         // 获取配置信息
         String namespaceURI = (String) metaMap.get("responseNamespace");
         String resultElementName = (String) metaMap.get("resultElementName");
