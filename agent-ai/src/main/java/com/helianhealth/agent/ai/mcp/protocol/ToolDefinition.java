@@ -31,4 +31,10 @@ public class ToolDefinition {
      * Tool 入参 schema（JSON Schema）
      */
     private JsonNode inputSchema;
+
+    /**
+     * Tool 出参 schema（JSON Schema），描述 {@code tools/call} 成功时 {@code McpToolPayload.data} 的结构。
+     * 失败时无 data，见 {@code content[].text} 内 {@code error} / {@code message}。
+     */
+    private JsonNode outputSchema;
 }

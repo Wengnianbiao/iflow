@@ -1,55 +1,255 @@
 {
-  "$comment": "Interface Agent MCP Server - 8 个域级 Tool 的 JSON Schema。McpToolRegistry 启动时载入，由 tools/list 返回给 MCP 客户端。",
+  "$comment": "Interface Agent MCP Server — 8 个域级 Tool。McpToolRegistry 启动载入，tools/list 返回。tools/call 的 arguments 须与 inputSchema 平铺一致（仅含 action 及该 action 允许的字段），禁止用 extra 等额外顶层包装。成功时 content[0].text 为 JSON：{success,code,message,data}，data 结构见各 Tool 的 outputSchema。",
+  "$defs": {
+    "HealthCheckMcpView": {
+      "type": "object",
+      "properties": {
+        "status": { "type": "string", "enum": ["UP", "DOWN"] },
+        "serverName": { "type": "string" },
+        "serverVersion": { "type": "string" },
+        "database": { "type": "string", "enum": ["UP", "DOWN", "SKIPPED"] },
+        "message": { "type": "string" }
+      },
+      "required": ["status", "serverName", "serverVersion", "database", "message"]
+    },
+    "Workflow": {
+      "type": "object",
+      "properties": {
+        "flowId": { "type": "integer" },
+        "flowName": { "type": "string" },
+        "interfaceUri": { "type": "string" },
+        "routeExtension": { "type": "string" },
+        "contentType": { "type": "string", "enum": ["JSON", "XML"] },
+        "contentMetaInfo": { "type": "string" },
+        "firstFlowNodes": { "type": "array", "items": { "type": "integer" } },
+        "status": { "type": "integer", "enum": [0, 1] }
+      }
+    },
+    "WorkflowNodeMcpView": {
+      "type": "object",
+      "properties": {
+        "nodeId": { "type": "integer" },
+        "nodeName": { "type": "string" },
+        "flowId": { "type": "integer" },
+        "paramFilterExpr": { "type": "string" },
+        "nodeType": { "type": "string", "enum": ["HTTP", "WEBSERVICE", "DATABASE", "NONE"] },
+        "metaInfo": { "type": "string" },
+        "splitField": { "type": "string" },
+        "scheduleExpr": { "type": "string" },
+        "scheduleParamSourceType": { "type": "string", "enum": ["ORIGINAL", "PRE_RESPONSE"] },
+        "keywordField": { "type": "string" },
+        "remoteExtension": { "type": "string" },
+        "extensionParam": { "type": "string", "description": "JSON 字符串形式的扩展参数" }
+      }
+    },
+    "WorkflowNode": {
+      "type": "object",
+      "description": "get 返回的领域对象；extensionParam 为 Map",
+      "properties": {
+        "nodeId": { "type": "integer" },
+        "nodeName": { "type": "string" },
+        "flowId": { "type": "integer" },
+        "paramFilterExpr": { "type": "string" },
+        "nodeType": { "type": "string", "enum": ["HTTP", "WEBSERVICE", "DATABASE", "NONE"] },
+        "metaInfo": { "type": "string" },
+        "splitField": { "type": "string" },
+        "scheduleExpr": { "type": "string" },
+        "scheduleParamSourceType": { "type": "string", "enum": ["ORIGINAL", "PRE_RESPONSE"] },
+        "keywordField": { "type": "string" },
+        "remoteExtension": { "type": "string" },
+        "extensionParam": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "ParamConfig": {
+      "type": "object",
+      "description": "单条参数映射（childParams 嵌套树形）。import 时勿填 configId；update 时 config 须含 configId",
+      "properties": {
+        "configId": { "type": "integer", "description": "update/delete 使用；import 勿填" },
+        "processType": { "type": "string", "enum": ["PRE_PROCESS", "POST_PROCESS"] },
+        "sourceParamKey": { "type": "string" },
+        "sourceParamType": {
+          "type": "string",
+          "enum": ["STRING", "INTEGER", "LONG", "BOOLEAN", "OBJECT", "ARRAY", "PURE_ARRAY", "NONE"]
+        },
+        "targetParamKey": { "type": "string" },
+        "targetParamType": {
+          "type": "string",
+          "enum": ["STRING", "INTEGER", "LONG", "BOOLEAN", "OBJECT", "ARRAY", "PURE_ARRAY", "NONE"]
+        },
+        "paramDesc": { "type": "string" },
+        "keepSingleElementKey": { "type": "boolean" },
+        "sort": { "type": "integer" },
+        "mappingType": {
+          "type": "string",
+          "enum": ["CONSTANT", "NAME", "EXPRESSION", "BEAN_EXPRESSION", "SINGLE_MAP"]
+        },
+        "mappingSource": { "type": "string", "enum": ["INPUT", "RESPONSE"] },
+        "mappingRule": {
+          "type": "string",
+          "description": "NAME 可留空；EXPRESSION/CONSTANT/BEAN_EXPRESSION 填规则或固定值"
+        },
+        "childParams": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ParamConfig" }
+        }
+      }
+    },
+    "ParamConfigImport": {
+      "allOf": [
+        { "$ref": "#/$defs/ParamConfig" },
+        {
+          "required": ["processType", "sourceParamType", "targetParamKey", "targetParamType", "mappingType"]
+        }
+      ]
+    },
+    "NodeParamConfigMcpResponse": {
+      "type": "object",
+      "properties": {
+        "nodeId": { "type": "integer" },
+        "nodeName": { "type": "string" },
+        "preProcessParams": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ParamConfig" }
+        },
+        "postProcessParams": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ParamConfig" }
+        },
+        "totalCount": { "type": "integer" }
+      }
+    },
+    "MockConfigMcpView": {
+      "type": "object",
+      "properties": {
+        "mockId": { "type": "integer" },
+        "nodeId": { "type": "integer" },
+        "caseName": { "type": "string" },
+        "caseDesc": { "type": "string" },
+        "mockResponse": { "type": "string" }
+      }
+    },
+    "MockInvokeResult": {
+      "type": "object",
+      "properties": {
+        "mockId": { "type": "integer" },
+        "success": { "type": "boolean" },
+        "message": { "type": "string" },
+        "result": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "单次 invoke 成功时的映射结果 Map"
+        }
+      },
+      "required": ["mockId", "success", "message"]
+    },
+    "InvokeLogMcpView": {
+      "type": "object",
+      "properties": {
+        "logId": { "type": "integer" },
+        "nodeName": { "type": "string" },
+        "keyword": { "type": "string" },
+        "businessData": { "type": "string" },
+        "paramBeforeInvoke": { "type": "string" },
+        "remoteInvokeResponse": { "type": "string" },
+        "remoteInvokeResponseParsed": { "type": "string" },
+        "paramAfterInvoke": { "type": "string" },
+        "invokeTime": { "type": "string" },
+        "errorMessage": { "type": "string" },
+        "createTime": { "type": "string", "format": "date-time" }
+      }
+    },
+    "PageListInvokeLog": {
+      "type": "object",
+      "properties": {
+        "total": { "type": "integer" },
+        "pageNum": { "type": "integer" },
+        "pageSize": { "type": "integer" },
+        "rows": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/InvokeLogMcpView" }
+        }
+      },
+      "required": ["total", "pageNum", "pageSize", "rows"]
+    },
+    "ExtensionMcpView": {
+      "type": "object",
+      "properties": {
+        "configId": { "type": "integer" },
+        "bindingIds": { "type": "array", "items": { "type": "integer" } },
+        "spiInterface": { "type": "string" },
+        "extensionName": { "type": "string" },
+        "className": { "type": "string" },
+        "sourceCode": { "type": "string" },
+        "description": { "type": "string" },
+        "extensionMode": { "type": "string" },
+        "enabled": { "type": "integer", "enum": [0, 1] },
+        "extensionParamValue": { "type": "string" }
+      }
+    },
+    "SuccessMessage": {
+      "type": "string",
+      "description": "操作成功提示文案"
+    }
+  },
   "tools": [
     {
       "name": "agent_health",
-      "description": "Interface Agent 健康检查。AI 自动化配置前应先调用：ping 仅探测 MCP 进程存活；check 额外验证 agent 数据源可用。",
+      "description": "Interface Agent 健康检查。自动化配置前应先 action=check；ping 仅探测 MCP 进程。",
       "inputSchema": {
         "type": "object",
         "required": ["action"],
+        "additionalProperties": false,
         "properties": {
           "action": { "type": "string", "enum": ["ping", "check"] }
-        },
-        "oneOf": [
-          { "properties": { "action": { "const": "ping" } } },
-          { "properties": { "action": { "const": "check" } } }
-        ]
+        }
+      },
+      "outputSchema": {
+        "description": "McpToolPayload.data = HealthCheckMcpView",
+        "$ref": "#/$defs/HealthCheckMcpView"
       }
     },
     {
       "name": "agent_workflow",
-      "description": "管理 Interface Agent 中的工作流（一条对外暴露的接口/路由）。一个 workflow 由若干 workflow_node 串联组成。AI 在配置新接口时通常先 create 一个 workflow，再向其下挂载 workflow_node。",
+      "description": "管理工作流（对外接口/路由）。create 返回 flowId；update 返回受影响行数。",
       "inputSchema": {
         "type": "object",
         "required": ["action"],
         "properties": {
           "action": {
             "type": "string",
-            "enum": ["list", "get", "create", "update", "delete"],
-            "description": "操作类型"
+            "enum": ["list", "get", "create", "update", "delete"]
           }
         },
         "oneOf": [
-          { "properties": { "action": { "const": "list" } } },
+          {
+            "properties": { "action": { "const": "list" } },
+            "required": ["action"],
+            "additionalProperties": false
+          },
           {
             "properties": {
               "action": { "const": "get" },
-              "flowId": { "type": "integer", "description": "工作流 ID" }
+              "flowId": { "type": "integer" }
             },
-            "required": ["flowId"]
+            "required": ["action", "flowId"],
+            "additionalProperties": false
           },
           {
             "properties": {
               "action": { "const": "create" },
               "flowName": { "type": "string" },
-              "interfaceUri": { "type": "string", "description": "对外暴露的 URI" },
-              "routeExtension": { "type": "string", "description": "路由扩展名（库列 route_extension），对应 OpenApiRouteHandler / JarvisRouteHandler 扩展名" },
+              "interfaceUri": { "type": "string" },
+              "routeExtension": { "type": "string" },
               "contentType": { "type": "string", "enum": ["JSON", "XML"] },
-              "contentMetaInfo": { "type": "string", "description": "协议元信息，如 SOAP envelope（XML 时常用）" },
+              "contentMetaInfo": { "type": "string" },
               "firstFlowNodes": { "type": "array", "items": { "type": "integer" } },
               "status": { "type": "integer", "enum": [0, 1] }
             },
-            "required": ["flowName", "interfaceUri"]
+            "required": ["action", "flowName", "interfaceUri"],
+            "additionalProperties": false
           },
           {
             "properties": {
@@ -57,58 +257,97 @@
               "flowId": { "type": "integer" },
               "flowName": { "type": "string" },
               "interfaceUri": { "type": "string" },
-              "routeExtension": { "type": "string", "description": "路由扩展名（库列 route_extension）" },
+              "routeExtension": { "type": "string" },
               "contentType": { "type": "string", "enum": ["JSON", "XML"] },
               "contentMetaInfo": { "type": "string" },
               "firstFlowNodes": { "type": "array", "items": { "type": "integer" } },
               "status": { "type": "integer", "enum": [0, 1] }
             },
-            "required": ["flowId"]
+            "required": ["action", "flowId"],
+            "additionalProperties": false
           },
           {
             "properties": {
               "action": { "const": "delete" },
               "flowId": { "type": "integer" }
             },
-            "required": ["flowId"]
+            "required": ["action", "flowId"],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "outputSchema": {
+        "description": "McpToolPayload.data 按 action 区分",
+        "oneOf": [
+          {
+            "title": "list",
+            "type": "array",
+            "items": { "$ref": "#/$defs/Workflow" }
+          },
+          {
+            "title": "get",
+            "$ref": "#/$defs/Workflow"
+          },
+          {
+            "title": "create",
+            "type": "integer",
+            "description": "新建 flowId"
+          },
+          {
+            "title": "update",
+            "type": "integer",
+            "description": "受影响行数"
+          },
+          {
+            "title": "delete",
+            "$ref": "#/$defs/SuccessMessage"
           }
         ]
       }
     },
     {
       "name": "agent_workflow_node",
-      "description": "管理工作流节点（一次实际的三方调用：HTTP / WEBSERVICE / DATABASE / NONE）。AI 创建节点后通常立刻通过 agent_node_param_config.import 写入参数映射。",
+      "description": "管理工作流节点（HTTP/WEBSERVICE/DATABASE/NONE）。create 返回 nodeId；list 返回 McpView；get 返回领域对象。",
       "inputSchema": {
         "type": "object",
         "required": ["action"],
         "properties": {
-          "action": { "type": "string", "enum": ["list", "get", "create", "update", "delete"] }
+          "action": {
+            "type": "string",
+            "enum": ["list", "get", "create", "update", "delete"]
+          }
         },
         "oneOf": [
-          { "properties": { "action": { "const": "list" } } },
+          {
+            "properties": { "action": { "const": "list" } },
+            "required": ["action"],
+            "additionalProperties": false
+          },
           {
             "properties": {
               "action": { "const": "get" },
               "nodeId": { "type": "integer" }
             },
-            "required": ["nodeId"]
+            "required": ["action", "nodeId"],
+            "additionalProperties": false
           },
           {
             "properties": {
               "action": { "const": "create" },
               "nodeName": { "type": "string" },
-              "flowId": { "type": "integer", "description": "可选。归属工作流 ID；可先不传，创建工作流时在 firstFlowNodes 中关联 nodeId" },
+              "flowId": { "type": "integer" },
               "nodeType": { "type": "string", "enum": ["HTTP", "WEBSERVICE", "DATABASE", "NONE"] },
-              "metaInfo": { "type": "string", "description": "节点元信息 JSON：HTTP 含 url/method/headers；WEBSERVICE 含 wsdl/operation；DATABASE 含 dataSource/sql" },
-              "paramFilterExpr": { "type": "string", "description": "节点级入参过滤表达式（SpEL）" },
-              "splitField": { "type": "string", "description": "拆分字段：节点入参中数组字段名，按元素逐次调用" },
-              "keywordField": { "type": "string", "description": "关键字字段，用于 invoke_log 检索（如 patientCode）" },
-              "scheduleExpr": { "type": "string", "description": "调度表达式（cron）" },
+              "metaInfo": { "type": "string" },
+              "paramFilterExpr": { "type": "string" },
+              "splitField": { "type": "string" },
+              "keywordField": { "type": "string" },
+              "scheduleExpr": { "type": "string" },
               "scheduleParamSourceType": { "type": "string", "enum": ["ORIGINAL", "PRE_RESPONSE"] },
-              "remoteExtension": { "type": "string", "description": "InterfaceRemoteInvoker 扩展名" },
-              "extensionParam": { "type": "string", "description": "节点级扩展参数 JSON" }
+              "remoteExtension": { "type": "string" },
+              "extensionParam": { "type": "string", "description": "JSON 字符串，如 {\"key\":\"value\"}" }
             },
-            "required": ["nodeName", "nodeType"]
+            "required": ["action", "nodeName", "nodeType"],
+            "additionalProperties": false
           },
           {
             "properties": {
@@ -126,46 +365,57 @@
               "remoteExtension": { "type": "string" },
               "extensionParam": { "type": "string" }
             },
-            "required": ["nodeId"]
+            "required": ["action", "nodeId"],
+            "additionalProperties": false
           },
           {
             "properties": {
               "action": { "const": "delete" },
               "nodeId": { "type": "integer" }
             },
-            "required": ["nodeId"]
+            "required": ["action", "nodeId"],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "outputSchema": {
+        "oneOf": [
+          {
+            "title": "list",
+            "type": "array",
+            "items": { "$ref": "#/$defs/WorkflowNodeMcpView" }
+          },
+          {
+            "title": "get",
+            "$ref": "#/$defs/WorkflowNode"
+          },
+          {
+            "title": "create",
+            "type": "integer",
+            "description": "新建 nodeId"
+          },
+          {
+            "title": "update",
+            "type": "integer",
+            "description": "受影响行数"
+          },
+          {
+            "title": "delete",
+            "$ref": "#/$defs/SuccessMessage"
           }
         ]
       }
     },
     {
       "name": "agent_node_param_config",
-      "description": "管理节点的参数映射（前置 PRE_PROCESS / 后置 POST_PROCESS）。支持扁平 list、树形 export、批量 import、单条 update、单条 delete、按节点全量 delete_all。AI 完成配置后通常调 agent_mock_invoke.invoke 校验。",
+      "description": "节点参数映射 PRE_PROCESS/POST_PROCESS。import 顶层仅 action/nodeId/clearBeforeImport/params（平铺，禁止 extra）。import 后建议 agent_mock_invoke.invoke 自检。",
       "inputSchema": {
         "type": "object",
         "required": ["action"],
         "properties": {
-          "action": { "type": "string", "enum": ["list", "export", "import", "update", "delete", "delete_all"] }
-        },
-        "$defs": {
-          "ParamConfig": {
-            "type": "object",
-            "description": "单条参数映射配置（可通过 childParams 嵌套）",
-            "properties": {
-              "configId": { "type": "integer", "description": "update/delete 时必填，import 时不填" },
-              "processType": { "type": "string", "enum": ["PRE_PROCESS", "POST_PROCESS"] },
-              "sourceParamKey": { "type": "string" },
-              "sourceParamType": { "type": "string", "enum": ["STRING", "INTEGER", "LONG", "BOOLEAN", "OBJECT", "ARRAY", "PURE_ARRAY", "NONE"] },
-              "targetParamKey": { "type": "string" },
-              "targetParamType": { "type": "string", "enum": ["STRING", "INTEGER", "LONG", "BOOLEAN", "OBJECT", "ARRAY", "PURE_ARRAY", "NONE"] },
-              "paramDesc": { "type": "string" },
-              "keepSingleElementKey": { "type": "boolean" },
-              "sort": { "type": "integer" },
-              "mappingType": { "type": "string", "enum": ["CONSTANT", "NAME", "EXPRESSION", "BEAN_EXPRESSION", "SINGLE_MAP"] },
-              "mappingSource": { "type": "string", "enum": ["INPUT", "RESPONSE"] },
-              "mappingRule": { "type": "string", "description": "NAME 留空；EXPRESSION 写 SpEL；CONSTANT 写固定值" },
-              "childParams": { "type": "array", "items": { "$ref": "#/$defs/ParamConfig" } }
-            }
+          "action": {
+            "type": "string",
+            "enum": ["list", "export", "import", "update", "delete", "delete_all"]
           }
         },
         "oneOf": [
@@ -175,56 +425,104 @@
               "nodeId": { "type": "integer" },
               "processType": { "type": "string", "enum": ["PRE_PROCESS", "POST_PROCESS"] }
             },
-            "required": ["nodeId"]
+            "required": ["action", "nodeId"],
+            "additionalProperties": false
           },
           {
             "properties": {
               "action": { "const": "export" },
               "nodeId": { "type": "integer" }
             },
-            "required": ["nodeId"]
+            "required": ["action", "nodeId"],
+            "additionalProperties": false
           },
           {
             "properties": {
               "action": { "const": "import" },
               "nodeId": { "type": "integer" },
               "clearBeforeImport": { "type": "boolean", "default": true },
-              "params": { "type": "array", "items": { "$ref": "#/$defs/ParamConfig" } }
+              "params": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "$ref": "#/$defs/ParamConfigImport" }
+              }
             },
-            "required": ["nodeId", "params"]
+            "required": ["action", "nodeId", "params"],
+            "additionalProperties": false
           },
           {
             "properties": {
               "action": { "const": "update" },
-              "config": { "$ref": "#/$defs/ParamConfig" }
+              "config": {
+                "allOf": [
+                  { "$ref": "#/$defs/ParamConfig" },
+                  { "required": ["configId"] }
+                ]
+              }
             },
-            "required": ["config"]
+            "required": ["action", "config"],
+            "additionalProperties": false
           },
           {
             "properties": {
               "action": { "const": "delete" },
               "configId": { "type": "integer" }
             },
-            "required": ["configId"]
+            "required": ["action", "configId"],
+            "additionalProperties": false
           },
           {
             "properties": {
               "action": { "const": "delete_all" },
               "nodeId": { "type": "integer" }
             },
-            "required": ["nodeId"]
+            "required": ["action", "nodeId"],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "outputSchema": {
+        "oneOf": [
+          {
+            "title": "list",
+            "type": "array",
+            "description": "扁平列表（非树形）",
+            "items": { "$ref": "#/$defs/ParamConfig" }
+          },
+          {
+            "title": "export",
+            "$ref": "#/$defs/NodeParamConfigMcpResponse"
+          },
+          {
+            "title": "import",
+            "$ref": "#/$defs/SuccessMessage"
+          },
+          {
+            "title": "update",
+            "$ref": "#/$defs/ParamConfig"
+          },
+          {
+            "title": "delete",
+            "$ref": "#/$defs/SuccessMessage"
+          },
+          {
+            "title": "delete_all",
+            "$ref": "#/$defs/SuccessMessage"
           }
         ]
       }
     },
     {
       "name": "agent_mock_config",
-      "description": "管理节点级 Mock 配置（模拟三方接口响应）。AI 在配置完参数映射后，通常为节点准备一份 mock_config，再用 agent_mock_invoke 跑通链路。",
+      "description": "节点 Mock 配置。create 返回 mockId；delete_by_node 按节点批量删除。",
       "inputSchema": {
         "type": "object",
         "required": ["action"],
         "properties": {
-          "action": { "type": "string", "enum": ["list", "get", "create", "update", "delete", "delete_by_node"] }
+          "action": {
+            "type": "string",
+            "enum": ["list", "get", "create", "update", "delete", "delete_by_node"]
+          }
         },
         "oneOf": [
           {
@@ -232,14 +530,16 @@
               "action": { "const": "list" },
               "nodeId": { "type": "integer" }
             },
-            "required": ["nodeId"]
+            "required": ["action", "nodeId"],
+            "additionalProperties": false
           },
           {
             "properties": {
               "action": { "const": "get" },
               "mockId": { "type": "integer" }
             },
-            "required": ["mockId"]
+            "required": ["action", "mockId"],
+            "additionalProperties": false
           },
           {
             "properties": {
@@ -247,9 +547,10 @@
               "nodeId": { "type": "integer" },
               "caseName": { "type": "string" },
               "caseDesc": { "type": "string" },
-              "mockResponse": { "type": "string", "description": "模拟三方响应（按 workflow.contentType 写 JSON 或 XML 字符串）" }
+              "mockResponse": { "type": "string" }
             },
-            "required": ["nodeId", "caseName", "mockResponse"]
+            "required": ["action", "nodeId", "caseName", "mockResponse"],
+            "additionalProperties": false
           },
           {
             "properties": {
@@ -259,28 +560,62 @@
               "caseDesc": { "type": "string" },
               "mockResponse": { "type": "string" }
             },
-            "required": ["mockId"]
+            "required": ["action", "mockId"],
+            "additionalProperties": false
           },
           {
             "properties": {
               "action": { "const": "delete" },
               "mockId": { "type": "integer" }
             },
-            "required": ["mockId"]
+            "required": ["action", "mockId"],
+            "additionalProperties": false
           },
           {
             "properties": {
               "action": { "const": "delete_by_node" },
               "nodeId": { "type": "integer" }
             },
-            "required": ["nodeId"]
+            "required": ["action", "nodeId"],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "outputSchema": {
+        "oneOf": [
+          {
+            "title": "list",
+            "type": "array",
+            "items": { "$ref": "#/$defs/MockConfigMcpView" }
+          },
+          {
+            "title": "get",
+            "$ref": "#/$defs/MockConfigMcpView"
+          },
+          {
+            "title": "create",
+            "type": "integer",
+            "description": "新建 mockId"
+          },
+          {
+            "title": "update",
+            "type": "integer",
+            "description": "受影响行数"
+          },
+          {
+            "title": "delete",
+            "$ref": "#/$defs/SuccessMessage"
+          },
+          {
+            "title": "delete_by_node",
+            "$ref": "#/$defs/SuccessMessage"
           }
         ]
       }
     },
     {
       "name": "agent_mock_invoke",
-      "description": "用 Mock 配置驱动节点跑一次链路，验证前/后置映射是否正确。AI 在每次 agent_node_param_config.import 之后应当调用一次 invoke 自检；batch_invoke 用于多场景批量回归。",
+      "description": "Mock 链路验证。invoke 返回映射结果 Map；batch_invoke 返回各 mockId 成败列表。businessData 可省略（视为空对象）。",
       "inputSchema": {
         "type": "object",
         "required": ["action"],
@@ -293,25 +628,53 @@
               "action": { "const": "invoke" },
               "nodeId": { "type": "integer" },
               "mockId": { "type": "integer" },
-              "businessData": { "type": "object", "additionalProperties": true }
+              "businessData": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "业务入参，可省略"
+              }
             },
-            "required": ["nodeId", "mockId", "businessData"]
+            "required": ["action", "nodeId", "mockId"],
+            "additionalProperties": false
           },
           {
             "properties": {
               "action": { "const": "batch_invoke" },
               "nodeId": { "type": "integer" },
-              "mockIds": { "type": "array", "items": { "type": "integer" }, "minItems": 1 },
-              "businessData": { "type": "object", "additionalProperties": true }
+              "mockIds": {
+                "type": "array",
+                "items": { "type": "integer" },
+                "minItems": 1
+              },
+              "businessData": {
+                "type": "object",
+                "additionalProperties": true
+              }
             },
-            "required": ["nodeId", "mockIds", "businessData"]
+            "required": ["action", "nodeId", "mockIds"],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "outputSchema": {
+        "oneOf": [
+          {
+            "title": "invoke",
+            "type": "object",
+            "additionalProperties": true,
+            "description": "后置映射后的结果 Map"
+          },
+          {
+            "title": "batch_invoke",
+            "type": "array",
+            "items": { "$ref": "#/$defs/MockInvokeResult" }
           }
         ]
       }
     },
     {
       "name": "agent_invoke_log",
-      "description": "查询接口调用日志（含前置映射结果、远程响应、后置映射结果）。AI 跑完 mock_invoke 后用 latest 看最近一条；定位历史问题用 by_keyword（业务关键字如 patientCode）或 by_node（节点名）；list 支持分页通用过滤。",
+      "description": "调用日志查询。list/latest/by_keyword/by_node 均返回分页 PageList。",
       "inputSchema": {
         "type": "object",
         "required": ["action"],
@@ -326,13 +689,17 @@
               "keyword": { "type": "string" },
               "pageNum": { "type": "integer", "default": 1, "minimum": 1 },
               "pageSize": { "type": "integer", "default": 10, "minimum": 1, "maximum": 100 }
-            }
+            },
+            "required": ["action"],
+            "additionalProperties": false
           },
           {
             "properties": {
               "action": { "const": "latest" },
               "limit": { "type": "integer", "default": 5, "minimum": 1, "maximum": 50 }
-            }
+            },
+            "required": ["action"],
+            "additionalProperties": false
           },
           {
             "properties": {
@@ -340,7 +707,8 @@
               "keyword": { "type": "string" },
               "limit": { "type": "integer", "default": 10, "minimum": 1, "maximum": 100 }
             },
-            "required": ["keyword"]
+            "required": ["action", "keyword"],
+            "additionalProperties": false
           },
           {
             "properties": {
@@ -349,19 +717,27 @@
               "pageNum": { "type": "integer", "default": 1, "minimum": 1 },
               "pageSize": { "type": "integer", "default": 10, "minimum": 1, "maximum": 100 }
             },
-            "required": ["nodeName"]
+            "required": ["action", "nodeName"],
+            "additionalProperties": false
           }
         ]
+      },
+      "outputSchema": {
+        "description": "各 action 均返回 PageList<InvokeLogMcpView>",
+        "$ref": "#/$defs/PageListInvokeLog"
       }
     },
     {
       "name": "agent_spi_extension",
-      "description": "管理动态 SPI 扩展（filter / remote / workflow / jarvis-workflow）。filter / remote 支持多节点绑定（bindingIds）；workflow / jarvis-workflow 不绑节点，由 workflow 的 routeExtension 决定入口接管。",
+      "description": "动态 SPI 扩展 filter/remote/workflow/jarvis-workflow。register/update 除 action/type 外字段写入请求体；filter/remote 支持 bindingIds。",
       "inputSchema": {
         "type": "object",
         "required": ["action"],
         "properties": {
-          "action": { "type": "string", "enum": ["list", "register", "update", "delete", "enable", "disable"] }
+          "action": {
+            "type": "string",
+            "enum": ["list", "register", "update", "delete", "enable", "disable"]
+          }
         },
         "oneOf": [
           {
@@ -369,7 +745,8 @@
               "action": { "const": "list" },
               "type": { "type": "string", "enum": ["filter", "remote", "workflow", "jarvis-workflow"] }
             },
-            "required": ["type"]
+            "required": ["action", "type"],
+            "additionalProperties": false
           },
           {
             "properties": {
@@ -385,10 +762,11 @@
               "bindingIds": {
                 "type": "array",
                 "items": { "type": "integer" },
-                "description": "仅 filter / remote 类型支持"
+                "description": "仅 filter / remote"
               }
             },
-            "required": ["type", "extensionName", "className"]
+            "required": ["action", "type", "extensionName", "className"],
+            "additionalProperties": false
           },
           {
             "properties": {
@@ -404,28 +782,61 @@
               "extensionParamValue": { "type": "string" },
               "bindingIds": { "type": "array", "items": { "type": "integer" } }
             },
-            "required": ["type", "configId"]
+            "required": ["action", "type", "configId"],
+            "additionalProperties": false
           },
           {
             "properties": {
               "action": { "const": "delete" },
               "configId": { "type": "integer" }
             },
-            "required": ["configId"]
+            "required": ["action", "configId"],
+            "additionalProperties": false
           },
           {
             "properties": {
               "action": { "const": "enable" },
               "configId": { "type": "integer" }
             },
-            "required": ["configId"]
+            "required": ["action", "configId"],
+            "additionalProperties": false
           },
           {
             "properties": {
               "action": { "const": "disable" },
               "configId": { "type": "integer" }
             },
-            "required": ["configId"]
+            "required": ["action", "configId"],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "outputSchema": {
+        "oneOf": [
+          {
+            "title": "list",
+            "type": "array",
+            "items": { "$ref": "#/$defs/ExtensionMcpView" }
+          },
+          {
+            "title": "register",
+            "$ref": "#/$defs/SuccessMessage"
+          },
+          {
+            "title": "update",
+            "$ref": "#/$defs/SuccessMessage"
+          },
+          {
+            "title": "delete",
+            "$ref": "#/$defs/SuccessMessage"
+          },
+          {
+            "title": "enable",
+            "$ref": "#/$defs/SuccessMessage"
+          },
+          {
+            "title": "disable",
+            "$ref": "#/$defs/SuccessMessage"
           }
         ]
       }

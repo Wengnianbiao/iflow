@@ -84,8 +84,8 @@ public class NodeParamConfigToolDispatcher extends McpDispatcherSupport implemen
         if (clearBeforeImport == null || clearBeforeImport) {
             nodeParamConfigService.deleteAllNodeParamConfigs(nodeId);
         }
-        nodeParamConfigService.importNodeParamConfigs(nodeId, params, false);
-        return "导入节点参数配置成功，共" + params.size() + "条";
+        int importedCount = nodeParamConfigService.importNodeParamConfigs(nodeId, params, false);
+        return "导入节点参数配置成功，共" + importedCount + "条";
     }
 
     private NodeParamConfigMcpView updateConfig(JsonNode args) {
