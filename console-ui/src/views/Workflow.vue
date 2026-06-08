@@ -269,7 +269,7 @@ export default {
           const pageList = response.data.data;
           workflows.value = (pageList.rows || []).map(workflow => ({
             ...workflow,
-            firstFlowNodeNames: workflow.firstFlowNodes.map(id =>
+            firstFlowNodeNames: (workflow.firstFlowNodes || []).map(id =>
               nodeMap.value.get(id)
             )
           }));
@@ -337,7 +337,7 @@ export default {
         objectTagStr: objectTagStr,
         soapRspTemplate: soapRspTemplate,
         resultElementName: resultElementName,
-        firstFlowNodes: row.firstFlowNodes,
+        firstFlowNodes: row.firstFlowNodes || [],
         status: row.status
       });
       currentEditingFlowId.value = row.flowId;
@@ -379,7 +379,7 @@ export default {
         objectTagStr: objectTagStr,
         soapRspTemplate: soapRspTemplate,
         resultElementName: resultElementName,
-        firstFlowNodes: row.firstFlowNodes,
+        firstFlowNodes: row.firstFlowNodes || [],
         status: row.status
       });
       currentEditingFlowId.value = null;
