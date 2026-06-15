@@ -8,6 +8,8 @@ import com.helianhealth.agent.ai.model.ExtensionRegisterMcpRequest;
 import com.helianhealth.agent.ai.model.ExtensionUpdateMcpRequest;
 import com.helianhealth.agent.common.enums.ExtensionType;
 import com.helianhealth.agent.repository.model.domain.NodeExtensionConfig;
+import com.helianhealth.agent.repository.model.dto.NodeExtensionConfigCreateReq;
+import com.helianhealth.agent.repository.model.dto.NodeExtensionConfigUpdateReq;
 import com.helianhealth.agent.repository.service.extension.DynamicSpiAdminService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -71,13 +73,17 @@ public class SpiExtensionToolDispatcher extends McpDispatcherSupport implements 
     private void register(JsonNode args) {
         ExtensionType type = parseExtensionType(requireString(args, "type"));
         ExtensionRegisterMcpRequest request = convertWithoutType(args, ExtensionRegisterMcpRequest.class);
-        dynamicSpiAdminService.registerExtension(type, ExtensionMcpConverter.toCreateReq(request));
+        NodeExtensionConfigCreateReq createReq = ExtensionMcpConverter.toCreateReq(request);
+        createReq.setSpiInterface(type.getSpiInterface());
+        dynamicSpiAdminService.registerExtension(type, createReq);
     }
 
     private void update(JsonNode args) {
         ExtensionType type = parseExtensionType(requireString(args, "type"));
         ExtensionUpdateMcpRequest request = convertWithoutType(args, ExtensionUpdateMcpRequest.class);
-        dynamicSpiAdminService.updateExtension(type, ExtensionMcpConverter.toUpdateReq(request));
+        NodeExtensionConfigUpdateReq updateReq = ExtensionMcpConverter.toUpdateReq(request);
+        updateReq.setSpiInterface(type.getSpiInterface());
+        dynamicSpiAdminService.updateExtension(type, updateReq);
     }
 
     /**
