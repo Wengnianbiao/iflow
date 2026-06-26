@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.helianhealth.agent.repository.mapper.agent.InterfaceWorkflowDefMapper">
+
+    <resultMap id="BaseResultMap" type="com.helianhealth.agent.repository.model.po.InterfaceWorkflowDefPO">
+        <id column="id" property="id" />
+        <result column="name" property="name" />
+        <result column="version" property="version" />
+        <result column="latest_version" property="latestVersion" />
+        <result column="interface_uri" property="interfaceUri" />
+        <result column="status" property="status" />
+        <result column="json_data" property="jsonData" />
+        <result column="created_on" property="createdOn" />
+        <result column="modified_on" property="modifiedOn" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, name, version, latest_version, interface_uri, status, json_data, created_on, modified_on
+    </sql>
+
+    <insert id="insertWorkflowDef"
+            parameterType="com.helianhealth.agent.repository.model.po.InterfaceWorkflowDefPO"
+            useGeneratedKeys="true"
+            keyProperty="id"
+            keyColumn="id">
+        INSERT INTO interface_workflow_def (
+            name,
+            version,
+            latest_version,
+            interface_uri,
+            status,
+            json_data
+        ) VALUES (
+            #{name},
+            #{version},
+            #{latestVersion},
+            #{interfaceUri},
+            #{status},
+            #{jsonData}
+        )
+    </insert>
+
+    <update id="updateWorkflowDef" parameterType="com.helianhealth.agent.repository.model.po.InterfaceWorkflowDefPO">
+        UPDATE interface_workflow_def
+        <set>
+            <if test="interfaceUri != null">interface_uri = #{interfaceUri},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="jsonData != null">json_data = #{jsonData},</if>
+            modified_on = CURRENT_TIMESTAMP
+        </set>
+        WHERE name = #{name} AND version = #{version}
+    </update>
+
+    <select id="countByNameAndVersion" resultType="int">
+        SELECT COUNT(1)
+        FROM interface_workflow_def
+        WHERE name = #{name} AND version = #{version}
+    </select>
+
+    <select id="getMaxVersion" resultType="java.lang.Integer">
+        SELECT MAX(version)
+        FROM interface_workflow_def
+        WHERE name = #{name}
+    </select>
+
+    <update id="updateLatestVersion">
+        UPDATE interface_workflow_def
+        SET latest_version = #{version}
+        WHERE name = #{name}
+    </update>
+
+    <select id="selectByNameAndVersion" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM interface_workflow_def
+        WHERE name = #{name} AND version = #{version}
+    </select>
+
+    <select id="selectLatestByName" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM interface_workflow_def
+        WHERE name = #{name} AND version = latest_version
+        LIMIT 1
+    </select>
+
+    <select id="selectLatestEnabledByInterfaceUri" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM interface_workflow_def
+        WHERE interface_uri = #{interfaceUri}
+          AND status = 1
+          AND version = latest_version
+        LIMIT 1
+    </select>
+
+    <select id="selectAllVersions" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM interface_workflow_def
+        WHERE name = #{name}
+        ORDER BY version
+    </select>
+
+    <select id="selectAllLatest" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM interface_workflow_def
+        WHERE version = latest_version
+        ORDER BY name
+    </select>
+
+    <delete id="deleteByNameAndVersion">
+        DELETE FROM interface_workflow_def
+        WHERE name = #{name} AND version = #{version}
+    </delete>
+</mapper>
