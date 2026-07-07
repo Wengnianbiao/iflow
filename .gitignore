@@ -9,6 +9,7 @@ target/
 *.iml
 bin/
 .flattened-pom.xml
+.m2/
 
 # ===========================
 # IDE - IntelliJ IDEA
@@ -44,6 +45,7 @@ LOG_HOME_IS_UNDEFINED/
 # 前端 - Node.js & npm
 # ===========================
 node_modules/
+.pnpm-store/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -73,4 +75,5 @@ Thumbs.db
 # ===========================
 jetty/
 vcs.xml
-interface-agent
+iflow
+conductor-3.30.2

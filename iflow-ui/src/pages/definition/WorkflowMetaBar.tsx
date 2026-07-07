@@ -1,0 +1,212 @@
+import { useEffect, useRef, useState } from 'react'
+import { useSelector } from '@xstate/react'
+import { Link } from 'react-router-dom'
+import {
+  ArrowClockwise,
+  CaretDown,
+  DownloadSimple,
+  FloppyDisk,
+  Tag,
+  Trash,
+} from '@phosphor-icons/react'
+import type { WorkflowDef } from '@/types/workflow'
+import {
+  hasWorkflowChanges,
+  type VersionChoice,
+  type WorkflowDefinitionActor,
+} from './state'
+
+function prettyJson(value: unknown) {
+  return JSON.stringify(value ?? {}, null, 2)
+}
+
+function downloadDefinition(workflow: WorkflowDef) {
+  const blob = new Blob([prettyJson(workflow)], { type: 'application/json;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = `${workflow.name}_v${workflow.version}.json`
+  anchor.click()
+  URL.revokeObjectURL(url)
+}
+
+function VersionHeadBarSelect({
+  versions,
+  currentVersion,
+  latestSelected,
+  disabled,
+  showLatest,
+  onChange,
+}: {
+  versions: number[]
+  currentVersion?: number
+  latestSelected: boolean
+  disabled?: boolean
+  showLatest: boolean
+  onChange: (version: VersionChoice) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const items = [
+    ...versions.map((version) => ({
+      value: String(version),
+      label: `版本 ${version}`,
+      kind: 'version' as const,
+      version,
+    })),
+    ...(showLatest
+      ? [{
+          value: 'latest',
+          label: '最新版本',
+          kind: 'latest' as const,
+          version: undefined,
+        }]
+      : []),
+  ]
+  const selectedValue = latestSelected ? 'latest' : String(currentVersion ?? '')
+  const displayValue = latestSelected
+    ? '最新版本'
+    : currentVersion != null
+      ? `版本 ${currentVersion}`
+      : '选择版本'
+  const hasOptions = items.length > 0
+
+  useEffect(() => {
+    if (!open) return
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [open])
+
+  return (
+    <div className="version-headbar-select" ref={rootRef}>
+      <button
+        type="button"
+        className={`version-headbar-button ${open ? 'open' : ''}`}
+        disabled={disabled || !hasOptions}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => hasOptions && setOpen((value) => !value)}
+      >
+        <span className="version-headbar-icon" aria-hidden="true">
+          <Tag size={16} weight="bold" />
+        </span>
+        <span>{displayValue}</span>
+        {hasOptions ? (
+          <CaretDown className="version-headbar-chevron" size={18} weight="bold" />
+        ) : null}
+      </button>
+      {open ? (
+        <div className="version-headbar-menu" role="menu">
+          {items.map((item) => {
+            const selected = item.value === selectedValue
+            return (
+              <button
+                type="button"
+                className={`version-headbar-item ${selected ? 'selected' : ''}`}
+                key={item.value}
+                role="menuitemradio"
+                aria-checked={selected}
+                onClick={() => {
+                  setOpen(false)
+                  onChange(item.kind === 'latest' ? 'latest' : item.version)
+                }}
+              >
+                {item.label}
+              </button>
+            )
+          })}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+export function WorkflowMetaBar({ actor }: { actor: WorkflowDefinitionActor }) {
+  const state = useSelector(actor, (snapshot) => snapshot)
+  const {
+    workflow,
+    workflowName,
+    workflowVersion,
+    versions,
+    isNewWorkflow,
+    error,
+  } = state.context
+  const dirty = hasWorkflowChanges(state.context)
+  const saving = state.matches('ready.lifecycle.saving')
+  const deleting = state.matches('ready.lifecycle.deleting')
+
+  return (
+    <header className="workflow-editor-header">
+      <div className="workflow-title-block">
+        <div className="workflow-breadcrumbs">
+          <Link to="/workflowDef">工作流配置</Link>
+          <span>/</span>
+          <span>{workflow?.displayName || workflow?.name || workflowName}</span>
+        </div>
+        <div className="workflow-title-row">
+          <h1>{workflow?.displayName || workflow?.name || workflowName}</h1>
+          {dirty ? <span className="unsaved-badge">未保存</span> : null}
+        </div>
+      </div>
+
+      <div className="workflow-editor-actions">
+        <VersionHeadBarSelect
+          versions={versions.length ? versions : workflow ? [workflow.version] : []}
+          currentVersion={workflow?.version}
+          latestSelected={workflowVersion == null}
+          disabled={!workflow}
+          showLatest={!isNewWorkflow}
+          onChange={(version) => actor.send({ type: 'REQUEST_VERSION_CHANGE', version })}
+        />
+        <button
+          type="button"
+          className="danger-action"
+          disabled={!workflow || isNewWorkflow || saving || deleting}
+          onClick={() => actor.send({ type: 'REQUEST_DELETE' })}
+        >
+          <Trash size={20} />
+          删除
+        </button>
+        <button
+          type="button"
+          className="ghost-action"
+          disabled={!dirty || saving}
+          onClick={() => actor.send({ type: 'REQUEST_RESET' })}
+        >
+          <ArrowClockwise size={20} />
+          重置
+        </button>
+        <button
+          type="button"
+          className="ghost-action"
+          disabled={!workflow}
+          onClick={() => workflow && downloadDefinition(workflow)}
+        >
+          <DownloadSimple size={20} />
+          下载
+        </button>
+        <button
+          type="button"
+          className="save-action"
+          disabled={!workflow || !dirty || saving}
+          onClick={() => actor.send({ type: 'REQUEST_SAVE' })}
+        >
+          <FloppyDisk size={20} />
+          {saving ? '保存中...' : '保存'}
+        </button>
+      </div>
+
+      {error ? <div className="workflow-toast error">{error}</div> : null}
+    </header>
+  )
+}

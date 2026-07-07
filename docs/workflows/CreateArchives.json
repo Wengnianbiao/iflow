@@ -1,0 +1,143 @@
+{
+  "name": "CreateArchives",
+  "displayName": "创建档案",
+  "version": 1,
+  "description": "建档工作流，如果客户建过档就直接返回档案信息，否则走建档接口创建档案",
+  "correlationExpression": "${workflow.input.data.patientCode}",
+  "inputParameters": [
+    "data",
+    "BusinessMethod",
+    "BusinessCode",
+    "DepartType"
+  ],
+  "outputParameters": {
+    "code": "${build_output_ref.output.result.code}",
+    "message": "${build_output_ref.output.result.message}",
+    "rsp": "${build_output_ref.output.result.rsp}",
+    "alertMsg": "${build_output_ref.output.result.alertMsg}",
+    "reqParam": "${build_output_ref.output.result.reqParam}",
+    "resParam": "${build_output_ref.output.result.resParam}",
+    "errorType": "${build_output_ref.output.result.errorType}"
+  },
+  "tasks": [
+    {
+      "name": "查询档案参数构建",
+      "permissive": false,
+      "decisionCases": {},
+      "inputParameters": {
+        "evaluatorType": "graaljs",
+        "payload": "${workflow.input}",
+        "expression": "(function () {\n  var payload = $.payload || {};\n  if (payload.input != null && typeof payload.input === 'object') {\n    payload = payload.input;\n  }\n  var data = payload.data || payload;\n  var pi = data.patientInfo || {};\n  function pick() {\n    for (var i = 0;i < arguments.length;i++ ) {\n      var v = arguments[i];\n      if (v != null && v !== '') {\n        return v;\n      }\n    }\n    return null;\n  }\n  function str(v) {\n    return v != null && v !== '' ? String(v) : null;\n  }\n  return {\n    patientCode: str(pick(data.patientCode, pi.patientCode)), patientId: str(pick(data.hisPatientId, pi.hisPatientId)), name: pick(data.patientName, pi.patientName), sex: str(pick(data.sex, pi.sex)), age: pick(data.age, pi.age), birthDate: pick(data.birthday, pi.birthday), cardType: str(pick(data.cardType, pi.cardType)), cardId: pick(data.identitycard, pi.identitycard), address: pick(data.address, pi.address), phone: pick(data.phone, pi.phone), marital: str(pick(data.marriage, pi.marriage)), nation: pick(data.nationName, data.nation), country: null, education: null, contactName: null, contactPhone: null, contactAddress: null, orgId: str(pi.hisOrgId), orgName: pick(data.orgName, pi.orgName)\n  };\n})()"
+      },
+      "optional": false,
+      "type": "INLINE",
+      "taskReferenceName": "build_patient_info_ref"
+    },
+    {
+      "name": "查询档案接口",
+      "permissive": false,
+      "decisionCases": {},
+      "inputParameters": {
+        "uri": "http://127.0.0.1:8807/get-archive",
+        "method": "POST",
+        "contentType": "application/json",
+        "accept": "application/json",
+        "readTimeOut": 30000,
+        "connectionTimeOut": 5000,
+        "body": {
+          "patientCode": "${build_patient_info_ref.output.result.patientCode}",
+          "patientId": "${build_patient_info_ref.output.result.patientId}",
+          "name": "${build_patient_info_ref.output.result.name}",
+          "sex": "${build_patient_info_ref.output.result.sex}",
+          "age": "${build_patient_info_ref.output.result.age}",
+          "birthDate": "${build_patient_info_ref.output.result.birthDate}",
+          "cardType": "${build_patient_info_ref.output.result.cardType}",
+          "cardId": "${build_patient_info_ref.output.result.cardId}",
+          "address": "${build_patient_info_ref.output.result.address}",
+          "phone": "${build_patient_info_ref.output.result.phone}",
+          "marital": "${build_patient_info_ref.output.result.marital}",
+          "nation": "${build_patient_info_ref.output.result.nation}",
+          "country": "${build_patient_info_ref.output.result.country}",
+          "education": "${build_patient_info_ref.output.result.education}",
+          "contactName": "${build_patient_info_ref.output.result.contactName}",
+          "contactPhone": "${build_patient_info_ref.output.result.contactPhone}",
+          "contactAddress": "${build_patient_info_ref.output.result.contactAddress}",
+          "orgId": "${build_patient_info_ref.output.result.orgId}",
+          "orgName": "${build_patient_info_ref.output.result.orgName}"
+        }
+      },
+      "optional": false,
+      "type": "HTTP",
+      "taskReferenceName": "get_archive_ref"
+    },
+    {
+      "name": "查询档案路由",
+      "permissive": false,
+      "evaluatorType": "graaljs",
+      "expression": "(function () { var body = $.responseBody || {}; if (body.returnCode != null) { return String(body.returnCode); } if (body.code != null) { return String(body.code); } return ''; })()",
+      "decisionCases": {
+        "-1": [
+          {
+            "name": "创建档案",
+            "permissive": false,
+            "decisionCases": {},
+            "inputParameters": {
+              "uri": "http://127.0.0.1:8807/create-archive",
+              "method": "POST",
+              "contentType": "application/json",
+              "accept": "application/json",
+              "readTimeOut": 30000,
+              "connectionTimeOut": 5000,
+              "body": {
+                "patientCode": "${build_patient_info_ref.output.result.patientCode}",
+                "patientId": "${build_patient_info_ref.output.result.patientId}",
+                "name": "${build_patient_info_ref.output.result.name}",
+                "sex": "${build_patient_info_ref.output.result.sex}",
+                "age": "${build_patient_info_ref.output.result.age}",
+                "birthDate": "${build_patient_info_ref.output.result.birthDate}",
+                "cardType": "${build_patient_info_ref.output.result.cardType}",
+                "cardId": "${build_patient_info_ref.output.result.cardId}",
+                "address": "${build_patient_info_ref.output.result.address}",
+                "phone": "${build_patient_info_ref.output.result.phone}",
+                "marital": "${build_patient_info_ref.output.result.marital}",
+                "nation": "${build_patient_info_ref.output.result.nation}",
+                "country": "${build_patient_info_ref.output.result.country}",
+                "education": "${build_patient_info_ref.output.result.education}",
+                "contactName": "${build_patient_info_ref.output.result.contactName}",
+                "contactPhone": "${build_patient_info_ref.output.result.contactPhone}",
+                "contactAddress": "${build_patient_info_ref.output.result.contactAddress}",
+                "orgId": "${build_patient_info_ref.output.result.orgId}",
+                "orgName": "${build_patient_info_ref.output.result.orgName}"
+              }
+            },
+            "optional": false,
+            "type": "HTTP",
+            "taskReferenceName": "create_archive_ref"
+          }
+        ]
+      },
+      "inputParameters": {
+        "responseBody": "${get_archive_ref.output.response.body}"
+      },
+      "optional": false,
+      "type": "SWITCH",
+      "taskReferenceName": "route_ref",
+      "defaultCase": []
+    },
+    {
+      "name": "build_workflow_output",
+      "permissive": false,
+      "decisionCases": {},
+      "inputParameters": {
+        "selectedCase": "${route_ref.output.selectedCase}",
+        "queryResponseBody": "${get_archive_ref.output.response.body}",
+        "createResponseBody": "${create_archive_ref.output.response.body}",
+        "expression": "(function () {\n  var body = String($.selectedCase) === '-1' ? ($.createResponseBody || {}) : ($.queryResponseBody || {});\n  var code = body.returnCode != null ? String(body.returnCode) : String(body.code != null ? body.code : '');\n  var message = body.errorMessage || body.message || body.msg || '';\n  var data = body.data || null;\n  var success = code === '1' || code === '0' || code === '200' || code === 'T';\n  return {\n    code: success ? '200' : (code || '-1'),\n    message: message || (success ? '成功' : '失败'),\n    rsp: success && data ? {\n      patientId: data.patientId != null ? String(data.patientId) : null,\n      medicalRecordNo: data.medicalRecordNo != null ? String(data.medicalRecordNo) : null\n    } : null,\n    alertMsg: null,\n    reqParam: null,\n    resParam: null,\n    errorType: null\n  };\n})()",
+        "evaluatorType": "graaljs"
+      },
+      "optional": false,
+      "type": "INLINE",
+      "taskReferenceName": "build_output_ref"
+    }
+  ]
+}

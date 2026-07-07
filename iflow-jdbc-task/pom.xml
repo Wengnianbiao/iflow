@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>iflow</artifactId>
+        <groupId>com.helianhealth</groupId>
+        <version>${revision}</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>iflow-jdbc-task</artifactId>
+    <description>JDBC 系统任务模块：JdbcTask + JdbcConnectionProvider（无池化，按任务入参建连）</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.helianhealth</groupId>
+            <artifactId>iflow-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- spring-jdbc：NamedParameterJdbcTemplate + SingleConnectionDataSource（单次连接包装，无池化） -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-jdbc</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+</project>

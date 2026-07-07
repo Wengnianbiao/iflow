@@ -1,0 +1,89 @@
+import type { WorkflowDef } from './workflow'
+
+export type WorkflowExecutionStatus =
+  | 'RUNNING'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'TIMED_OUT'
+  | 'TERMINATED'
+  | 'PAUSED'
+
+export type TaskExecutionStatus =
+  | 'SCHEDULED'
+  | 'IN_PROGRESS'
+  | 'CANCELED'
+  | 'FAILED'
+  | 'FAILED_WITH_TERMINAL_ERROR'
+  | 'COMPLETED'
+  | 'COMPLETED_WITH_ERRORS'
+  | 'TIMED_OUT'
+  | 'SKIPPED'
+
+export interface TaskExecution {
+  taskId: string
+  workflowInstanceId?: string
+  referenceTaskName: string
+  retryCount?: number
+  seq?: number
+  status: TaskExecutionStatus
+  taskType?: string
+  taskDefName?: string
+  inputData?: Record<string, unknown>
+  outputData?: Record<string, unknown>
+  reasonForIncompletion?: string
+  scheduledTime?: number
+  startTime?: number
+  endTime?: number
+  updateTime?: number
+  workerId?: string
+  parentTaskId?: string
+}
+
+export interface WorkflowExecution {
+  workflowId: string
+  status: WorkflowExecutionStatus
+  previousStatus?: WorkflowExecutionStatus
+  correlationId?: string
+  input?: Record<string, unknown>
+  output?: Record<string, unknown>
+  workflowDefinition?: WorkflowDef
+  tasks?: TaskExecution[]
+  startTime?: number
+  endTime?: number
+  updateTime?: number
+  reasonForIncompletion?: string
+  failedTaskId?: string
+}
+
+export interface WorkflowExecutionSummary {
+  workflowId: string
+  workflowName: string
+  workflowVersion: number
+  status: WorkflowExecutionStatus
+  correlationId?: string
+  startTime: number
+  endTime?: number | null
+  updateTime?: number
+  durationMs?: number | null
+  reasonForIncompletion?: string
+  failedTaskId?: string
+}
+
+export interface WorkflowExecutionSearchParams {
+  workflowName?: string
+  version?: number
+  status?: string[]
+  workflowId?: string
+  correlationId?: string
+  startTime?: number
+  endTime?: number
+  pageNum?: number
+  pageSize?: number
+}
+
+export interface PageResult<T> {
+  total: number
+  pageNum: number
+  pageSize: number
+  rows: T[]
+}

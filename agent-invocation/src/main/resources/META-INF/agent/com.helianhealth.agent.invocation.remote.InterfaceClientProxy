@@ -1,5 +1,0 @@
-default=com.helianhealth.agent.invocation.remote.DefaultApiClientProxy
-none=com.helianhealth.agent.invocation.remote.DefaultApiClientProxy
-http=com.helianhealth.agent.invocation.remote.http.HttpProtocolAdapter
-webservice=com.helianhealth.agent.invocation.remote.webService.WebServiceProtocolAdapter
-database=com.helianhealth.agent.invocation.remote.database.DatabaseProtocolAdapter

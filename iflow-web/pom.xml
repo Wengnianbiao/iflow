@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>iflow</artifactId>
+        <groupId>com.helianhealth</groupId>
+        <version>${revision}</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>iflow-web</artifactId>
+    <description>Web应用模块：应用入口、资源配置</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.helianhealth</groupId>
+            <artifactId>iflow-gateway</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- 工作流 / 任务执行态 REST API + iflow-ui 静态资源 -->
+        <dependency>
+            <groupId>com.helianhealth</groupId>
+            <artifactId>iflow-console</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- HTTP 系统任务（工作流编排中的 HTTP 节点） -->
+        <dependency>
+            <groupId>com.helianhealth</groupId>
+            <artifactId>iflow-http-task</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- 参数映射系统任务 -->
+        <dependency>
+            <groupId>com.helianhealth</groupId>
+            <artifactId>iflow-parammap-task</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- SPI 远程调用系统任务 -->
+        <dependency>
+            <groupId>com.helianhealth</groupId>
+            <artifactId>iflow-spi-task</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- AI配置模块 -->
+        <dependency>
+            <groupId>com.helianhealth</groupId>
+            <artifactId>iflow-ai</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- iflow-common: 公共工具类 -->
+        <dependency>
+            <groupId>com.helianhealth</groupId>
+            <artifactId>iflow-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- Spring Web: RestTemplate依赖 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+        </dependency>
+
+        <!-- lombok -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+        </dependency>
+
+        <!-- JUnit 5 -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <!-- iflow-web 作为可执行应用入口 -->
+    <build>
+        <finalName>iflow</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>${spring-boot.version}</version>
+                <configuration>
+                    <mainClass>com.helianhealth.agent.IflowApplication</mainClass>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-deploy-plugin</artifactId>
+                <version>${maven-deploy-plugin.version}</version>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

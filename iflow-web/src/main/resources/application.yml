@@ -1,0 +1,30 @@
+spring:
+  profiles:
+    active: ${profiles.active:local}
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+  application:
+    name: iflow
+  main:
+    banner-mode: off
+    allow-bean-definition-overriding: true
+
+  jackson:
+    time-zone: Asia/Shanghai
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: -1
+      max-request-size: -1
+
+#日志配置 默认配置 后期切换
+logging:
+  config: classpath:logback-spring.xml
+
+server:
+  servlet:
+    encoding:
+      charset: "UTF-8"
+      force: true
+      enabled: true

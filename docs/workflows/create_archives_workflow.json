@@ -1,0 +1,156 @@
+{
+  "name": "CreateArchives",
+  "displayName": "鑫达HIS建档",
+  "version": 1,
+  "description": "对齐 hems-interface-xinda HisWebServiceImpl#createHisArchive：先 GetPatInfo 查询，已建档则按需 UpPatInfo（医保131改自费）并回写档案号；未建档则 RegPatInfo。HIS 入口为 WebInterface.asmx/SendEmr（application/x-www-form-urlencoded：msgCode + sendXml）。",
+  "inputParameters": [
+    "BusinessMethod",
+    "BusinessCode",
+    "data",
+    "hisWebserviceUrl"
+  ],
+  "outputParameters": {
+    "code": "${build_output_ref.output.result.code}",
+    "message": "${build_output_ref.output.result.message}",
+    "rsp": "${build_output_ref.output.result.rsp}",
+    "reqParam": "${build_output_ref.output.result.reqParam}",
+    "resParam": "${build_output_ref.output.result.resParam}",
+    "errorType": "${build_output_ref.output.result.errorType}"
+  },
+  "tasks": [
+    {
+      "name": "prepare_archive_context",
+      "taskReferenceName": "prepare_archive_context_ref",
+      "type": "INLINE",
+      "inputParameters": {
+        "payload": "${workflow.input}",
+        "expression": "(function () { var payload = $.payload || {}; if (payload.input != null && typeof payload.input === 'object') { payload = payload.input; } var data = payload.data || {}; function text(v, fallback) { if (v == null || v === '') { return fallback == null ? '' : String(fallback); } return String(v); } function formatBirth(birthday) { var raw = text(birthday, ''); return raw ? raw.replace(/-/g, '').substring(0, 8) : ''; } function mapMarriage(marriage) { var value = text(marriage, ''); if (value === '1') { return '0'; } if (value === '2') { return '1'; } return '4'; } var identityCard = text(data.identityCard, ''); var phone = text(data.phone, '13000000000'); var hasIdCard = identityCard !== ''; var cardno = hasIdCard ? identityCard : ('HL' + phone); var hisUrl = text(payload.hisWebserviceUrl, 'http://172.16.20.10:8099/WebInterface.asmx/SendEmr'); return { hisWebserviceUrl: hisUrl, identityCard: identityCard, phone: phone, patientName: text(data.patientName, ''), sex: text(data.sex, ''), birthday: text(data.birthday, ''), birth: formatBirth(data.birthday), address: text(data.address, '无地址'), marriage: mapMarriage(data.marriage), userType: text(data.userType, ''), orgName: text(data.orgName, ''), cardno: cardno, queryCodeType: hasIdCard ? '5' : '2', queryCode: cardno, sfzh: hasIdCard ? identityCard : '0', tdbz: text(data.userType, '') === '1' ? '1' : '0', tjdwmc: text(data.userType, '') === '1' ? text(data.orgName, '') : '' }; })()",
+        "evaluatorType": "js"
+      }
+    },
+    {
+      "name": "build_get_pat_info_request",
+      "taskReferenceName": "build_get_pat_info_request_ref",
+      "type": "INLINE",
+      "inputParameters": {
+        "ctx": "${prepare_archive_context_ref.output.result}",
+        "expression": "(function () { var ctx = $.ctx || {}; var sendXml = XML.stringify('his', { request: { codetype: String(ctx.queryCodeType || ''), code: String(ctx.queryCode || '') } }); var formBody = 'msgCode=' + encodeURIComponent('GetPatInfo') + '&sendXml=' + encodeURIComponent(sendXml); return { msgCode: 'GetPatInfo', sendXml: sendXml, formBody: formBody, uri: String(ctx.hisWebserviceUrl || '') }; })()",
+        "evaluatorType": "js"
+      }
+    },
+    {
+      "name": "call_get_pat_info",
+      "taskReferenceName": "call_get_pat_info_ref",
+      "type": "HTTP",
+      "inputParameters": {
+        "uri": "${build_get_pat_info_request_ref.output.result.uri}",
+        "method": "POST",
+        "contentType": "application/x-www-form-urlencoded",
+        "accept": "application/xml",
+        "body": "${build_get_pat_info_request_ref.output.result.formBody}",
+        "connectionTimeOut": 5000,
+        "readTimeOut": 30000
+      }
+    },
+    {
+      "name": "parse_get_pat_info",
+      "taskReferenceName": "parse_get_pat_info_ref",
+      "type": "INLINE",
+      "inputParameters": {
+        "request": "${build_get_pat_info_request_ref.output.result}",
+        "responseBody": "${call_get_pat_info_ref.output.response.body}",
+        "expression": "(function () { function unwrapHisBody(raw) { var text = raw == null ? '' : String(raw); return text.replace(/<string[^>]*>/i, '').replace(/<\\/string>/i, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim(); } function firstRow(rows) { if (!rows) { return null; } var row = rows.Row != null ? rows.Row : rows.row; if (Array.isArray(row)) { return row.length ? row[0] : null; } return row || null; } var requestXml = String(($.request && $.request.sendXml) || ''); var responseRaw = $.responseBody; var responseXml = unwrapHisBody(responseRaw); try { var parsed = XML.parse(responseXml) || {}; var his = parsed.HIS || parsed.his || {}; var result = his.Result || his.result || {}; var status = String(result.Status != null ? result.Status : (result.status != null ? result.status : '')); var message = String(result.MSG != null ? result.MSG : (result.msg != null ? result.msg : '')); var row = firstRow(his.Rows || his.rows); var exists = status === 'T' && row != null; var ybdm = row && row.ybdm != null ? String(row.ybdm).trim() : ''; var needUpdate = exists && ybdm === '131'; return { ok: true, exists: exists, status: status, message: message, row: row, ybdm: ybdm, requestXml: requestXml, responseXml: responseXml, updateAction: needUpdate ? 'UPDATE' : 'SKIP', createAction: exists ? 'SKIP' : 'CREATE' }; } catch (e) { return { ok: false, exists: false, status: '', message: '查询HIS档案异常', errorDetail: String(e), requestXml: requestXml, responseXml: responseXml, updateAction: 'SKIP', createAction: 'SKIP' }; } })()",
+        "evaluatorType": "js"
+      }
+    },
+    {
+      "name": "build_up_pat_info_request",
+      "taskReferenceName": "build_up_pat_info_request_ref",
+      "type": "INLINE",
+      "runCondition": "${parse_get_pat_info_ref.output.result.updateAction} == 'UPDATE'",
+      "inputParameters": {
+        "ctx": "${prepare_archive_context_ref.output.result}",
+        "query": "${parse_get_pat_info_ref.output.result}",
+        "expression": "(function () { var ctx = $.ctx || {}; var row = ($.query && $.query.row) || {}; var sendXml = XML.stringify('his', { request: { patid: String(row.patid || ''), cardno: String(row.cardno || ''), hzxm: String(ctx.patientName || ''), sex: String(ctx.sex || ''), birth: String(ctx.birth || ''), ybdm: '1', sfzh: String(ctx.sfzh || '0'), lxdh: String(ctx.phone || '13000000000'), lxdz: String(ctx.address || '无地址'), yzbm: '1', hyzk: String(ctx.marriage || '4'), tjdwmc: String(ctx.tjdwmc || ''), tdbz: String(ctx.tdbz || '0'), dwmc: '', shxydm: '' } }); var formBody = 'msgCode=' + encodeURIComponent('UpPatInfo') + '&sendXml=' + encodeURIComponent(sendXml); return { msgCode: 'UpPatInfo', sendXml: sendXml, formBody: formBody, uri: String(ctx.hisWebserviceUrl || '') }; })()",
+        "evaluatorType": "js"
+      }
+    },
+    {
+      "name": "call_up_pat_info",
+      "taskReferenceName": "call_up_pat_info_ref",
+      "type": "HTTP",
+      "runCondition": "${parse_get_pat_info_ref.output.result.updateAction} == 'UPDATE'",
+      "inputParameters": {
+        "uri": "${build_up_pat_info_request_ref.output.result.uri}",
+        "method": "POST",
+        "contentType": "application/x-www-form-urlencoded",
+        "accept": "application/xml",
+        "body": "${build_up_pat_info_request_ref.output.result.formBody}",
+        "connectionTimeOut": 5000,
+        "readTimeOut": 30000
+      }
+    },
+    {
+      "name": "parse_up_pat_info",
+      "taskReferenceName": "parse_up_pat_info_ref",
+      "type": "INLINE",
+      "runCondition": "${parse_get_pat_info_ref.output.result.updateAction} == 'UPDATE'",
+      "inputParameters": {
+        "request": "${build_up_pat_info_request_ref.output.result}",
+        "responseBody": "${call_up_pat_info_ref.output.response.body}",
+        "expression": "(function () { function unwrapHisBody(raw) { var text = raw == null ? '' : String(raw); return text.replace(/<string[^>]*>/i, '').replace(/<\\/string>/i, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim(); } function firstRow(rows) { if (!rows) { return null; } var row = rows.Row != null ? rows.Row : rows.row; if (Array.isArray(row)) { return row.length ? row[0] : null; } return row || null; } var requestXml = String(($.request && $.request.sendXml) || ''); var responseXml = unwrapHisBody($.responseBody); try { var parsed = XML.parse(responseXml) || {}; var his = parsed.HIS || parsed.his || {}; var result = his.Result || his.result || {}; var status = String(result.Status != null ? result.Status : (result.status != null ? result.status : '')); var message = String(result.MSG != null ? result.MSG : (result.msg != null ? result.msg : '')); var row = firstRow(his.Rows || his.rows); var valid = status === 'T' && row != null; return { ok: valid, status: status, message: message, row: row, requestXml: requestXml, responseXml: responseXml }; } catch (e) { return { ok: false, status: '', message: '患者更新档案异常', errorDetail: String(e), requestXml: requestXml, responseXml: responseXml }; } })()",
+        "evaluatorType": "js"
+      }
+    },
+    {
+      "name": "build_reg_pat_info_request",
+      "taskReferenceName": "build_reg_pat_info_request_ref",
+      "type": "INLINE",
+      "runCondition": "${parse_get_pat_info_ref.output.result.createAction} == 'CREATE'",
+      "inputParameters": {
+        "ctx": "${prepare_archive_context_ref.output.result}",
+        "expression": "(function () { var ctx = $.ctx || {}; var sendXml = XML.stringify('his', { request: { cardno: String(ctx.cardno || ''), hzxm: String(ctx.patientName || ''), sex: String(ctx.sex || ''), birth: String(ctx.birth || ''), ybdm: '1', sfzh: String(ctx.sfzh || '0'), lxdh: String(ctx.phone || '13000000000'), lxdz: String(ctx.address || '无地址'), yzbm: '1', hyzk: String(ctx.marriage || '4'), tjdwmc: String(ctx.tjdwmc || ''), tdbz: String(ctx.tdbz || '0'), dwmc: '', shxydm: '' } }); var formBody = 'msgCode=' + encodeURIComponent('RegPatInfo') + '&sendXml=' + encodeURIComponent(sendXml); return { msgCode: 'RegPatInfo', sendXml: sendXml, formBody: formBody, uri: String(ctx.hisWebserviceUrl || ''), cardno: String(ctx.cardno || '') }; })()",
+        "evaluatorType": "js"
+      }
+    },
+    {
+      "name": "call_reg_pat_info",
+      "taskReferenceName": "call_reg_pat_info_ref",
+      "type": "HTTP",
+      "runCondition": "${parse_get_pat_info_ref.output.result.createAction} == 'CREATE'",
+      "inputParameters": {
+        "uri": "${build_reg_pat_info_request_ref.output.result.uri}",
+        "method": "POST",
+        "contentType": "application/x-www-form-urlencoded",
+        "accept": "application/xml",
+        "body": "${build_reg_pat_info_request_ref.output.result.formBody}",
+        "connectionTimeOut": 5000,
+        "readTimeOut": 30000
+      }
+    },
+    {
+      "name": "parse_reg_pat_info",
+      "taskReferenceName": "parse_reg_pat_info_ref",
+      "type": "INLINE",
+      "runCondition": "${parse_get_pat_info_ref.output.result.createAction} == 'CREATE'",
+      "inputParameters": {
+        "request": "${build_reg_pat_info_request_ref.output.result}",
+        "responseBody": "${call_reg_pat_info_ref.output.response.body}",
+        "expression": "(function () { function unwrapHisBody(raw) { var text = raw == null ? '' : String(raw); return text.replace(/<string[^>]*>/i, '').replace(/<\\/string>/i, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim(); } function firstRow(rows) { if (!rows) { return null; } var row = rows.Row != null ? rows.Row : rows.row; if (Array.isArray(row)) { return row.length ? row[0] : null; } return row || null; } var requestXml = String(($.request && $.request.sendXml) || ''); var cardno = String(($.request && $.request.cardno) || ''); var responseXml = unwrapHisBody($.responseBody); try { var parsed = XML.parse(responseXml) || {}; var his = parsed.HIS || parsed.his || {}; var result = his.Result || his.result || {}; var status = String(result.Status != null ? result.Status : (result.status != null ? result.status : '')); var message = String(result.MSG != null ? result.MSG : (result.msg != null ? result.msg : '')); var row = firstRow(his.Rows || his.rows); var ret = row && row.ret != null ? String(row.ret) : ''; var valid = status === 'T' && row != null && ret === 'T'; return { ok: valid, status: status, message: message, row: row, cardno: cardno, requestXml: requestXml, responseXml: responseXml }; } catch (e) { return { ok: false, status: '', message: '患者建档异常', errorDetail: String(e), cardno: cardno, requestXml: requestXml, responseXml: responseXml }; } })()",
+        "evaluatorType": "js"
+      }
+    },
+    {
+      "name": "build_workflow_output",
+      "taskReferenceName": "build_output_ref",
+      "type": "INLINE",
+      "inputParameters": {
+        "query": "${parse_get_pat_info_ref.output.result}",
+        "update": "${parse_up_pat_info_ref.output.result}",
+        "create": "${parse_reg_pat_info_ref.output.result}",
+        "expression": "(function () { function cleanBlh(value) { return value == null ? '' : String(value).replace(/\\s+/g, ''); } function success(rsp) { return { code: 200, message: 'OK', rsp: rsp, reqParam: null, resParam: null, errorType: null }; } function fail(message, reqParam, resParam, errorType) { return { code: -1, message: message || '未知异常', rsp: null, reqParam: reqParam || null, resParam: resParam || null, errorType: errorType == null ? null : errorType }; } var query = $.query || {}; var update = $.update || null; var create = $.create || null; if (!query.ok) { return fail(query.message || '建档查询接口调用异常', query.requestXml, query.responseXml, 1); } if (query.exists) { if (query.updateAction === 'UPDATE') { if (!update || !update.ok) { var updateMsg = (update && update.errorDetail) ? '建档医保更新档案异常' : ((update && update.message) || '患者更新档案失败'); return fail(updateMsg, (update && update.requestXml) || null, (update && update.responseXml) || null, 1); } } var row = query.row || {}; var patid = String(row.patid || ''); var blh = cleanBlh(row.blh); return success({ outPatientCode: patid, registrationExtend1: String(row.cardno || ''), registrationExtend2: blh, hemsVocaPatientHisPatientId: patid, hemsVocaPatientVisitNo: blh }); } if (!create || !create.ok) { if (!create || create.errorDetail) { return fail('建档调用异常', (create && create.requestXml) || null, (create && create.responseXml) || null, 1); } return fail(create.message || '患者建档失败', create.requestXml || null, create.responseXml || null, 2); } var created = create.row || {}; var createdPatid = String(created.patid || ''); var createdBlh = cleanBlh(created.blh); return success({ outPatientCode: createdPatid, registrationExtend1: String(create.cardno || ''), registrationExtend2: createdBlh, hemsVocaPatientHisPatientId: createdPatid, hemsVocaPatientVisitNo: createdBlh }); })()",
+        "evaluatorType": "js"
+      }
+    }
+  ]
+}

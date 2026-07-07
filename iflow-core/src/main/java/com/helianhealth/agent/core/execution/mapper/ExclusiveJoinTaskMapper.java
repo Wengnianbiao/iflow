@@ -1,0 +1,39 @@
+package com.helianhealth.agent.core.execution.mapper;
+
+import com.helianhealth.agent.common.domain.metadata.task.TaskType;
+import com.helianhealth.agent.core.model.TaskModel;
+import org.springframework.stereotype.Component;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * EXCLUSIVE_JOIN 任务 Mapper。
+ */
+@Component
+public class ExclusiveJoinTaskMapper implements TaskMapper {
+
+    @Override
+    public String getTaskType() {
+        return TaskType.TASK_TYPE_EXCLUSIVE_JOIN;
+    }
+
+    @Override
+    public List<TaskModel> getMappedTasks(TaskMapperContext context) {
+        var workflowTask = context.getWorkflowTask();
+        Map<String, Object> joinInput = new HashMap<>();
+        joinInput.put("joinOn", workflowTask.getJoinOn());
+        if (workflowTask.getDefaultExclusiveJoinTask() != null) {
+            joinInput.put("defaultExclusiveJoinTask", workflowTask.getDefaultExclusiveJoinTask());
+        }
+
+        TaskModel joinTask = context.createTaskModel();
+        joinTask.setTaskType(TaskType.TASK_TYPE_EXCLUSIVE_JOIN);
+        joinTask.setTaskDefName(TaskType.TASK_TYPE_EXCLUSIVE_JOIN);
+        joinTask.setStartTime(System.currentTimeMillis());
+        joinTask.setInputData(joinInput);
+        joinTask.setStatus(TaskModel.Status.IN_PROGRESS);
+        return List.of(joinTask);
+    }
+}

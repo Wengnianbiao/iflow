@@ -1,0 +1,22 @@
+.workflowLink {
+  color: var(--iflow-color-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.workflowLink:hover {
+  text-decoration: underline;
+}
+
+.route {
+  color: var(--iflow-color-text-secondary);
+  background: transparent;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.resultCount {
+  color: var(--iflow-color-text);
+  font-size: 14px;
+  font-weight: 600;
+}

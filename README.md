@@ -1,4 +1,4 @@
-# Interface Agent
+# iFlow
 
 **AI 驱动的零边际成本集成中间件** —— 一个基于 Spring Boot 的可插拔工作流引擎，支持可视化配置，让接口集成像搭积木一样简单。
 
@@ -13,16 +13,15 @@
 ## 📦 模块结构
 
 ```
-interface-agent/
-├── agent-common              # 基础设施层（通用工具类、枚举、异常定义）
-├── agent-repository          # 数据访问层（MyBatis Mapper、DAO、领域模型）
-├── agent-invocation          # 远程调用层（协议支持、参数处理、调用执行链）
-├── agent-schedule            # 调度引擎（定时任务、工作流调度）
-├── agent-api                 # 开放接口层（REST API、JSON响应处理）
-├── agent-console             # 控制台服务层（后台管理接口）
-├── agent-ai                  # AI智能代理层（MCP接口、AI配置专家）
-├── agent-spring-boot-starter # Spring Boot Starter（自动配置、属性绑定）
-└── agent-web                 # Web应用入口（主启动类、静态资源配置）
+iflow/
+├── iflow-common              # 基础设施层（通用工具类、枚举、异常定义）
+├── iflow-repository          # 数据访问层（厂商 DAO、领域模型）
+├── iflow-core                # 工作流核心（执行器、Decider、系统任务抽象）
+├── iflow-gateway              # 入站网关（Open API / Jarvis / HL7 协议暴露与路由）
+├── iflow-console             # 控制台服务层（后台管理接口）
+├── iflow-ai                  # AI智能代理层（MCP接口、AI配置专家）
+├── iflow-spring-boot-starter # Spring Boot Starter（自动配置、属性绑定）
+└── iflow-web                 # Web应用入口（主启动类、静态资源配置）
 ```
 
 ## 🚀 快速开始
@@ -33,13 +32,12 @@ interface-agent/
 # 编译打包
 mvn clean package -Dmaven.test.skip=true
 
-# 初始化数据库（选择对应数据库类型）
-doc/init_mysql.sql        # MySQL
-doc/init_sqlserver.sql    # SQL Server
-doc/init_gauss.sql        # OpenGauss
+# 初始化 MySQL 数据库
+mysql -u root -p < docs/init_mysql/01_create_database.sql
+mysql -u root -p iflow < docs/init_mysql/02_schema.sql
 
 # 运行应用
-java -jar agent-web/target/interface-agent.jar
+java -jar iflow-web/target/iflow.jar
 
 # 访问配置页面
 http://localhost:8080
@@ -52,7 +50,7 @@ http://localhost:8080
 ```xml
 <dependency>
     <groupId>com.helianhealth</groupId>
-    <artifactId>agent-spring-boot-starter</artifactId>
+    <artifactId>iflow-spring-boot-starter</artifactId>
     <version>1.0.23</version>
 </dependency>
 ```
@@ -63,7 +61,7 @@ http://localhost:8080
 spring:
   datasource:
     agent:
-      url: jdbc:mysql://localhost:3306/interface_agent
+      url: jdbc:mysql://localhost:3306/iflow
       username: root
       password: your_password
 ```
@@ -77,27 +75,26 @@ spring:
 ### 模块依赖关系
 
 ```
-agent-common (基础层)
+iflow-common (基础层)
     ↑
-    ├── agent-repository
-    ├── agent-invocation
-    │       ↑
-    │       └── agent-schedule
-    ├── agent-api
-    ├── agent-console
-    ├── agent-ai
-    └── agent-spring-boot-starter
+    ├── iflow-repository
+    ├── iflow-core
+    ├── iflow-gateway
+    ├── iflow-console
+    ├── iflow-ai
+    └── iflow-spring-boot-starter
             ↑
-            └── agent-web (应用层)
+            └── iflow-web (应用层)
 ```
 
 ### 核心特性
 
-- **模块化分层架构**：基础层（common）→ 数据层（repository）→ 核心层（invocation、schedule）→ 服务层（api、console、ai）→ 应用层（web）
+- **模块化分层架构**：基础层（common）→ 数据层（repository）→ 核心层（core）→ 服务层（gateway、console、ai）→ 应用层（web）
 - **SPI动态扩展机制**：支持SPI动态注册扩展，可插拔调用客户端，支持 HTTP、WebService、JDBC 等协议
 - **配置化驱动**：工作流配置存储在数据库，支持动态修改无需重启，参数映射支持 SpEL 表达式
 - **AI智能协作**：内置MCP接口，支持AI Agent自动理解接口文档并生成配置
 - **可视化管理**：提供Vue.js前端控制台，支持工作流可视化编排和参数配置
+- **内存异步 Worker**：支持以 Spring Bean 注册 Conductor 风格 Worker；任务仅在当前进程执行，停机终止且不恢复，详见 [接入说明](docs/in-memory-worker.md)
 
 ## 🤖 AI 协作配置
 
@@ -115,7 +112,7 @@ agent-common (基础层)
 └───────────┬─────────────┘
             ↓
 ┌─────────────────────────┐
-│  Interface Agent       │
+│  iFlow       │
 │  工作流 + 节点 + 映射   │
 └─────────────────────────┘
 ```
@@ -132,17 +129,17 @@ AI Agent 通过 **MCP Streamable HTTP**（规范 `2025-11-25`，`POST /mcp`，JS
 
 握手后 Server 会返回 `MCP-Session-Id` 与 `MCP-Protocol-Version` 响应头；notification（如 `notifications/initialized`）返回 `202 Accepted`。
 
-MCP Server 与 Spring 同进程托管，由 starter 默认开启，可通过 `interface-agent.mcp.enabled=false` 关闭：
+MCP Server 与 Spring 同进程托管，由 starter 默认开启，可通过 `iflow.mcp.enabled=false` 关闭：
 
 ```yaml
-interface-agent:
+iflow:
   mcp:
     enabled: true              # 是否启用 MCP 入口
     base-path: /mcp            # Streamable HTTP 端点
     protocol-version: 2025-11-25
     session-enabled: true      # initialize 时分配 MCP-Session-Id
     strict-session: false      # 是否强制后续请求携带 Session
-    server-name: interface-agent
+    server-name: iflow
     server-version: 1.0.0
 ```
 
