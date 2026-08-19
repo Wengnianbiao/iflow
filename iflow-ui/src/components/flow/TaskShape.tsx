@@ -342,26 +342,33 @@ function DoWhileOperator({
   nodeData,
   onDelete,
   onAddLoopTask,
+  displayDescription,
 }: {
   nodeData: NodeTaskData
   onDelete?: (event: MouseEvent<HTMLButtonElement>) => void
   onAddLoopTask?: (event: MouseEvent<HTMLButtonElement>) => void
+  displayDescription?: boolean
 }) {
   const { task, selected } = nodeData
+  const title = displayDescription && task.description
+    ? task.description
+    : task.name || task.taskReferenceName
+
   return (
-    <div className={`iflow-do-while ${selected ? 'selected' : ''}`}>
+    <div
+      className="iflow-do-while"
+      style={{
+        ...getCardVariant(task.type, nodeData.status ?? TaskStatus.PENDING, selected),
+        background: 'rgba(0, 50, 100, 0.5)',
+      }}
+    >
+      <CardStatusBadge status={nodeData.status} />
       {onDelete ? <DeleteButton onDelete={onDelete} /> : null}
       <div className="iflow-do-while-header">
-        <Repeat size={22} />
-        <div>
-          <strong>{task.name || task.taskReferenceName}</strong>
-          <span>{task.taskReferenceName}</span>
-        </div>
-        <em>DO WHILE</em>
+        <Repeat size={24} color="white" />
+        <span title={title}>{title}</span>
       </div>
-      <div className="iflow-do-while-condition" title={task.loopCondition || ''}>
-        条件：{task.loopCondition || '未配置'}
-      </div>
+      <div className="iflow-do-while-label">DO_WHILE</div>
       {!task.loopOver?.length && onAddLoopTask ? (
         <button
           type="button"
@@ -481,7 +488,12 @@ export function TaskShape({
       ) : taskType === TaskType.SWITCH_JOIN ? (
         <SwitchJoin nodeData={nodeData} />
       ) : taskType === TaskType.DO_WHILE ? (
-        <DoWhileOperator nodeData={nodeData} onDelete={onDelete} onAddLoopTask={onAddDoWhileTask} />
+        <DoWhileOperator
+          nodeData={nodeData}
+          onDelete={onDelete}
+          onAddLoopTask={onAddDoWhileTask}
+          displayDescription={displayDescription}
+        />
       ) : (
         <TaskCard
           nodeData={nodeData}

@@ -91,7 +91,7 @@ public class DeciderService {
       */
     public List<TaskModel> getTasksToBeScheduled(
             WorkflowModel workflow, WorkflowTask taskToSchedule, int retryCount) {
-        return getTasksToBeScheduled(workflow, taskToSchedule, retryCount, null);
+        return getTasksToBeScheduled(workflow, taskToSchedule, retryCount, null, null);
     }
 
     public List<TaskModel> getTasksToBeScheduled(
@@ -99,6 +99,15 @@ public class DeciderService {
             WorkflowTask taskToSchedule,
             int retryCount,
             String retriedTaskId) {
+        return getTasksToBeScheduled(workflow, taskToSchedule, retryCount, retriedTaskId, null);
+    }
+
+    public List<TaskModel> getTasksToBeScheduled(
+            WorkflowModel workflow,
+            WorkflowTask taskToSchedule,
+            int retryCount,
+            String retriedTaskId,
+            String forkTaskId) {
         // 解析运行时task入参
         Map<String, Object> input = parametersUtils.getTaskInput(
                                 taskToSchedule.getInputParameters(), workflow, null);
@@ -124,6 +133,7 @@ public class DeciderService {
                         .retryTaskId(retriedTaskId)
                         .taskId(taskId)
                         .deciderService(this)
+                        .forkTaskId(forkTaskId)
                         .build();
 
         // mapper当前workflowTask(定义)到taskModel(运行时)
@@ -231,10 +241,7 @@ public class DeciderService {
 
         if (taskToSchedule != null) {
             return getTasksToBeScheduled(
-                    workflow,
-                    taskToSchedule,
-                    0,
-                    null);
+                    workflow, taskToSchedule, 0, null, task.getForkTaskId());
         }
         return List.of();
     }
@@ -340,11 +347,11 @@ public class DeciderService {
                             .map(TaskModel::getTaskDefName)
                             .collect(Collectors.toList()),
                     workflow.getWorkflowId());
-            outcome.tasksToBeScheduled.addAll(unScheduledTasks);
+            outcome.tasksToBeDispatched.addAll(unScheduledTasks);
         }
 
         if (hasSuccessfulTerminateTask
-                || (outcome.tasksToBeScheduled.isEmpty()
+                || (outcome.tasksToBeDispatched.isEmpty()
                         && checkForWorkflowCompletion(workflow))) {
             outcome.isComplete = true;
         }
@@ -450,7 +457,7 @@ public class DeciderService {
      */
     public static class DeciderOutcome {
 
-        List<TaskModel> tasksToBeScheduled = new LinkedList<>();
+        List<TaskModel> tasksToBeDispatched = new LinkedList<>();
         List<TaskModel> tasksToBeUpdated = new LinkedList<>();
         boolean isComplete;
         TaskModel terminateTask;

@@ -63,11 +63,13 @@ class MySqlExecutionJsonSupportTest {
         task.setReferenceTaskName("http");
         task.setRetryCount(0);
         task.setStatus(TaskModel.Status.COMPLETED);
+        task.setForkTaskId("fork-1");
 
         TaskModel restored = support.fromTaskPayload(support.toTaskPayload(task));
 
         assertEquals("t-1", restored.getTaskId());
         assertEquals("http", restored.getReferenceTaskName());
         assertEquals(TaskModel.Status.COMPLETED, restored.getStatus());
+        assertEquals("fork-1", restored.getForkTaskId());
     }
 }

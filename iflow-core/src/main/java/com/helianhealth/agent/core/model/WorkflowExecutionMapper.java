@@ -101,6 +101,7 @@ public final class WorkflowExecutionMapper {
         task.setReasonForIncompletion(model.getReasonForInCompletion());
         task.setWorkflowTask(model.getWorkflowTask());
         task.setParentTaskId(model.getParentTaskId());
+        task.setForkTaskId(model.getForkTaskId());
         task.setIteration(model.getIteration());
         return task;
     }
@@ -134,6 +135,7 @@ public final class WorkflowExecutionMapper {
         model.setReasonForInCompletion(task.getReasonForIncompletion());
         model.setWorkflowTask(task.getWorkflowTask());
         model.setParentTaskId(task.getParentTaskId());
+        model.setForkTaskId(task.getForkTaskId());
         model.setIteration(task.getIteration());
         return model;
     }

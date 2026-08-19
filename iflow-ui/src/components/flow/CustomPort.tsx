@@ -32,9 +32,11 @@ const CustomPort = ({
       ? 'ADD_DELETE'
       : 'ADD'
   const isEndTerminal = nodeProperties?.data?.task.name === 'End' || nodeProperties?.id === '__end__'
-  const actionTitle = taskType === TaskType.DO_WHILE
-    ? '在循环后添加任务'
-    : undefined
+  const actionTitle = portSide === 'NORTH'
+    ? '在当前任务前添加任务'
+    : taskType === TaskType.DO_WHILE
+      ? '在循环后添加任务'
+      : undefined
 
   return (
     <Port {...restProps} style={{ display: 'none' }}>

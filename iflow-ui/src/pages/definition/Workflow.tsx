@@ -27,6 +27,7 @@ export function Workflow() {
       workflowName: search.get('name') ?? params.name ?? '',
       workflowVersion: numberOrUndefined(search.get('version') ?? params.version),
       isNewWorkflow: search.get('new') === 'true',
+      draftId: search.get('draft') ?? undefined,
     }
   }, [location.search, params.name, params.version])
   const actor = useWorkflowDefinition(attributes)

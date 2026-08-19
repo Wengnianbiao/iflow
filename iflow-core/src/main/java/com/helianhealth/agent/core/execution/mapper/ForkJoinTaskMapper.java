@@ -42,7 +42,14 @@ public class ForkJoinTaskMapper implements TaskMapper {
             WorkflowTask branchTask = branchTasks.get(0);
             List<TaskModel> branchTasksToBeScheduled = taskMapperContext
                     .getDeciderService()
-                    .getTasksToBeScheduled(workflowModel, branchTask, retryCount);
+                    .getTasksToBeScheduled(
+                            workflowModel,
+                            branchTask,
+                            retryCount,
+                            null,
+                            forkTask.getTaskId());
+            branchTasksToBeScheduled.forEach(
+                    branchRuntimeTask -> branchRuntimeTask.setParentTaskId(forkTask.getTaskId()));
             tasksToBeScheduled.addAll(branchTasksToBeScheduled);
         }
 
@@ -57,7 +64,12 @@ public class ForkJoinTaskMapper implements TaskMapper {
         }
 
         List<TaskModel> joinTask = taskMapperContext.getDeciderService()
-                .getTasksToBeScheduled(workflowModel, joinWorkflowTask, retryCount);
+                .getTasksToBeScheduled(
+                        workflowModel,
+                        joinWorkflowTask,
+                        retryCount,
+                        null,
+                        taskMapperContext.getForkTaskId());
 
         tasksToBeScheduled.addAll(joinTask);
         return tasksToBeScheduled;

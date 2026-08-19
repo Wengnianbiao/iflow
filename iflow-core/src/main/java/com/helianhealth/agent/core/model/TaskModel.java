@@ -193,6 +193,14 @@ public class TaskModel {
     private String parentTaskId;
 
     /**
+     * 当前所在的最内层 FORK 运行时任务 ID；为空表示根执行域，应由工作流调用线程执行。
+     *
+     * <p>嵌套 FORK 的控制节点自身保留外层 execution scope，子分支切换到新的 forkTaskId，
+     * 对应 JOIN 再恢复控制节点原有 scope。
+     */
+    private String forkTaskId;
+
+    /**
      * 数据拆分循环的迭代索引
      */
     private int iteration;
@@ -202,6 +210,11 @@ public class TaskModel {
      */
     public boolean isLoopOverTask() {
         return iteration > 0;
+    }
+
+    /** 是否属于 FORK 分支执行域。 */
+    public boolean isForkBranchTask() {
+        return forkTaskId != null && !forkTaskId.isBlank();
     }
 
     /**

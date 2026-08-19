@@ -24,6 +24,7 @@ public class TaskMapperContext {
     private final int retryCount = 0;
     private final String retryTaskId;
     private final DeciderService deciderService;
+    private final String forkTaskId;
 
     public TaskModel createTaskModel() {
         TaskModel taskModel = new TaskModel();
@@ -37,6 +38,7 @@ public class TaskMapperContext {
         taskModel.setTaskType(workflowTask.getType());
         taskModel.setTaskDefName(workflowTask.getName());
         taskModel.setRetriedTaskId(retryTaskId);
+        taskModel.setForkTaskId(forkTaskId);
         return taskModel;
     }
 }

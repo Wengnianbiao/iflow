@@ -9,6 +9,7 @@ import {
 } from '@/api/workflowDefinition'
 import { useMessageContext } from '@/components/providers/messageContext/MessageContext'
 import type { WorkflowDef } from '@/types/workflow'
+import { readWorkflowDraft } from '@/utils/workflowDraft'
 import { workflowDefinitionMachine } from './machine'
 import type {
   LoadedWorkflow,
@@ -38,9 +39,11 @@ function createWorkflow(attributes: WorkflowRouteAttributes): WorkflowDef {
 
 async function loadWorkflow(attributes: WorkflowRouteAttributes): Promise<LoadedWorkflow> {
   if (attributes.isNewWorkflow) {
-    const workflow = createWorkflow(attributes)
+    const baseline = createWorkflow(attributes)
+    const workflow = readWorkflowDraft(attributes.draftId) ?? baseline
     return {
       workflow,
+      baseline,
       versions: [workflow.version],
     }
   }
@@ -67,6 +70,7 @@ export function useWorkflowDefinition(attributes: WorkflowRouteAttributes) {
         workflowName: context.workflowName,
         workflowVersion: context.workflowVersion,
         isNewWorkflow: context.isNewWorkflow,
+        draftId: context.draftId,
       }),
       saveWorkflowDefinition: (context) => {
         if (!context.workflow) throw new Error('没有可保存的工作流')
@@ -113,10 +117,10 @@ export function useWorkflowDefinition(attributes: WorkflowRouteAttributes) {
   }, [
     actor,
     attributes.isNewWorkflow,
+    attributes.draftId,
     attributes.workflowName,
     attributes.workflowVersion,
   ])
 
   return actor
 }
-

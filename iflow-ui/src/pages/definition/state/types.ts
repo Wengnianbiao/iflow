@@ -10,10 +10,12 @@ export type WorkflowRouteAttributes = {
   workflowName: string
   workflowVersion?: number
   isNewWorkflow: boolean
+  draftId?: string
 }
 
 export type LoadedWorkflow = {
   workflow: WorkflowDef
+  baseline?: WorkflowDef
   versions: number[]
 }
 

@@ -1,18 +1,22 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Helmet } from 'react-helmet'
 import {
   Button,
+  Dropdown,
   Empty,
   Space,
   Tooltip,
+  type MenuProps,
   type TableColumnsType,
 } from 'antd'
 import {
+  CaretDownIcon,
   CopyIcon,
+  FileArrowUpIcon,
   PencilSimpleIcon,
-  PlayIcon,
   PlusIcon,
+  SquaresFourIcon,
   TrashIcon,
   ArrowClockwiseIcon,
 } from '@phosphor-icons/react'
@@ -28,13 +32,33 @@ import { NavLink } from '@/components/ui/NavLink'
 import type { WorkflowDef } from '@/types/workflow'
 import { useCustomPagination } from '@/utils/hooks/useCustomPagination'
 import { useWorkflowDefs } from '@/utils/query'
+import { normalizeWorkflowDraft, stageWorkflowDraft } from '@/utils/workflowDraft'
 import { CloneWorkflowDialog } from './dialog/CloneWorkflowDialog'
 import { DeleteWorkflowDialog } from './dialog/DeleteWorkflowDialog'
+import { WorkflowTemplateDialog } from './dialog/WorkflowTemplateDialog'
+import type { WorkflowTemplate } from './workflowTemplates'
 import styles from './Workflow.module.css'
+
+function nextAvailableWorkflowName(name: string, definitions: WorkflowDef[]) {
+  const existingNames = new Set(definitions.map((definition) => definition.name))
+  if (!existingNames.has(name)) return name
+
+  let index = 2
+  while (existingNames.has(`${name}_${index}`)) index += 1
+  return `${name}_${index}`
+}
+
+function newWorkflowUrl(name: string, draftId?: string) {
+  const search = new URLSearchParams({ name, version: '1', new: 'true' })
+  if (draftId) search.set('draft', draftId)
+  return `/workflowDef/edit?${search.toString()}`
+}
 
 export default function WorkflowDefinitions() {
   const navigate = useNavigate()
   const { setMessage } = useMessageContext()
+  const importInputRef = useRef<HTMLInputElement>(null)
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false)
   const { data, isFetching, error, refetch }: UseQueryResult<WorkflowDef[]> =
     useWorkflowDefs()
   const [
@@ -70,6 +94,72 @@ export default function WorkflowDefinitions() {
         .some((value) => value.toLocaleLowerCase().includes(keyword)),
     )
   }, [data, searchParam])
+
+  const openWorkflowDraft = (workflow: WorkflowDef) => {
+    try {
+      const draftId = stageWorkflowDraft(workflow)
+      navigate(newWorkflowUrl(workflow.name, draftId))
+    } catch {
+      setMessage({
+        severity: 'error',
+        text: '暂存工作流草稿失败，请检查浏览器存储权限后重试',
+      })
+    }
+  }
+
+  const handleImport = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    if (file.size > 5 * 1024 * 1024) {
+      setMessage({ severity: 'error', text: '工作流文件不能超过 5 MB' })
+      return
+    }
+
+    try {
+      const imported = normalizeWorkflowDraft(JSON.parse(await file.text()))
+      const name = nextAvailableWorkflowName(imported.name, data ?? [])
+      openWorkflowDraft({
+        ...imported,
+        name,
+        version: 1,
+        displayName: name === imported.name
+          ? imported.displayName
+          : `${imported.displayName?.trim() || imported.name}（导入）`,
+      })
+    } catch (reason) {
+      setMessage({
+        severity: 'error',
+        text: reason instanceof Error ? reason.message : '解析工作流文件失败',
+      })
+    }
+  }
+
+  const handleTemplateSelect = (template: WorkflowTemplate) => {
+    const name = nextAvailableWorkflowName(template.name, data ?? [])
+    setTemplateDialogOpen(false)
+    openWorkflowDraft(template.create(name))
+  }
+
+  const createMenu = useMemo<MenuProps>(() => ({
+    items: [
+      {
+        key: 'import',
+        icon: <FileArrowUpIcon size={18} />,
+        label: '导入工作流',
+      },
+      {
+        key: 'template',
+        icon: <SquaresFourIcon size={18} />,
+        label: '选择工作流模板',
+      },
+    ],
+    onClick: ({ key }) => {
+      if (key === 'import') importInputRef.current?.click()
+      if (key === 'template') setTemplateDialogOpen(true)
+    },
+  }), [])
 
   const columns = useMemo<TableColumnsType<WorkflowDef>>(
     () => [
@@ -232,21 +322,49 @@ export default function WorkflowDefinitions() {
           />
         )}
 
+      <WorkflowTemplateDialog
+        open={templateDialogOpen}
+        onClose={() => setTemplateDialogOpen(false)}
+        onSelect={handleTemplateSelect}
+      />
+
+      <input
+        ref={importInputRef}
+        className={styles.hiddenFileInput}
+        type="file"
+        accept=".json,application/json"
+        aria-label="导入工作流 JSON 文件"
+        onChange={(event) => void handleImport(event)}
+      />
+
       <SectionHeader
         title="工作流配置"
         actions={
-          <Space size={12} wrap>
-            <Button icon={<PlayIcon size={17} />}>运行工作流</Button>
+          <div className={styles.createWorkflowGroup}>
             <Button
               type="primary"
               icon={<PlusIcon size={17} />}
-              onClick={() =>
-                navigate('/workflowDef/edit?name=new_workflow&version=1&new=true')
-              }
+              className={styles.createWorkflowButton}
+              onClick={() => navigate(newWorkflowUrl(
+                nextAvailableWorkflowName('new_workflow', data ?? []),
+              ))}
             >
               新建工作流
             </Button>
-          </Space>
+            <Dropdown
+              menu={createMenu}
+              trigger={['click']}
+              placement="bottomRight"
+              overlayClassName={styles.createWorkflowMenu}
+            >
+              <Button
+                type="primary"
+                className={styles.createWorkflowMenuButton}
+                icon={<CaretDownIcon size={16} weight="bold" />}
+                aria-label="更多新建工作流方式"
+              />
+            </Dropdown>
+          </div>
         }
       />
 

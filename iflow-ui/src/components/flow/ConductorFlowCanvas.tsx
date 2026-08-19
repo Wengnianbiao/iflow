@@ -153,6 +153,9 @@ function applyAddTask(workflow: WorkflowDef, target: MenuTarget, type: AddableTa
     if (node.id === START_TASK_REF) {
       return { ...workflow, tasks: [...tasks, ...workflow.tasks] }
     }
+    if (target.port.properties?.side === 'NORTH') {
+      return insertTasksBeforeTask(workflow, node.id, tasks)
+    }
     const branchName = parseNodeBranchTarget(target.port)
     if (branchName && [TaskType.SWITCH, TaskType.DECISION].includes(node.data?.task.type as never)) {
       return appendToSwitchBranch(workflow, node.id, branchName, tasks, 'end')

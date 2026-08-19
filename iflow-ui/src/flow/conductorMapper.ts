@@ -369,7 +369,12 @@ function processDoWhile(task: WorkflowTask, crumbs: Crumb[]): WalkResult {
   doWhileNode.nodePadding = [50, 110, 50, 110]
   const bodyCrumbs = crumbs.concat({ ref: id, refIdx: -1, type: task.type, parent: id })
   const bodyResult = walkTasks(taskList(task.loopOver), bodyCrumbs)
-  const childNodes = bodyResult.nodes.map((node) => withParent(node, node.parent ?? id))
+  const childNodes = bodyResult.nodes.map((node, index) => {
+    const childNode = index === 0
+      ? { ...node, ports: [...(node.ports ?? []), northPort(node)] }
+      : node
+    return withParent(childNode, childNode.parent ?? id)
+  })
   const childEdges = bodyResult.edges.map((edge) => edge.parent ? edge : { ...edge, parent: id })
 
   return {

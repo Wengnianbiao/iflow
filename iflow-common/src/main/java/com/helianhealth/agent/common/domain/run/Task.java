@@ -104,6 +104,8 @@ public class Task {
 
     private String parentTaskId;
 
+    private String forkTaskId;
+
     private String keyword;
 
     private int iteration;

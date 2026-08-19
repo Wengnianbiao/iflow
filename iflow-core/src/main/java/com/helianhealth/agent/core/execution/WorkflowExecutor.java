@@ -15,7 +15,7 @@ public interface WorkflowExecutor {
 
     WorkflowModel decide(String workflowId);
 
-    /** 获取工作流执行锁后进行一次决策。 */
+    /** 唤醒已有同步执行；没有活动执行时，由当前调用线程同步推进至终态。 */
     WorkflowModel decideWithLock(WorkflowModel workflow);
 
     void terminateWorkflow(WorkflowModel workflow, String reason);

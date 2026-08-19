@@ -9,6 +9,7 @@ export interface WorkflowTask {
   forkTasks?: WorkflowTask[][]
   loopOver?: WorkflowTask[]
   loopCondition?: string
+  items?: string
   joinOn?: string[]
   defaultExclusiveJoinTask?: string[]
   expression?: string

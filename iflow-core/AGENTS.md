@@ -11,7 +11,7 @@ Rules for `iflow-core`, the workflow runtime engine. See root `AGENTS.md` for re
 - System tasks: `WorkflowSystemTask` + built-ins under `execution/tasks/`
 - Registration: `SystemTaskRegistry`
 - Persistence port: `ExecutionDAO` (interface in core; implementations elsewhere)
-- Synchronous single-process workflow entry with pooled DAG tasks (see `docs/synchronous-workflow-execution.md`)
+- Synchronous single-process workflow entry with caller-thread linear tasks and pooled FORK branches (see `docs/synchronous-workflow-execution.md`)
 - Scripting: GraalJS evaluators under `execution/evaluators/` and `execution/script/`
 
 Package root: `com.helianhealth.agent.core`.
@@ -31,7 +31,7 @@ When changing decide/execute semantics, task lifecycle, or system-task contracts
 
 - Follow existing package layout (`execution/`, `execution/tasks/`, `execution/mapper/`, `service/`, `dao/`, `queue/`, `lock/`, `model/`).
 - New system tasks: extend `WorkflowSystemTask`, implement `getTaskType()` and `execute()`, and ensure Spring registration into `SystemTaskRegistry`.
-- Tasks execute in the shared workflow task pool. Completion callbacks acquire the workflow lock and run one Decider round; JOIN waits for dependency callbacks rather than polling.
+- Linear tasks execute on the workflow caller thread; only FORK branch scopes use the bounded branch pool. Branch completion signals the caller-owned synchronous loop, which runs the next Decider round; JOIN waits without polling.
 - Prefer small, focused changes; keep executor/decider changes covered by tests under `src/test/java`.
 
 ## Commands

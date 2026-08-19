@@ -26,6 +26,7 @@ const initialContext: WorkflowDefinitionMachineContext = {
   workflowName: '',
   workflowVersion: undefined,
   isNewWorkflow: false,
+  draftId: undefined,
   workflow: null,
   baseline: null,
   versions: [],
@@ -271,6 +272,7 @@ export const workflowDefinitionMachine = createMachine<
           workflowName: event.workflowName,
           workflowVersion: event.workflowVersion,
           isNewWorkflow: event.isNewWorkflow,
+          draftId: event.draftId,
         }
       }),
       assignLoadedWorkflow: assign((context, event) => {
@@ -278,7 +280,7 @@ export const workflowDefinitionMachine = createMachine<
         return {
           ...context,
           workflow: cloneWorkflow(loaded.workflow),
-          baseline: cloneWorkflow(loaded.workflow),
+          baseline: cloneWorkflow(loaded.baseline ?? loaded.workflow),
           versions: loaded.versions,
           selectedTaskRef: undefined,
           selectedTaskEditorKey: undefined,

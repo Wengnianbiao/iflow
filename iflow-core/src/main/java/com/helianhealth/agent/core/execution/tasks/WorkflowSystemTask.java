@@ -7,8 +7,8 @@ import com.helianhealth.agent.core.model.WorkflowModel;
 /**
  * 系统任务（system task）抽象基类
  *
- * <p>所有任务均由 Decider 直接驱动并提交到共享任务线程池。任务完成后回调 Decider 推进 DAG，
- * 不再区分 start/execute 两阶段。
+ * <p>任务由 Decider 产出、Dispatcher 派发：根执行域使用工作流调用线程，FORK 分支使用专用线程池。
+ * 任务本身不选择执行线程，也不直接触发下一轮 Decider。
  */
 public abstract class WorkflowSystemTask {
 
