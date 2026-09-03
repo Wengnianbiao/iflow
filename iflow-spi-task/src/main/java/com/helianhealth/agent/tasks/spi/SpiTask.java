@@ -15,7 +15,7 @@ import java.util.Map;
  *
  * <p>{@code inputParameters.remoteExtension} 为空 → 默认扩展（返回空 Map）；
  * 非空 → 路由到对应 {@link InterfaceRemoteInvoker} 实现。若节点携带 className/sourceCode，
- * 则在任务开始执行时先注入 ExtensionLoader，再传入 spiInput。
+ * 则在任务开始执行时先注入 ExtensionLoader，再传入 spiInput。扩展返回的 Map 直接作为任务根输出。
  */
 @Component(TaskType.TASK_TYPE_SPI)
 @Slf4j
@@ -29,7 +29,7 @@ public class SpiTask extends WorkflowSystemTask {
     }
 
     @Override
-    public boolean execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
+    public void execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
         try {
             Map<String, Object> inputData = task.getInputData();
             String remoteExtension = SpiTaskInput.extractRemoteExtension(inputData);
@@ -39,15 +39,14 @@ public class SpiTask extends WorkflowSystemTask {
 
             Map<String, Object> result =
                     extensionRouter.invoke(remoteExtension, definition, spiInput);
-            task.addOutput(SpiTaskInput.OUTPUT_RESULT, result);
+            task.setOutputData(result);
             task.setStatus(TaskModel.Status.COMPLETED);
         } catch (Exception e) {
             String msg = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
             log.error("SPI task failed: workflow={}, task={}", workflow.getWorkflowId(), task.getTaskId(), e);
             task.setStatus(TaskModel.Status.FAILED);
             task.setReasonForInCompletion(msg);
-            task.addOutput("error", msg);
+            addError(task, msg);
         }
-        return true;
     }
 }

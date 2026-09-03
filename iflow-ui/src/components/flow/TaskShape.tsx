@@ -1,26 +1,18 @@
 import type { MouseEvent } from 'react'
 import {
-  BracketsCurly,
-  ArrowArcRight,
-  Check,
-  CircleNotch,
-  Database,
-  Diamond,
-  FileJs,
-  Globe,
-  GitBranch,
-  Lightning,
-  Link as LinkIcon,
-  PlugsConnected,
-  Prohibit,
-  Repeat,
-  SlidersHorizontal,
+  ArrowArcRightIcon,
+  CheckIcon,
+  CircleNotchIcon,
+  DiamondIcon,
+  GitBranchIcon,
+  LightningIcon,
+  ProhibitIcon,
+  RepeatIcon,
 } from '@phosphor-icons/react'
-import { TaskType } from '@/flow/taskType'
 import { conductorTheme, getCardVariant, TaskStatus } from '@/flow/conductorTheme'
 import type { NodeTaskData } from '@/flow/conductorMapper'
-import type { WorkflowTask } from '@/types/workflow'
-import { InlineHighlightedCode } from './InlineScriptCode'
+import { getTaskFlowKind, getTaskPlugin } from '@/tasks'
+import { UnknownTaskCard } from '@/tasks/cards'
 
 type TaskShapeProps = {
   nodeData: NodeTaskData
@@ -32,15 +24,6 @@ type TaskShapeProps = {
   onAddDoWhileTask?: (event: MouseEvent<HTMLButtonElement>) => void
   onDelete?: (event: MouseEvent<HTMLButtonElement>) => void
   displayDescription?: boolean
-}
-
-function text(value: unknown) {
-  if (value == null) return ''
-  return typeof value === 'string' ? value : JSON.stringify(value)
-}
-
-function truncate(value: string, max = 110) {
-  return value.length > max ? `${value.slice(0, max)}...` : value
 }
 
 function StarShape() {
@@ -94,150 +77,15 @@ function SwitchJoin({ nodeData }: { nodeData: NodeTaskData }) {
 }
 
 function TaskIcon({ type }: { type: string }) {
-  const size = 24
-  switch (type) {
-    case TaskType.HTTP:
-      return <Globe size={size} />
-    case TaskType.INLINE:
-      return <FileJs size={size} />
-    case TaskType.JSON_JQ_TRANSFORM:
-      return <BracketsCurly size={size} />
-    case TaskType.JDBC:
-      return <Database size={size} />
-    case TaskType.WEBSERVICE:
-      return <PlugsConnected size={size} />
-    case TaskType.PARAM_MAP:
-      return <SlidersHorizontal size={size} />
-    case TaskType.SPI:
-      return <PlugsConnected size={size} />
-    case TaskType.SWITCH:
-    case TaskType.DECISION:
-    case TaskType.FORK_JOIN:
-      return <GitBranch size={size} />
-    case TaskType.DO_WHILE:
-      return <Repeat size={size} />
-    default:
-      return <Lightning size={size} />
-  }
+  const Icon = getTaskPlugin(type)?.icon ?? LightningIcon
+  return <Icon size={24} />
 }
 
-function HTTPTaskContent({ task }: { task: WorkflowTask }) {
-  const ip = task.inputParameters ?? {}
-  const request = (ip.http_request as Record<string, unknown> | undefined) ?? ip
-  const method = String(request.method ?? 'GET')
-  const uri = String(request.uri ?? '')
-  const clickable = method.toUpperCase() === 'GET' && /^https?:\/\//i.test(uri)
-  return (
-    <div className="iflow-card-content iflow-http-content">
-      <LinkIcon className="iflow-http-link-icon" size={18} />
-      <span className={`iflow-method-badge method-${method.toLowerCase()}`}>{method}</span>
-      {clickable ? (
-        <a className="iflow-uri" href={uri} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>
-          {uri}
-        </a>
-      ) : (
-        <span className="iflow-uri">{uri || '-'}</span>
-      )}
-    </div>
-  )
-}
-
-function InlineTaskContent({ task }: { task: WorkflowTask }) {
-  const inputParameters = task.inputParameters ?? {}
-  const expression = String(inputParameters.expression ?? '')
-
-  return (
-    <code className="iflow-card-content iflow-inline-content language-js">
-      <InlineHighlightedCode code={expression} />
-    </code>
-  )
-}
-
-function JDBCTaskContent({ task }: { task: WorkflowTask }) {
-  const ip = task.inputParameters ?? {}
-  const nestedRequest = ip.jdbc_request
-  const request = nestedRequest && typeof nestedRequest === 'object' && !Array.isArray(nestedRequest)
-    ? nestedRequest as Record<string, unknown>
-    : ip
-  const operation = String(request.operation ?? 'QUERY').toUpperCase()
-  const sql = String(request.sql ?? '').replace(/\s+/g, ' ').trim()
-  const vendor = String(request.vendor ?? '').toUpperCase().trim()
-  const url = String(request.url ?? '').trim()
-  const summary = [vendor, sql || url].filter(Boolean).join(' · ')
-  return (
-    <div className="iflow-card-content iflow-http-content" title={[url, sql].filter(Boolean).join('\n')}>
-      <Database className="iflow-http-link-icon" size={18} />
-      <span className={`iflow-method-badge jdbc-operation-${operation.toLowerCase()}`}>{operation}</span>
-      <span className="iflow-uri">{summary ? truncate(summary) : '-'}</span>
-    </div>
-  )
-}
-
-function WebServiceTaskContent({ task }: { task: WorkflowTask }) {
-  const ip = task.inputParameters ?? {}
-  const uri = String(ip.uri ?? '')
-  return (
-    <div className="iflow-card-content iflow-http-content">
-      <LinkIcon className="iflow-http-link-icon" size={18} />
-      <span className="iflow-method-badge">SOAP</span>
-      <span className="iflow-uri">{uri || '-'}</span>
-    </div>
-  )
-}
-
-function SpiTaskContent({ task }: { task: WorkflowTask }) {
-  const inputParameters = task.inputParameters ?? {}
-  const remoteExtension = String(inputParameters.remoteExtension ?? '').trim()
-  return (
-    <div className="iflow-card-content iflow-http-content">
-      <PlugsConnected className="iflow-http-link-icon" size={18} />
-      <span className="iflow-method-badge">SPI</span>
-      <span className="iflow-uri">{remoteExtension || 'default'}</span>
-    </div>
-  )
-}
-
-function GenericTaskContent({ task }: { task: WorkflowTask }) {
-  const ip = task.inputParameters ?? {}
-  const candidates: Array<[string, unknown]> = [
-    ['topic', ip.topic],
-    ['event', ip.eventType ?? ip.eventName],
-    ['workflow', ip.name],
-    ['duration', ip.duration],
-  ]
-  const values = candidates.filter(([, value]) => value != null && value !== '')
-
-  if (!values.length) return null
-  return (
-    <div className="iflow-card-content iflow-generic-content">
-      {values.slice(0, 2).map(([label, value]) => (
-        <div key={label}>
-          <span>{label}</span>
-          <strong>{truncate(text(value), 80)}</strong>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function TaskCardContent({ task }: { task: WorkflowTask }) {
-  switch (task.type) {
-    case TaskType.HTTP:
-      return <HTTPTaskContent task={task} />
-    case TaskType.INLINE:
-    case TaskType.JSON_JQ_TRANSFORM:
-      return <InlineTaskContent task={task} />
-    case TaskType.JDBC:
-      return <JDBCTaskContent task={task} />
-    case TaskType.WEBSERVICE:
-      return <WebServiceTaskContent task={task} />
-    case TaskType.SPI:
-      return <SpiTaskContent task={task} />
-    case TaskType.PARAM_MAP:
-      return null
-    default:
-      return <GenericTaskContent task={task} />
-  }
+function TaskCardContent({ task }: { task: NodeTaskData['task'] }) {
+  const CardContent = getTaskPlugin(task.type)?.card
+  if (CardContent === null) return null
+  const ResolvedCardContent = CardContent ?? UnknownTaskCard
+  return <ResolvedCardContent task={task} />
 }
 
 function DeleteButton({ onDelete }: { onDelete?: (event: MouseEvent<HTMLButtonElement>) => void }) {
@@ -270,19 +118,16 @@ function CardStatusBadge({ status }: { status?: string }) {
   if (!background) return null
   return (
     <span className="iflow-task-status-badge" style={{ background }} title={status}>
-      {[TaskStatus.IN_PROGRESS, TaskStatus.SCHEDULED].includes(status as never) ? <CircleNotch className="spin" size={16} weight="bold" /> : null}
-      {status === TaskStatus.COMPLETED ? <Check size={18} weight="bold" /> : null}
-      {[TaskStatus.COMPLETED_WITH_ERRORS, TaskStatus.SKIPPED].includes(status as never) ? <ArrowArcRight size={17} weight="bold" /> : null}
-      {failure.includes(status as never) ? <Prohibit size={17} weight="bold" /> : null}
+      {[TaskStatus.IN_PROGRESS, TaskStatus.SCHEDULED].includes(status as never) ? <CircleNotchIcon className="spin" size={16} weight="bold" /> : null}
+      {status === TaskStatus.COMPLETED ? <CheckIcon size={18} weight="bold" /> : null}
+      {[TaskStatus.COMPLETED_WITH_ERRORS, TaskStatus.SKIPPED].includes(status as never) ? <ArrowArcRightIcon size={17} weight="bold" /> : null}
+      {failure.includes(status as never) ? <ProhibitIcon size={17} weight="bold" /> : null}
     </span>
   )
 }
 
 function cardTypeLabel(type: string) {
-  if (type === TaskType.JSON_JQ_TRANSFORM) return 'JSON JQ'
-  if (type === TaskType.FORK_JOIN) return 'FORK JOIN'
-  if (type === TaskType.INLINE) return '内联脚本'
-  return type
+  return getTaskPlugin(type)?.cardLabel ?? type
 }
 
 function TaskCard({
@@ -305,7 +150,7 @@ function TaskCard({
       <div className="iflow-task-card-inner">
         <CardStatusBadge status={nodeData.status} />
         {onDelete ? <DeleteButton onDelete={onDelete} /> : null}
-        {nodeData.task.type === TaskType.FORK_JOIN && onAddBranch ? (
+        {getTaskFlowKind(nodeData.task.type) === 'fork' && onAddBranch ? (
           <button
             type="button"
             className="iflow-fork-add"
@@ -317,7 +162,7 @@ function TaskCard({
               onAddBranch(event)
             }}
           >
-            <GitBranch size={14} weight="bold" />
+            <GitBranchIcon size={14} weight="bold" />
             <span>添加分支</span>
           </button>
         ) : null}
@@ -365,7 +210,7 @@ function DoWhileOperator({
       <CardStatusBadge status={nodeData.status} />
       {onDelete ? <DeleteButton onDelete={onDelete} /> : null}
       <div className="iflow-do-while-header">
-        <Repeat size={24} color="white" />
+        <RepeatIcon size={24} color="white" />
         <span title={title}>{title}</span>
       </div>
       <div className="iflow-do-while-label">DO_WHILE</div>
@@ -425,7 +270,7 @@ function DecisionOperator({
           <StarShape />
         </div>
         <div className="iflow-decision-content">
-          <Diamond size={24} />
+          <DiamondIcon size={24} />
           <div>{task.name || task.taskReferenceName}</div>
           <span>{task.taskReferenceName}</span>
         </div>
@@ -462,6 +307,7 @@ export function TaskShape({
   displayDescription,
 }: TaskShapeProps) {
   const taskType = nodeData.task.type
+  const flowKind = getTaskFlowKind(taskType)
   const bottomMargin = portsVisible ? 10 : 0
 
   return (
@@ -474,9 +320,9 @@ export function TaskShape({
         opacity: 1,
       }}
     >
-      {taskType === TaskType.TERMINAL ? (
+      {flowKind === 'terminal' ? (
         <TerminalTask nodeData={nodeData} portsVisible={portsVisible} />
-      ) : taskType === TaskType.SWITCH || taskType === TaskType.DECISION ? (
+      ) : flowKind === 'switch' ? (
         <DecisionOperator
           nodeData={nodeData}
           nodeWidth={width}
@@ -485,9 +331,9 @@ export function TaskShape({
           onDelete={onDelete}
           displayDescription={displayDescription}
         />
-      ) : taskType === TaskType.SWITCH_JOIN ? (
+      ) : flowKind === 'switch_join' ? (
         <SwitchJoin nodeData={nodeData} />
-      ) : taskType === TaskType.DO_WHILE ? (
+      ) : flowKind === 'do_while' ? (
         <DoWhileOperator
           nodeData={nodeData}
           onDelete={onDelete}

@@ -31,7 +31,9 @@ import java.util.Map;
  * 内含 {@code ${...}} 占位符，由 {@link com.helianhealth.agent.core.execution.mapper.WebServiceTaskMapper}
  * + {@link com.helianhealth.agent.core.utils.ParametersUtils} 在调度阶段替换后作为请求体 POST。
  *
- * <p>入参直接取自 {@link TaskModel#getInputData()}（即定义层 {@code inputParameters}），无额外包装键。
+ * <p>入参直接取自 {@link TaskModel#getInputData()}（即定义层 {@code inputParameters}），无额外包装键；
+ * 执行结果写入 {@code outputData} 根级
+ *（{@code body}/{@code headers}/{@code statusCode}/{@code reasonPhrase}）。
  */
 @Component(TaskType.TASK_TYPE_WEBSERVICE)
 public class WebServiceTask extends WorkflowSystemTask {
@@ -54,19 +56,19 @@ public class WebServiceTask extends WorkflowSystemTask {
     }
 
     @Override
-    public boolean execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor) {
+    public void execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor) {
         Input input = objectMapper.convertValue(task.getInputData(), Input.class);
         if (input.getUri() == null || input.getUri().isBlank()) {
             task.setReasonForInCompletion(
                     "Missing WebService URI. See documentation for WebServiceTask for required input parameters");
             task.setStatus(TaskModel.Status.FAILED);
-            return true;
+            return;
         }
 
         if (input.getSoapTemplate() == null || input.getSoapTemplate().isBlank()) {
             task.setReasonForInCompletion("Missing soapTemplate");
             task.setStatus(TaskModel.Status.FAILED);
-            return true;
+            return;
         }
 
         try {
@@ -86,7 +88,7 @@ public class WebServiceTask extends WorkflowSystemTask {
                 }
                 task.setStatus(TaskModel.Status.FAILED);
             }
-            task.addOutput("response", response.asMap());
+            task.setOutputData(response.asMap());
         } catch (Exception e) {
             LOGGER.error(
                     "Failed to invoke {} task: {} - uri: {} in workflow: {}",
@@ -97,9 +99,8 @@ public class WebServiceTask extends WorkflowSystemTask {
                     e);
             task.setStatus(TaskModel.Status.FAILED);
             task.setReasonForInCompletion("Failed to invoke " + getTaskType() + " task due to: " + e);
-            task.addOutput("response", e.toString());
+            addError(task, e.toString());
         }
-        return true;
     }
 
     /**

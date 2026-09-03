@@ -7,21 +7,18 @@ import com.helianhealth.agent.core.utils.ParametersUtils;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
- * PARAM_MAP 任务 Mapper
+ * MAPPING 任务 Mapper
  */
 @Component
 public class ParamMappingTaskMapper implements TaskMapper {
 
     public static final String PAYLOAD = "payload";
     public static final String PARAMS_CONFIG = "paramsConfig";
-    private static final Set<String> INPUT_KEYS = Set.of(PAYLOAD, PARAMS_CONFIG);
 
     private final ParametersUtils parametersUtils;
 
@@ -31,53 +28,51 @@ public class ParamMappingTaskMapper implements TaskMapper {
 
     @Override
     public String getTaskType() {
-        return TaskType.TASK_TYPE_PARAM_MAP;
+        return TaskType.TASK_TYPE_MAPPING;
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public List<TaskModel> getMappedTasks(TaskMapperContext context) {
         WorkflowTask workflowTask = context.getWorkflowTask();
         Map<String, Object> inputParameters = workflowTask.getInputParameters();
-        validateInputKeys(inputParameters);
+        validateInputParameters(inputParameters);
 
-        Object rawParamsConfig = inputParameters.get(PARAMS_CONFIG);
+        Map<String, Object> resolvedInput = resolveInputs(context, inputParameters);
+
+        Object rawParamsConfig = resolvedInput.get(PARAMS_CONFIG);
         if (!(rawParamsConfig instanceof List<?> configs) || configs.isEmpty()) {
-            throw new IllegalArgumentException("PARAM_MAP inputParameters.paramsConfig must be a non-empty JSON array");
+            throw new IllegalArgumentException("MAPPING inputParameters.paramsConfig must be a non-empty JSON array");
         }
 
-        Object payload = resolvePayload(context, inputParameters.get(PAYLOAD));
-        if (!(payload instanceof Map<?, ?> payloadMap)) {
-            throw new IllegalArgumentException("PARAM_MAP inputParameters.payload must resolve to a JSON object");
-        }
-
-        Map<String, Object> taskInput = new LinkedHashMap<>();
-        taskInput.put(PAYLOAD, new LinkedHashMap<>((Map<String, Object>) payloadMap));
+        Map<String, Object> taskInput = new LinkedHashMap<>(resolvedInput);
         taskInput.put(PARAMS_CONFIG, new ArrayList<>(configs));
 
         TaskModel task = context.createTaskModel();
-        task.setTaskType(TaskType.TASK_TYPE_PARAM_MAP);
+        task.setTaskType(TaskType.TASK_TYPE_MAPPING);
         task.setStartTime(System.currentTimeMillis());
         task.setInputData(taskInput);
         task.setStatus(TaskModel.Status.IN_PROGRESS);
         return List.of(task);
     }
 
-    private void validateInputKeys(Map<String, Object> inputParameters) {
-        if (inputParameters == null || !inputParameters.keySet().equals(INPUT_KEYS)) {
+    private void validateInputParameters(Map<String, Object> inputParameters) {
+        if (inputParameters == null
+                || !inputParameters.containsKey(PARAMS_CONFIG)
+                || inputParameters.size() < 2) {
             throw new IllegalArgumentException(
-                    "PARAM_MAP inputParameters must contain exactly payload and paramsConfig");
+                    "MAPPING inputParameters must contain paramsConfig and at least one mapping input");
+        }
+        if (inputParameters.keySet().stream().anyMatch(key -> key == null || key.isBlank())) {
+            throw new IllegalArgumentException("MAPPING input name must not be blank");
         }
     }
 
-    private Object resolvePayload(TaskMapperContext context, Object rawPayload) {
+    private Map<String, Object> resolveInputs(
+            TaskMapperContext context, Map<String, Object> inputParameters) {
         if (context.getTaskInput() != null) {
-            return context.getTaskInput().get(PAYLOAD);
+            return context.getTaskInput();
         }
-        Map<String, Object> payloadInput = new HashMap<>();
-        payloadInput.put(PAYLOAD, rawPayload);
         return parametersUtils
-                .getTaskInput(payloadInput, context.getWorkflowModel(), context.getTaskId())
-                .get(PAYLOAD);
+                .getTaskInput(inputParameters, context.getWorkflowModel(), context.getTaskId());
     }
 }

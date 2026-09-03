@@ -1,5 +1,4 @@
 import { useSelector } from '@xstate/react'
-import { CaretDoubleLeft } from '@phosphor-icons/react'
 import { ConductorFlowCanvas } from '@/components/flow/ConductorFlowCanvas'
 import type { ActorRefFrom } from 'xstate'
 import type { WorkflowDef } from '@/types/workflow'
@@ -35,22 +34,9 @@ export function GraphPanel({ actor }: { actor: WorkflowDefinitionActor }) {
   const { workflow, error, flowActor } = state.context
   const loading = state.matches('loading')
   const loadFailed = state.matches('loadFailed')
-  const inspectorClosed = state.matches('ready.rightPanel.closed')
 
   return (
     <section className="workflow-canvas-shell">
-      {inspectorClosed ? (
-        <button
-          type="button"
-          className="canvas-open-panel"
-          title="展开属性面板"
-          onClick={() => actor.send({ type: 'OPEN_PANEL' })}
-        >
-          <CaretDoubleLeft size={16} />
-          打开面板
-        </button>
-      ) : null}
-
       {loading ? <div className="workflow-loading">正在加载工作流...</div> : null}
 
       {loadFailed ? (

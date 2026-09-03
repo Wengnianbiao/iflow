@@ -20,8 +20,7 @@ public class Switch extends WorkflowSystemTask {
     }
 
     @Override
-    public boolean execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
+    public void execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
         task.setStatus(TaskModel.Status.COMPLETED);
-        return true;
     }
 }

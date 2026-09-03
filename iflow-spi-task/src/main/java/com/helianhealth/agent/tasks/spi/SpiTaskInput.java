@@ -14,7 +14,6 @@ public final class SpiTaskInput {
     public static final String CLASS_NAME = "className";
     public static final String SOURCE_CODE = "sourceCode";
     public static final String SPI_INPUT = "spiInput";
-    public static final String OUTPUT_RESULT = "result";
 
     public static final String MODE_ONLINE = "ONLINE";
     public static final String MODE_PROJECT = "PROJECT";

@@ -1,4 +1,4 @@
-import { TaskType } from './taskType'
+import { getTaskAppearance } from '@/tasks'
 
 export const TaskStatus = {
   COMPLETED: 'COMPLETED',
@@ -82,11 +82,8 @@ export function getCardVariant(type: string, status?: string, selected?: boolean
     ? conductorTheme.taskCard.selected.outlineColor
     : conductorTheme.taskStatusOutline[(status as keyof typeof conductorTheme.taskStatusOutline) ?? TaskStatus.NULL]
 
-  const isOperator = [
-    TaskType.FORK_JOIN,
-    TaskType.JOIN,
-    TaskType.TERMINATE,
-  ].includes(type as never)
+  const appearance = getTaskAppearance(type)
+  const isOperator = appearance.cardVariant === 'operator'
 
   let cardStyles: Record<string, string> = isOperator
     ? {
@@ -111,9 +108,7 @@ export function getCardVariant(type: string, status?: string, selected?: boolean
     }
   }
 
-  const boxShadows = [TaskType.SWITCH, TaskType.DECISION].includes(type as never)
-    ? []
-    : ['0 2px 20px rgba(0,0,0,.4)']
+  const boxShadows = appearance.shadow ? ['0 2px 20px rgba(0,0,0,.4)'] : []
   if (selected) boxShadows.push(conductorTheme.taskCard.selected.boxShadow)
 
   return {

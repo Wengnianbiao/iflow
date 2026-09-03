@@ -58,7 +58,7 @@
       "type": "INLINE",
       "inputParameters": {
         "request": "${build_get_pat_info_request_ref.output.result}",
-        "responseBody": "${call_get_pat_info_ref.output.response.body}",
+        "responseBody": "${call_get_pat_info_ref.output.body}",
         "expression": "(function () { function unwrapHisBody(raw) { var text = raw == null ? '' : String(raw); return text.replace(/<string[^>]*>/i, '').replace(/<\\/string>/i, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim(); } function firstRow(rows) { if (!rows) { return null; } var row = rows.Row != null ? rows.Row : rows.row; if (Array.isArray(row)) { return row.length ? row[0] : null; } return row || null; } var requestXml = String(($.request && $.request.sendXml) || ''); var responseRaw = $.responseBody; var responseXml = unwrapHisBody(responseRaw); try { var parsed = XML.parse(responseXml) || {}; var his = parsed.HIS || parsed.his || {}; var result = his.Result || his.result || {}; var status = String(result.Status != null ? result.Status : (result.status != null ? result.status : '')); var message = String(result.MSG != null ? result.MSG : (result.msg != null ? result.msg : '')); var row = firstRow(his.Rows || his.rows); var exists = status === 'T' && row != null; var ybdm = row && row.ybdm != null ? String(row.ybdm).trim() : ''; var needUpdate = exists && ybdm === '131'; return { ok: true, exists: exists, status: status, message: message, row: row, ybdm: ybdm, requestXml: requestXml, responseXml: responseXml, updateAction: needUpdate ? 'UPDATE' : 'SKIP', createAction: exists ? 'SKIP' : 'CREATE' }; } catch (e) { return { ok: false, exists: false, status: '', message: '查询HIS档案异常', errorDetail: String(e), requestXml: requestXml, responseXml: responseXml, updateAction: 'SKIP', createAction: 'SKIP' }; } })()",
         "evaluatorType": "js"
       }
@@ -97,7 +97,7 @@
       "runCondition": "${parse_get_pat_info_ref.output.result.updateAction} == 'UPDATE'",
       "inputParameters": {
         "request": "${build_up_pat_info_request_ref.output.result}",
-        "responseBody": "${call_up_pat_info_ref.output.response.body}",
+        "responseBody": "${call_up_pat_info_ref.output.body}",
         "expression": "(function () { function unwrapHisBody(raw) { var text = raw == null ? '' : String(raw); return text.replace(/<string[^>]*>/i, '').replace(/<\\/string>/i, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim(); } function firstRow(rows) { if (!rows) { return null; } var row = rows.Row != null ? rows.Row : rows.row; if (Array.isArray(row)) { return row.length ? row[0] : null; } return row || null; } var requestXml = String(($.request && $.request.sendXml) || ''); var responseXml = unwrapHisBody($.responseBody); try { var parsed = XML.parse(responseXml) || {}; var his = parsed.HIS || parsed.his || {}; var result = his.Result || his.result || {}; var status = String(result.Status != null ? result.Status : (result.status != null ? result.status : '')); var message = String(result.MSG != null ? result.MSG : (result.msg != null ? result.msg : '')); var row = firstRow(his.Rows || his.rows); var valid = status === 'T' && row != null; return { ok: valid, status: status, message: message, row: row, requestXml: requestXml, responseXml: responseXml }; } catch (e) { return { ok: false, status: '', message: '患者更新档案异常', errorDetail: String(e), requestXml: requestXml, responseXml: responseXml }; } })()",
         "evaluatorType": "js"
       }
@@ -135,7 +135,7 @@
       "runCondition": "${parse_get_pat_info_ref.output.result.createAction} == 'CREATE'",
       "inputParameters": {
         "request": "${build_reg_pat_info_request_ref.output.result}",
-        "responseBody": "${call_reg_pat_info_ref.output.response.body}",
+        "responseBody": "${call_reg_pat_info_ref.output.body}",
         "expression": "(function () { function unwrapHisBody(raw) { var text = raw == null ? '' : String(raw); return text.replace(/<string[^>]*>/i, '').replace(/<\\/string>/i, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim(); } function firstRow(rows) { if (!rows) { return null; } var row = rows.Row != null ? rows.Row : rows.row; if (Array.isArray(row)) { return row.length ? row[0] : null; } return row || null; } var requestXml = String(($.request && $.request.sendXml) || ''); var cardno = String(($.request && $.request.cardno) || ''); var responseXml = unwrapHisBody($.responseBody); try { var parsed = XML.parse(responseXml) || {}; var his = parsed.HIS || parsed.his || {}; var result = his.Result || his.result || {}; var status = String(result.Status != null ? result.Status : (result.status != null ? result.status : '')); var message = String(result.MSG != null ? result.MSG : (result.msg != null ? result.msg : '')); var row = firstRow(his.Rows || his.rows); var ret = row && row.ret != null ? String(row.ret) : ''; var valid = status === 'T' && row != null && ret === 'T'; return { ok: valid, status: status, message: message, row: row, cardno: cardno, requestXml: requestXml, responseXml: responseXml }; } catch (e) { return { ok: false, status: '', message: '患者建档异常', errorDetail: String(e), cardno: cardno, requestXml: requestXml, responseXml: responseXml }; } })()",
         "evaluatorType": "js"
       }

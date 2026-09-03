@@ -1,7 +1,5 @@
 package com.helianhealth.agent.common.extension;
 
-import com.helianhealth.agent.common.extension.AgentSPI;
-
 /**
  * Extension Factory
  * 扩展工厂，用于获取不同来源的依赖对象

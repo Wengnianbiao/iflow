@@ -9,15 +9,15 @@ import {
 } from 'react'
 import { Helmet } from 'react-helmet'
 import {
-  ArrowsOut,
-  ArrowClockwise,
-  Check,
-  Copy,
-  Eye,
-  GridFour,
-  List,
-  StopCircle,
-  X,
+  ArrowsOutIcon,
+  ArrowClockwiseIcon,
+  CheckIcon,
+  CopyIcon,
+  EyeIcon,
+  GridFourIcon,
+  ListIcon,
+  StopCircleIcon,
+  XIcon,
 } from '@phosphor-icons/react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { getWorkflowExecution, terminateWorkflow } from '@/api/workflowExecution'
@@ -301,10 +301,10 @@ export function ExecutionDetailPage() {
               if (definition) navigate(`/workflowDef/edit?name=${encodeURIComponent(definition.name)}&version=${definition.version}`)
             }}
           >
-            <Eye size={16} />查看定义
+            <EyeIcon size={16} />查看定义
           </button>
           <button type="button" className={styles.textAction} disabled={refreshing} onClick={() => void load(true)}>
-            <ArrowClockwise size={16} className={refreshing ? styles.spinning : ''} />刷新
+            <ArrowClockwiseIcon size={16} className={refreshing ? styles.spinning : ''} />刷新
           </button>
           {!TERMINAL_WORKFLOW_STATUSES.has(execution.status) ? (
             <label className={styles.autoRefresh} title="每 10 秒刷新一次">
@@ -312,9 +312,9 @@ export function ExecutionDetailPage() {
               <span />自动刷新
             </label>
           ) : null}
-          {execution.status === 'RUNNING' || execution.status === 'PAUSED' ? (
+          {execution.status === 'RUNNING' ? (
             <button type="button" className={styles.dangerAction} disabled={terminating} onClick={() => void terminate()}>
-              <StopCircle size={16} />{terminating ? '终止中…' : '终止'}
+              <StopCircleIcon size={16} />{terminating ? '终止中…' : '终止'}
             </button>
           ) : null}
         </div>
@@ -406,7 +406,7 @@ export function ExecutionDetailPage() {
             <aside className={styles.taskPanel}>
               <header className={styles.taskHeader}>
                 <button type="button" className={styles.closeTaskPanel} aria-label="关闭任务详情" onClick={() => selectTaskByRef()}>
-                  <X size={20} />
+                  <XIcon size={20} />
                 </button>
                 <div className={styles.taskHeaderContent}>
                   <div className={styles.taskTitleLine}>
@@ -653,8 +653,8 @@ function JsonPairView({
     <div className={styles.ioPane}>
       <div className={styles.jsonLayoutActions} aria-label="JSON 布局">
         <span>{workflowName}</span>
-        <button type="button" className={layout === 'list' ? styles.activeLayout : ''} aria-label="列表布局" onClick={() => setLayout('list')}><List size={18} /></button>
-        <button type="button" className={layout === 'grid' ? styles.activeLayout : ''} aria-label="网格布局" onClick={() => setLayout('grid')}><GridFour size={18} /></button>
+        <button type="button" className={layout === 'list' ? styles.activeLayout : ''} aria-label="列表布局" onClick={() => setLayout('list')}><ListIcon size={18} /></button>
+        <button type="button" className={layout === 'grid' ? styles.activeLayout : ''} aria-label="网格布局" onClick={() => setLayout('grid')}><GridFourIcon size={18} /></button>
       </div>
       <div className={`${styles.jsonPair} ${layout === 'list' ? styles.jsonList : ''}`}>
         {cards.map((item) => (
@@ -700,11 +700,11 @@ function JsonCard({
         <h3>{title}</h3>
         <div>
           <button type="button" aria-label={`复制${title}`} title={`复制${title}`} onClick={() => void copy()}>
-            {copied ? <Check size={16} /> : <Copy size={16} />}
+            {copied ? <CheckIcon size={16} /> : <CopyIcon size={16} />}
           </button>
           {onToggleFullScreen ? (
             <button type="button" aria-label={fullScreen ? '退出全屏' : '全屏显示'} title={fullScreen ? '退出全屏' : '全屏显示'} onClick={onToggleFullScreen}>
-              {fullScreen ? <X size={16} /> : <ArrowsOut size={16} />}
+              {fullScreen ? <XIcon size={16} /> : <ArrowsOutIcon size={16} />}
             </button>
           ) : null}
         </div>
@@ -794,7 +794,7 @@ function StatusBadge({ status }: { status?: string }) {
 }
 
 function CopyButton({ label, onClick }: { label: string; onClick: (event: React.MouseEvent<HTMLButtonElement>) => void }) {
-  return <button type="button" className={styles.copyButton} aria-label={label} title={label} onClick={onClick}><Copy size={14} /></button>
+  return <button type="button" className={styles.copyButton} aria-label={label} title={label} onClick={onClick}><CopyIcon size={14} /></button>
 }
 
 function EmptyPane({ text, compact = false }: { text: string; compact?: boolean }) {
@@ -841,7 +841,6 @@ function statusTone(status?: string) {
   if (status === 'COMPLETED_WITH_ERRORS') return 'statusWarning'
   if (status === 'RUNNING' || status === 'IN_PROGRESS' || status === 'SCHEDULED') return 'statusRunning'
   if (status === 'FAILED' || status === 'FAILED_WITH_TERMINAL_ERROR' || status === 'TIMED_OUT') return 'statusFailed'
-  if (status === 'PAUSED') return 'statusPaused'
   if (status === 'TERMINATED' || status === 'CANCELED' || status === 'SKIPPED') return 'statusStopped'
   return 'statusPending'
 }

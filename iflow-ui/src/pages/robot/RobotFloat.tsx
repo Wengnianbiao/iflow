@@ -8,7 +8,7 @@ import {
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
-import { ArrowsIn, ArrowsOut, Palette, PaperPlaneRight, X } from '@phosphor-icons/react'
+import { ArrowsInIcon, ArrowsOutIcon, PaletteIcon, PaperPlaneRightIcon, XIcon } from '@phosphor-icons/react'
 import styles from './RobotFloat.module.css'
 
 type ChatRole = 'bot' | 'user'
@@ -437,7 +437,7 @@ export function RobotFloat() {
                 aria-expanded={skinPickerOpen}
                 onClick={() => setSkinPickerOpen((current) => !current)}
               >
-                <Palette size={16} weight="bold" />
+                <PaletteIcon size={16} weight="bold" />
               </button>
               <button
                 type="button"
@@ -446,7 +446,7 @@ export function RobotFloat() {
                 title={fullscreen ? '退出全屏' : '全屏会话'}
                 onClick={() => setFullscreen((current) => !current)}
               >
-                {fullscreen ? <ArrowsIn size={16} weight="bold" /> : <ArrowsOut size={16} weight="bold" />}
+                {fullscreen ? <ArrowsInIcon size={16} weight="bold" /> : <ArrowsOutIcon size={16} weight="bold" />}
               </button>
               <button
                 type="button"
@@ -458,7 +458,7 @@ export function RobotFloat() {
                   setSkinPickerOpen(false)
                 }}
               >
-                <X size={16} weight="bold" />
+                <XIcon size={16} weight="bold" />
               </button>
               {skinPickerOpen ? (
                 <div className={styles.skinPicker} role="listbox" aria-label="皮肤列表">
@@ -520,7 +520,7 @@ export function RobotFloat() {
               aria-label="发送"
               disabled={!draft.trim()}
             >
-              <PaperPlaneRight size={18} weight="fill" />
+              <PaperPlaneRightIcon size={18} weight="fill" />
             </button>
           </form>
           <p className={styles.hint}>
@@ -558,7 +558,7 @@ export function RobotFloat() {
         ) : null}
         <span className={styles.fabIcon}>
           {open ? (
-            <X size={22} weight="bold" />
+            <XIcon size={22} weight="bold" />
           ) : (
             <RobotMascot skin={skinId} mood={mood} lookX={look.x} lookY={look.y} />
           )}

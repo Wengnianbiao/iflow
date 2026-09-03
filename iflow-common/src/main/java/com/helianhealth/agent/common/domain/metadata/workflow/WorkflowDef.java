@@ -116,12 +116,11 @@ public class WorkflowDef extends Auditable {
 
     public WorkflowTask getNextTask(String taskReferenceName) {
         WorkflowTask workflowTask = getTaskByRefName(taskReferenceName);
-        if (workflowTask != null
-                && TaskType.TASK_TYPE_TERMINATE.equals(workflowTask.getType())) {
+        if (workflowTask != null && TaskType.TERMINATE.name().equals(workflowTask.getType())) {
             return null;
         }
 
-        // 从workflowDef的顶层tasks迭代器
+        // 从workflowDef的顶层tasks迭代
         Iterator<WorkflowTask> iterator = tasks.iterator();
         while (iterator.hasNext()) {
             WorkflowTask task = iterator.next();
@@ -137,7 +136,7 @@ public class WorkflowDef extends Auditable {
             } else if (TaskType.DO_WHILE.name().equals(task.getType())
                     && !task.getTaskReferenceName().equals(taskReferenceName)
                     && task.has(taskReferenceName)) {
-                //
+                // If the task is child of Loop Task and at last position, return null.
                 return null;
             }
 

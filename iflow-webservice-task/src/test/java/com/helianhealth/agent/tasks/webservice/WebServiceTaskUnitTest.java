@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -62,5 +63,34 @@ class WebServiceTaskUnitTest {
     void defaultContentTypeIsXml() {
         WebServiceTask.Input input = new WebServiceTask.Input();
         assertEquals("text/xml;charset=UTF-8", input.getContentType());
+    }
+
+    @Test
+    void writesResponseFieldsToOutputRoot() {
+        WebServiceTask successfulTask =
+                new WebServiceTask(new DefaultSoapClientProvider(5000, 8000), OBJECT_MAPPER) {
+                    @Override
+                    protected WebServiceResponse soapCall(Input input) {
+                        WebServiceResponse response = new WebServiceResponse();
+                        response.statusCode = 200;
+                        response.reasonPhrase = "OK";
+                        response.body = "<result>ok</result>";
+                        response.headers = Map.of();
+                        return response;
+                    }
+                };
+        TaskModel task = new TaskModel();
+        task.setInputData(
+                Map.of(
+                        "uri", "http://example.com/soap",
+                        "soapTemplate", "<request/>"));
+
+        successfulTask.execute(workflow, task, null);
+
+        assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
+        assertEquals("<result>ok</result>", task.getOutputData().get("body"));
+        assertEquals(200, task.getOutputData().get("statusCode"));
+        assertFalse(task.getOutputData().containsKey("result"));
+        assertFalse(task.getOutputData().containsKey("response"));
     }
 }

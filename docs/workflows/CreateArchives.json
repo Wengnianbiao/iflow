@@ -1,8 +1,8 @@
 {
   "name": "CreateArchives",
-  "displayName": "创建档案",
+  "displayName": "杭州903患者建档",
   "version": 1,
-  "description": "建档工作流，如果客户建过档就直接返回档案信息，否则走建档接口创建档案",
+  "description": "将 Jarvis CreateArchives 入参映射为 GHIS setPatientInfo，经测试网关 /gateway/api 调用建档，回写出参 code / message / rsp.outPatientCode / rsp.visitNo。",
   "correlationExpression": "${workflow.input.data.patientCode}",
   "inputParameters": [
     "data",
@@ -11,133 +11,281 @@
     "DepartType"
   ],
   "outputParameters": {
-    "code": "${build_output_ref.output.result.code}",
-    "message": "${build_output_ref.output.result.message}",
-    "rsp": "${build_output_ref.output.result.rsp}",
-    "alertMsg": "${build_output_ref.output.result.alertMsg}",
-    "reqParam": "${build_output_ref.output.result.reqParam}",
-    "resParam": "${build_output_ref.output.result.resParam}",
-    "errorType": "${build_output_ref.output.result.errorType}"
+    "code": "${map_output_ref.output.code}",
+    "message": "${map_output_ref.output.message}",
+    "rsp": "${map_output_ref.output.rsp}"
   },
   "tasks": [
     {
-      "name": "查询档案参数构建",
-      "permissive": false,
-      "decisionCases": {},
-      "inputParameters": {
-        "evaluatorType": "graaljs",
-        "payload": "${workflow.input}",
-        "expression": "(function () {\n  var payload = $.payload || {};\n  if (payload.input != null && typeof payload.input === 'object') {\n    payload = payload.input;\n  }\n  var data = payload.data || payload;\n  var pi = data.patientInfo || {};\n  function pick() {\n    for (var i = 0;i < arguments.length;i++ ) {\n      var v = arguments[i];\n      if (v != null && v !== '') {\n        return v;\n      }\n    }\n    return null;\n  }\n  function str(v) {\n    return v != null && v !== '' ? String(v) : null;\n  }\n  return {\n    patientCode: str(pick(data.patientCode, pi.patientCode)), patientId: str(pick(data.hisPatientId, pi.hisPatientId)), name: pick(data.patientName, pi.patientName), sex: str(pick(data.sex, pi.sex)), age: pick(data.age, pi.age), birthDate: pick(data.birthday, pi.birthday), cardType: str(pick(data.cardType, pi.cardType)), cardId: pick(data.identitycard, pi.identitycard), address: pick(data.address, pi.address), phone: pick(data.phone, pi.phone), marital: str(pick(data.marriage, pi.marriage)), nation: pick(data.nationName, data.nation), country: null, education: null, contactName: null, contactPhone: null, contactAddress: null, orgId: str(pi.hisOrgId), orgName: pick(data.orgName, pi.orgName)\n  };\n})()"
-      },
+      "name": "映射HIS建档业务数据",
+      "taskReferenceName": "map_his_patient_ref",
+      "type": "MAPPING",
       "optional": false,
-      "type": "INLINE",
-      "taskReferenceName": "build_patient_info_ref"
+      "inputParameters": {
+        "payload": "${workflow.input.data}",
+        "paramsConfig": [
+          {
+            "targetParamKey": "patient",
+            "targetParamType": "OBJECT",
+            "sourceParamType": "NONE",
+            "paramDesc": "GHIS setPatientInfo 业务对象",
+            "childParams": [
+              {
+                "targetParamKey": "visitBdmd",
+                "targetParamType": "STRING",
+                "sourceParamType": "NONE",
+                "mappingType": "CONSTANT",
+                "mappingRule": "66fca570063ef80001a5da41",
+                "paramDesc": "基础数据账户 accountId"
+              },
+              {
+                "targetParamKey": "visitOrganization",
+                "targetParamType": "STRING",
+                "sourceParamType": "NONE",
+                "mappingType": "CONSTANT",
+                "mappingRule": "66fca42db0c0ad0001f1a9f4",
+                "paramDesc": "医疗机构组织机构代码"
+              },
+              {
+                "targetParamKey": "visitTenant",
+                "targetParamType": "STRING",
+                "sourceParamType": "NONE",
+                "mappingType": "CONSTANT",
+                "mappingRule": "GHIS",
+                "paramDesc": "租户"
+              },
+              {
+                "targetParamKey": "visitDept",
+                "targetParamType": "STRING",
+                "sourceParamType": "NONE",
+                "mappingType": "CONSTANT",
+                "mappingRule": "66fca4551d3a1d0001fab02d",
+                "paramDesc": "科室 departmentId"
+              },
+              {
+                "targetParamKey": "visitUser",
+                "targetParamType": "STRING",
+                "sourceParamType": "NONE",
+                "mappingType": "CONSTANT",
+                "mappingRule": "6a4db0dc4da7fc0001a9609a",
+                "paramDesc": "用户 userId"
+              },
+              {
+                "sourceParamKey": "patientName",
+                "sourceParamType": "STRING",
+                "targetParamKey": "name",
+                "targetParamType": "STRING",
+                "mappingType": "NAME",
+                "paramDesc": "患者姓名"
+              },
+              {
+                "sourceParamKey": "birthday",
+                "sourceParamType": "STRING",
+                "targetParamKey": "birthDate",
+                "targetParamType": "STRING",
+                "mappingType": "NAME",
+                "paramDesc": "出生日期"
+              },
+              {
+                "sourceParamKey": "sex",
+                "sourceParamType": "STRING",
+                "targetParamKey": "sex",
+                "targetParamType": "INTEGER",
+                "mappingType": "NAME",
+                "paramDesc": "性别代码"
+              },
+              {
+                "sourceParamKey": "identitycard",
+                "sourceParamType": "STRING",
+                "targetParamKey": "idCard",
+                "targetParamType": "STRING",
+                "mappingType": "NAME",
+                "paramDesc": "身份证件号码"
+              },
+              {
+                "sourceParamKey": "cardType",
+                "sourceParamType": "STRING",
+                "targetParamKey": "idCardCode",
+                "targetParamType": "STRING",
+                "mappingType": "EXPRESSION",
+                "mappingRule": "#data[cardType] == '1' || #data[cardType] == 1 ? '01' : #data[cardType]",
+                "paramDesc": "身份证件类型，1→01"
+              },
+              {
+                "sourceParamKey": "phone",
+                "sourceParamType": "STRING",
+                "targetParamKey": "patientPhone",
+                "targetParamType": "STRING",
+                "mappingType": "NAME",
+                "paramDesc": "患者电话号码"
+              },
+              {
+                "sourceParamKey": "marriage",
+                "sourceParamType": "STRING",
+                "targetParamKey": "maritalStatus",
+                "targetParamType": "STRING",
+                "mappingType": "EXPRESSION",
+                "mappingRule": "#data[marriage] == '1' || #data[marriage] == 1 ? '10' : (#data[marriage] == '2' || #data[marriage] == 2 ? '20' : (#data[marriage] == '3' || #data[marriage] == 3 ? '40' : (#data[marriage] == '4' || #data[marriage] == 4 ? '30' : '90')))",
+                "paramDesc": "婚姻：1未婚→10，2已婚→20，3离婚→40，4丧偶→30"
+              },
+              {
+                "sourceParamKey": "nation",
+                "sourceParamType": "STRING",
+                "targetParamKey": "ethnicGroup",
+                "targetParamType": "STRING",
+                "mappingType": "NAME",
+                "paramDesc": "民族代码"
+              },
+              {
+                "sourceParamKey": "orgName",
+                "sourceParamType": "STRING",
+                "targetParamKey": "workUnit",
+                "targetParamType": "STRING",
+                "mappingType": "NAME",
+                "paramDesc": "工作单位名称"
+              },
+              {
+                "sourceParamKey": "hisPatientId",
+                "sourceParamType": "STRING",
+                "targetParamKey": "mpi",
+                "targetParamType": "STRING",
+                "mappingType": "NAME",
+                "paramDesc": "业务系统患者档案ID"
+              },
+              {
+                "sourceParamKey": "visitNo",
+                "sourceParamType": "STRING",
+                "targetParamKey": "medicalCardId",
+                "targetParamType": "STRING",
+                "mappingType": "NAME",
+                "paramDesc": "就诊卡号"
+              },
+              {
+                "sourceParamKey": "doctorInfo.userName",
+                "sourceParamType": "STRING",
+                "targetParamKey": "author",
+                "targetParamType": "STRING",
+                "mappingType": "NAME",
+                "paramDesc": "建卡者姓名"
+              },
+              {
+                "sourceParamKey": "doctorInfo.number",
+                "sourceParamType": "STRING",
+                "targetParamKey": "authorId",
+                "targetParamType": "STRING",
+                "mappingType": "NAME",
+                "paramDesc": "建卡者代码"
+              },
+              {
+                "targetParamKey": "addressDTO",
+                "targetParamType": "OBJECT",
+                "sourceParamType": "NONE",
+                "paramDesc": "地址",
+                "childParams": [
+                  {
+                    "sourceParamKey": "address",
+                    "sourceParamType": "STRING",
+                    "targetParamKey": "addressDetail",
+                    "targetParamType": "STRING",
+                    "mappingType": "NAME",
+                    "paramDesc": "地址全称"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "targetParamKey": "timestamp",
+            "targetParamType": "STRING",
+            "sourceParamType": "NONE",
+            "mappingType": "EXPRESSION",
+            "mappingRule": "T(String).valueOf(T(System).currentTimeMillis())",
+            "paramDesc": "当前时间戳"
+          },
+          {
+            "targetParamKey": "encryptData",
+            "targetParamType": "STRING",
+            "sourceParamType": "NONE",
+            "mappingType": "EXPRESSION",
+            "mappingRule": "T(com.helianhealth.agent.common.utils.JsonUtils).toJsonString(T(java.util.Collections).singletonList(#data[patient]))",
+            "paramDesc": "业务数据 JSON 数组字符串，读取同级已映射的 patient"
+          }
+        ]
+      }
     },
     {
-      "name": "查询档案接口",
-      "permissive": false,
-      "decisionCases": {},
+      "name": "调用HIS建档",
+      "taskReferenceName": "call_his_ref",
+      "type": "HTTP",
+      "optional": false,
       "inputParameters": {
-        "uri": "http://127.0.0.1:8807/get-archive",
+        "uri": "http://132.147.181.1044/gateway/api",
         "method": "POST",
         "contentType": "application/json",
         "accept": "application/json",
-        "readTimeOut": 30000,
         "connectionTimeOut": 5000,
+        "readTimeOut": 30000,
         "body": {
-          "patientCode": "${build_patient_info_ref.output.result.patientCode}",
-          "patientId": "${build_patient_info_ref.output.result.patientId}",
-          "name": "${build_patient_info_ref.output.result.name}",
-          "sex": "${build_patient_info_ref.output.result.sex}",
-          "age": "${build_patient_info_ref.output.result.age}",
-          "birthDate": "${build_patient_info_ref.output.result.birthDate}",
-          "cardType": "${build_patient_info_ref.output.result.cardType}",
-          "cardId": "${build_patient_info_ref.output.result.cardId}",
-          "address": "${build_patient_info_ref.output.result.address}",
-          "phone": "${build_patient_info_ref.output.result.phone}",
-          "marital": "${build_patient_info_ref.output.result.marital}",
-          "nation": "${build_patient_info_ref.output.result.nation}",
-          "country": "${build_patient_info_ref.output.result.country}",
-          "education": "${build_patient_info_ref.output.result.education}",
-          "contactName": "${build_patient_info_ref.output.result.contactName}",
-          "contactPhone": "${build_patient_info_ref.output.result.contactPhone}",
-          "contactAddress": "${build_patient_info_ref.output.result.contactAddress}",
-          "orgId": "${build_patient_info_ref.output.result.orgId}",
-          "orgName": "${build_patient_info_ref.output.result.orgName}"
+          "appId": "6a4daeb8b4ac040015386004",
+          "encryptData": "${map_his_patient_ref.output.encryptData}",
+          "sign": "",
+          "timestamp": "${map_his_patient_ref.output.timestamp}",
+          "version": "1.0.0",
+          "beanName": "exchange.stand.setPatientInfoProvider",
+          "methodName": "setPatientInfo"
         }
-      },
-      "optional": false,
-      "type": "HTTP",
-      "taskReferenceName": "get_archive_ref"
+      }
     },
     {
-      "name": "查询档案路由",
-      "permissive": false,
-      "evaluatorType": "graaljs",
-      "expression": "(function () { var body = $.responseBody || {}; if (body.returnCode != null) { return String(body.returnCode); } if (body.code != null) { return String(body.code); } return ''; })()",
-      "decisionCases": {
-        "-1": [
+      "name": "映射建档出参",
+      "taskReferenceName": "map_output_ref",
+      "type": "MAPPING",
+      "optional": false,
+      "inputParameters": {
+        "payload": "${call_his_ref.output.body}",
+        "paramsConfig": [
           {
-            "name": "创建档案",
-            "permissive": false,
-            "decisionCases": {},
-            "inputParameters": {
-              "uri": "http://127.0.0.1:8807/create-archive",
-              "method": "POST",
-              "contentType": "application/json",
-              "accept": "application/json",
-              "readTimeOut": 30000,
-              "connectionTimeOut": 5000,
-              "body": {
-                "patientCode": "${build_patient_info_ref.output.result.patientCode}",
-                "patientId": "${build_patient_info_ref.output.result.patientId}",
-                "name": "${build_patient_info_ref.output.result.name}",
-                "sex": "${build_patient_info_ref.output.result.sex}",
-                "age": "${build_patient_info_ref.output.result.age}",
-                "birthDate": "${build_patient_info_ref.output.result.birthDate}",
-                "cardType": "${build_patient_info_ref.output.result.cardType}",
-                "cardId": "${build_patient_info_ref.output.result.cardId}",
-                "address": "${build_patient_info_ref.output.result.address}",
-                "phone": "${build_patient_info_ref.output.result.phone}",
-                "marital": "${build_patient_info_ref.output.result.marital}",
-                "nation": "${build_patient_info_ref.output.result.nation}",
-                "country": "${build_patient_info_ref.output.result.country}",
-                "education": "${build_patient_info_ref.output.result.education}",
-                "contactName": "${build_patient_info_ref.output.result.contactName}",
-                "contactPhone": "${build_patient_info_ref.output.result.contactPhone}",
-                "contactAddress": "${build_patient_info_ref.output.result.contactAddress}",
-                "orgId": "${build_patient_info_ref.output.result.orgId}",
-                "orgName": "${build_patient_info_ref.output.result.orgName}"
+            "targetParamKey": "code",
+            "targetParamType": "STRING",
+            "sourceParamType": "NONE",
+            "mappingType": "EXPRESSION",
+            "mappingRule": "(#data[code] == 200 || #data[code] == '200' || #data[code] == 0 || #data[code] == '0') && (#data[body] == null || #data[body][status] == null || #data[body][status] == true) ? '200' : '-1'",
+            "paramDesc": "200成功 / -1失败"
+          },
+          {
+            "targetParamKey": "message",
+            "targetParamType": "STRING",
+            "sourceParamType": "NONE",
+            "mappingType": "EXPRESSION",
+            "mappingRule": "(#data[code] == 200 || #data[code] == '200' || #data[code] == 0 || #data[code] == '0') && (#data[body] == null || #data[body][status] == null || #data[body][status] == true) ? '成功' : (#data[body] != null && #data[body][detail] != null ? #data[body][detail] : (#data[message] != null ? #data[message] : '失败'))",
+            "paramDesc": "响应描述"
+          },
+          {
+            "targetParamKey": "rsp",
+            "targetParamType": "OBJECT",
+            "sourceParamType": "NONE",
+            "paramDesc": "建档回写",
+            "childParams": [
+              {
+                "targetParamKey": "outPatientCode",
+                "targetParamType": "STRING",
+                "sourceParamType": "STRING",
+                "mappingType": "EXPRESSION",
+                "mappingRule": "#data[body] != null && #data[body][data] != null ? (#data[body][data][mpi] ?: #data[body][data][idPi]) : (#data[data] != null ? (#data[data][mpi] ?: #data[data][idPi]) : null)",
+                "paramDesc": "PATIENT_ID"
+              },
+              {
+                "targetParamKey": "visitNo",
+                "targetParamType": "STRING",
+                "sourceParamType": "STRING",
+                "mappingType": "EXPRESSION",
+                "mappingRule": "#data[body] != null && #data[body][data] != null ? #data[body][data][medicalCardId] : (#data[data] != null ? #data[data][medicalCardId] : null)",
+                "paramDesc": "就诊卡号 VISIT_NO"
               }
-            },
-            "optional": false,
-            "type": "HTTP",
-            "taskReferenceName": "create_archive_ref"
+            ]
           }
         ]
-      },
-      "inputParameters": {
-        "responseBody": "${get_archive_ref.output.response.body}"
-      },
-      "optional": false,
-      "type": "SWITCH",
-      "taskReferenceName": "route_ref",
-      "defaultCase": []
-    },
-    {
-      "name": "build_workflow_output",
-      "permissive": false,
-      "decisionCases": {},
-      "inputParameters": {
-        "selectedCase": "${route_ref.output.selectedCase}",
-        "queryResponseBody": "${get_archive_ref.output.response.body}",
-        "createResponseBody": "${create_archive_ref.output.response.body}",
-        "expression": "(function () {\n  var body = String($.selectedCase) === '-1' ? ($.createResponseBody || {}) : ($.queryResponseBody || {});\n  var code = body.returnCode != null ? String(body.returnCode) : String(body.code != null ? body.code : '');\n  var message = body.errorMessage || body.message || body.msg || '';\n  var data = body.data || null;\n  var success = code === '1' || code === '0' || code === '200' || code === 'T';\n  return {\n    code: success ? '200' : (code || '-1'),\n    message: message || (success ? '成功' : '失败'),\n    rsp: success && data ? {\n      patientId: data.patientId != null ? String(data.patientId) : null,\n      medicalRecordNo: data.medicalRecordNo != null ? String(data.medicalRecordNo) : null\n    } : null,\n    alertMsg: null,\n    reqParam: null,\n    resParam: null,\n    errorType: null\n  };\n})()",
-        "evaluatorType": "graaljs"
-      },
-      "optional": false,
-      "type": "INLINE",
-      "taskReferenceName": "build_output_ref"
+      }
     }
   ]
 }

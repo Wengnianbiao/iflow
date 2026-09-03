@@ -23,7 +23,7 @@ public class ExclusiveJoin extends WorkflowSystemTask {
 
     @Override
     @SuppressWarnings("unchecked")
-    public boolean execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
+    public void execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
         List<String> joinOn = (List<String>) task.getInputData().get("joinOn");
         List<String> defaultJoinOn = (List<String>) task.getInputData().get("defaultExclusiveJoinTask");
 
@@ -32,7 +32,7 @@ public class ExclusiveJoin extends WorkflowSystemTask {
             hit = pickFirstTerminal(workflow, defaultJoinOn);
         }
         if (hit == null) {
-            return false;
+            return;
         }
 
         if (hit.getStatus().isSuccessful()) {
@@ -42,7 +42,6 @@ public class ExclusiveJoin extends WorkflowSystemTask {
             task.setReasonForInCompletion(hit.getReasonForInCompletion());
             task.setStatus(TaskModel.Status.FAILED);
         }
-        return true;
     }
 
     private TaskModel pickFirstTerminal(WorkflowModel workflow, List<String> refs) {

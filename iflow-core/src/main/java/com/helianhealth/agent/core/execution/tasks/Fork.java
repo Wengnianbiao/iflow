@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
  * 逻辑分支任务。
  *
  * <p>Decider 在调度阶段生成 {@code forkTasks} 各支首任务；FORK 自身的 execute 只负责完成逻辑标记，
- * 各分支任务携带 fork execution scope，由专用分支线程池并行推进，最终由 JOIN 汇聚。
+ * 各分支任务携带 fork execution scope，由 Scheduler 在专用分支线程池中按批次并行执行，最终由 JOIN 汇聚。
  */
 @Component(TaskType.TASK_TYPE_FORK)
 public class Fork extends WorkflowSystemTask {
@@ -20,8 +20,7 @@ public class Fork extends WorkflowSystemTask {
     }
 
     @Override
-    public boolean execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
+    public void execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
         task.setStatus(TaskModel.Status.COMPLETED);
-        return true;
     }
 }

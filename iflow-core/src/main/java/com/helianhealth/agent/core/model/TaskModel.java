@@ -116,7 +116,8 @@ public class TaskModel {
     private Map<String, Object> inputData = new HashMap<>();
 
     /**
-     * 出参（任务同步执行结果）
+     * 出参（任务同步执行结果）。输出根节点保持 Map，具体字段由任务类型定义；
+     * 仅 INLINE 等返回任意单值的任务使用 {@code result} 键。失败诊断放在 {@code error} 键下。
      */
     private Map<String, Object> outputData = new HashMap<>();
 
@@ -201,7 +202,7 @@ public class TaskModel {
     private String forkTaskId;
 
     /**
-     * 数据拆分循环的迭代索引
+     * 循环执行的迭代索引
      */
     private int iteration;
 

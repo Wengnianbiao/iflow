@@ -39,7 +39,7 @@ import static com.helianhealth.agent.core.model.TaskModel.Status.SKIPPED;
  * <p>职责边界：
  * <ul>
  *   <li>占位符解析 → {@link com.helianhealth.agent.core.execution.mapper.TaskMapper} + {@link ParametersUtils}</li>
- *   <li>任务执行 → {@link WorkflowExecutorOps} 调用各系统任务的 {@code execute()}</li>
+ *   <li>任务执行 → {@link TaskScheduler} 调用各系统任务的 {@code execute()}</li>
  *   <li>持久化 → {@link com.helianhealth.agent.core.dao.ExecutionDAO}（由 {@link WorkflowExecutorOps} 调用）</li>
  * </ul>
  */
@@ -247,7 +247,7 @@ public class DeciderService {
     }
 
     /**
-     * 单次决策：根据当前工作流运行时decide出待scheduled的task和待updated的task以及转换工作流状态
+     * 单次决策：根据当前工作流运行时decide出待scheduled的task、待updated的task、更新工作流状态
      */
     private DeciderOutcome decide(WorkflowModel workflow, List<TaskModel> preScheduledTasks) {
         DeciderOutcome outcome = new DeciderOutcome();
@@ -261,11 +261,6 @@ public class DeciderService {
 
         // todo 增加超时时间check,or 框架工作流不配置超时，由task层保证
         checkWorkflowTimeout(workflow);
-
-        if (WorkflowModel.Status.PAUSED.equals(workflow.getStatus())) {
-            LOGGER.debug("Workflow {} is paused", workflow);
-            return outcome;
-        }
 
         // 1、收集当前工作流运行时
         // decide本轮pending的task
@@ -292,7 +287,7 @@ public class DeciderService {
 
         // 2、处理工作流运行时task->主要就是针对pending task的处理
         Map<String, TaskModel> tasksToBeScheduled = new LinkedHashMap<>();
-        // preScheduledTasks就是首批/外部传入的待调度的task可视为直接可scheduled的task
+        // preScheduledTasks就是首批/外部传入的待调度的task视为直接scheduled的task
         preScheduledTasks.forEach(
                 t -> tasksToBeScheduled.put(t.getReferenceTaskName(), t));
 
@@ -303,10 +298,10 @@ public class DeciderService {
                 executedTaskRefNames.remove(pendingTask.getReferenceTaskName());
             }
 
+            // todo task的超时&重试处理
             if (pendingTask.getStatus().isTerminal() && !pendingTask.getStatus().isSuccessful()) {
                 handleFailedTask(workflow, pendingTask);
             }
-            // todo task的超时&重试处理
 
             // pendingTask终态处理并获取该task下一轮需要调度的tasks
             if (!pendingTask.isExecuted()
@@ -338,7 +333,7 @@ public class DeciderService {
         // 3、decide收尾确定待调度、待更新、工作流状态
         List<TaskModel> unScheduledTasks =
                 tasksToBeScheduled.values().stream()
-                        .filter(t -> !executedTaskRefNames.contains(t.getReferenceTaskName()))
+                        .filter(task -> !executedTaskRefNames.contains(task.getReferenceTaskName()))
                         .toList();
         if (!unScheduledTasks.isEmpty()) {
             LOGGER.debug(
@@ -347,16 +342,61 @@ public class DeciderService {
                             .map(TaskModel::getTaskDefName)
                             .collect(Collectors.toList()),
                     workflow.getWorkflowId());
-            outcome.tasksToBeDispatched.addAll(unScheduledTasks);
+            outcome.tasksToBeScheduled.addAll(unScheduledTasks);
         }
 
         if (hasSuccessfulTerminateTask
-                || (outcome.tasksToBeDispatched.isEmpty()
+                || (outcome.tasksToBeScheduled.isEmpty()
                         && checkForWorkflowCompletion(workflow))) {
             outcome.isComplete = true;
         }
 
         return outcome;
+    }
+
+    private boolean shouldScheduleDoWhileIteration(
+            WorkflowModel workflow, TaskModel task) {
+        if (!TaskType.TASK_TYPE_DO_WHILE.equals(task.getTaskType())
+                || task.getIteration() <= 0
+                || task.getWorkflowTask() == null
+                || task.getWorkflowTask().getLoopOver() == null
+                || task.getWorkflowTask().getLoopOver().isEmpty()) {
+            return false;
+        }
+
+        int iteration = task.getIteration();
+        return workflow.getTasks().stream()
+                .filter(candidate -> candidate.getIteration() == iteration)
+                .filter(
+                        candidate ->
+                                !task.getReferenceTaskName()
+                                        .equals(candidate.getReferenceTaskName()))
+                .noneMatch(
+                        candidate ->
+                                task.getWorkflowTask()
+                                        .has(
+                                                TaskUtils.removeIterationFromTaskRefName(
+                                                        candidate.getReferenceTaskName())));
+    }
+
+    private List<TaskModel> createDoWhileIterationTasks(
+            WorkflowModel workflow, TaskModel task) {
+        WorkflowTask firstLoopTask = task.getWorkflowTask().getLoopOver().get(0);
+        List<TaskModel> iterationTasks =
+                getTasksToBeScheduled(
+                        workflow,
+                        firstLoopTask,
+                        task.getRetryCount(),
+                        null,
+                        task.getForkTaskId());
+        iterationTasks.forEach(
+                iterationTask -> {
+                    iterationTask.setReferenceTaskName(
+                            TaskUtils.appendIteration(
+                                    iterationTask.getReferenceTaskName(), task.getIteration()));
+                    iterationTask.setIteration(task.getIteration());
+                });
+        return iterationTasks;
     }
 
     private void checkWorkflowTimeout(WorkflowModel workflow) {
@@ -406,6 +446,7 @@ public class DeciderService {
 
             WorkflowTask taskToSchedule = workflowDef.getTasks().get(0);
 
+            // Loop until a non-skipped task is found
             while (isTaskSkipped(taskToSchedule, workflow)) {
                 taskToSchedule = workflowDef.getNextTask(taskToSchedule.getTaskReferenceName());
                 if (taskToSchedule == null) {
@@ -457,7 +498,7 @@ public class DeciderService {
      */
     public static class DeciderOutcome {
 
-        List<TaskModel> tasksToBeDispatched = new LinkedList<>();
+        List<TaskModel> tasksToBeScheduled = new LinkedList<>();
         List<TaskModel> tasksToBeUpdated = new LinkedList<>();
         boolean isComplete;
         TaskModel terminateTask;

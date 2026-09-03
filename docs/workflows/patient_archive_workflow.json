@@ -70,7 +70,7 @@
       "evaluatorType": "graaljs",
       "expression": "(function () { var body = $.responseBody || {}; if (body.returnCode != null) { return String(body.returnCode); } if (body.code != null) { return String(body.code); } return ''; })()",
       "inputParameters": {
-        "responseBody": "${get_archive_ref.output.response.body}"
+        "responseBody": "${get_archive_ref.output.body}"
       },
       "decisionCases": {
         "-1": [
@@ -118,8 +118,8 @@
       "type": "INLINE",
       "inputParameters": {
         "selectedCase": "${route_ref.output.selectedCase}",
-        "queryResponseBody": "${get_archive_ref.output.response.body}",
-        "createResponseBody": "${create_archive_ref.output.response.body}",
+        "queryResponseBody": "${get_archive_ref.output.body}",
+        "createResponseBody": "${create_archive_ref.output.body}",
         "expression": "(function () {\n  var body = String($.selectedCase) === '-1' ? ($.createResponseBody || {}) : ($.queryResponseBody || {});\n  var code = body.returnCode != null ? String(body.returnCode) : String(body.code != null ? body.code : '');\n  var message = body.errorMessage || body.message || body.msg || '';\n  var data = body.data || null;\n  var success = code === '1' || code === '0' || code === '200' || code === 'T';\n  return {\n    code: success ? '200' : (code || '-1'),\n    message: message || (success ? '成功' : '失败'),\n    rsp: success && data ? {\n      patientId: data.patientId != null ? String(data.patientId) : null,\n      medicalRecordNo: data.medicalRecordNo != null ? String(data.medicalRecordNo) : null\n    } : null,\n    alertMsg: null,\n    reqParam: null,\n    resParam: null,\n    errorType: null\n  };\n})()",
         "evaluatorType": "graaljs"
       }

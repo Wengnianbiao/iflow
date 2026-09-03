@@ -2,13 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  Copy,
-  PencilSimple,
-  PlayCircle,
-  PlusCircle,
-  Trash,
-  WarningCircle,
-  X,
+  CopyIcon,
+  PencilSimpleIcon,
+  PlayCircleIcon,
+  PlusCircleIcon,
+  TrashIcon,
+  WarningCircleIcon,
+  XIcon,
 } from '@phosphor-icons/react'
 import {
   deleteWorkflowDefinition,
@@ -193,7 +193,7 @@ export function WorkflowDefinitionListPage() {
         <h1>工作流配置</h1>
         <div className="definition-header-actions">
           <button type="button" className="outline-action">
-            <PlayCircle size={18} />
+            <PlayCircleIcon size={18} />
             运行工作流
           </button>
           <button
@@ -201,7 +201,7 @@ export function WorkflowDefinitionListPage() {
             className="primary-action"
             onClick={() => navigate('/workflowDef/edit?name=new_workflow&version=1&new=true')}
           >
-            <PlusCircle size={18} />
+            <PlusCircleIcon size={18} />
             新建工作流
           </button>
         </div>
@@ -257,7 +257,7 @@ export function WorkflowDefinitionListPage() {
                       aria-label={`复制 ${definition.name}`}
                       onClick={() => openCopyDialog(definition)}
                     >
-                      <Copy size={19} />
+                      <CopyIcon size={19} />
                     </button>
                     <button
                       type="button"
@@ -265,7 +265,7 @@ export function WorkflowDefinitionListPage() {
                       aria-label={`编辑 ${definition.name}`}
                       onClick={() => navigate(workflowEditorPath(definition))}
                     >
-                      <PencilSimple size={19} />
+                      <PencilSimpleIcon size={19} />
                     </button>
                     <button
                       type="button"
@@ -273,7 +273,7 @@ export function WorkflowDefinitionListPage() {
                       aria-label={`删除 ${definition.name}`}
                       onClick={() => openDeleteDialog(definition)}
                     >
-                      <Trash size={19} />
+                      <TrashIcon size={19} />
                     </button>
                   </div>
                 </td>
@@ -342,7 +342,7 @@ export function WorkflowDefinitionListPage() {
                     {dialog.type === 'copy' ? '复制工作流' : '删除工作流'}
                   </h2>
                   <button type="button" className="definition-dialog-close" aria-label="关闭弹窗" onClick={closeDialog} disabled={dialogBusy}>
-                    <X size={20} />
+                    <XIcon size={20} />
                   </button>
                 </header>
 
@@ -374,7 +374,7 @@ export function WorkflowDefinitionListPage() {
                       </>
                     ) : (
                       <div className="definition-dialog-warning">
-                        <WarningCircle size={34} weight="fill" aria-hidden="true" />
+                        <WarningCircleIcon size={34} weight="fill" aria-hidden="true" />
                         <div>
                           <p id="definition-dialog-description">
                             确定删除工作流 <strong>{definitionDisplayName(dialog.definition)}</strong> 的版本 {dialog.definition.version ?? '-'} 吗？

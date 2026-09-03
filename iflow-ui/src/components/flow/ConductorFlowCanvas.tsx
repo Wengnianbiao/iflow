@@ -8,7 +8,7 @@ import {
   type NodeTaskData,
 } from '@/flow/conductorMapper'
 import { conductorTheme } from '@/flow/conductorTheme'
-import { TaskType } from '@/flow/taskType'
+import { getTaskFlowKind, isTaskSelectable, type AddableTaskType } from '@/tasks'
 import {
   addSwitchCase,
   addForkBranch,
@@ -23,7 +23,6 @@ import {
   removeSwitchCase,
   removeForkBranch,
   removeTask,
-  type AddableTaskType,
 } from '@/flow/workflowEditor'
 import type { WorkflowDef, WorkflowTask } from '@/types/workflow'
 import { CustomLabel } from './CustomLabel'
@@ -100,7 +99,7 @@ function clamp(value: number, min: number, max: number) {
 
 function findNodeTask(node?: NodeData<NodeTaskData>) {
   const task = node?.data?.task
-  if (!task || task.type === TaskType.TERMINAL || task.type === TaskType.SWITCH_JOIN) return undefined
+  if (!task || !isTaskSelectable(task.type)) return undefined
   return task
 }
 
@@ -157,10 +156,11 @@ function applyAddTask(workflow: WorkflowDef, target: MenuTarget, type: AddableTa
       return insertTasksBeforeTask(workflow, node.id, tasks)
     }
     const branchName = parseNodeBranchTarget(target.port)
-    if (branchName && [TaskType.SWITCH, TaskType.DECISION].includes(node.data?.task.type as never)) {
+    const flowKind = getTaskFlowKind(node.data?.task.type ?? '')
+    if (branchName && flowKind === 'switch') {
       return appendToSwitchBranch(workflow, node.id, branchName, tasks, 'end')
     }
-    if (branchName && node.data?.task.type === TaskType.FORK_JOIN) {
+    if (branchName && flowKind === 'fork') {
       return appendToForkBranch(workflow, node.id, Number(branchName), tasks, 'end')
     }
     return insertTasksAfterTask(workflow, node.id, tasks)
@@ -241,7 +241,7 @@ export function ConductorFlowCanvas({
   }
 
   const deleteOperatorBranch = (operatorReferenceName: string, operatorType: string, branchName: string) => {
-    const nextWorkflow = operatorType === TaskType.FORK_JOIN
+    const nextWorkflow = getTaskFlowKind(operatorType) === 'fork'
       ? removeForkBranch(workflow, operatorReferenceName, Number(branchName))
       : removeSwitchCase(workflow, operatorReferenceName, branchName)
     onWorkflowChange(nextWorkflow)
@@ -494,9 +494,10 @@ export function ConductorFlowCanvas({
                     event.preventDefault()
                     event.stopPropagation()
                     const operatorTask = payload.node.data?.task
+                    const operatorFlowKind = getTaskFlowKind(operatorTask?.type ?? '')
                     const branchTasks =
-                      operatorTask?.type === TaskType.FORK_JOIN
-                        ? operatorTask.forkTasks?.[Number(branchName)] ?? []
+                      operatorFlowKind === 'fork'
+                        ? operatorTask?.forkTasks?.[Number(branchName)] ?? []
                         : branchName === 'defaultCase'
                           ? operatorTask?.defaultCase ?? []
                           : operatorTask?.decisionCases?.[branchName] ?? []
@@ -504,23 +505,23 @@ export function ConductorFlowCanvas({
                       closeMenu()
                       setPendingDeleteBranch({
                         operatorReferenceName: payload.node.id,
-                        operatorType: operatorTask?.type ?? TaskType.SWITCH,
+                        operatorType: operatorTask?.type ?? '',
                         branchName,
-                        displayName: operatorTask?.type === TaskType.FORK_JOIN
+                        displayName: operatorFlowKind === 'fork'
                           ? `并行分支 ${Number(branchName) + 1}`
                           : branchName === 'defaultCase' ? '默认分支' : branchName,
                         taskCount: branchTasks.length,
                       })
                       return
                     }
-                    deleteOperatorBranch(payload.node.id, operatorTask?.type ?? TaskType.SWITCH, branchName)
+                    deleteOperatorBranch(payload.node.id, operatorTask?.type ?? '', branchName)
                   }}
                   onAddSwitchCase={(event, node) => {
                     if (readOnly) return
                     event.preventDefault()
                     event.stopPropagation()
                     onWorkflowChange(
-                      node.data?.task.type === TaskType.FORK_JOIN
+                      getTaskFlowKind(node.data?.task.type ?? '') === 'fork'
                         ? addForkBranch(workflow, node.id)
                         : addSwitchCase(workflow, node.id),
                     )

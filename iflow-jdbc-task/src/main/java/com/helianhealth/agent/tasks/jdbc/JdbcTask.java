@@ -32,6 +32,7 @@ import java.util.Map;
  * + {@link com.helianhealth.agent.core.utils.ParametersUtils} 在调度阶段解析，Task 只消费已解析入参。
  *
  * <p>支持 {@link Operation#QUERY} 与 {@link Operation#UPDATE}；SQL 使用 {@code :name} 命名参数。
+ * 执行结果写入 {@code outputData} 根级（{@code rows}/{@code rowCount}/{@code updateCount}）。
  */
 @Component(TaskType.TASK_TYPE_JDBC)
 public class JdbcTask extends WorkflowSystemTask {
@@ -64,7 +65,7 @@ public class JdbcTask extends WorkflowSystemTask {
     }
 
     @Override
-    public boolean execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor) {
+    public void execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor) {
         Object request = task.getInputData().get(requestParameter);
         if (request == null) {
             request = task.getInputData();
@@ -75,18 +76,18 @@ public class JdbcTask extends WorkflowSystemTask {
             task.setReasonForInCompletion(
                     "Missing JDBC URL. See documentation for JdbcTask for required input parameters");
             task.setStatus(TaskModel.Status.FAILED);
-            return true;
+            return;
         }
         if (input.getSql() == null || input.getSql().isBlank()) {
             task.setReasonForInCompletion("Missing SQL");
             task.setStatus(TaskModel.Status.FAILED);
-            return true;
+            return;
         }
         if ((input.getDriverClassName() == null || input.getDriverClassName().isBlank())
                 && input.getVendor() == null) {
             task.setReasonForInCompletion("Missing driverClassName or vendor");
             task.setStatus(TaskModel.Status.FAILED);
-            return true;
+            return;
         }
 
         int queryTimeoutMs = jdbcConnectionProvider.resolveQueryTimeoutMs(input);
@@ -114,7 +115,7 @@ public class JdbcTask extends WorkflowSystemTask {
                     response.updateCount = affected;
                 }
             }
-            task.addOutput("response", response.asMap());
+            task.setOutputData(response.asMap());
             task.setStatus(TaskModel.Status.COMPLETED);
         } catch (Exception e) {
             LOGGER.error(
@@ -126,9 +127,8 @@ public class JdbcTask extends WorkflowSystemTask {
                     e);
             task.setStatus(TaskModel.Status.FAILED);
             task.setReasonForInCompletion("Failed to invoke " + getTaskType() + " task due to: " + e);
-            task.addOutput("response", e.toString());
+            addError(task, e.toString());
         }
-        return true;
     }
 
     @Override

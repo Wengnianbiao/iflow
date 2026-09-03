@@ -58,7 +58,7 @@ DB init scripts live under `docs/init_mysql/`. Product docs under `docs/`.
 - Do not remove existing user changes in a dirty worktree; keep diffs scoped to the request.
 - Prefer matching existing module boundaries over inventing new layers.
 - When behavior should align with Netflix Conductor, treat `conductor-3.30.2/` as the reference (engine under its Java modules; UI under `conductor-3.30.2/ui-next`).
-- Keep visible product UI copy Chinese where the existing UI is Chinese; keep technical task-type labels (`INLINE`, `HTTP`, `SWITCH`, `JSON JQ`, etc.) in English.
+- Keep visible product UI copy Chinese where the existing UI is Chinese; keep technical task-type labels (`INLINE`, `HTTP`, `SWITCH`, etc.) in English.
 - Do not commit secrets, local stores (`.pnpm-store`, `.m2`), or build artifacts unless explicitly asked.
 - Ask before creating git commits or PRs.
 

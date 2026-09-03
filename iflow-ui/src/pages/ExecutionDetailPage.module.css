@@ -941,7 +941,6 @@
 .statusRunning { color: #155c93; background: #dceefa; }
 .statusFailed { color: #a92323; background: #f9dede; }
 .statusWarning { color: #80550e; background: #f8ebcf; }
-.statusPaused { color: #6b4f92; background: #eee4f8; }
 .statusStopped { color: #6c4c16; background: #eee7dc; }
 .statusPending { color: #596171; background: #eceff3; }
 

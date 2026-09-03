@@ -3,14 +3,14 @@ import { createPortal } from 'react-dom'
 import { useSelector } from '@xstate/react'
 import { DiffEditor, type MonacoDiffEditor } from '@monaco-editor/react'
 import {
-  ArrowClockwise,
-  CaretDown,
-  CaretUp,
-  FloppyDisk,
-  Tag,
-  Trash,
-  WarningCircle,
-  X,
+  ArrowClockwiseIcon,
+  CaretDownIcon,
+  CaretUpIcon,
+  FloppyDiskIcon,
+  TagIcon,
+  TrashIcon,
+  WarningCircleIcon,
+  XIcon,
 } from '@phosphor-icons/react'
 import type { WorkflowDefinitionActor } from '../state'
 
@@ -78,7 +78,7 @@ function SaveWorkflowDialog({
             disabled={saving}
             onClick={() => actor.send({ type: 'CANCEL_DIALOG' })}
           >
-            <X size={20} />
+            <XIcon size={20} />
           </button>
         </header>
 
@@ -95,7 +95,7 @@ function SaveWorkflowDialog({
                 aria-label="上一处变更"
                 onClick={() => editorRef.current?.goToDiff('previous')}
               >
-                <CaretUp size={15} weight="bold" />
+                <CaretUpIcon size={15} weight="bold" />
                 上一处
               </button>
               <button
@@ -105,7 +105,7 @@ function SaveWorkflowDialog({
                 aria-label="下一处变更"
                 onClick={() => editorRef.current?.goToDiff('next')}
               >
-                <CaretDown size={15} weight="bold" />
+                <CaretDownIcon size={15} weight="bold" />
                 下一处
               </button>
             </div>
@@ -144,7 +144,7 @@ function SaveWorkflowDialog({
             disabled={saving}
             onClick={() => actor.send({ type: 'CANCEL_DIALOG' })}
           >
-            <X size={17} />
+            <XIcon size={17} />
             取消
           </button>
           <button
@@ -153,7 +153,7 @@ function SaveWorkflowDialog({
             disabled={saving}
             onClick={() => actor.send({ type: 'CONFIRM_SAVE' })}
           >
-            <FloppyDisk size={17} />
+            <FloppyDiskIcon size={17} />
             {saving ? '保存中...' : '确认保存'}
           </button>
         </footer>
@@ -190,7 +190,7 @@ function ResetWorkflowDialog({
             className="workflow-delete-dialog-icon workflow-confirm-dialog-icon"
             aria-hidden="true"
           >
-            <ArrowClockwise size={23} weight="bold" />
+            <ArrowClockwiseIcon size={23} weight="bold" />
           </span>
           <div>
             <h2 id="workflow-reset-title">重置工作流修改</h2>
@@ -202,7 +202,7 @@ function ResetWorkflowDialog({
             title="关闭"
             onClick={() => actor.send({ type: 'CANCEL_DIALOG' })}
           >
-            <X size={20} />
+            <XIcon size={20} />
           </button>
         </header>
         <div className="workflow-delete-dialog-content">
@@ -221,7 +221,7 @@ function ResetWorkflowDialog({
             className="workflow-confirm-action"
             onClick={() => actor.send({ type: 'CONFIRM_RESET' })}
           >
-            <ArrowClockwise size={18} weight="bold" />
+            <ArrowClockwiseIcon size={18} weight="bold" />
             确认重置
           </button>
         </footer>
@@ -259,7 +259,7 @@ function VersionChangeDialog({
             className="workflow-delete-dialog-icon workflow-confirm-dialog-icon"
             aria-hidden="true"
           >
-            <Tag size={23} weight="bold" />
+            <TagIcon size={23} weight="bold" />
           </span>
           <div>
             <h2 id="workflow-version-change-title">切换工作流版本</h2>
@@ -271,7 +271,7 @@ function VersionChangeDialog({
             title="关闭"
             onClick={() => actor.send({ type: 'CANCEL_DIALOG' })}
           >
-            <X size={20} />
+            <XIcon size={20} />
           </button>
         </header>
         <div className="workflow-delete-dialog-content">
@@ -293,7 +293,7 @@ function VersionChangeDialog({
             className="workflow-confirm-action"
             onClick={() => actor.send({ type: 'CONFIRM_VERSION_CHANGE' })}
           >
-            <Tag size={18} weight="bold" />
+            <TagIcon size={18} weight="bold" />
             继续切换
           </button>
         </footer>
@@ -336,7 +336,7 @@ function DeleteWorkflowDialog({
       >
         <header>
           <span className="workflow-delete-dialog-icon" aria-hidden="true">
-            <Trash size={23} weight="bold" />
+            <TrashIcon size={23} weight="bold" />
           </span>
           <div>
             <h2 id="workflow-delete-title">删除工作流版本</h2>
@@ -349,7 +349,7 @@ function DeleteWorkflowDialog({
             disabled={deleting}
             onClick={close}
           >
-            <X size={20} />
+            <XIcon size={20} />
           </button>
         </header>
 
@@ -392,7 +392,7 @@ function DeleteWorkflowDialog({
           </label>
           {deleteError ? (
             <div className="workflow-delete-error">
-              <WarningCircle size={17} />
+              <WarningCircleIcon size={17} />
               {deleteError}
             </div>
           ) : null}
@@ -413,7 +413,7 @@ function DeleteWorkflowDialog({
             disabled={deleting || deleteConfirmationValue !== workflow.name}
             onClick={() => actor.send({ type: 'CONFIRM_DELETE' })}
           >
-            <Trash size={18} weight="bold" />
+            <TrashIcon size={18} weight="bold" />
             {deleting ? '删除中...' : '确认删除'}
           </button>
         </footer>

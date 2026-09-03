@@ -1,22 +1,11 @@
-import { TaskType } from './taskType'
+import {
+  createRegisteredTask,
+  createRegisteredTaskSequence,
+  getTaskFlowKind,
+  getTaskVariableOptions,
+  type AddableTaskType,
+} from '@/tasks'
 import type { WorkflowDef, WorkflowTask } from '@/types/workflow'
-
-const OUR_TASK_TYPES = [
-  TaskType.HTTP,
-  TaskType.INLINE,
-  TaskType.JSON_JQ_TRANSFORM,
-  TaskType.SWITCH,
-  TaskType.FORK_JOIN,
-  TaskType.DO_WHILE,
-  TaskType.PARAM_MAP,
-  TaskType.SPI,
-  TaskType.JDBC,
-  TaskType.WEBSERVICE,
-] as const
-
-export type AddableTaskType = (typeof OUR_TASK_TYPES)[number]
-
-export const addableTaskTypes: AddableTaskType[] = [...OUR_TASK_TYPES]
 
 const DEFAULT_WORKFLOW_ATTRIBUTES = [
   'workflow.workflowId',
@@ -47,10 +36,7 @@ export function buildVariableOptions(workflow: WorkflowDef) {
   const workflowAttributes = DEFAULT_WORKFLOW_ATTRIBUTES.map((name) => `\${${name}}`)
   const taskOutputs = collectWorkflowTasks(workflow.tasks)
     .filter((task) => Boolean(task.taskReferenceName))
-    .flatMap((task) => {
-      const output = `\${${task.taskReferenceName}.output}`
-      return task.type === TaskType.PARAM_MAP ? [output, `\${${task.taskReferenceName}.output.output}`] : [output]
-    })
+    .flatMap(getTaskVariableOptions)
 
   return [...new Set([
     '${workflow.input}',
@@ -62,205 +48,15 @@ export function buildVariableOptions(workflow: WorkflowDef) {
   ].filter(Boolean))]
 }
 
-export function spiJavaTemplate(className: string) {
-  const separator = className.lastIndexOf('.')
-  const packageName = separator > 0 ? className.slice(0, separator) : ''
-  const simpleName = separator > 0 ? className.slice(separator + 1) : className
-  return `${packageName ? `package ${packageName};\n\n` : ''}import com.helianhealth.agent.tasks.spi.InterfaceRemoteInvoker;
+export type { AddableTaskType } from '@/tasks'
+export { spiJavaTemplate } from '@/tasks/templates'
 
-import java.util.LinkedHashMap;
-import java.util.Map;
-
-public class ${simpleName} implements InterfaceRemoteInvoker {
-
-    @Override
-    public Map<String, Object> remoteInvoke(Map<String, Object> spiInput) {
-        Map<String, Object> result = new LinkedHashMap<>(spiInput);
-        // TODO 在这里实现当前 SPI 节点的接口业务逻辑
-        return result;
-    }
-}
-`
+export function createTask(type: string) {
+  return createRegisteredTask(type)
 }
 
-export function createTask(type: string): WorkflowTask {
-  const suffix = Math.random().toString(36).slice(2, 7)
-  const base = type.toLowerCase()
-  const taskReferenceName = `${base}_${suffix}_ref`
-
-  if (type === TaskType.SWITCH || type === TaskType.DECISION) {
-    return {
-      name: `分支路由_${suffix}`,
-      taskReferenceName,
-      type: TaskType.SWITCH,
-      evaluatorType: 'value-param',
-      expression: '${workflow.input.value}',
-      decisionCases: {
-        switch_case_1: [],
-      },
-      defaultCase: [],
-      inputParameters: {},
-    }
-  }
-
-  if (type === TaskType.FORK_JOIN) {
-    return {
-      name: `fork_${suffix}`,
-      taskReferenceName,
-      type,
-      inputParameters: {},
-      forkTasks: [[]],
-    }
-  }
-
-  if (type === TaskType.JOIN) {
-    return {
-      name: `join_${suffix}`,
-      taskReferenceName,
-      type,
-      inputParameters: {},
-      joinOn: [],
-      optional: false,
-    }
-  }
-
-  if (type === TaskType.DO_WHILE) {
-    return {
-      name: `do_while_${suffix}`,
-      taskReferenceName,
-      type,
-      inputParameters: { evaluatorType: 'graaljs' },
-      evaluatorType: 'graaljs',
-      loopCondition: 'false',
-      loopOver: [],
-      optional: false,
-    }
-  }
-
-  if (type === TaskType.HTTP) {
-    return {
-      name: `http_${suffix}`,
-      taskReferenceName,
-      type,
-      inputParameters: {
-        http_request: {
-          method: 'GET',
-          uri: 'http://localhost:8080',
-          contentType: 'application/json',
-          readTimeOut: 30000,
-        },
-      },
-    }
-  }
-
-  if (type === TaskType.JDBC) {
-    return {
-      name: `jdbc_${suffix}`,
-      taskReferenceName,
-      type,
-      inputParameters: {
-        jdbc_request: {
-          url: 'jdbc:mysql://localhost:3306/demo',
-          vendor: 'MYSQL',
-          username: '',
-          operation: 'QUERY',
-          sql: 'SELECT 1',
-          parameters: {},
-          connectionTimeOut: 5000,
-          queryTimeOut: 30000,
-        },
-      },
-    }
-  }
-
-  if (type === TaskType.WEBSERVICE) {
-    return {
-      name: `webservice_${suffix}`,
-      taskReferenceName,
-      type,
-      inputParameters: {
-        uri: 'http://localhost:8080/services/example',
-        headers: {
-          SOAPAction: '',
-        },
-        templateParameters: {
-          payload: '${workflow.input}',
-        },
-        soapTemplate: '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">\n  <soap:Body>\n    <requestId>${$.payload.requestId}</requestId>\n  </soap:Body>\n</soap:Envelope>',
-        contentType: 'text/xml;charset=UTF-8',
-        connectionTimeOut: 5000,
-        readTimeOut: 30000,
-      },
-    }
-  }
-
-  if (type === TaskType.INLINE) {
-    return {
-      name: `${base}_${suffix}`,
-      taskReferenceName,
-      type,
-      inputParameters: {
-        evaluatorType: 'graaljs',
-        expression: '(function () { return {}; })()',
-      },
-    }
-  }
-
-  if (type === TaskType.JSON_JQ_TRANSFORM) {
-    return {
-      name: `${base}_${suffix}`,
-      taskReferenceName,
-      type,
-      evaluatorType: 'javascript',
-      expression: '(function () { return {}; })()',
-      inputParameters: {},
-    }
-  }
-
-  if (type === TaskType.PARAM_MAP) {
-    return {
-      name: `param_map_${suffix}`,
-      taskReferenceName,
-      type,
-      inputParameters: {
-        payload: '${workflow.input}',
-        paramsConfig: [],
-      },
-    }
-  }
-
-  if (type === TaskType.SPI) {
-    const className = `com.helianhealth.agent.extension.SpiTaskExtension_${suffix}`
-    return {
-      name: `spi_${suffix}`,
-      taskReferenceName,
-      type,
-      inputParameters: {
-        remoteExtension: `spi-${suffix}`,
-        extensionMode: 'ONLINE',
-        className,
-        sourceCode: spiJavaTemplate(className),
-        spiInput: {},
-      },
-    }
-  }
-
-  return {
-    name: `${base}_${suffix}`,
-    taskReferenceName,
-    type,
-    inputParameters: {},
-  }
-}
-
-/**
- * Some Conductor operators are structural task sequences. A FORK_JOIN is only
- * executable when its matching JOIN immediately follows it, so expose one
- * operation payload instead of letting callers create an invalid half-pair.
- */
-export function createTaskSequence(type: AddableTaskType): WorkflowTask[] {
-  if (type !== TaskType.FORK_JOIN) return [createTask(type)]
-  return [createTask(TaskType.FORK_JOIN), createTask(TaskType.JOIN)]
+export function createTaskSequence(type: AddableTaskType) {
+  return createRegisteredTaskSequence(type)
 }
 
 function cloneTask(task: WorkflowTask): WorkflowTask {
@@ -371,7 +167,7 @@ export function appendToForkBranch(
   return {
     ...def,
     tasks: updateTaskList(def.tasks, (task, index, list) => {
-      if (task.taskReferenceName !== forkReferenceName || task.type !== TaskType.FORK_JOIN) return undefined
+      if (task.taskReferenceName !== forkReferenceName || getTaskFlowKind(task.type) !== 'fork') return undefined
       const nextTask = cloneTask(task)
       const forkTasks = nextTask.forkTasks ?? []
       const branch = forkTasks[branchIndex] ?? []
@@ -383,7 +179,7 @@ export function appendToForkBranch(
       const nextList = list.map((item, taskIndex) => (taskIndex === index ? nextTask : item))
       const join = nextList[index + 1]
       const nextTailRef = forkTasks[branchIndex]?.at(-1)?.taskReferenceName
-      if (join?.type === TaskType.JOIN && nextTailRef) {
+      if (join && getTaskFlowKind(join.type) === 'join' && nextTailRef) {
         const currentJoinOn = join.joinOn ?? []
         const shouldTrackNewTail = !previousTailRef || currentJoinOn.includes(previousTailRef)
         nextList[index + 1] = {
@@ -406,7 +202,7 @@ export function appendToDoWhile(
   return {
     ...def,
     tasks: updateTaskList(def.tasks, (task, index, list) => {
-      if (task.taskReferenceName !== doWhileReferenceName || task.type !== TaskType.DO_WHILE) return undefined
+      if (task.taskReferenceName !== doWhileReferenceName || getTaskFlowKind(task.type) !== 'do_while') return undefined
       const nextTask = cloneTask(task)
       nextTask.loopOver = [...(nextTask.loopOver ?? []), ...tasksToInsert]
       return list.map((item, taskIndex) => (taskIndex === index ? nextTask : item))
@@ -418,7 +214,7 @@ export function addForkBranch(def: WorkflowDef, forkReferenceName: string): Work
   return {
     ...def,
     tasks: updateTaskList(def.tasks, (task, index, list) => {
-      if (task.taskReferenceName !== forkReferenceName || task.type !== TaskType.FORK_JOIN) return undefined
+      if (task.taskReferenceName !== forkReferenceName || getTaskFlowKind(task.type) !== 'fork') return undefined
       const nextTask = cloneTask(task)
       nextTask.forkTasks = [...(nextTask.forkTasks ?? []), []]
       return list.map((item, taskIndex) => (taskIndex === index ? nextTask : item))
@@ -430,14 +226,14 @@ export function removeForkBranch(def: WorkflowDef, forkReferenceName: string, br
   return {
     ...def,
     tasks: updateTaskList(def.tasks, (task, index, list) => {
-      if (task.taskReferenceName !== forkReferenceName || task.type !== TaskType.FORK_JOIN) return undefined
+      if (task.taskReferenceName !== forkReferenceName || getTaskFlowKind(task.type) !== 'fork') return undefined
       const removedBranch = task.forkTasks?.[branchIndex] ?? []
       const removedTailRef = removedBranch.at(-1)?.taskReferenceName
       const nextTask = cloneTask(task)
       nextTask.forkTasks = (nextTask.forkTasks ?? []).filter((_, itemIndex) => itemIndex !== branchIndex)
       const nextList = list.map((item, taskIndex) => (taskIndex === index ? nextTask : item))
       const join = nextList[index + 1]
-      if (join?.type === TaskType.JOIN && removedTailRef) {
+      if (join && getTaskFlowKind(join.type) === 'join' && removedTailRef) {
         nextList[index + 1] = {
           ...cloneTask(join),
           joinOn: (join.joinOn ?? []).filter((reference) => reference !== removedTailRef),
@@ -563,12 +359,13 @@ export function removeTask(def: WorkflowDef, taskReferenceName: string): Workflo
     ...def,
     tasks: updateTaskList(def.tasks, (task, index, list) => {
       if (task.taskReferenceName !== taskReferenceName) return undefined
-      const pairedTask = task.type === TaskType.FORK_JOIN && list[index + 1]?.type === TaskType.JOIN
+      const flowKind = getTaskFlowKind(task.type)
+      const pairedTask = flowKind === 'fork' && getTaskFlowKind(list[index + 1]?.type ?? '') === 'join'
         ? 2
-        : task.type === TaskType.JOIN && list[index - 1]?.type === TaskType.FORK_JOIN
+        : flowKind === 'join' && getTaskFlowKind(list[index - 1]?.type ?? '') === 'fork'
           ? 2
           : 1
-      const removalIndex = pairedTask === 2 && task.type === TaskType.JOIN ? index - 1 : index
+      const removalIndex = pairedTask === 2 && flowKind === 'join' ? index - 1 : index
       return [...list.slice(0, removalIndex), ...list.slice(removalIndex + pairedTask)]
     }),
   }

@@ -11,7 +11,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 class SpiTaskUnitTest {
 
@@ -70,7 +69,7 @@ class SpiTaskUnitTest {
         assertEquals("my-invoker", extensionRouter.remoteExtension);
         assertEquals(Map.of("patientName", "Alice"), extensionRouter.spiInput);
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
-        assertEquals("OK", ((Map<?, ?>) task.getOutputData().get(SpiTaskInput.OUTPUT_RESULT)).get("code"));
+        assertEquals(Map.of("code", "OK"), task.getOutputData());
     }
 
     @Test
@@ -83,8 +82,7 @@ class SpiTaskUnitTest {
         spiTask.execute(workflow, task, null);
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
-        assertNotNull(task.getOutputData().get(SpiTaskInput.OUTPUT_RESULT));
-        assertTrue(((Map<?, ?>) task.getOutputData().get(SpiTaskInput.OUTPUT_RESULT)).isEmpty());
+        assertTrue(task.getOutputData().isEmpty());
     }
 
     @Test

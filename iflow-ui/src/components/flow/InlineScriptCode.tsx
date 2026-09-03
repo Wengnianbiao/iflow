@@ -171,8 +171,16 @@ export function highlightInlineScriptLine(line: string, keyPrefix: string): Reac
   return tokens
 }
 
-export function InlineHighlightedCode({ code, className = '' }: { code: string; className?: string }) {
-  const formatted = formatInlineScript(code)
+export function InlineHighlightedCode({
+  code,
+  className = '',
+  format = true,
+}: {
+  code: string
+  className?: string
+  format?: boolean
+}) {
+  const formatted = format ? formatInlineScript(code) : code
   const lines = formatted.split('\n')
   return (
     <span className={`inline-highlighted-code ${className}`}>

@@ -13,7 +13,7 @@ Frontend rules for `iflow-ui`. See root `AGENTS.md` for repo-wide context.
    - iFlow UI root: `iflow-ui/src`
 2. Compare both implementation and rendered DOM/CSS behavior.
 3. Preserve Conductor layout, spacing, card shapes, labels, icons, tabs, side panels, and interaction order unless the user explicitly asks for a product-specific deviation.
-4. Keep visible iFlow text Chinese where the existing iFlow UI is Chinese, but keep Conductor technical labels such as task types (`INLINE`, `HTTP`, `SWITCH`, `JSON JQ`) in their original technical form.
+4. Keep visible iFlow text Chinese where the existing iFlow UI is Chinese, but keep Conductor technical labels such as task types (`INLINE`, `HTTP`, `SWITCH`) in their original technical form.
 5. Verify changes in the browser:
    - UI dev server: `http://127.0.0.1:5174` (`pnpm dev`)
    - API (proxied): `IFLOW_API_TARGET` or `http://127.0.0.1:8099`

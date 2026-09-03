@@ -34,8 +34,6 @@ export function Workflow() {
   const title = useSelector(
     actor,
     (state) => state.context.workflow?.displayName
-      || state.context.workflow?.name
-      || attributes.workflowName,
   )
   const isReady = useSelector(actor, (state) => state.matches('ready'))
 

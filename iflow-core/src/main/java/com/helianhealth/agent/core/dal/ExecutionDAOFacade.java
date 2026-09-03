@@ -125,4 +125,8 @@ public class ExecutionDAOFacade {
     public WorkflowModel getWorkflowModel(String workflowId) {
         return executionDAO.getWorkflow(workflowId, true).orElse(null);
     }
+
+    public void updateTasks(List<TaskModel> tasks) {
+        tasks.forEach(this::updateTask);
+    }
 }

@@ -1,14 +1,13 @@
 package com.helianhealth.agent.core.execution;
 
 import com.helianhealth.agent.common.domain.metadata.workflow.WorkflowDef;
-import com.helianhealth.agent.common.domain.metadata.workflow.WorkflowTask;
 import com.helianhealth.agent.common.exception.WorkFlowErrorCode;
 import com.helianhealth.agent.common.exception.WorkFlowException;
 import com.helianhealth.agent.core.dal.ExecutionDAOFacade;
 import com.helianhealth.agent.core.exception.TerminateWorkflowException;
 import com.helianhealth.agent.core.exception.TransientException;
 import com.helianhealth.agent.core.execution.tasks.SystemTaskRegistry;
-import com.helianhealth.agent.core.execution.tasks.WorkflowSystemTask;
+import com.helianhealth.agent.core.execution.tasks.Terminate;
 import com.helianhealth.agent.core.lock.ExecutionLockService;
 import com.helianhealth.agent.core.lock.InMemoryExecutionLockService;
 import com.helianhealth.agent.core.model.TaskModel;
@@ -16,7 +15,6 @@ import com.helianhealth.agent.core.model.WorkflowModel;
 import com.helianhealth.agent.core.service.MetadataService;
 import com.helianhealth.agent.core.utils.IDGenerator;
 import com.helianhealth.agent.core.utils.ParametersUtils;
-import com.helianhealth.agent.core.utils.TaskUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,14 +26,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.stream.Collectors;
 
 /**
- * 工作流执行引擎默认实现：调用线程同步推进 DAG，FORK 分支任务交给专用 Dispatcher 并行执行。
+ * 工作流执行引擎默认实现：调用线程同步推进 DAG，FORK 分支任务交给专用 Scheduler 并行执行。
  */
 @Service
 public class WorkflowExecutorOps implements WorkflowExecutor {
@@ -49,11 +44,7 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
     private final IDGenerator idGenerator;
     private final ParametersUtils parametersUtils;
     private final ExecutionLockService executionLockService;
-    private final Set<String> executingTaskIds = ConcurrentHashMap.newKeySet();
-    private final ConcurrentMap<String, SynchronousWorkflowRun> activeRuns =
-            new ConcurrentHashMap<>();
-    private TaskDispatcher taskDispatcher =
-            new CallerAndForkTaskDispatcher(ForkJoinPool.commonPool());
+    private TaskScheduler taskScheduler;
 
     @Autowired
     public WorkflowExecutorOps(
@@ -74,11 +65,14 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
                 executionLockService != null
                         ? executionLockService
                         : new InMemoryExecutionLockService();
+        this.taskScheduler =
+                new CallerAndForkTaskScheduler(
+                        ForkJoinPool.commonPool(), systemTaskRegistry);
     }
 
     @Autowired
-    public void setTaskDispatcher(TaskDispatcher taskDispatcher) {
-        this.taskDispatcher = Objects.requireNonNull(taskDispatcher);
+    public void setTaskScheduler(TaskScheduler taskScheduler) {
+        this.taskScheduler = Objects.requireNonNull(taskScheduler);
     }
 
     @Override
@@ -88,8 +82,11 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
         WorkflowModel workflow = createWorkflowModel(input, workflowDefinition, workflowId);
 
         try {
-            createWorkflow(workflow);
-            return driveWorkflow(workflow);
+            return createAndDriveWithLock(workflow);
+        } catch (TerminateWorkflowException e) {
+            LOGGER.info("Execution terminated for workflow: {}", workflowId, e);
+            persistTerminatedWorkflow(workflow, e);
+            throw e;
         } catch (Exception e) {
             LOGGER.error("Unable to start workflow: {}", workflowDefinition.getName(), e);
             try {
@@ -107,11 +104,10 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
                     WorkFlowErrorCode.REPOSITORY_SAVE_ERROR, "工作流 name 不能为空");
         }
 
-        // version 为 null 时 MetadataService 取最新版本
         return metadataService.getWorkflowDef(input.getName(), input.getVersion());
     }
 
-    private void createWorkflow(WorkflowModel workflow) {
+    private WorkflowModel createAndDriveWithLock(WorkflowModel workflow) {
         if (!executionLockService.acquireLock(workflow.getWorkflowId())) {
             throw new TransientException(
                     "Error acquiring lock when creating workflow: " + workflow);
@@ -122,120 +118,80 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
                     "A new instance of workflow: {} created with id: {}",
                     workflow.getWorkflowName(),
                     workflow.getWorkflowId());
+            return driveWorkflow(workflow);
         } finally {
             executionLockService.releaseLock(workflow.getWorkflowId());
         }
     }
 
     private WorkflowModel driveWorkflow(WorkflowModel workflow) {
-        String workflowId = workflow.getWorkflowId();
-        SynchronousWorkflowRun run = new SynchronousWorkflowRun();
-        SynchronousWorkflowRun existing = activeRuns.putIfAbsent(workflowId, run);
-        if (existing != null) {
-            existing.signalProgress();
-            return workflow;
-        }
+        // 同步DAG,死循环到工作流状态为terminal, todo是否全由task实现超时呢?ops层是不是也需要加入workflow超时的逻辑
+        while (!workflow.getStatus().isTerminal()) {
 
-        try {
-            while (!workflow.getStatus().isTerminal()
-                    && workflow.getStatus() != WorkflowModel.Status.PAUSED) {
-                run.throwIfFailed();
-                long observedProgress = run.progressVersion();
-                ExecutionBatch batch = evaluateWithLock(workflow);
-                if (workflow.getStatus().isTerminal()) {
-                    break;
-                }
-
-                DispatchSummary dispatchSummary =
-                        dispatchTasks(workflow, batch.tasksToDispatch(), run);
-                if (batch.stateChanged() || dispatchSummary.inlineStateChanged()) {
-                    continue;
-                }
-
-                run.throwIfFailed();
-                if (run.hasProgressedSince(observedProgress)) {
-                    continue;
-                }
-                if (run.hasForkTasksInFlight()) {
-                    run.awaitProgress(observedProgress, workflow);
-                    continue;
-                }
-
-                throw new WorkFlowException(
-                        WorkFlowErrorCode.INTERNAL_ERROR,
-                        "Workflow " + workflowId + " has no runnable task and made no progress");
-            }
-            run.throwIfFailed();
-            return workflow;
-        } finally {
-            activeRuns.remove(workflowId, run);
-        }
-    }
-
-    private ExecutionBatch evaluateWithLock(WorkflowModel workflow) {
-        String workflowId = workflow.getWorkflowId();
-        if (!executionLockService.acquireLock(workflowId)) {
-            throw new TransientException(
-                    "Error acquiring lock when deciding workflow: " + workflowId);
-        }
-        try {
-            return evaluate(workflow);
-        } finally {
-            executionLockService.releaseLock(workflowId);
-        }
-    }
-
-    private ExecutionBatch evaluate(WorkflowModel workflow) {
-        if (workflow.getStatus().isTerminal()) {
-            if (!workflow.getStatus().isSuccessful()) {
-                cancelNonTerminalTasks(workflow, workflow.getReasonForInCompletion());
-            }
-            return ExecutionBatch.empty();
-        }
-
-        try {
             DeciderService.DeciderOutcome outcome = deciderService.decide(workflow);
             if (outcome.isComplete) {
-                persistTaskChanges(outcome.tasksToBeUpdated);
+                executionDAOFacade.updateTasks(outcome.tasksToBeUpdated);
                 endExecution(workflow, outcome.terminateTask);
-                return new ExecutionBatch(List.of(), true);
+                return workflow;
             }
 
-            persistTaskChanges(outcome.tasksToBeUpdated);
-            List<TaskModel> newTasks = registerTasks(workflow, outcome.tasksToBeDispatched);
-            boolean stateChanged = !outcome.tasksToBeUpdated.isEmpty() || !newTasks.isEmpty();
+            List<TaskModel> tasksToBeScheduled = outcome.tasksToBeScheduled;
+            List<TaskModel> tasksToBeUpdated = outcome.tasksToBeUpdated;
 
-            if (stateChanged) {
-                updateWorkflow(workflow);
+            tasksToBeScheduled = dedupAndAddTasks(workflow, tasksToBeScheduled);
+
+            scheduleTask(workflow, tasksToBeScheduled);
+
+            if (!outcome.tasksToBeUpdated.isEmpty() || !tasksToBeScheduled.isEmpty()) {
+                executionDAOFacade.updateTasks(tasksToBeUpdated);
+                executionDAOFacade.updateWorkflow(workflow);
             }
-            return new ExecutionBatch(outcome.tasksToBeDispatched, stateChanged);
-        } catch (TerminateWorkflowException e) {
-            LOGGER.info("Execution terminated for workflow: {}", workflow.getWorkflowId(), e);
-            workflow.setStatus(
-                    e.getWorkflowStatus() != null
-                            ? e.getWorkflowStatus()
-                            : WorkflowModel.Status.FAILED);
-            workflow.setReasonForInCompletion(e.getMessage());
-            if (e.getTask() != null) {
-                workflow.setFailedTaskId(e.getTask().getTaskId());
-            }
-            workflow.setEndTime(System.currentTimeMillis());
-            cancelNonTerminalTasks(workflow, e.getMessage());
-            updateWorkflow(workflow);
-            return new ExecutionBatch(List.of(), true);
-        } catch (RuntimeException e) {
-            LOGGER.error("Error deciding workflow: {}", workflow.getWorkflowId(), e);
-            throw e;
         }
+        return workflow;
+    }
+
+    private void scheduleTask(WorkflowModel workflow, List<TaskModel> tasks) {
+        if (tasks == null || tasks.isEmpty()) {
+            return;
+        }
+
+        // Get the highest seq number
+        int count = workflow.getTasks().stream().mapToInt(TaskModel::getSeq).max().orElse(0);
+
+        for (TaskModel task : tasks) {
+            if (task.getSeq() == 0) { // Set only if the seq was not set
+                task.setSeq(++count);
+            }
+            // Stamp the very first time this task enters the queue. Retried tasks carry
+            // this value forward (via TaskModel.copy()), so it is never overwritten here.
+            if (task.getFirstScheduledTime() == 0) {
+                task.setFirstScheduledTime(System.currentTimeMillis());
+            }
+        }
+
+        executionDAOFacade.createTasks(tasks);
+
+        taskScheduler.schedule(workflow, tasks, this);
+        executionDAOFacade.updateTasks(tasks);
+    }
+
+    private void persistTerminatedWorkflow(
+            WorkflowModel workflow, TerminateWorkflowException termination) {
+        WorkflowModel.Status terminalStatus = termination.getWorkflowStatus();
+        workflow.setStatus(
+                terminalStatus != null ? terminalStatus : WorkflowModel.Status.FAILED);
+        workflow.setReasonForInCompletion(termination.getMessage());
+        if (termination.getTask() != null) {
+            workflow.setFailedTaskId(termination.getTask().getTaskId());
+            executionDAOFacade.updateTask(termination.getTask());
+        }
+        workflow.setEndTime(System.currentTimeMillis());
+        cancelNonTerminalTasks(workflow, termination.getMessage());
+        executionDAOFacade.updateWorkflow(workflow);
     }
 
     @Override
     public WorkflowModel decideWithLock(WorkflowModel workflow) {
-        SynchronousWorkflowRun run = activeRuns.get(workflow.getWorkflowId());
-        if (run != null) {
-            run.signalProgress();
-            return workflow;
-        }
         return driveWorkflow(workflow);
     }
 
@@ -247,10 +203,6 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
         workflow.setEndTime(System.currentTimeMillis());
         if (executionDAOFacade != null) {
             executionDAOFacade.updateWorkflow(workflow);
-        }
-        SynchronousWorkflowRun run = activeRuns.get(workflow.getWorkflowId());
-        if (run != null) {
-            run.signalProgress();
         }
     }
 
@@ -307,59 +259,32 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
         return driveWorkflow(workflow);
     }
 
-    @Override
-    public void scheduleNextIteration(TaskModel task, WorkflowModel workflow) {
-        WorkflowTask workflowTask = task.getWorkflowTask();
-        if (workflowTask == null
-                || workflowTask.getLoopOver() == null
-                || workflowTask.getLoopOver().isEmpty()) {
-            throw new IllegalArgumentException("DO_WHILE loopOver must contain at least one task");
-        }
-
-        List<TaskModel> loopTasks =
-                deciderService.getTasksToBeScheduled(
-                        workflow,
-                        workflowTask.getLoopOver().get(0),
-                        task.getRetryCount(),
-                        null,
-                        task.getForkTaskId());
-        loopTasks.forEach(
-                loopTask -> {
-                    loopTask.setReferenceTaskName(
-                            TaskUtils.appendIteration(
-                                    loopTask.getReferenceTaskName(), task.getIteration()));
-                    loopTask.setIteration(task.getIteration());
-                });
-
-        SynchronousWorkflowRun run = activeRuns.get(workflow.getWorkflowId());
-        if (run == null) {
-            throw new IllegalStateException(
-                    "DO_WHILE iteration can only be scheduled by an active synchronous workflow");
-        }
-
-        if (!executionLockService.acquireLock(workflow.getWorkflowId())) {
-            throw new TransientException(
-                    "Error acquiring lock when scheduling DO_WHILE iteration: "
-                            + workflow.getWorkflowId());
-        }
-        List<TaskModel> newTasks;
-        try {
-            newTasks = registerTasks(workflow, loopTasks);
-            if (!newTasks.isEmpty()) {
-                updateWorkflow(workflow);
-            }
-        } finally {
-            executionLockService.releaseLock(workflow.getWorkflowId());
-        }
-        dispatchTasks(workflow, newTasks, run);
-    }
-
     private void endExecution(WorkflowModel workflow, TaskModel terminateTask) {
         deciderService.updateWorkflowOutput(workflow, terminateTask);
         if (terminateTask != null) {
-            Object status = terminateTask.getOutputData().get("workflowStatus");
-            if ("FAILED".equals(status)) {
+            String terminationStatus =
+                    (String)
+                            terminateTask
+                                    .getInputData()
+                                    .get(Terminate.getTerminationStatusParameter());
+            String reason =
+                    (String)
+                            terminateTask
+                                    .getInputData()
+                                    .get(Terminate.getTerminationReasonParameter());
+            if (!StringUtils.hasText(reason)) {
+                reason =
+                        String.format(
+                                "Workflow is %s by TERMINATE task: %s",
+                                terminationStatus, terminateTask.getTaskId());
+            }
+            workflow.setReasonForInCompletion(reason);
+            if (WorkflowModel.Status.FAILED.name().equals(terminationStatus)) {
                 workflow.setStatus(WorkflowModel.Status.FAILED);
+                workflow.setFailedTaskId(terminateTask.getTaskId());
+            } else if (WorkflowModel.Status.TERMINATED.name().equals(terminationStatus)) {
+                workflow.setStatus(WorkflowModel.Status.TERMINATED);
+                workflow.setFailedTaskId(terminateTask.getTaskId());
             } else {
                 workflow.setStatus(WorkflowModel.Status.COMPLETED);
             }
@@ -367,6 +292,7 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
             workflow.setStatus(WorkflowModel.Status.COMPLETED);
         }
         workflow.setEndTime(System.currentTimeMillis());
+        cancelNonTerminalTasks(workflow, workflow.getReasonForInCompletion());
         updateWorkflow(workflow);
     }
 
@@ -401,91 +327,6 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
         return newTasks;
     }
 
-    private DispatchSummary dispatchTasks(
-            WorkflowModel workflow,
-            List<TaskModel> tasksToDispatch,
-            SynchronousWorkflowRun run) {
-        if (tasksToDispatch == null || tasksToDispatch.isEmpty()) {
-            return DispatchSummary.NO_PROGRESS;
-        }
-
-        boolean inlineStateChanged = false;
-        for (TaskModel task : tasksToDispatch) {
-            if (task.getStatus() == null) {
-                continue;
-            }
-            if (task.getStatus().isTerminal()) {
-                continue;
-            }
-            if (!systemTaskRegistry.isSystemTask(task.getTaskType())) {
-                continue;
-            }
-            if (!run.shouldEvaluate(task.getTaskId())) {
-                continue;
-            }
-            if (!executingTaskIds.add(task.getTaskId())) {
-                continue;
-            }
-
-            TaskDispatcher.DispatchMode mode = taskDispatcher.getDispatchMode(task);
-            TaskExecutionAttempt attempt = new TaskExecutionAttempt();
-            long evaluatedAtVersion = run.semanticVersion();
-            if (mode == TaskDispatcher.DispatchMode.FORK_BRANCH) {
-                run.forkTaskStarted();
-            }
-
-            Runnable command =
-                    () -> {
-                        try {
-                            attempt.stateChanged = executeTask(workflow, task);
-                        } catch (RuntimeException e) {
-                            attempt.failure = e;
-                            LOGGER.error(
-                                    "Unable to finish workflow task: workflow={}, task={}, type={}",
-                                    workflow.getWorkflowId(),
-                                    task.getTaskId(),
-                                    task.getTaskType(),
-                                    e);
-                        } finally {
-                            executingTaskIds.remove(task.getTaskId());
-                            run.taskFinished(
-                                    task.getTaskId(),
-                                    evaluatedAtVersion,
-                                    attempt.stateChanged,
-                                    mode == TaskDispatcher.DispatchMode.FORK_BRANCH,
-                                    attempt.failure);
-                        }
-                    };
-
-            try {
-                taskDispatcher.dispatch(mode, command);
-            } catch (RejectedExecutionException e) {
-                executingTaskIds.remove(task.getTaskId());
-                failTask(task, "FORK 分支任务执行线程池已满");
-                finishTaskExecution(task);
-                persistTask(task);
-                run.taskRejected(
-                        task.getTaskId(),
-                        mode == TaskDispatcher.DispatchMode.FORK_BRANCH);
-                LOGGER.error(
-                        "Fork branch executor rejected task: workflow={}, task={}, type={}",
-                        workflow.getWorkflowId(),
-                        task.getTaskId(),
-                        task.getTaskType(),
-                        e);
-                continue;
-            }
-
-            if (mode == TaskDispatcher.DispatchMode.CALLER) {
-                if (attempt.failure != null) {
-                    throw attempt.failure;
-                }
-                inlineStateChanged |= attempt.stateChanged;
-            }
-        }
-        return new DispatchSummary(inlineStateChanged);
-    }
-
     List<TaskModel> dedupAndAddTasks(WorkflowModel workflow, List<TaskModel> tasks) {
         if (tasks == null || tasks.isEmpty()) {
             return List.of();
@@ -508,74 +349,6 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
 
         workflow.getTasks().addAll(dedupedTasks);
         return dedupedTasks;
-    }
-
-    private boolean executeTask(WorkflowModel workflow, TaskModel task) {
-        WorkflowSystemTask systemTask = systemTaskRegistry.get(task.getTaskType());
-        TaskModel.Status statusBefore = task.getStatus();
-        prepareTaskForExecution(task);
-        persistTask(task);
-        boolean stateChanged;
-        try {
-            stateChanged = systemTask.execute(workflow, task, this);
-        } catch (RuntimeException e) {
-            failTask(task, "任务执行异常: " + rootCauseMessage(e));
-            LOGGER.error(
-                    "System task execution failed: workflow={}, task={}, type={}",
-                    workflow.getWorkflowId(),
-                    task.getTaskId(),
-                    task.getTaskType(),
-                    e);
-            stateChanged = true;
-        }
-        finishTaskExecution(task);
-        persistTask(task);
-        return stateChanged || !Objects.equals(statusBefore, task.getStatus());
-    }
-
-    private void persistTask(TaskModel task) {
-        if (executionDAOFacade != null) {
-            executionDAOFacade.updateTask(task);
-        }
-    }
-
-    private void prepareTaskForExecution(TaskModel task) {
-        if (task.getStartTime() == 0) {
-            task.setStartTime(System.currentTimeMillis());
-        }
-        if (task.getStatus() == TaskModel.Status.SCHEDULED) {
-            task.setStatus(TaskModel.Status.IN_PROGRESS);
-        }
-    }
-
-    private void finishTaskExecution(TaskModel task) {
-        long now = System.currentTimeMillis();
-        task.setUpdateTime(now);
-        if (task.getStatus() != null && task.getStatus().isTerminal() && task.getEndTime() == 0) {
-            task.setEndTime(now);
-        }
-    }
-
-    private void failTask(TaskModel task, String reason) {
-        task.setStatus(TaskModel.Status.FAILED_WITH_TERMINAL_ERROR);
-        task.setReasonForInCompletion(reason);
-    }
-
-    private String rootCauseMessage(Throwable error) {
-        Throwable current = error;
-        while (current.getCause() != null) {
-            current = current.getCause();
-        }
-        return current.getMessage() != null ? current.getMessage() : current.getClass().getName();
-    }
-
-    private void persistTaskChanges(List<TaskModel> tasksToBeUpdated) {
-        if (executionDAOFacade == null) {
-            return;
-        }
-        for (TaskModel task : tasksToBeUpdated) {
-            executionDAOFacade.updateTask(task);
-        }
     }
 
     private WorkflowModel createWorkflowModel(
@@ -606,138 +379,13 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
             return null;
         }
         Map<String, Object> resolved =
-                parametersUtils.getTaskInput(Map.of("_key", expression), workflow, null);
-        Object value = resolved.get("_key");
+                parametersUtils.getTaskInput(Map.of("_correlation_key", expression), workflow, null);
+        Object value = resolved.get("_correlation_key");
         if (value == null) {
             return null;
         }
         String text = String.valueOf(value).trim();
         return StringUtils.hasText(text) ? text : null;
-    }
-
-    private record ExecutionBatch(List<TaskModel> tasksToDispatch, boolean stateChanged) {
-
-        private static ExecutionBatch empty() {
-            return new ExecutionBatch(List.of(), false);
-        }
-    }
-
-    private record DispatchSummary(boolean inlineStateChanged) {
-
-        private static final DispatchSummary NO_PROGRESS = new DispatchSummary(false);
-    }
-
-    private static final class TaskExecutionAttempt {
-
-        private boolean stateChanged;
-        private RuntimeException failure;
-    }
-
-    /**
-     * 单次同步工作流的进度信号。这里只保存版本号和在途数量，不保存任务或完成事件，
-     * 因此不是工作流任务队列。
-     */
-    private static final class SynchronousWorkflowRun {
-
-        private long progressVersion;
-        private long semanticVersion;
-        private int forkTasksInFlight;
-        private RuntimeException failure;
-        private final Map<String, Long> waitingTaskVersions = new HashMap<>();
-
-        private synchronized long progressVersion() {
-            return progressVersion;
-        }
-
-        private synchronized void forkTaskStarted() {
-            forkTasksInFlight++;
-        }
-
-        private synchronized long semanticVersion() {
-            return semanticVersion;
-        }
-
-        private synchronized boolean shouldEvaluate(String taskId) {
-            Long waitingAtVersion = waitingTaskVersions.get(taskId);
-            if (waitingAtVersion == null) {
-                return true;
-            }
-            if (waitingAtVersion != semanticVersion) {
-                waitingTaskVersions.remove(taskId);
-                return true;
-            }
-            return false;
-        }
-
-        private synchronized void taskFinished(
-                String taskId,
-                long evaluatedAtVersion,
-                boolean stateChanged,
-                boolean forkBranch,
-                RuntimeException taskFailure) {
-            if (forkBranch && forkTasksInFlight > 0) {
-                forkTasksInFlight--;
-            }
-            if (failure == null && taskFailure != null) {
-                failure = taskFailure;
-            }
-            if (stateChanged) {
-                waitingTaskVersions.remove(taskId);
-                semanticVersion++;
-            } else if (taskFailure == null) {
-                waitingTaskVersions.put(taskId, evaluatedAtVersion);
-            }
-            if (forkBranch || stateChanged || taskFailure != null) {
-                progressVersion++;
-                notifyAll();
-            }
-        }
-
-        private synchronized void taskRejected(String taskId, boolean forkBranch) {
-            if (forkBranch && forkTasksInFlight > 0) {
-                forkTasksInFlight--;
-            }
-            waitingTaskVersions.remove(taskId);
-            semanticVersion++;
-            progressVersion++;
-            notifyAll();
-        }
-
-        private synchronized void signalProgress() {
-            semanticVersion++;
-            progressVersion++;
-            notifyAll();
-        }
-
-        private synchronized boolean hasForkTasksInFlight() {
-            return forkTasksInFlight > 0;
-        }
-
-        private synchronized boolean hasProgressedSince(long observedProgress) {
-            return progressVersion != observedProgress;
-        }
-
-        private synchronized void awaitProgress(
-                long observedProgress, WorkflowModel workflow) {
-            while (progressVersion == observedProgress
-                    && forkTasksInFlight > 0
-                    && failure == null
-                    && !workflow.getStatus().isTerminal()) {
-                try {
-                    wait();
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw new WorkFlowException(
-                            WorkFlowErrorCode.WORKFLOW_EXECUTION_INTERRUPTED, e);
-                }
-            }
-        }
-
-        private synchronized void throwIfFailed() {
-            if (failure != null) {
-                throw failure;
-            }
-        }
     }
 
 }

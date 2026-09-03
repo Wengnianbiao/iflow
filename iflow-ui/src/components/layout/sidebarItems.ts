@@ -1,5 +1,5 @@
 import type { Icon } from '@phosphor-icons/react'
-import { ClockCounterClockwise, SlidersHorizontal } from '@phosphor-icons/react'
+import { ClockCounterClockwiseIcon, SlidersHorizontalIcon } from '@phosphor-icons/react'
 
 export type SidebarNavItem = {
   label: string
@@ -20,13 +20,13 @@ export const sidebarNavGroups: SidebarNavGroup[] = [
   {
     id: 'scheduling',
     label: '调度日志',
-    icon: ClockCounterClockwise,
+    icon: ClockCounterClockwiseIcon,
     items: [{ label: '工作流调度', to: '/executions' }],
   },
   {
     id: 'configuration',
     label: '配置管理',
-    icon: SlidersHorizontal,
+    icon: SlidersHorizontalIcon,
     items: [{ label: '工作流配置', to: '/workflowDef', end: true }],
   },
 ]

@@ -1,4 +1,10 @@
 import type { EdgeData, NodeData, PortData, PortSide } from 'reaflow'
+import {
+  getTaskFlowKind,
+  getTaskNodeSize,
+  taskBlocksContinuation,
+  type TaskFlowKind,
+} from '@/tasks'
 import type { WorkflowDef, WorkflowTask } from '@/types/workflow'
 import { TaskType } from './taskType'
 
@@ -14,7 +20,7 @@ export interface Crumb {
 export interface NodeTaskData {
   task: WorkflowTask
   crumbs: Crumb[]
-  nodeKind?: 'task' | 'switch' | 'switch_join' | 'fork' | 'do_while' | 'terminal'
+  nodeKind?: TaskFlowKind
   selected?: boolean
   status?: string
   attempts?: number
@@ -37,54 +43,12 @@ export const END_TASK_REF = '__end__'
 export const EDGE_SPACING = 170
 export const BOTTOM_PORT_MARGIN = 10
 
-const DEFAULT_NODE_WIDTH = 350
-const SWITCH_SIZE_INCREMENTER = 60
-const MIN_AMOUNT_OF_SWITCH_PORTS = 4
-
 function refName(task: WorkflowTask): string {
   return task.taskReferenceName || task.name || 'unnamed'
 }
 
 function taskList(value: unknown): WorkflowTask[] {
   return Array.isArray(value) ? value : []
-}
-
-function computeAdditionalWidth(portsAmount: number) {
-  return portsAmount > MIN_AMOUNT_OF_SWITCH_PORTS
-    ? (portsAmount - MIN_AMOUNT_OF_SWITCH_PORTS) * SWITCH_SIZE_INCREMENTER
-    : 0
-}
-
-function taskSize(task: Pick<WorkflowTask, 'type' | 'decisionCases'>): { width: number; height: number } {
-  switch (task.type) {
-    case TaskType.TERMINAL:
-      return { width: 80, height: 80 }
-    case TaskType.HTTP:
-    case TaskType.SPI:
-      return { width: DEFAULT_NODE_WIDTH, height: 130 }
-    case TaskType.INLINE:
-    case TaskType.JSON_JQ_TRANSFORM:
-      return { width: DEFAULT_NODE_WIDTH, height: 140 }
-    case TaskType.SWITCH:
-    case TaskType.DECISION:
-      return {
-        width: DEFAULT_NODE_WIDTH + 100 + computeAdditionalWidth(Object.keys(task.decisionCases ?? {}).length + 1),
-        height: 200,
-      }
-    case TaskType.SWITCH_JOIN:
-      return { width: 350, height: 55 }
-    case TaskType.FORK_JOIN:
-      return {
-        width: DEFAULT_NODE_WIDTH + computeAdditionalWidth(((task as WorkflowTask).forkTasks ?? []).length),
-        height: 120,
-      }
-    case TaskType.JOIN:
-      return { width: DEFAULT_NODE_WIDTH, height: 80 }
-    case TaskType.DO_WHILE:
-      return { width: 570, height: 450 }
-    default:
-      return { width: DEFAULT_NODE_WIDTH, height: 100 }
-  }
 }
 
 export function northPort(node: Pick<NodeData, 'id'>, index?: number, hidden = false): PortData & { index?: number } {
@@ -134,9 +98,9 @@ export function switchJoinNorthPortId(fakeNodeId: string, decisionKey: string) {
   return `${fakeNodeId}-to-join-to=[key=${decisionKey}]-north-port`
 }
 
-function makeNode(task: WorkflowTask, crumbs: Crumb[], nodeKind: NodeTaskData['nodeKind'] = 'task', ports?: PortData[]): NodeData<NodeTaskData> {
+function makeNode(task: WorkflowTask, crumbs: Crumb[], nodeKind: NodeTaskData['nodeKind'] = getTaskFlowKind(task.type), ports?: PortData[]): NodeData<NodeTaskData> {
   const id = refName(task)
-  const size = taskSize(task)
+  const size = getTaskNodeSize(task)
   return {
     id,
     text: task.name || id,
@@ -391,7 +355,8 @@ function walkTasks(tasks: WorkflowTask[], crumbs: Crumb[] = []): WalkResult {
 
   tasks.forEach((task, index) => {
     const taskCrumbs = crumbs.concat({ ref: refName(task), refIdx: index, type: task.type, parent: crumbs.at(-1)?.ref ?? null })
-    if (task.type === TaskType.SWITCH || task.type === TaskType.DECISION) {
+    const flowKind = getTaskFlowKind(task.type)
+    if (flowKind === 'switch') {
       const switchResult = processSwitch(task, taskCrumbs)
       connectSequential(result, switchResult.nodes[0])
       result.nodes.push(...switchResult.nodes)
@@ -402,7 +367,7 @@ function walkTasks(tasks: WorkflowTask[], crumbs: Crumb[] = []): WalkResult {
       return
     }
 
-    if (task.type === TaskType.FORK_JOIN) {
+    if (flowKind === 'fork') {
       const forkResult = processFork(task, taskCrumbs)
       connectSequential(result, forkResult.nodes[0])
       result.nodes.push(...forkResult.nodes)
@@ -414,12 +379,12 @@ function walkTasks(tasks: WorkflowTask[], crumbs: Crumb[] = []): WalkResult {
       return
     }
 
-    if (task.type === TaskType.JOIN && result.pendingFork) {
+    if (flowKind === 'join' && result.pendingFork) {
       connectForkToJoin(result, task, taskCrumbs)
       return
     }
 
-    if (task.type === TaskType.DO_WHILE) {
+    if (flowKind === 'do_while') {
       const doWhileResult = processDoWhile(task, taskCrumbs)
       connectSequential(result, doWhileResult.nodes[0])
       result.nodes.push(...doWhileResult.nodes)
@@ -436,7 +401,7 @@ function walkTasks(tasks: WorkflowTask[], crumbs: Crumb[] = []): WalkResult {
     result.nodes.push(node)
     result.previousTask = task
     result.previousNode = node
-    result.previousAllowsConnection = task.type !== TaskType.TERMINATE
+    result.previousAllowsConnection = !taskBlocksContinuation(task.type)
     result.pendingFork = undefined
   })
 

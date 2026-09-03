@@ -12,6 +12,7 @@ import com.helianhealth.agent.core.execution.mapper.ForkJoinTaskMapper;
 import com.helianhealth.agent.core.execution.mapper.JoinTaskMapper;
 import com.helianhealth.agent.core.execution.mapper.NoopTaskMapper;
 import com.helianhealth.agent.core.execution.mapper.TaskMapper;
+import com.helianhealth.agent.core.execution.mapper.TaskMapperContext;
 import com.helianhealth.agent.core.execution.tasks.DoWhile;
 import com.helianhealth.agent.core.execution.tasks.Fork;
 import com.helianhealth.agent.core.execution.tasks.Join;
@@ -52,13 +53,12 @@ class WorkflowExecutorOpsThreadPoolTest {
         WorkflowSystemTask noop =
                 new WorkflowSystemTask(TaskType.TASK_TYPE_NOOP) {
                     @Override
-                    public boolean execute(
+                    public void execute(
                             WorkflowModel workflow,
                             TaskModel task,
                             WorkflowExecutor workflowExecutor) {
                         executionThread.set(Thread.currentThread().getName());
                         task.setStatus(TaskModel.Status.COMPLETED);
-                        return true;
                     }
                 };
         SystemTaskRegistry registry = new SystemTaskRegistry(Set.of(noop));
@@ -92,7 +92,7 @@ class WorkflowExecutorOpsThreadPoolTest {
                         new InMemoryExecutionLockService());
         ExecutorService taskPool =
                 Executors.newFixedThreadPool(2, runnable -> new Thread(runnable, "test-task-pool"));
-        executor.setTaskDispatcher(new CallerAndForkTaskDispatcher(taskPool));
+        executor.setTaskScheduler(new CallerAndForkTaskScheduler(taskPool, registry));
 
         try {
             String callerThread = Thread.currentThread().getName();
@@ -116,10 +116,11 @@ class WorkflowExecutorOpsThreadPoolTest {
         CountDownLatch branchesStarted = new CountDownLatch(2);
         CountDownLatch releaseBranches = new CountDownLatch(1);
         Map<String, String> executionThreads = new ConcurrentHashMap<>();
+        Set<String> mapperThreads = ConcurrentHashMap.newKeySet();
         WorkflowSystemTask noop =
                 new WorkflowSystemTask(TaskType.TASK_TYPE_NOOP) {
                     @Override
-                    public boolean execute(
+                    public void execute(
                             WorkflowModel workflow,
                             TaskModel task,
                             WorkflowExecutor workflowExecutor) {
@@ -139,14 +140,27 @@ class WorkflowExecutorOpsThreadPoolTest {
                             }
                         }
                         task.setStatus(TaskModel.Status.COMPLETED);
-                        return true;
                     }
                 };
         SystemTaskRegistry registry =
                 new SystemTaskRegistry(Set.of(noop, new Fork(), new Join()));
+        NoopTaskMapper noopMapper = new NoopTaskMapper();
+        TaskMapper callerThreadNoopMapper =
+                new TaskMapper() {
+                    @Override
+                    public String getTaskType() {
+                        return TaskType.TASK_TYPE_NOOP;
+                    }
+
+                    @Override
+                    public List<TaskModel> getMappedTasks(TaskMapperContext context) {
+                        mapperThreads.add(Thread.currentThread().getName());
+                        return noopMapper.getMappedTasks(context);
+                    }
+                };
         Map<String, TaskMapper> mappers =
                 Map.of(
-                        TaskType.TASK_TYPE_NOOP, new NoopTaskMapper(),
+                        TaskType.TASK_TYPE_NOOP, callerThreadNoopMapper,
                         TaskType.TASK_TYPE_FORK_JOIN, new ForkJoinTaskMapper(),
                         TaskType.TASK_TYPE_JOIN, new JoinTaskMapper());
         DeciderService decider =
@@ -181,7 +195,7 @@ class WorkflowExecutorOpsThreadPoolTest {
         ExecutorService caller =
                 Executors.newSingleThreadExecutor(
                         runnable -> new Thread(runnable, "test-workflow-caller"));
-        executor.setTaskDispatcher(new CallerAndForkTaskDispatcher(taskPool));
+        executor.setTaskScheduler(new CallerAndForkTaskScheduler(taskPool, registry));
 
         try {
             var resultFuture =
@@ -222,6 +236,7 @@ class WorkflowExecutorOpsThreadPoolTest {
             assertEquals("test-fork-pool", executionThreads.get("branch_a_2"));
             assertEquals("test-fork-pool", executionThreads.get("branch_b"));
             assertEquals("test-workflow-caller", executionThreads.get("after_join"));
+            assertEquals(Set.of("test-workflow-caller"), mapperThreads);
         } finally {
             releaseBranches.countDown();
             caller.shutdownNow();
@@ -238,7 +253,7 @@ class WorkflowExecutorOpsThreadPoolTest {
         WorkflowSystemTask noop =
                 new WorkflowSystemTask(TaskType.TASK_TYPE_NOOP) {
                     @Override
-                    public boolean execute(
+                    public void execute(
                             WorkflowModel workflow,
                             TaskModel task,
                             WorkflowExecutor workflowExecutor) {
@@ -257,21 +272,20 @@ class WorkflowExecutorOpsThreadPoolTest {
                             }
                         }
                         task.setStatus(TaskModel.Status.COMPLETED);
-                        return true;
                     }
                 };
         Join joinDelegate = new Join();
         WorkflowSystemTask join =
                 new WorkflowSystemTask(TaskType.TASK_TYPE_JOIN) {
                     @Override
-                    public boolean execute(
+                    public void execute(
                             WorkflowModel workflow,
                             TaskModel task,
                             WorkflowExecutor workflowExecutor) {
                         if ("nested_join".equals(task.getReferenceTaskName())) {
                             nestedJoinEvaluations.incrementAndGet();
                         }
-                        return joinDelegate.execute(workflow, task, workflowExecutor);
+                        joinDelegate.execute(workflow, task, workflowExecutor);
                     }
                 };
         SystemTaskRegistry registry =
@@ -320,7 +334,7 @@ class WorkflowExecutorOpsThreadPoolTest {
         ExecutorService caller =
                 Executors.newSingleThreadExecutor(
                         runnable -> new Thread(runnable, "test-nested-caller"));
-        executor.setTaskDispatcher(new CallerAndForkTaskDispatcher(taskPool));
+        executor.setTaskScheduler(new CallerAndForkTaskScheduler(taskPool, registry));
 
         try {
             var resultFuture =
@@ -334,7 +348,7 @@ class WorkflowExecutorOpsThreadPoolTest {
             Thread.sleep(150);
             assertTrue(
                     nestedJoinEvaluations.get() < 10,
-                    "waiting nested JOIN should not be continuously re-dispatched");
+                    "waiting nested JOIN should not be continuously re-scheduled");
             releaseInnerBranches.countDown();
             WorkflowModel result = resultFuture.get(3, TimeUnit.SECONDS);
 
@@ -373,12 +387,11 @@ class WorkflowExecutorOpsThreadPoolTest {
         WorkflowSystemTask noop =
                 new WorkflowSystemTask(TaskType.TASK_TYPE_NOOP) {
                     @Override
-                    public boolean execute(
+                    public void execute(
                             WorkflowModel workflow,
                             TaskModel task,
                             WorkflowExecutor workflowExecutor) {
                         task.setStatus(TaskModel.Status.COMPLETED);
-                        return true;
                     }
                 };
         SystemTaskRegistry registry =
@@ -411,11 +424,12 @@ class WorkflowExecutorOpsThreadPoolTest {
                         new IDGenerator(),
                         new ParametersUtils(),
                         new InMemoryExecutionLockService());
-        executor.setTaskDispatcher(
-                new CallerAndForkTaskDispatcher(
+        executor.setTaskScheduler(
+                new CallerAndForkTaskScheduler(
                         command -> {
                             throw new RejectedExecutionException("full");
-                        }));
+                        },
+                        registry));
 
         WorkflowModel result =
                 executor.startWorkflow(
@@ -432,18 +446,17 @@ class WorkflowExecutorOpsThreadPoolTest {
     }
 
     @Test
-    void schedulesDoWhileIterationWithoutHoldingWorkflowLock() {
+    void schedulesDoWhileIterationOnWorkflowCallerThread() {
         AtomicReference<String> loopThread = new AtomicReference<>();
         WorkflowSystemTask noop =
                 new WorkflowSystemTask(TaskType.TASK_TYPE_NOOP) {
                     @Override
-                    public boolean execute(
+                    public void execute(
                             WorkflowModel workflow,
                             TaskModel task,
                             WorkflowExecutor workflowExecutor) {
                         loopThread.set(Thread.currentThread().getName());
                         task.setStatus(TaskModel.Status.COMPLETED);
-                        return true;
                     }
                 };
         ParametersUtils parametersUtils = new ParametersUtils();

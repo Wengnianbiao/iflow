@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CaretDown, CaretLeft, CaretRight } from '@phosphor-icons/react'
+import { CaretDownIcon, CaretLeftIcon, CaretRightIcon } from '@phosphor-icons/react'
 import { NavLink } from 'react-router-dom'
 import {
   sidebarNavGroups,
@@ -40,7 +40,7 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
           title={collapsed ? '展开侧栏' : '收起侧栏'}
           onClick={() => onCollapsedChange(!collapsed)}
         >
-          {collapsed ? <CaretRight size={14} weight="bold" /> : <CaretLeft size={14} weight="bold" />}
+          {collapsed ? <CaretRightIcon size={14} weight="bold" /> : <CaretLeftIcon size={14} weight="bold" />}
         </button>
       </div>
 
@@ -65,7 +65,7 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
                   <Icon size={19} weight="regular" />
                 </span>
                 <span>{group.label}</span>
-                <CaretDown className={styles.groupCaret} size={14} weight="bold" />
+                <CaretDownIcon className={styles.groupCaret} size={14} weight="bold" />
               </button>
               <div className={styles.groupItems}>
                 <div className={styles.groupItemsInner}>

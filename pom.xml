@@ -21,7 +21,7 @@
         <module>iflow-http-task</module>
         <module>iflow-jdbc-task</module>
         <module>iflow-webservice-task</module>
-        <module>iflow-parammap-task</module>
+        <module>iflow-mapping-task</module>
         <module>iflow-spi-task</module>
     </modules>
 
@@ -136,7 +136,7 @@
                 <version>2.9.0</version>
             </dependency>
 
-            <!-- GraalJS（INLINE / SWITCH 脚本求值） -->
+            <!-- GraalJS -->
             <dependency>
                 <groupId>org.graalvm.polyglot</groupId>
                 <artifactId>polyglot</artifactId>

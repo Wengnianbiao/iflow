@@ -35,22 +35,33 @@ public class Terminate extends WorkflowSystemTask {
     }
 
     @Override
-    public boolean execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
+    public void execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
         String returnStatus = (String) task.getInputData().get(INPUT_TERMINATION_STATUS);
         if (!isValidStatus(returnStatus)) {
             task.setReasonForInCompletion("invalid terminationStatus: " + returnStatus);
             task.setStatus(TaskModel.Status.FAILED);
-            return false;
+            return;
         }
         task.setOutputData(extractOutput(task.getInputData()));
         task.setStatus(TaskModel.Status.COMPLETED);
-        return true;
     }
 
     public static boolean isValidStatus(String status) {
         return WorkflowModel.Status.COMPLETED.name().equals(status)
                 || WorkflowModel.Status.FAILED.name().equals(status)
                 || WorkflowModel.Status.TERMINATED.name().equals(status);
+    }
+
+    public static String getTerminationStatusParameter() {
+        return INPUT_TERMINATION_STATUS;
+    }
+
+    public static String getTerminationReasonParameter() {
+        return INPUT_TERMINATION_REASON;
+    }
+
+    public static String getTerminationWorkflowOutputParameter() {
+        return INPUT_WORKFLOW_OUTPUT;
     }
 
     @SuppressWarnings("unchecked")

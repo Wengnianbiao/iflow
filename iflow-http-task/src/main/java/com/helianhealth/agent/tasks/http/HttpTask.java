@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
  *
  * <p>从 {@link TaskModel#getInputData()} 解析 {@link Input}（可嵌套在 {@code http_request} 下，
  * 也可平铺在 inputData 根级），通过 {@link RestTemplateProvider} 发起请求，结果写入
- * {@code outputData.response}。
+ * {@code outputData} 根级（{@code body}/{@code headers}/{@code statusCode}/{@code reasonPhrase}）。
  *
  * <p>任务由 Decider 直接调用；普通链路在请求线程执行，FORK 分支在线程池中执行。
  */
@@ -75,7 +75,7 @@ public class HttpTask extends WorkflowSystemTask {
     }
 
     @Override
-    public boolean execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor) {
+    public void execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor) {
         Object request = task.getInputData().get(requestParameter);
         if (request == null) {
             request = task.getInputData();
@@ -86,13 +86,13 @@ public class HttpTask extends WorkflowSystemTask {
             task.setReasonForInCompletion(
                     "Missing HTTP URI.  See documentation for HttpTask for required input parameters");
             task.setStatus(TaskModel.Status.FAILED);
-            return true;
+            return;
         }
 
         if (input.getMethod() == null) {
             task.setReasonForInCompletion("No HTTP method specified");
             task.setStatus(TaskModel.Status.FAILED);
-            return true;
+            return;
         }
 
         try {
@@ -112,7 +112,7 @@ public class HttpTask extends WorkflowSystemTask {
                 }
                 task.setStatus(TaskModel.Status.FAILED);
             }
-            task.addOutput("response", response.asMap());
+            task.setOutputData(response.asMap());
         } catch (Exception e) {
             LOGGER.error(
                     "Failed to invoke {} task: {} - uri: {}, vipAddress: {} in workflow: {}",
@@ -124,9 +124,8 @@ public class HttpTask extends WorkflowSystemTask {
                     e);
             task.setStatus(TaskModel.Status.FAILED);
             task.setReasonForInCompletion("Failed to invoke " + getTaskType() + " task due to: " + e);
-            task.addOutput("response", e.toString());
+            addError(task, e.toString());
         }
-        return true;
     }
 
     /**

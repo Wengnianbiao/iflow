@@ -57,7 +57,7 @@ export const workflowTemplates: WorkflowTemplate[] = [
           inputParameters: {
             evaluatorType: 'graaljs',
             expression: '(function () { return { result: $.response }; })()',
-            response: '${request_api_ref.output.response.body}',
+            response: '${request_api_ref.output.body}',
           },
         },
       ],

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Helmet } from 'react-helmet'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ArrowClockwise, MagnifyingGlass } from '@phosphor-icons/react'
+import { ArrowClockwiseIcon, MagnifyingGlassIcon } from '@phosphor-icons/react'
 import {
   Button,
   Empty,
@@ -31,7 +31,6 @@ const STATUS_OPTIONS = [
   { value: 'FAILED', label: '失败' },
   { value: 'TIMED_OUT', label: '已超时' },
   { value: 'TERMINATED', label: '已终止' },
-  { value: 'PAUSED', label: '已暂停' },
 ]
 
 const STATUS_LABELS = Object.fromEntries(
@@ -44,7 +43,6 @@ const STATUS_COLORS: Record<string, string> = {
   FAILED: 'error',
   TIMED_OUT: 'error',
   TERMINATED: 'default',
-  PAUSED: 'warning',
 }
 
 function buildSearchParams(
@@ -217,7 +215,7 @@ export default function WorkflowExcutions() {
         title="工作流执行记录"
         actions={
           <Button
-            icon={<ArrowClockwise size={17} />}
+            icon={<ArrowClockwiseIcon size={17} />}
             loading={isFetching}
             onClick={() => void refetch()}
           >
@@ -257,7 +255,7 @@ export default function WorkflowExcutions() {
                 <Button
                   type="primary"
                   htmlType="submit"
-                  icon={<MagnifyingGlass size={17} />}
+                  icon={<MagnifyingGlassIcon size={17} />}
                 >
                   搜索
                 </Button>

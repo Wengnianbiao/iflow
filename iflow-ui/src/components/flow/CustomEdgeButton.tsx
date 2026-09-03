@@ -1,5 +1,5 @@
 import type { FunctionComponent, MouseEvent } from 'react'
-import { Minus, Plus } from '@phosphor-icons/react'
+import { MinusIcon, PlusIcon } from '@phosphor-icons/react'
 import type { PortChildProps } from 'reaflow'
 import { BOTTOM_PORT_MARGIN } from '@/flow/conductorMapper'
 
@@ -66,7 +66,7 @@ export const CustomEdgeButton: FunctionComponent<CustomEdgeButtonProps> = ({
                 onClick(event)
               }}
             >
-              <Plus size={14} weight="bold" />
+              <PlusIcon size={14} weight="bold" />
             </div>
             <div
               className="conductor-edge-button-action delete"
@@ -77,7 +77,7 @@ export const CustomEdgeButton: FunctionComponent<CustomEdgeButtonProps> = ({
                 onDeleteClick(event)
               }}
             >
-              <Minus size={14} weight="bold" />
+              <MinusIcon size={14} weight="bold" />
             </div>
           </div>
         ) : (
@@ -98,7 +98,7 @@ export const CustomEdgeButton: FunctionComponent<CustomEdgeButtonProps> = ({
               onClick(event)
             }}
           >
-            {variant === 'ADD' ? <Plus size={14} weight="bold" /> : <Minus size={14} weight="bold" />}
+            {variant === 'ADD' ? <PlusIcon size={14} weight="bold" /> : <MinusIcon size={14} weight="bold" />}
           </div>
         )}
       </foreignObject>

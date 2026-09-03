@@ -1,6 +1,7 @@
 package com.helianhealth.agent.core.execution.mapper;
 
 import com.helianhealth.agent.common.domain.metadata.task.TaskType;
+import com.helianhealth.agent.common.domain.metadata.workflow.WorkflowTask;
 import com.helianhealth.agent.core.model.TaskModel;
 import com.helianhealth.agent.core.model.WorkflowModel;
 import com.helianhealth.agent.core.utils.ParametersUtils;
@@ -25,11 +26,11 @@ public class DoWhileTaskMapper implements TaskMapper {
 
     @Override
     public List<TaskModel> getMappedTasks(TaskMapperContext context) {
-        var workflowTask = context.getWorkflowTask();
+        WorkflowTask workflowTask = context.getWorkflowTask();
         WorkflowModel workflowModel = context.getWorkflowModel();
 
-        TaskModel existing = workflowModel.getTaskByRefName(workflowTask.getTaskReferenceName());
-        if (existing != null && existing.getStatus().isTerminal()) {
+        TaskModel task = workflowModel.getTaskByRefName(workflowTask.getTaskReferenceName());
+        if (task != null && task.getStatus().isTerminal()) {
             return List.of();
         }
 
@@ -40,9 +41,9 @@ public class DoWhileTaskMapper implements TaskMapper {
         doWhileTask.setRetryCount(context.getRetryCount());
 
         Map<String, Object> taskInput = parametersUtils.getTaskInput(
-                context.getWorkflowTask().getInputParameters(),
-                context.getWorkflowModel(),
-                context.getTaskId());
+                workflowTask.getInputParameters(),
+                workflowModel,
+                doWhileTask.getTaskId());
         doWhileTask.setInputData(taskInput);
         return List.of(doWhileTask);
     }

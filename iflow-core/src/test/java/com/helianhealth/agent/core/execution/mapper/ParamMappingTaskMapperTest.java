@@ -1,0 +1,82 @@
+package com.helianhealth.agent.core.execution.mapper;
+
+import com.helianhealth.agent.common.domain.metadata.task.TaskType;
+import com.helianhealth.agent.common.domain.metadata.workflow.WorkflowTask;
+import com.helianhealth.agent.core.model.TaskModel;
+import com.helianhealth.agent.core.model.WorkflowModel;
+import com.helianhealth.agent.core.utils.ParametersUtils;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+class ParamMappingTaskMapperTest {
+
+    private final ParamMappingTaskMapper mapper = new ParamMappingTaskMapper(new ParametersUtils());
+
+    @Test
+    void resolvesAndKeepsMultipleUserDefinedInputs() {
+        List<Map<String, Object>> configs =
+                List.of(Map.of("sourceParamKey", "patientCode", "targetParamKey", "patientCode"));
+        WorkflowTask workflowTask =
+                WorkflowTask.builder()
+                        .name("map parameters")
+                        .taskReferenceName("map_parameters_ref")
+                        .type(TaskType.TASK_TYPE_MAPPING)
+                        .inputParameters(
+                                Map.of(
+                                        "patientCode", "${workflow.input.patientCode}",
+                                        "hospitalCode", "H001",
+                                        ParamMappingTaskMapper.PARAMS_CONFIG, configs))
+                        .build();
+        WorkflowModel workflow = new WorkflowModel();
+        workflow.setWorkflowId("workflow-1");
+        workflow.setInput(Map.of("patientCode", "P001"));
+        TaskMapperContext context =
+                TaskMapperContext.builder()
+                        .workflowModel(workflow)
+                        .workflowTask(workflowTask)
+                        .taskId("task-1")
+                        .build();
+
+        TaskModel task = mapper.getMappedTasks(context).get(0);
+
+        assertEquals(TaskType.TASK_TYPE_MAPPING, mapper.getTaskType());
+        assertEquals(TaskType.TASK_TYPE_MAPPING, task.getTaskType());
+        assertEquals("P001", task.getInputData().get("patientCode"));
+        assertEquals("H001", task.getInputData().get("hospitalCode"));
+        assertEquals(configs, task.getInputData().get(ParamMappingTaskMapper.PARAMS_CONFIG));
+    }
+
+    @Test
+    void rejectsDefinitionWithoutMappingInput() {
+        WorkflowTask workflowTask =
+                WorkflowTask.builder()
+                        .name("map parameters")
+                        .taskReferenceName("map_parameters_ref")
+                        .type(TaskType.TASK_TYPE_MAPPING)
+                        .inputParameters(
+                                Map.of(
+                                        ParamMappingTaskMapper.PARAMS_CONFIG,
+                                        List.of(Map.of("targetParamKey", "value"))))
+                        .build();
+        TaskMapperContext context =
+                TaskMapperContext.builder()
+                        .workflowModel(new WorkflowModel())
+                        .workflowTask(workflowTask)
+                        .taskId("task-1")
+                        .build();
+
+        IllegalArgumentException error =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> mapper.getMappedTasks(context));
+
+        assertEquals(
+                "MAPPING inputParameters must contain paramsConfig and at least one mapping input",
+                error.getMessage());
+    }
+}

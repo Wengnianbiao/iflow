@@ -14,17 +14,20 @@ FORK Mapper 一次生成 FORK 标记、各分支首任务和 JOIN。分支任务
 `forkTaskId`，后继任务继承该执行域；对应 JOIN 恢复 FORK 控制节点原有执行域，
 因此嵌套 FORK 在内部 JOIN 后仍会回到外层分支池。
 
-`WorkflowExecutorOps` 在调用线程内串行运行 Decider。FORK 分支完成后只更新自身状态并发出进度信号，
-调用线程被唤醒后重新决策；不保存任务或完成事件队列。JOIN 每轮只检查 `joinOn` 中的目标任务：
-未全部进入终态时保持 `IN_PROGRESS`，调用线程等待分支进度而不空转；全部完成后 JOIN 及其后续普通链路
-继续由原调用线程推进。普通失败立即阻断，permissive 失败等待全部目标终态后裁决，optional 失败汇总为
+`WorkflowExecutorOps` 只在工作流调用线程内运行 Decider 和推进 DAG。Scheduler 执行 Decider 选出的
+本轮任务：根执行域任务在调用线程串行执行，连续的 FORK 分支任务作为一个并行批次提交，并在全部结束后
+返回 Ops。Ops 随后才进入下一轮 Decider，不由分支线程回调或唤醒决策。JOIN 每轮只检查 `joinOn`
+中的目标任务：未全部进入终态时保持 `IN_PROGRESS`；全部完成后 JOIN 及其后续普通链路继续由原调用线程推进。
+普通失败立即阻断，permissive 失败等待全部目标终态后裁决，optional 失败汇总为
 `COMPLETED_WITH_ERRORS`。循环体内的 JOIN 只等待当前 iteration 对应的任务。
 
-返回“未推进”的 JOIN / DO_WHILE 会记录本次评估对应的工作流语义版本；只有其他任务真正改变状态后才允许
-再次派发，避免嵌套控制节点在线程池中反复唤醒形成轮询。
+SystemTask 的 `execute` 直接修改 `TaskModel`，不返回用于触发下一轮决策的状态位。Scheduler 完成本轮任务后，
+同步主循环会自然进入下一轮 Decider。
+
+DO_WHILE 任务只更新自身迭代状态；循环体任务由 Scheduler 返回后的下一轮主线程 Decider 创建。
 
 Decider 的待派发结果允许同时包含新任务和需要再次评估的已有控制任务。Ops 仅对新任务执行创建持久化，
-Dispatcher 则按 taskId 防止并发重复执行；创建去重与派发去重不能合并，否则等待中的 JOIN 无法被重新评估。
+Scheduler 则按 taskId 防止并发重复调度；创建去重与调度去重不能合并，否则等待中的 JOIN 无法被重新评估。
 
 默认配置：
 
@@ -36,5 +39,6 @@ iflow:
 ```
 
 旧的 `task-thread-count` / `task-queue-capacity` 仍作为兼容配置回退。分支池饱和时任务会明确失败，
-不会退化成调用线程执行。Decider、任务登记和工作流状态转换在 workflow lock 内完成，具体任务执行始终在锁外。
+不会退化成调用线程执行。Decider 在 workflow lock 内完成，具体任务执行始终在锁外；本轮任务结束后，
+由工作流调用线程统一持久化执行结果并继续下一轮。
 HTTP、JDBC、WebService 等客户端仍应设置连接和读取超时，避免同步入口无限等待。

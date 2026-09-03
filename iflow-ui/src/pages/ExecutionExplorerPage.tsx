@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { ArrowClockwise, MagnifyingGlass } from '@phosphor-icons/react'
+import { ArrowClockwiseIcon, MagnifyingGlassIcon } from '@phosphor-icons/react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { searchWorkflowExecutions } from '@/api/workflowExecution'
 import type { WorkflowExecutionSummary } from '@/types/workflowExecution'
 
-const STATUS_OPTIONS = ['RUNNING', 'COMPLETED', 'FAILED', 'TIMED_OUT', 'TERMINATED', 'PAUSED']
+const STATUS_OPTIONS = ['RUNNING', 'COMPLETED', 'FAILED', 'TIMED_OUT', 'TERMINATED']
 
 export function ExecutionExplorerPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -68,7 +68,7 @@ export function ExecutionExplorerPage() {
           <p>搜索、查看和排查工作流实例</p>
         </div>
         <button type="button" className="outline-action" disabled={loading} onClick={() => void load()}>
-          <ArrowClockwise size={18} className={loading ? 'spin' : ''} />
+          <ArrowClockwiseIcon size={18} className={loading ? 'spin' : ''} />
           刷新
         </button>
       </header>
@@ -90,7 +90,7 @@ export function ExecutionExplorerPage() {
           </select>
         </label>
         <button type="submit" className="primary-action">
-          <MagnifyingGlass size={17} />
+          <MagnifyingGlassIcon size={17} />
           搜索
         </button>
       </form>
@@ -144,7 +144,7 @@ export function ExecutionExplorerPage() {
 
 export function statusText(status?: string) {
   const labels: Record<string, string> = {
-    RUNNING: '运行中', COMPLETED: '已完成', FAILED: '失败', TIMED_OUT: '已超时', TERMINATED: '已终止', PAUSED: '已暂停',
+    RUNNING: '运行中', COMPLETED: '已完成', FAILED: '失败', TIMED_OUT: '已超时', TERMINATED: '已终止',
     SCHEDULED: '已调度', IN_PROGRESS: '执行中', CANCELED: '已取消', FAILED_WITH_TERMINAL_ERROR: '终止性失败',
     COMPLETED_WITH_ERRORS: '完成但有错误', SKIPPED: '已跳过', NOT_SCHEDULED: '未调度',
   }

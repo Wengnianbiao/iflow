@@ -2,7 +2,8 @@ package com.helianhealth.agent.core.execution.evaluators;
 
 import com.helianhealth.agent.core.execution.script.GraalScriptUtils;
 import com.helianhealth.agent.core.execution.script.ScriptEvaluator;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -11,8 +12,9 @@ import java.util.Map;
  * GraalJS 求值器。
  */
 @Component(GraalJSEvaluator.NAME)
-@Slf4j
 public class GraalJSEvaluator implements Evaluator {
+
+    private static final Logger log = LoggerFactory.getLogger(GraalJSEvaluator.class);
 
     public static final String NAME = "graaljs";
 

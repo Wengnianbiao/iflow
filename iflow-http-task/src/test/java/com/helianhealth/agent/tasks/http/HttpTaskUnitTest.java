@@ -3,14 +3,9 @@ package com.helianhealth.agent.tasks.http;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.helianhealth.agent.core.model.TaskModel;
 import com.helianhealth.agent.core.model.WorkflowModel;
-import com.helianhealth.agent.tasks.http.providers.RestTemplateProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -18,13 +13,9 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 /**
  * HttpTask 单元测试。
@@ -40,16 +31,21 @@ class HttpTaskUnitTest {
 
     @BeforeEach
     void setup() {
-        RestTemplateProvider restTemplateProvider = mock(RestTemplateProvider.class);
-        RestTemplate restTemplate = mock(RestTemplate.class);
-        when(restTemplateProvider.getRestTemplate(any())).thenReturn(restTemplate);
-        when(restTemplate.exchange(
-                        anyString(),
-                        any(HttpMethod.class),
-                        any(HttpEntity.class),
-                        eq(String.class)))
-                .thenReturn(ResponseEntity.ok("{}"));
-        httpTask = new HttpTask(restTemplateProvider, OBJECT_MAPPER);
+        httpTask =
+                new HttpTask(
+                        input -> {
+                            throw new AssertionError("HTTP provider should not be used by this unit test");
+                        },
+                        OBJECT_MAPPER) {
+                    @Override
+                    protected HttpResponse httpCall(Input input) {
+                        HttpResponse response = new HttpResponse();
+                        response.body = Map.of();
+                        response.statusCode = 200;
+                        response.reasonPhrase = "OK";
+                        return response;
+                    }
+                };
     }
 
     @Test
@@ -126,10 +122,15 @@ class HttpTaskUnitTest {
         httpRequest.put("method", "GET");
         httpRequest.put("accept", "text/html");
         task.getInputData().put(HttpTask.REQUEST_PARAMETER_NAME, httpRequest);
+        task.addOutput("stale", true);
 
         httpTask.execute(workflow, task, null);
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
-        assertNotNull(task.getOutputData().get("response"));
+        assertEquals(200, task.getOutputData().get("statusCode"));
+        assertEquals(Map.of(), task.getOutputData().get("body"));
+        assertFalse(task.getOutputData().containsKey("result"));
+        assertFalse(task.getOutputData().containsKey("response"));
+        assertFalse(task.getOutputData().containsKey("stale"));
     }
 
     @Test
@@ -141,7 +142,7 @@ class HttpTaskUnitTest {
 
         httpTask.execute(workflow, task, null);
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
-        assertNotNull(task.getOutputData().get("response"));
+        assertEquals(200, task.getOutputData().get("statusCode"));
     }
 
     @Test
@@ -173,7 +174,7 @@ class HttpTaskUnitTest {
 
         httpTask.execute(workflow, task, null);
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
-        assertNotNull(task.getOutputData().get("response"));
+        assertEquals(200, task.getOutputData().get("statusCode"));
     }
 
     @Test
@@ -187,7 +188,7 @@ class HttpTaskUnitTest {
 
         httpTask.execute(workflow, task, null);
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
-        assertNotNull(task.getOutputData().get("response"));
+        assertEquals(200, task.getOutputData().get("statusCode"));
     }
 
     @Test

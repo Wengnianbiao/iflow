@@ -1,12 +1,10 @@
 import { useSelector } from '@xstate/react'
-import { CaretDoubleRight } from '@phosphor-icons/react'
-import { TaskType } from '@/flow/taskType'
-import {
-  CodeInspector,
-  TaskInspector,
-  WorkflowInspector,
-} from '@/pages/WorkflowDefinitionPage'
+import { CaretDoubleRightIcon } from '@phosphor-icons/react'
+import { getTaskPlugin } from '@/tasks'
 import type { ActorRefFrom } from 'xstate'
+import { CodeInspector } from './CodeInspector'
+import { TaskInspector } from './TaskInspector'
+import { WorkflowInspector } from './WorkflowInspector'
 import {
   workflowEditorMachine,
   type WorkflowDefinitionActor,
@@ -14,10 +12,10 @@ import {
 
 function DerivedEditorContent({
   actor,
-  definitionActor,
+  onCollapse,
 }: {
   actor: ActorRefFrom<typeof workflowEditorMachine>
-  definitionActor: WorkflowDefinitionActor
+  onCollapse: () => void
 }) {
   const state = useSelector(actor, (snapshot) => snapshot)
   const { workflow, selectedTask, selectedTaskEditorKey, variableOptions } = state.context
@@ -36,9 +34,9 @@ function DerivedEditorContent({
           type="button"
           className="collapse-tab"
           title="收起属性面板"
-          onClick={() => definitionActor.send({ type: 'CLOSE_PANEL' })}
+          onClick={onCollapse}
         >
-          <CaretDoubleRight size={18} />
+          <CaretDoubleRightIcon size={18} />
         </button>
         <button
           type="button"
@@ -70,10 +68,7 @@ function DerivedEditorContent({
 
         {activeTab === 'task' ? (
           selectedTask ? (
-            selectedTask.type === TaskType.INLINE
-              || selectedTask.type === TaskType.HTTP
-              || selectedTask.type === TaskType.PARAM_MAP
-              || selectedTask.type === TaskType.SPI ? (
+            getTaskPlugin(selectedTask.type)?.inspectorLayout === 'bare' ? (
               <TaskInspector
                 key={selectedTaskEditorKey}
                 task={selectedTask}
@@ -108,13 +103,19 @@ function DerivedEditorContent({
   )
 }
 
-export function EditorPanel({ actor }: { actor: WorkflowDefinitionActor }) {
+export function EditorPanel({
+  actor,
+  onCollapse,
+}: {
+  actor: WorkflowDefinitionActor
+  onCollapse: () => void
+}) {
   const state = useSelector(actor, (snapshot) => snapshot)
   const { editorActor } = state.context
 
   return (
     <aside className="workflow-inspector">
-      {editorActor ? <DerivedEditorContent actor={editorActor} definitionActor={actor} /> : null}
+      {editorActor ? <DerivedEditorContent actor={editorActor} onCollapse={onCollapse} /> : null}
     </aside>
   )
 }

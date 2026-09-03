@@ -9,7 +9,7 @@
   ],
   "outputParameters": {
     "requestXml": "${build_soap_xml_ref.output.result}",
-    "response": "${invoke_patient_service_ref.output.response}"
+    "response": "${invoke_patient_service_ref.output}"
   },
   "tasks": [
     {

@@ -31,7 +31,8 @@ When changing decide/execute semantics, task lifecycle, or system-task contracts
 
 - Follow existing package layout (`execution/`, `execution/tasks/`, `execution/mapper/`, `service/`, `dao/`, `queue/`, `lock/`, `model/`).
 - New system tasks: extend `WorkflowSystemTask`, implement `getTaskType()` and `execute()`, and ensure Spring registration into `SystemTaskRegistry`.
-- Linear tasks execute on the workflow caller thread; only FORK branch scopes use the bounded branch pool. Branch completion signals the caller-owned synchronous loop, which runs the next Decider round; JOIN waits without polling.
+- Task output stays a `Map<String, Object>`, and each task type owns its root-level output schema. Fixed-map tasks (HTTP, JDBC, WebService, MAPPING, SPI) set that map directly; only arbitrary single-value tasks such as INLINE use `outputData.result`. Execution diagnostics use `addError(...)` (`outputData.error`), while control-flow tasks may keep their own scheduling metadata keys.
+- Linear tasks execute on the workflow caller thread; only FORK branch scopes use the bounded branch pool. The scheduler waits for each parallel batch before returning, and only the caller-owned loop runs the next Decider round.
 - Prefer small, focused changes; keep executor/decider changes covered by tests under `src/test/java`.
 
 ## Commands

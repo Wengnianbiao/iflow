@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { useSelector } from '@xstate/react'
 import { Link } from 'react-router-dom'
 import {
-  ArrowClockwise,
-  CaretDown,
-  DownloadSimple,
-  FloppyDisk,
-  Tag,
-  Trash,
+  ArrowClockwiseIcon,
+  CaretDownIcon,
+  DownloadSimpleIcon,
+  FloppyDiskIcon,
+  TagIcon,
+  TrashIcon,
 } from '@phosphor-icons/react'
 import type { WorkflowDef } from '@/types/workflow'
 import {
@@ -98,11 +98,11 @@ function VersionHeadBarSelect({
         onClick={() => hasOptions && setOpen((value) => !value)}
       >
         <span className="version-headbar-icon" aria-hidden="true">
-          <Tag size={16} weight="bold" />
+          <TagIcon size={16} weight="bold" />
         </span>
         <span>{displayValue}</span>
         {hasOptions ? (
-          <CaretDown className="version-headbar-chevron" size={18} weight="bold" />
+          <CaretDownIcon className="version-headbar-chevron" size={18} weight="bold" />
         ) : null}
       </button>
       {open ? (
@@ -174,7 +174,7 @@ export function WorkflowMetaBar({ actor }: { actor: WorkflowDefinitionActor }) {
           disabled={!workflow || isNewWorkflow || saving || deleting}
           onClick={() => actor.send({ type: 'REQUEST_DELETE' })}
         >
-          <Trash size={20} />
+          <TrashIcon size={20} />
           删除
         </button>
         <button
@@ -183,7 +183,7 @@ export function WorkflowMetaBar({ actor }: { actor: WorkflowDefinitionActor }) {
           disabled={!dirty || saving}
           onClick={() => actor.send({ type: 'REQUEST_RESET' })}
         >
-          <ArrowClockwise size={20} />
+          <ArrowClockwiseIcon size={20} />
           重置
         </button>
         <button
@@ -192,7 +192,7 @@ export function WorkflowMetaBar({ actor }: { actor: WorkflowDefinitionActor }) {
           disabled={!workflow}
           onClick={() => workflow && downloadDefinition(workflow)}
         >
-          <DownloadSimple size={20} />
+          <DownloadSimpleIcon size={20} />
           下载
         </button>
         <button
@@ -201,7 +201,7 @@ export function WorkflowMetaBar({ actor }: { actor: WorkflowDefinitionActor }) {
           disabled={!workflow || !dirty || saving}
           onClick={() => actor.send({ type: 'REQUEST_SAVE' })}
         >
-          <FloppyDisk size={20} />
+          <FloppyDiskIcon size={20} />
           {saving ? '保存中...' : '保存'}
         </button>
       </div>

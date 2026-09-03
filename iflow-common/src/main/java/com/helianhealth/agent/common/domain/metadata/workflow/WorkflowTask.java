@@ -1,7 +1,6 @@
 package com.helianhealth.agent.common.domain.metadata.workflow;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.helianhealth.agent.common.domain.metadata.task.TaskDef;
 import com.helianhealth.agent.common.domain.metadata.task.TaskType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -237,22 +236,14 @@ public class WorkflowTask {
 
         switch (TaskType.of(type)) {
             case SWITCH:
-                if (decisionCases != null) {
-                    workflowTaskLists.addAll(decisionCases.values());
-                }
-                if (defaultCase != null) {
-                    workflowTaskLists.add(defaultCase);
-                }
+                workflowTaskLists.addAll(decisionCases.values());
+                workflowTaskLists.add(defaultCase);
                 break;
             case FORK_JOIN:
-                if (forkTasks != null) {
-                    workflowTaskLists.addAll(forkTasks);
-                }
+                workflowTaskLists.addAll(forkTasks);
                 break;
             case DO_WHILE:
-                if (loopOver != null) {
-                    workflowTaskLists.add(loopOver);
-                }
+                workflowTaskLists.add(loopOver);
                 break;
             default:
                 break;

@@ -1,7 +1,7 @@
 import type { MouseEvent } from 'react'
 import { Port, type NodeData, type PortData, type PortProps } from 'reaflow'
-import { TaskType } from '@/flow/taskType'
 import type { NodeTaskData } from '@/flow/conductorMapper'
+import { getTaskFlowKind } from '@/tasks'
 import CustomEdgeButton from './CustomEdgeButton'
 
 type PortEventPayload = {
@@ -26,15 +26,16 @@ const CustomPort = ({
   ...restProps
 }: CustomPortProps) => {
   const taskType = nodeProperties?.data?.task.type
+  const flowKind = getTaskFlowKind(taskType ?? '')
   const portSide = restProps.properties?.side
   const portVariant =
-    [TaskType.SWITCH, TaskType.DECISION, TaskType.FORK_JOIN].includes(taskType as never) && portSide === 'SOUTH'
+    (flowKind === 'switch' || flowKind === 'fork') && portSide === 'SOUTH'
       ? 'ADD_DELETE'
       : 'ADD'
   const isEndTerminal = nodeProperties?.data?.task.name === 'End' || nodeProperties?.id === '__end__'
   const actionTitle = portSide === 'NORTH'
     ? '在当前任务前添加任务'
-    : taskType === TaskType.DO_WHILE
+    : flowKind === 'do_while'
       ? '在循环后添加任务'
       : undefined
 

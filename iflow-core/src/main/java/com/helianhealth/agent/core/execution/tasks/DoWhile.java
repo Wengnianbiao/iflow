@@ -29,7 +29,7 @@ import java.util.Map;
  * <p>首次执行先调度第 1 轮循环体；每一轮循环体全部结束后求值
  * {@link WorkflowTask#getLoopCondition()}：
  * <ul>
- *   <li>返回真值 —— 通过 {@link WorkflowExecutor} 复制循环体并调度下一轮；</li>
+ *   <li>返回真值 —— 更新迭代号，由下一轮主线程 Decider 创建循环体任务；</li>
  *   <li>返回假值 —— 本 DO_WHILE 完成。</li>
  * </ul>
  */
@@ -65,7 +65,7 @@ public class DoWhile extends WorkflowSystemTask {
     }
 
     @Override
-    public boolean execute(
+    public void execute(
             WorkflowModel workflow,
             TaskModel doWhileTaskModel,
             WorkflowExecutor workflowExecutor) {
@@ -73,18 +73,20 @@ public class DoWhile extends WorkflowSystemTask {
         if (definition == null
                 || definition.getLoopOver() == null
                 || definition.getLoopOver().isEmpty()) {
-            return markTaskFailure(
+            markTaskFailure(
                     doWhileTaskModel,
                     TaskModel.Status.FAILED_WITH_TERMINAL_ERROR,
                     "DO_WHILE loopOver must contain at least one task");
+            return;
         }
         if (!isListIteration(doWhileTaskModel)
                 && (definition.getLoopCondition() == null
                         || definition.getLoopCondition().isBlank())) {
-            return markTaskFailure(
+            markTaskFailure(
                     doWhileTaskModel,
                     TaskModel.Status.FAILED_WITH_TERMINAL_ERROR,
                     "DO_WHILE loopCondition is required");
+            return;
         }
 
         boolean hasFailures = false;
@@ -121,7 +123,8 @@ public class DoWhile extends WorkflowSystemTask {
                             "Task {} has an empty items list, completing without executing loop tasks",
                             doWhileTaskModel.getTaskId());
                     doWhileTaskModel.addOutput("iteration", 0);
-                    return markTaskSuccess(doWhileTaskModel);
+                    markTaskSuccess(doWhileTaskModel);
+                    return;
                 }
             }
 
@@ -131,7 +134,7 @@ public class DoWhile extends WorkflowSystemTask {
             // For list iteration, inject loopItem and loopIndex
             injectLoopVariables(workflow, doWhileTaskModel);
 
-            return scheduleNextIteration(doWhileTaskModel, workflow, workflowExecutor);
+            return;
         }
 
         for (TaskModel loopOverTask : loopOverTasks) {
@@ -167,13 +170,14 @@ public class DoWhile extends WorkflowSystemTask {
                     "Task {} failed in {} iteration",
                     doWhileTaskModel.getTaskId(),
                     doWhileTaskModel.getIteration());
-            return markTaskFailure(
+            markTaskFailure(
                     doWhileTaskModel, TaskModel.Status.FAILED, failureReason.toString());
+            return;
         }
 
         if (!isIterationComplete(doWhileTaskModel, relevantTasks)) {
             // current iteration is not complete (all tasks inside the loop are not terminal)
-            return false;
+            return;
         }
 
         // if we are here, the iteration is complete, and we need to check if there is a next
@@ -192,13 +196,13 @@ public class DoWhile extends WorkflowSystemTask {
                 // For list iteration, inject loopItem and loopIndex for next iteration
                 injectLoopVariables(workflow, doWhileTaskModel);
 
-                return scheduleNextIteration(doWhileTaskModel, workflow, workflowExecutor);
+                return;
             } else {
                 LOGGER.debug(
                         "Task {} took {} iterations to complete",
                         doWhileTaskModel.getTaskId(),
                         doWhileTaskModel.getIteration());
-                return markTaskSuccess(doWhileTaskModel);
+                markTaskSuccess(doWhileTaskModel);
             }
         } catch (Exception e) {
             String message =
@@ -207,7 +211,7 @@ public class DoWhile extends WorkflowSystemTask {
                             doWhileTaskModel.getWorkflowTask().getLoopCondition(),
                             rootCauseMessage(e));
             LOGGER.error(message, e);
-            return markTaskFailure(
+            markTaskFailure(
                     doWhileTaskModel, TaskModel.Status.FAILED_WITH_TERMINAL_ERROR, message);
         }
     }
@@ -314,22 +318,14 @@ public class DoWhile extends WorkflowSystemTask {
         return true;
     }
 
-    private boolean scheduleNextIteration(
-            TaskModel task, WorkflowModel workflow, WorkflowExecutor workflowExecutor) {
-        workflowExecutor.scheduleNextIteration(task, workflow);
-        return true;
-    }
-
-    private boolean markTaskFailure(
+    private void markTaskFailure(
             TaskModel task, TaskModel.Status status, String reason) {
         task.setReasonForInCompletion(reason);
         task.setStatus(status);
-        return true;
     }
 
-    private boolean markTaskSuccess(TaskModel task) {
+    private void markTaskSuccess(TaskModel task) {
         task.setStatus(TaskModel.Status.COMPLETED);
-        return true;
     }
 
     private void injectLoopVariables(WorkflowModel workflow, TaskModel task) {

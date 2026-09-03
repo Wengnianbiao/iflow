@@ -1,15 +1,20 @@
 package com.helianhealth.agent.core.execution.tasks;
 
 import com.helianhealth.agent.common.domain.metadata.task.TaskType;
+import com.helianhealth.agent.core.exception.TerminateWorkflowException;
 import com.helianhealth.agent.core.execution.WorkflowExecutor;
 import com.helianhealth.agent.core.execution.evaluators.Evaluator;
 import com.helianhealth.agent.core.execution.evaluators.GraalJSEvaluator;
 import com.helianhealth.agent.core.model.TaskModel;
 import com.helianhealth.agent.core.model.WorkflowModel;
-import lombok.extern.slf4j.Slf4j;
+import io.micrometer.common.util.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
+
+import static com.helianhealth.agent.common.domain.metadata.task.TaskType.TASK_TYPE_INLINE;
 
 /**
  * 内联脚本任务。
@@ -19,16 +24,17 @@ import java.util.Map;
  *
  * <p>支持的 evaluatorType：
  * <ul>
- *   <li>{@code graaljs} / {@code javascript} — GraalJS 脚本，{@code $} 为 input</li>
+ *   <li>{@code graaljs} — GraalJS 脚本，{@code $} 为 input</li>
  *   <li>{@code spel} — SpEL，{@code #root} 为 input</li>
  *   <li>{@code value-param} — 按 expression 作为键从 input 取值</li>
  * </ul>
  *
- * <p>声明式参数映射请使用 {@link TaskType#TASK_TYPE_PARAM_MAP}。
+ * <p>声明式参数映射请使用 {@link TaskType#TASK_TYPE_MAPPING}。
  */
-@Component(TaskType.TASK_TYPE_INLINE)
-@Slf4j
+@Component(TASK_TYPE_INLINE)
 public class Inline extends WorkflowSystemTask {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(Inline.class);
 
     public static final String INPUT_EVALUATOR_TYPE = "evaluatorType";
     public static final String INPUT_EXPRESSION = "expression";
@@ -38,40 +44,55 @@ public class Inline extends WorkflowSystemTask {
     private final Map<String, Evaluator> evaluators;
 
     public Inline(Map<String, Evaluator> evaluators) {
-        super(TaskType.TASK_TYPE_INLINE);
+        super(TASK_TYPE_INLINE);
         this.evaluators = evaluators;
     }
 
     @Override
-    public boolean execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
+    public void execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
         Map<String, Object> input = task.getInputData();
         String evaluatorType = (String) input.getOrDefault(INPUT_EVALUATOR_TYPE, DEFAULT_EVALUATOR);
         String expression = (String) input.get(INPUT_EXPRESSION);
 
-        if (expression == null || expression.isBlank()) {
-            task.setReasonForInCompletion("empty expression");
-            task.setStatus(TaskModel.Status.FAILED_WITH_TERMINAL_ERROR);
-            return true;
-        }
-        Evaluator evaluator = evaluators.get(evaluatorType);
-        if (evaluator == null) {
-            task.setReasonForInCompletion("unknown evaluatorType: " + evaluatorType);
-            task.setStatus(TaskModel.Status.FAILED_WITH_TERMINAL_ERROR);
-            return true;
-        }
-
         try {
+            checkEvaluatorType(evaluatorType);
+            checkExpression(expression);
+            Evaluator evaluator = evaluators.get(evaluatorType);
             Object result = evaluator.evaluate(expression, input);
             task.addOutput(OUTPUT_RESULT, result);
             task.setStatus(TaskModel.Status.COMPLETED);
         } catch (Exception e) {
             String msg = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
-            log.error("INLINE task evaluation failed: workflow={}, task={}",
+            LOGGER.error("INLINE task evaluation failed: workflow={}, task={}",
                     workflow.getWorkflowId(), task.getTaskId(), e);
             task.setStatus(TaskModel.Status.FAILED);
             task.setReasonForInCompletion(msg);
-            task.addOutput("error", msg);
+            addError(task, msg);
         }
-        return true;
+    }
+
+    private void checkEvaluatorType(String evaluatorType) {
+        if (StringUtils.isBlank(evaluatorType)) {
+            LOGGER.error("Empty {} in INLINE task. ", INPUT_EVALUATOR_TYPE);
+            throw new TerminateWorkflowException(
+                    "Empty '"
+                            + INPUT_EVALUATOR_TYPE
+                            + "' in INLINE task's input parameters. A non-empty String value must be provided.");
+        }
+        if (evaluators.get(evaluatorType) == null) {
+            LOGGER.error("Evaluator {} for INLINE task not registered", evaluatorType);
+            throw new TerminateWorkflowException(
+                    "Unknown evaluator '" + evaluatorType + "' in INLINE task.");
+        }
+    }
+
+    private void checkExpression(String expression) {
+        if (StringUtils.isBlank(expression)) {
+            LOGGER.error("Empty {} in INLINE task. ", INPUT_EXPRESSION);
+            throw new TerminateWorkflowException(
+                    "Empty '"
+                            + INPUT_EXPRESSION
+                            + "' in Inline task's input parameters. A non-empty String value must be provided.");
+        }
     }
 }

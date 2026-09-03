@@ -37,7 +37,7 @@
         <!-- 参数映射系统任务 -->
         <dependency>
             <groupId>com.helianhealth</groupId>
-            <artifactId>iflow-parammap-task</artifactId>
+            <artifactId>iflow-mapping-task</artifactId>
             <version>${project.version}</version>
         </dependency>
 
