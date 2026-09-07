@@ -1,0 +1,35 @@
+{
+  "name": "function_parse_example",
+  "displayName": "JSON/XML 字符串反序列化示例",
+  "version": 1,
+  "description": "通过 FUNCTION 内置函数将工作流输入中的 JSON、XML 字符串转换为结构化 Map。",
+  "inputParameters": [
+    "request",
+    "xmlRequest"
+  ],
+  "outputParameters": {
+    "patientCode": "${parse_json_ref.output.patientCode}",
+    "json": "${parse_json_ref.output}",
+    "xml": "${parse_xml_ref.output}"
+  },
+  "tasks": [
+    {
+      "name": "parse_json_request",
+      "taskReferenceName": "parse_json_ref",
+      "type": "FUNCTION",
+      "inputParameters": {
+        "function": "JSON_PARSE",
+        "value": "${workflow.input.request}"
+      }
+    },
+    {
+      "name": "parse_xml_request",
+      "taskReferenceName": "parse_xml_ref",
+      "type": "FUNCTION",
+      "inputParameters": {
+        "function": "XML_PARSE",
+        "value": "${workflow.input.xmlRequest}"
+      }
+    }
+  ]
+}

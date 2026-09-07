@@ -1,9 +1,8 @@
 package com.helianhealth.agent.tasks.mapping;
 
-import com.helianhealth.agent.common.utils.SpelUtils;
+import com.helianhealth.agent.core.execution.evaluators.GraalJSEvaluator;
 import com.helianhealth.agent.tasks.mapping.enums.MappingType;
 
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -16,8 +15,7 @@ final class MappingValueResolver {
     static Object resolve(
             ParamMappingDef def,
             Map<String, Object> current,
-            Map<String, Object> parent,
-            Map<String, Object> root) {
+            GraalJSEvaluator expressionEvaluator) {
         MappingType mappingType = def.getMappingType();
         if (mappingType == null) {
             mappingType = MappingType.NAME;
@@ -25,21 +23,19 @@ final class MappingValueResolver {
         return switch (mappingType) {
             case CONSTANT -> def.getMappingRule();
             case NAME -> ParamSourceReader.read(current, def.getSourceParamKey(), def.getSourceParamType());
-            case EXPRESSION ->
-                    SpelUtils.parserPreNode(def.getMappingRule(), current, parent, root);
-            case BEAN_EXPRESSION ->
-                    SpelUtils.parserPreNodeWithBeanAccess(def.getMappingRule(), current, parent, root);
-            case SINGLE_MAP -> resolveSingleMap(def, current);
+            case EXPRESSION -> evaluateExpression(def, current, expressionEvaluator);
         };
     }
 
-    private static Object resolveSingleMap(ParamMappingDef def, Map<String, Object> current) {
-        Object raw = ParamSourceReader.read(current, def.getSourceParamKey(), def.getSourceParamType());
-        if (!(raw instanceof Map<?, ?> map)) {
-            return null;
+    private static Object evaluateExpression(
+            ParamMappingDef def,
+            Map<String, Object> current,
+            GraalJSEvaluator expressionEvaluator) {
+        if (def.getMappingRule() == null || def.getMappingRule().isBlank()) {
+            throw new IllegalArgumentException(
+                    "mappingRule is required for EXPRESSION mapping: "
+                            + def.getTargetParamKey());
         }
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put(def.getTargetParamKey(), map);
-        return result;
+        return expressionEvaluator.evaluate(def.getMappingRule(), current);
     }
 }

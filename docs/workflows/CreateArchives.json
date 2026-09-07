@@ -108,7 +108,7 @@
                 "targetParamKey": "idCardCode",
                 "targetParamType": "STRING",
                 "mappingType": "EXPRESSION",
-                "mappingRule": "#data[cardType] == '1' || #data[cardType] == 1 ? '01' : #data[cardType]",
+                "mappingRule": "String($.cardType) === '1' ? '01' : $.cardType",
                 "paramDesc": "身份证件类型，1→01"
               },
               {
@@ -125,7 +125,7 @@
                 "targetParamKey": "maritalStatus",
                 "targetParamType": "STRING",
                 "mappingType": "EXPRESSION",
-                "mappingRule": "#data[marriage] == '1' || #data[marriage] == 1 ? '10' : (#data[marriage] == '2' || #data[marriage] == 2 ? '20' : (#data[marriage] == '3' || #data[marriage] == 3 ? '40' : (#data[marriage] == '4' || #data[marriage] == 4 ? '30' : '90')))",
+                "mappingRule": "({ '1': '10', '2': '20', '3': '40', '4': '30' })[String($.marriage)] ?? '90'",
                 "paramDesc": "婚姻：1未婚→10，2已婚→20，3离婚→40，4丧偶→30"
               },
               {
@@ -199,7 +199,7 @@
             "targetParamType": "STRING",
             "sourceParamType": "NONE",
             "mappingType": "EXPRESSION",
-            "mappingRule": "T(String).valueOf(T(System).currentTimeMillis())",
+            "mappingRule": "String(Date.now())",
             "paramDesc": "当前时间戳"
           },
           {
@@ -207,7 +207,7 @@
             "targetParamType": "STRING",
             "sourceParamType": "NONE",
             "mappingType": "EXPRESSION",
-            "mappingRule": "T(com.helianhealth.agent.common.utils.JsonUtils).toJsonString(T(java.util.Collections).singletonList(#data[patient]))",
+            "mappingRule": "JSON.stringify([$.patient])",
             "paramDesc": "业务数据 JSON 数组字符串，读取同级已映射的 patient"
           }
         ]
@@ -249,7 +249,7 @@
             "targetParamType": "STRING",
             "sourceParamType": "NONE",
             "mappingType": "EXPRESSION",
-            "mappingRule": "(#data[code] == 200 || #data[code] == '200' || #data[code] == 0 || #data[code] == '0') && (#data[body] == null || #data[body][status] == null || #data[body][status] == true) ? '200' : '-1'",
+            "mappingRule": "(['200', '0'].includes(String($.code)) && ($.body == null || $.body.status == null || $.body.status === true)) ? '200' : '-1'",
             "paramDesc": "200成功 / -1失败"
           },
           {
@@ -257,7 +257,7 @@
             "targetParamType": "STRING",
             "sourceParamType": "NONE",
             "mappingType": "EXPRESSION",
-            "mappingRule": "(#data[code] == 200 || #data[code] == '200' || #data[code] == 0 || #data[code] == '0') && (#data[body] == null || #data[body][status] == null || #data[body][status] == true) ? '成功' : (#data[body] != null && #data[body][detail] != null ? #data[body][detail] : (#data[message] != null ? #data[message] : '失败'))",
+            "mappingRule": "(['200', '0'].includes(String($.code)) && ($.body == null || $.body.status == null || $.body.status === true)) ? '成功' : ($.body?.detail ?? $.message ?? '失败')",
             "paramDesc": "响应描述"
           },
           {
@@ -271,7 +271,7 @@
                 "targetParamType": "STRING",
                 "sourceParamType": "STRING",
                 "mappingType": "EXPRESSION",
-                "mappingRule": "#data[body] != null && #data[body][data] != null ? (#data[body][data][mpi] ?: #data[body][data][idPi]) : (#data[data] != null ? (#data[data][mpi] ?: #data[data][idPi]) : null)",
+                "mappingRule": "$.body?.data != null ? ($.body.data.mpi ?? $.body.data.idPi) : ($.data != null ? ($.data.mpi ?? $.data.idPi) : null)",
                 "paramDesc": "PATIENT_ID"
               },
               {
@@ -279,7 +279,7 @@
                 "targetParamType": "STRING",
                 "sourceParamType": "STRING",
                 "mappingType": "EXPRESSION",
-                "mappingRule": "#data[body] != null && #data[body][data] != null ? #data[body][data][medicalCardId] : (#data[data] != null ? #data[data][medicalCardId] : null)",
+                "mappingRule": "$.body?.data != null ? $.body.data.medicalCardId : ($.data != null ? $.data.medicalCardId : null)",
                 "paramDesc": "就诊卡号 VISIT_NO"
               }
             ]

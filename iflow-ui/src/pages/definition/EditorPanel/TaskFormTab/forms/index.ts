@@ -1,6 +1,7 @@
 export * from './types'
 export * from './DoWhileTaskForm'
 export * from './ForkJoinTaskForm'
+export * from './FunctionTaskForm'
 export * from './HTTPTaskForm'
 export * from './INLINETaskForm'
 export * from './JDBCTaskForm'

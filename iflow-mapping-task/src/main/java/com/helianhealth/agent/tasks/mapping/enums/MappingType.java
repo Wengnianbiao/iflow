@@ -19,17 +19,7 @@ public enum MappingType {
     NAME,
 
     /**
-     * SpEL 表达式
+     * GraalJS 表达式（通过 {@code $} 读取映射上下文）
      */
-    EXPRESSION,
-
-    /**
-     * Bean 表达式映射（主要用于查体软表字段映射）
-     */
-    BEAN_EXPRESSION,
-
-    /**
-     * 单个 Map 键值对
-     */
-    SINGLE_MAP
+    EXPRESSION
 }

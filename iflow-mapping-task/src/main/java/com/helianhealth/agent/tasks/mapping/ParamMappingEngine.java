@@ -23,7 +23,6 @@ public class ParamMappingEngine {
 
     public static final String INPUT_PARAMS_CONFIG = "paramsConfig";
 
-    /** 旧版主业务数据键名；对象值会额外展开到源对象顶层以兼容已有映射。 */
     public static final String INPUT_PAYLOAD = "payload";
 
     private final ParamMapTransformer paramMapTransformer;

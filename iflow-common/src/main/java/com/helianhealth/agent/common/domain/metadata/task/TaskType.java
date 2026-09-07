@@ -21,6 +21,7 @@ public enum TaskType {
     HTTP,
     JDBC,
     WEBSERVICE,
+    FUNCTION,
     MAPPING,
     SPI,
     USER_DEFINED;
@@ -38,6 +39,7 @@ public enum TaskType {
     public static final String TASK_TYPE_HTTP = "HTTP";
     public static final String TASK_TYPE_JDBC = "JDBC";
     public static final String TASK_TYPE_WEBSERVICE = "WEBSERVICE";
+    public static final String TASK_TYPE_FUNCTION = "FUNCTION";
     public static final String TASK_TYPE_MAPPING = "MAPPING";
     public static final String TASK_TYPE_SPI = "SPI";
 

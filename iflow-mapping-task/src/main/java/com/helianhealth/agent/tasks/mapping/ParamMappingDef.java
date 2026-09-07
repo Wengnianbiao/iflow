@@ -1,6 +1,5 @@
 package com.helianhealth.agent.tasks.mapping;
 
-import com.alibaba.fastjson2.annotation.JSONField;
 import com.helianhealth.agent.tasks.mapping.enums.MappingType;
 import com.helianhealth.agent.tasks.mapping.enums.ParamType;
 import lombok.AllArgsConstructor;
@@ -40,7 +39,7 @@ public class ParamMappingDef {
     /** 映射规则类型 */
     private MappingType mappingType;
 
-    /** 映射规则内容（常量值、SpEL 表达式等） */
+    /** 映射规则内容（常量值、JavaScript 表达式等） */
     private String mappingRule;
 
     /** 子映射（树形嵌套） */

@@ -1,5 +1,6 @@
 package com.helianhealth.agent.tasks.parammap;
 
+import com.helianhealth.agent.core.execution.evaluators.GraalJSEvaluator;
 import com.helianhealth.agent.core.model.TaskModel;
 import com.helianhealth.agent.core.model.WorkflowModel;
 import com.helianhealth.agent.tasks.mapping.ParamMapTransformer;
@@ -26,7 +27,7 @@ class ParamMappingEngineTest {
 
     @BeforeEach
     void setup() {
-        engine = new ParamMappingEngine(new ParamMapTransformer());
+        engine = new ParamMappingEngine(new ParamMapTransformer(new GraalJSEvaluator()));
     }
 
     @Test

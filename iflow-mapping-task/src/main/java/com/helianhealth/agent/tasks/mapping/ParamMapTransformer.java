@@ -1,8 +1,10 @@
 package com.helianhealth.agent.tasks.mapping;
 
-import com.helianhealth.agent.tasks.mapping.enums.ParamType;
 import com.helianhealth.agent.common.exception.WorkFlowConfigException;
 import com.helianhealth.agent.common.exception.WorkFlowErrorCode;
+import com.helianhealth.agent.core.execution.evaluators.GraalJSEvaluator;
+import com.helianhealth.agent.tasks.mapping.enums.MappingType;
+import com.helianhealth.agent.tasks.mapping.enums.ParamType;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -23,6 +25,12 @@ import java.util.Map;
 @Component
 public class ParamMapTransformer {
 
+    private final GraalJSEvaluator expressionEvaluator;
+
+    public ParamMapTransformer(GraalJSEvaluator expressionEvaluator) {
+        this.expressionEvaluator = expressionEvaluator;
+    }
+
     /**
      * 按配置列表将 {@code source} 转化为目标 Map。
      */
@@ -37,33 +45,49 @@ public class ParamMapTransformer {
             if (config.getTargetParamKey() == null) {
                 continue;
             }
-            Object value = transformConfig(config, rootView, rootView, rootView);
+            Object value = transformConfig(config, rootView);
             target.put(config.getTargetParamKey(), value);
             rootView.put(config.getTargetParamKey(), value);
         }
         return target;
     }
 
-    private Object transformConfig(
-            ParamMappingDef config,
-            Map<String, Object> current,
-            Map<String, Object> parent,
-            Map<String, Object> root) {
+    private Object transformConfig(ParamMappingDef config, Map<String, Object> current) {
         ParamType targetType = config.getTargetParamType();
         if (targetType == null) {
             targetType = ParamType.STRING;
         }
+        MappingType mappingType = config.getMappingType();
+        if (mappingType == null) {
+            mappingType = MappingType.NAME;
+        }
+        return switch (mappingType) {
+            case CONSTANT, EXPRESSION -> transformResolvedValue(config, current, targetType);
+            case NAME -> transformNameMapping(config, current, targetType);
+        };
+    }
+
+    private Object transformNameMapping(
+            ParamMappingDef config, Map<String, Object> current, ParamType targetType) {
         return switch (targetType) {
-            case OBJECT -> transformObject(config, current, root);
-            case ARRAY -> transformArray(config, current, root);
-            default -> transformScalar(config, current, parent, root, targetType);
+            case OBJECT -> transformObject(config, current);
+            case ARRAY -> transformArray(config, current);
+            default -> transformResolvedValue(config, current, targetType);
+        };
+    }
+
+    private Object transformResolvedValue(
+            ParamMappingDef config, Map<String, Object> current, ParamType targetType) {
+        Object value = MappingValueResolver.resolve(config, current, expressionEvaluator);
+        return switch (targetType) {
+            case OBJECT -> requireObject(config, value);
+            case ARRAY -> requireArray(config, value);
+            default -> ParamTypeConverter.convert(value, targetType);
         };
     }
 
     private Map<String, Object> transformObject(
-            ParamMappingDef config,
-            Map<String, Object> current,
-            Map<String, Object> root) {
+            ParamMappingDef config, Map<String, Object> current) {
         Map<String, Object> childSource = resolveObjectSource(config, current);
         Map<String, Object> result = new LinkedHashMap<>();
         List<ParamMappingDef> children = config.getChildParams();
@@ -76,15 +100,13 @@ public class ParamMapTransformer {
             }
             result.put(
                     child.getTargetParamKey(),
-                    transformConfig(child, childSource, childSource, root));
+                    transformConfig(child, childSource));
         }
         return result;
     }
 
     private List<Object> transformArray(
-            ParamMappingDef config,
-            Map<String, Object> current,
-            Map<String, Object> root) {
+            ParamMappingDef config, Map<String, Object> current) {
         List<ParamMappingDef> children = config.getChildParams();
         if (children == null || children.isEmpty()) {
             return List.of();
@@ -92,24 +114,53 @@ public class ParamMapTransformer {
 
         Object sourceValue = ParamSourceReader.read(current, config.getSourceParamKey(), config.getSourceParamType());
         if (config.getSourceParamType() == ParamType.NONE) {
-            return List.of(transformObject(config, current, root));
+            return List.of(transformObject(config, current));
         }
         if (config.getSourceParamType() == ParamType.OBJECT && sourceValue != null) {
-            return List.of(transformObject(config, ParamSourceReader.asMap(sourceValue), root));
+            return List.of(transformObject(config, ParamSourceReader.asMap(sourceValue)));
         }
         if (config.getSourceParamType() == ParamType.ARRAY && sourceValue != null) {
-            return transformArrayFromSource(config, children, sourceValue, current, root);
+            return transformArrayFromSource(config, children, sourceValue);
         }
         return List.of();
     }
 
-    @SuppressWarnings("unchecked")
+    private List<Object> requireArray(ParamMappingDef config, Object value) {
+        if (!(value instanceof List<?> list)) {
+            throw targetTypeError(config, "数组", value);
+        }
+        return new ArrayList<>(list);
+    }
+
+    private Map<String, Object> requireObject(ParamMappingDef config, Object value) {
+        if (!(value instanceof Map<?, ?>)) {
+            throw targetTypeError(config, "对象", value);
+        }
+        return ParamSourceReader.asMap(value);
+    }
+
+    private WorkFlowConfigException targetTypeError(
+            ParamMappingDef config, String expectedType, Object value) {
+        String mappingLabel = config.getMappingType() == MappingType.EXPRESSION
+                ? "JS表达式"
+                : "映射结果";
+        String actualType = value == null ? "null" : value.getClass().getSimpleName();
+        return new WorkFlowConfigException(
+                WorkFlowErrorCode.TYPE_CONVERSION_ERROR,
+                mappingLabel
+                        + "必须返回"
+                        + expectedType
+                        + ": "
+                        + config.getTargetParamKey()
+                        + " (actual="
+                        + actualType
+                        + ")");
+    }
+
     private List<Object> transformArrayFromSource(
             ParamMappingDef config,
             List<ParamMappingDef> children,
-            Object sourceValue,
-            Map<String, Object> current,
-            Map<String, Object> root) {
+            Object sourceValue) {
         List<Object> result = new ArrayList<>();
         if (sourceValue instanceof List<?> sourceList) {
             if (sourceList.isEmpty()) {
@@ -119,13 +170,13 @@ public class ParamMapTransformer {
             if (first instanceof Map<?, ?>) {
                 for (Object item : sourceList) {
                     Map<String, Object> itemSource = ParamSourceReader.asMap(item);
-                    result.add(transformArrayElement(children, itemSource, root));
+                    result.add(transformArrayElement(children, itemSource));
                 }
             } else {
                 for (Object item : sourceList) {
                     Map<String, Object> itemSource = new LinkedHashMap<>();
                     itemSource.put(config.getTargetParamKey(), item);
-                    result.add(transformArrayElement(children, itemSource, root));
+                    result.add(transformArrayElement(children, itemSource));
                 }
             }
             return result;
@@ -133,39 +184,27 @@ public class ParamMapTransformer {
 
         Map<String, Object> itemSource = new LinkedHashMap<>();
         itemSource.put(config.getTargetParamKey(), sourceValue);
-        result.add(transformArrayElement(children, itemSource, root));
+        result.add(transformArrayElement(children, itemSource));
         return result;
     }
 
     private Object transformArrayElement(
             List<ParamMappingDef> children,
-            Map<String, Object> itemSource,
-            Map<String, Object> root) {
+            Map<String, Object> itemSource) {
         if (children.size() == 1) {
             ParamMappingDef only = children.get(0);
-            return transformConfig(only, itemSource, itemSource, root);
+            return transformConfig(only, itemSource);
         }
         Map<String, Object> element = new LinkedHashMap<>();
         for (ParamMappingDef child : children) {
             if (child.getTargetParamKey() == null) {
                 continue;
             }
-            element.put(child.getTargetParamKey(), transformConfig(child, itemSource, itemSource, root));
+            element.put(child.getTargetParamKey(), transformConfig(child, itemSource));
         }
         return element;
     }
 
-    private Object transformScalar(
-            ParamMappingDef config,
-            Map<String, Object> current,
-            Map<String, Object> parent,
-            Map<String, Object> root,
-            ParamType targetType) {
-        Object raw = MappingValueResolver.resolve(config, current, parent, root);
-        return ParamTypeConverter.convert(raw, targetType);
-    }
-
-    @SuppressWarnings("unchecked")
     private Map<String, Object> resolveObjectSource(ParamMappingDef config, Map<String, Object> current) {
         ParamType sourceParamType = config.getSourceParamType();
         if (sourceParamType == null || sourceParamType == ParamType.NONE) {
@@ -179,7 +218,6 @@ public class ParamMapTransformer {
         };
     }
 
-    @SuppressWarnings("unchecked")
     private Map<String, Object> firstMapElement(Object sourceValue, String sourceParamKey) {
         if (!(sourceValue instanceof List<?> list)) {
             throw new WorkFlowConfigException(

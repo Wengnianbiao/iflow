@@ -14,6 +14,7 @@ export const TaskType = {
   SPI: 'SPI',
   JDBC: 'JDBC',
   WEBSERVICE: 'WEBSERVICE',
+  FUNCTION: 'FUNCTION',
   NOOP: 'NOOP',
 } as const
 
