@@ -29,7 +29,7 @@ public class FunctionExecutor {
         this.maxInputChars = maxInputChars;
     }
 
-    public Map<String, Object> execute(FunctionType functionType, String input) {
+    public Object execute(FunctionType functionType, String input) {
         if (input.isBlank()) {
             throw new IllegalArgumentException("FUNCTION input 'value' must not be blank");
         }
@@ -44,18 +44,14 @@ public class FunctionExecutor {
         };
     }
 
-    private Map<String, Object> parseJson(String input) {
+    private Object parseJson(String input) {
         final Object parsed;
         try {
             parsed = JSON.parse(input);
         } catch (Exception ignored) {
             throw new IllegalArgumentException("FUNCTION JSON_PARSE failed: invalid JSON");
         }
-        if (!(parsed instanceof Map<?, ?> map)) {
-            throw new IllegalArgumentException(
-                    "FUNCTION JSON_PARSE requires a JSON object root");
-        }
-        return normalizeMap(map);
+        return normalize(parsed);
     }
 
     private Map<String, Object> parseXml(String input) {

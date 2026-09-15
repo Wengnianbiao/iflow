@@ -32,7 +32,7 @@ WEBSERVICE 与 HTTP 共用同一套扁平 `inputParameters` 形状，唯一差�
 ```json
 {
   "templateParameters": {
-    "patient": "${query_patient_ref.output.result}"
+    "patient": "${query_patient_ref.output}"
   },
   "soapTemplate": "<GetPatient><id>${$.patient.id}</id></GetPatient>"
 }
@@ -60,7 +60,7 @@ WEBSERVICE 与 HTTP 共用同一套扁平 `inputParameters` 形状，唯一差�
 {
   "uri": "${workflow.input.serviceUri}",
   "templateParameters": {
-    "requestXml": "${build_xml_ref.output.result}"
+    "requestXml": "${build_xml_ref.output}"
   },
   "soapTemplate": "${$.requestXml}"
 }

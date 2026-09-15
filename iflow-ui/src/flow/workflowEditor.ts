@@ -7,20 +7,6 @@ import {
 } from '@/tasks'
 import type { WorkflowDef, WorkflowTask } from '@/types/workflow'
 
-const DEFAULT_WORKFLOW_ATTRIBUTES = [
-  'workflow.workflowId',
-  'workflow.output',
-  'workflow.status',
-  'workflow.parentWorkflowId',
-  'workflow.parentWorkflowTaskId',
-  'workflow.workflowType',
-  'workflow.version',
-  'workflow.correlationId',
-  'workflow.variables',
-  'workflow.createTime',
-  'workflow.taskToDomain',
-]
-
 function collectWorkflowTasks(tasks: WorkflowTask[] = []): WorkflowTask[] {
   return tasks.flatMap((task) => [
     task,
@@ -32,18 +18,12 @@ function collectWorkflowTasks(tasks: WorkflowTask[] = []): WorkflowTask[] {
 }
 
 export function buildVariableOptions(workflow: WorkflowDef) {
-  const workflowInputs = (workflow.inputParameters ?? []).map((name) => `\${workflow.input.${name}}`)
-  const workflowAttributes = DEFAULT_WORKFLOW_ATTRIBUTES.map((name) => `\${${name}}`)
   const taskOutputs = collectWorkflowTasks(workflow.tasks)
     .filter((task) => Boolean(task.taskReferenceName))
     .flatMap(getTaskVariableOptions)
 
   return [...new Set([
     '${workflow.input}',
-    '${workflow.secrets}',
-    '${workflow.env}',
-    ...workflowInputs,
-    ...workflowAttributes,
     ...taskOutputs,
   ].filter(Boolean))]
 }

@@ -206,8 +206,12 @@ public class WebServiceTask extends WorkflowSystemTask {
         private String soapTemplate;
         private Map<String, Object> headers = new HashMap<>();
         private String contentType = "text/xml;charset=UTF-8";
-        private Integer connectionTimeOut = 3000;
-        private Integer readTimeOut = 3000;
+
+        /** 建连超时（毫秒），未指定时使用系统默认 5000ms */
+        private Integer connectionTimeOut;
+
+        /** 读取超时（毫秒），未指定时使用系统默认 30000ms */
+        private Integer readTimeOut;
 
         public String getUri() {
             return uri;

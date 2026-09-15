@@ -2,7 +2,7 @@
   "name": "function_parse_example",
   "displayName": "JSON/XML 字符串反序列化示例",
   "version": 1,
-  "description": "通过 FUNCTION 内置函数将工作流输入中的 JSON、XML 字符串转换为结构化 Map。",
+  "description": "通过 FUNCTION 内置函数解析工作流输入中的 JSON、XML 字符串，返回值直接作为任务 output。",
   "inputParameters": [
     "request",
     "xmlRequest"

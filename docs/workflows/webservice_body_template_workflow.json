@@ -8,7 +8,7 @@
     "patients"
   ],
   "outputParameters": {
-    "requestXml": "${build_soap_xml_ref.output.result}",
+    "requestXml": "${build_soap_xml_ref.output}",
     "response": "${invoke_patient_service_ref.output}"
   },
   "tasks": [
@@ -32,7 +32,7 @@
           "SOAPAction": "SubmitPatients"
         },
         "templateParameters": {
-          "requestXml": "${build_soap_xml_ref.output.result}"
+          "requestXml": "${build_soap_xml_ref.output}"
         },
         "soapTemplate": "${$.requestXml}",
         "contentType": "text/xml;charset=UTF-8",

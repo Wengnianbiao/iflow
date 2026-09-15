@@ -19,7 +19,7 @@ public class TaskExecutionView {
     private String taskType;
     private String taskDefName;
     private Map<String, Object> inputData;
-    private Map<String, Object> outputData;
+    private Object outputData;
     private String reasonForIncompletion;
     private long scheduledTime;
     private long startTime;

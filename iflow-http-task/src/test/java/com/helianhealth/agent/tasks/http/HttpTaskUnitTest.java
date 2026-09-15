@@ -126,11 +126,11 @@ class HttpTaskUnitTest {
 
         httpTask.execute(workflow, task, null);
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
-        assertEquals(200, task.getOutputData().get("statusCode"));
-        assertEquals(Map.of(), task.getOutputData().get("body"));
-        assertFalse(task.getOutputData().containsKey("result"));
-        assertFalse(task.getOutputData().containsKey("response"));
-        assertFalse(task.getOutputData().containsKey("stale"));
+        assertEquals(200, task.outputAsMap().get("statusCode"));
+        assertEquals(Map.of(), task.outputAsMap().get("body"));
+        assertFalse(task.outputAsMap().containsKey("result"));
+        assertFalse(task.outputAsMap().containsKey("response"));
+        assertFalse(task.outputAsMap().containsKey("stale"));
     }
 
     @Test
@@ -142,7 +142,7 @@ class HttpTaskUnitTest {
 
         httpTask.execute(workflow, task, null);
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
-        assertEquals(200, task.getOutputData().get("statusCode"));
+        assertEquals(200, task.outputAsMap().get("statusCode"));
     }
 
     @Test
@@ -174,7 +174,7 @@ class HttpTaskUnitTest {
 
         httpTask.execute(workflow, task, null);
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
-        assertEquals(200, task.getOutputData().get("statusCode"));
+        assertEquals(200, task.outputAsMap().get("statusCode"));
     }
 
     @Test
@@ -188,7 +188,7 @@ class HttpTaskUnitTest {
 
         httpTask.execute(workflow, task, null);
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
-        assertEquals(200, task.getOutputData().get("statusCode"));
+        assertEquals(200, task.outputAsMap().get("statusCode"));
     }
 
     @Test

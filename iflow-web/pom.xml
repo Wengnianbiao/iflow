@@ -34,6 +34,20 @@
             <version>${project.version}</version>
         </dependency>
 
+        <!-- JDBC 系统任务 -->
+        <dependency>
+            <groupId>com.helianhealth</groupId>
+            <artifactId>iflow-jdbc-task</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- WebService 系统任务 -->
+        <dependency>
+            <groupId>com.helianhealth</groupId>
+            <artifactId>iflow-webservice-task</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <!-- 参数映射系统任务 -->
         <dependency>
             <groupId>com.helianhealth</groupId>

@@ -18,9 +18,10 @@ class ParamMappingTaskMapperTest {
     private final ParamMappingTaskMapper mapper = new ParamMappingTaskMapper(new ParametersUtils());
 
     @Test
-    void resolvesAndKeepsMultipleUserDefinedInputs() {
+    void resolvesPayloadExpression() {
         List<Map<String, Object>> configs =
-                List.of(Map.of("sourceParamKey", "patientCode", "targetParamKey", "patientCode"));
+                List.of(Map.of("sourceParamKey", "$.patientCode", "targetParamKey", "patientCode",
+                        "targetParamType", "STRING", "mappingType", "NAME"));
         WorkflowTask workflowTask =
                 WorkflowTask.builder()
                         .name("map parameters")
@@ -28,8 +29,42 @@ class ParamMappingTaskMapperTest {
                         .type(TaskType.TASK_TYPE_MAPPING)
                         .inputParameters(
                                 Map.of(
-                                        "patientCode", "${workflow.input.patientCode}",
-                                        "hospitalCode", "H001",
+                                        ParamMappingTaskMapper.PAYLOAD, "${workflow.input.data}",
+                                        ParamMappingTaskMapper.PARAMS_CONFIG, configs))
+                        .build();
+        WorkflowModel workflow = new WorkflowModel();
+        workflow.setWorkflowId("workflow-1");
+        workflow.setInput(Map.of("data", Map.of("patientCode", "P001")));
+        TaskMapperContext context =
+                TaskMapperContext.builder()
+                        .workflowModel(workflow)
+                        .workflowTask(workflowTask)
+                        .taskId("task-1")
+                        .build();
+
+        TaskModel task = mapper.getMappedTasks(context).get(0);
+
+        assertEquals(TaskType.TASK_TYPE_MAPPING, mapper.getTaskType());
+        assertEquals(Map.of("patientCode", "P001"), task.getInputData().get(ParamMappingTaskMapper.PAYLOAD));
+        assertEquals(configs, task.getInputData().get(ParamMappingTaskMapper.PARAMS_CONFIG));
+    }
+
+    @Test
+    void resolvesPayloadParameterObject() {
+        List<Map<String, Object>> configs =
+                List.of(Map.of("sourceParamKey", "$.patientCode", "targetParamKey", "patientCode",
+                        "targetParamType", "STRING", "mappingType", "NAME"));
+        WorkflowTask workflowTask =
+                WorkflowTask.builder()
+                        .name("map parameters")
+                        .taskReferenceName("map_parameters_ref")
+                        .type(TaskType.TASK_TYPE_MAPPING)
+                        .inputParameters(
+                                Map.of(
+                                        ParamMappingTaskMapper.PAYLOAD,
+                                        Map.of(
+                                                "patientCode", "${workflow.input.patientCode}",
+                                                "hospitalCode", "H001"),
                                         ParamMappingTaskMapper.PARAMS_CONFIG, configs))
                         .build();
         WorkflowModel workflow = new WorkflowModel();
@@ -44,15 +79,13 @@ class ParamMappingTaskMapperTest {
 
         TaskModel task = mapper.getMappedTasks(context).get(0);
 
-        assertEquals(TaskType.TASK_TYPE_MAPPING, mapper.getTaskType());
-        assertEquals(TaskType.TASK_TYPE_MAPPING, task.getTaskType());
-        assertEquals("P001", task.getInputData().get("patientCode"));
-        assertEquals("H001", task.getInputData().get("hospitalCode"));
+        assertEquals("P001", ((Map<?, ?>) task.getInputData().get(ParamMappingTaskMapper.PAYLOAD)).get("patientCode"));
+        assertEquals("H001", ((Map<?, ?>) task.getInputData().get(ParamMappingTaskMapper.PAYLOAD)).get("hospitalCode"));
         assertEquals(configs, task.getInputData().get(ParamMappingTaskMapper.PARAMS_CONFIG));
     }
 
     @Test
-    void rejectsDefinitionWithoutMappingInput() {
+    void rejectsDefinitionWithoutPayload() {
         WorkflowTask workflowTask =
                 WorkflowTask.builder()
                         .name("map parameters")
@@ -76,7 +109,7 @@ class ParamMappingTaskMapperTest {
                         () -> mapper.getMappedTasks(context));
 
         assertEquals(
-                "MAPPING inputParameters must contain paramsConfig and at least one mapping input",
+                "MAPPING inputParameters must contain payload and paramsConfig",
                 error.getMessage());
     }
 }

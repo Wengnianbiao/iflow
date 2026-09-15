@@ -98,11 +98,6 @@ public class MetaInfoKeyConstants {
     // ==================== Database协议专用 ====================
 
     /**
-     * JDBC驱动类名
-     */
-    public static final String DB_DRIVER_CLASS_NAME = "driverClassName";
-
-    /**
      * 数据库操作类型: SELECT/INSERT/UPDATE/DELETE
      */
     public static final String DB_OPERATION = "operation";

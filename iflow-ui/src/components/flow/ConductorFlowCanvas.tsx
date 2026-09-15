@@ -161,7 +161,7 @@ function applyAddTask(workflow: WorkflowDef, target: MenuTarget, type: AddableTa
       return appendToSwitchBranch(workflow, node.id, branchName, tasks, 'end')
     }
     if (branchName && flowKind === 'fork') {
-      return appendToForkBranch(workflow, node.id, Number(branchName), tasks, 'end')
+      return appendToForkBranch(workflow, node.id, Number(branchName), tasks, 'start')
     }
     return insertTasksAfterTask(workflow, node.id, tasks)
   }
@@ -170,7 +170,8 @@ function applyAddTask(workflow: WorkflowDef, target: MenuTarget, type: AddableTa
   const forkReferenceName = String(edge.data?.forkReferenceName ?? '')
   const branchIndex = Number(edge.data?.branchIndex)
   if (forkReferenceName && Number.isInteger(branchIndex)) {
-    return appendToForkBranch(workflow, forkReferenceName, branchIndex, tasks, 'end')
+    const position = edge.from === forkReferenceName ? 'start' : 'end'
+    return appendToForkBranch(workflow, forkReferenceName, branchIndex, tasks, position)
   }
   const branchName = typeof edge.text === 'string' ? edge.text : parseSwitchBranch(edge.fromPort)
   if (branchName && edge.from) {

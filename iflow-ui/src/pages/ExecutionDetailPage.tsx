@@ -639,7 +639,7 @@ function JsonPairView({
 }: {
   workflowName: string
   input?: Record<string, unknown>
-  output?: Record<string, unknown>
+  output?: unknown
   onCopy: (value: string, label: string) => Promise<void>
 }) {
   const [layout, setLayout] = useState<JsonLayout>('grid')
@@ -782,7 +782,9 @@ function taskSummaryRows(runtime: TaskExecution | undefined, definition: Workflo
   if (runtime.startTime || runtime.scheduledTime) rows.push({ label: '耗时', value: taskDuration(runtime) })
   if (runtime.workerId) rows.push({ label: '执行节点', value: runtime.workerId })
   if (runtime.seq != null) rows.push({ label: '执行序号', value: runtime.seq })
-  const evaluatedCase = runtime.outputData?.caseOutput
+  const output = runtime.outputData
+  const evaluatedCase = output && typeof output === 'object' && !Array.isArray(output)
+    && 'caseOutput' in output ? output.caseOutput : undefined
   if (['DECISION', 'SWITCH'].includes(runtime.taskType || definition?.type || '') && Array.isArray(evaluatedCase)) {
     rows.push({ label: '匹配分支', value: String(evaluatedCase[0] ?? '-') })
   }
@@ -833,7 +835,7 @@ function formatTimelineTick(value: number) {
 }
 
 function json(value: unknown) {
-  return JSON.stringify(value ?? {}, null, 2)
+  return JSON.stringify(value === undefined ? {} : value, null, 2)
 }
 
 function statusTone(status?: string) {

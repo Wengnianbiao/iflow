@@ -31,7 +31,7 @@ When changing decide/execute semantics, task lifecycle, or system-task contracts
 
 - Follow existing package layout (`execution/`, `execution/tasks/`, `execution/mapper/`, `service/`, `dao/`, `queue/`, `lock/`, `model/`).
 - New system tasks: extend `WorkflowSystemTask`, implement `getTaskType()` and `execute()`, and ensure Spring registration into `SystemTaskRegistry`.
-- Task output stays a `Map<String, Object>`, and each task type owns its root-level output schema. Fixed-map tasks (HTTP, JDBC, WebService, MAPPING, SPI) set that map directly; only arbitrary single-value tasks such as INLINE use `outputData.result`. Execution diagnostics use `addError(...)` (`outputData.error`), while control-flow tasks may keep their own scheduling metadata keys.
+- Task `outputData` and workflow `output` are `Object`: preserve JSON-compatible objects, arrays, scalars, and null without adding `result` or `error` wrappers. INLINE, FUNCTION, and SPI return their value directly. HTTP/JDBC/WebService/MAPPING and control tasks own their object schemas; control tasks use `outputAsMap()` only when their output is known to be an object. Execution diagnostics belong in `reasonForInCompletion` (public view: `reasonForIncompletion`), never in business output. Explicit workflow `outputParameters` still builds an object; otherwise preserve the final task output. See `docs/task-output.md` at the repo root.
 - Linear tasks execute on the workflow caller thread; only FORK branch scopes use the bounded branch pool. The scheduler waits for each parallel batch before returning, and only the caller-owned loop runs the next Decider round.
 - Prefer small, focused changes; keep executor/decider changes covered by tests under `src/test/java`.
 

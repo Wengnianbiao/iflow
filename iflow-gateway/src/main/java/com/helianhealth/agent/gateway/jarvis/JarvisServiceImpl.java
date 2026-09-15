@@ -60,11 +60,18 @@ public class JarvisServiceImpl implements JarvisService {
         if (!workflow.getStatus().isSuccessful()) {
             return JarvisResultData.error(resolveFailureMessage(workflow));
         }
-        Map<String, Object> output = workflow.getOutput() != null ? workflow.getOutput() : Map.of();
-        if (output.isEmpty()) {
+        Object output = workflow.getOutput();
+        if (output == null) {
             return JarvisResultData.ok();
         }
-        return JSON.parseObject(JSON.toJSONString(output), new TypeReference<>() {
+        if (!(output instanceof Map<?, ?> map)) {
+            throw new IllegalArgumentException(
+                    "Jarvis requires an object workflow output; configure outputParameters to map the response");
+        }
+        if (map.isEmpty()) {
+            return JarvisResultData.ok();
+        }
+        return JSON.parseObject(JSON.toJSONString(map), new TypeReference<>() {
         });
     }
 

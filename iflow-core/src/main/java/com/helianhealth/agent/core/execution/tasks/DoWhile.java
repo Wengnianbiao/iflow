@@ -158,7 +158,7 @@ public class DoWhile extends WorkflowSystemTask {
             for (int oldIteration = 1;
                     oldIteration <= iteration - keepLastN;
                     oldIteration++) {
-                doWhileTaskModel.getOutputData().remove(String.valueOf(oldIteration));
+                doWhileTaskModel.outputAsMap().remove(String.valueOf(oldIteration));
             }
 
             // Remove old iteration tasks from the database

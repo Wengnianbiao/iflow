@@ -20,7 +20,7 @@ import static com.helianhealth.agent.common.domain.metadata.task.TaskType.TASK_T
  * 内联脚本任务。
  *
  * <p>按 inputParameters 中的 {@code evaluatorType}（默认 {@code graaljs}）选用对应
- * {@link Evaluator} 求值 {@code expression}，结果写入 outputData.result。
+ * {@link Evaluator} 求值 {@code expression}，返回值直接作为 outputData。
  *
  * <p>支持的 evaluatorType：
  * <ul>
@@ -38,7 +38,6 @@ public class Inline extends WorkflowSystemTask {
 
     public static final String INPUT_EVALUATOR_TYPE = "evaluatorType";
     public static final String INPUT_EXPRESSION = "expression";
-    public static final String OUTPUT_RESULT = "result";
     public static final String DEFAULT_EVALUATOR = GraalJSEvaluator.NAME;
 
     private final Map<String, Evaluator> evaluators;
@@ -59,13 +58,14 @@ public class Inline extends WorkflowSystemTask {
             checkExpression(expression);
             Evaluator evaluator = evaluators.get(evaluatorType);
             Object result = evaluator.evaluate(expression, input);
-            task.addOutput(OUTPUT_RESULT, result);
+            task.setOutputData(result);
             task.setStatus(TaskModel.Status.COMPLETED);
         } catch (Exception e) {
             String msg = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
             LOGGER.error("INLINE task evaluation failed: workflow={}, task={}",
                     workflow.getWorkflowId(), task.getTaskId(), e);
             task.setStatus(TaskModel.Status.FAILED);
+            task.setOutputData(null);
             task.setReasonForInCompletion(msg);
             addError(task, msg);
         }

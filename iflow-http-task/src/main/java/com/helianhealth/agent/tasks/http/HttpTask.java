@@ -46,20 +46,11 @@ public class HttpTask extends WorkflowSystemTask {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(HttpTask.class);
 
-    public static final String REQUEST_PARAMETER_NAME = "http_request";
-
-    static final String MISSING_REQUEST =
-            "Missing HTTP request. Task input MUST have a '"
-                    + REQUEST_PARAMETER_NAME
-                    + "' key with HttpTask.Input as value OR provide the input parameters directly. "
-                    + "See documentation for HttpTask for required input parameters";
-
     private final TypeReference<Map<String, Object>> mapOfObj = new TypeReference<>() {};
     private final TypeReference<List<Object>> listOfObj = new TypeReference<>() {};
 
     protected ObjectMapper objectMapper;
     protected RestTemplateProvider restTemplateProvider;
-    private final String requestParameter;
 
     @Autowired
     public HttpTask(RestTemplateProvider restTemplateProvider, ObjectMapper objectMapper) {
@@ -70,16 +61,12 @@ public class HttpTask extends WorkflowSystemTask {
         super(name);
         this.restTemplateProvider = restTemplateProvider;
         this.objectMapper = objectMapper;
-        this.requestParameter = REQUEST_PARAMETER_NAME;
         LOGGER.info("{} initialized...", getTaskType());
     }
 
     @Override
     public void execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor) {
-        Object request = task.getInputData().get(requestParameter);
-        if (request == null) {
-            request = task.getInputData();
-        }
+        Object request = task.getInputData();
 
         Input input = objectMapper.convertValue(request, Input.class);
         if (input.getUri() == null) {
@@ -232,9 +219,6 @@ public class HttpTask extends WorkflowSystemTask {
         }
     }
 
-    /**
-     * HTTP 请求入参
-     */
     public static class Input {
 
         private String method;
@@ -246,8 +230,12 @@ public class HttpTask extends WorkflowSystemTask {
         private List<String> accept =
                 new ArrayList<>(Collections.singletonList(MediaType.APPLICATION_JSON_VALUE));
         private String contentType = MediaType.APPLICATION_JSON_VALUE;
-        private Integer connectionTimeOut = 3000;
-        private Integer readTimeOut = 3000;
+
+        /** 建连超时（毫秒），未指定时使用系统默认 5000ms */
+        private Integer connectionTimeOut;
+
+        /** 读取超时（毫秒），未指定时使用系统默认 30000ms */
+        private Integer readTimeOut;
 
         public String getMethod() {
             return method;

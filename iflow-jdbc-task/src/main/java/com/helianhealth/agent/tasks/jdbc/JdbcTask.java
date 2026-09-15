@@ -1,6 +1,7 @@
 package com.helianhealth.agent.tasks.jdbc;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.helianhealth.agent.common.domain.metadata.task.TaskType;
 import com.helianhealth.agent.core.execution.WorkflowExecutor;
@@ -24,14 +25,15 @@ import java.util.Map;
 /**
  * JDBC 系统任务
  *
- * <p>结构与 {@link com.helianhealth.agent.tasks.http.HttpTask} 一致：从 {@link TaskModel#getInputData()}
- * 解析 {@link Input}（可嵌套在 {@code jdbc_request} 下，也可平铺在 inputData 根级），通过
+ * <p>从平铺的 {@link TaskModel#getInputData()} 解析 {@link Input}，通过
  * {@link JdbcConnectionProvider} 每次独立建连执行 SQL（不做连接池化）。
  *
- * <p>{@code ${...}} 占位符由 {@link com.helianhealth.agent.core.execution.mapper.JdbcTaskMapper}
- * + {@link com.helianhealth.agent.core.utils.ParametersUtils} 在调度阶段解析，Task 只消费已解析入参。
+ * <p>表达式分两层：编排层 {@code ${...}} 由 {@link com.helianhealth.agent.core.execution.mapper.JdbcTaskMapper}
+ * + {@link com.helianhealth.agent.core.utils.ParametersUtils} 在调度阶段解析，把上游业务数据搬进
+ * {@code payload}（整体表达式或 Key / Value 对象）；执行阶段由 {@link SqlTemplate} 解析
+ * {@code sqlTemplate} 中的 {@code $.字段}，从 payload 取值并改写成绑定参数。
  *
- * <p>支持 {@link Operation#QUERY} 与 {@link Operation#UPDATE}；SQL 使用 {@code :name} 命名参数。
+ * <p>支持 {@link Operation#QUERY} 与 {@link Operation#UPDATE}。
  * 执行结果写入 {@code outputData} 根级（{@code rows}/{@code rowCount}/{@code updateCount}）。
  */
 @Component(TaskType.TASK_TYPE_JDBC)
@@ -39,17 +41,8 @@ public class JdbcTask extends WorkflowSystemTask {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(JdbcTask.class);
 
-    public static final String REQUEST_PARAMETER_NAME = "jdbc_request";
-
-    static final String MISSING_REQUEST =
-            "Missing JDBC request. Task input MUST have a '"
-                    + REQUEST_PARAMETER_NAME
-                    + "' key with JdbcTask.Input as value OR provide the input parameters directly. "
-                    + "See documentation for JdbcTask for required input parameters";
-
     protected ObjectMapper objectMapper;
     protected JdbcConnectionProvider jdbcConnectionProvider;
-    private final String requestParameter;
 
     @Autowired
     public JdbcTask(JdbcConnectionProvider jdbcConnectionProvider, ObjectMapper objectMapper) {
@@ -59,33 +52,42 @@ public class JdbcTask extends WorkflowSystemTask {
     protected JdbcTask(String name, JdbcConnectionProvider jdbcConnectionProvider, ObjectMapper objectMapper) {
         super(name);
         this.jdbcConnectionProvider = jdbcConnectionProvider;
-        this.objectMapper = objectMapper;
-        this.requestParameter = REQUEST_PARAMETER_NAME;
+        this.objectMapper = objectMapper.copy().enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
         LOGGER.info("{} initialized...", getTaskType());
     }
 
     @Override
     public void execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor) {
-        Object request = task.getInputData().get(requestParameter);
-        if (request == null) {
-            request = task.getInputData();
+        Input input;
+        try {
+            input = objectMapper.convertValue(task.getInputData(), Input.class);
+        } catch (IllegalArgumentException e) {
+            task.setReasonForInCompletion("Invalid JDBC inputParameters: " + e.getMessage());
+            task.setStatus(TaskModel.Status.FAILED);
+            return;
         }
-
-        Input input = objectMapper.convertValue(request, Input.class);
-        if (input.getUrl() == null || input.getUrl().isBlank()) {
+        if (input == null || input.getUrl() == null || input.getUrl().isBlank()) {
             task.setReasonForInCompletion(
                     "Missing JDBC URL. See documentation for JdbcTask for required input parameters");
             task.setStatus(TaskModel.Status.FAILED);
             return;
         }
-        if (input.getSql() == null || input.getSql().isBlank()) {
-            task.setReasonForInCompletion("Missing SQL");
+        if (input.getSqlTemplate() == null || input.getSqlTemplate().isBlank()) {
+            task.setReasonForInCompletion("Missing sqlTemplate");
             task.setStatus(TaskModel.Status.FAILED);
             return;
         }
-        if ((input.getDriverClassName() == null || input.getDriverClassName().isBlank())
-                && input.getVendor() == null) {
-            task.setReasonForInCompletion("Missing driverClassName or vendor");
+        if (input.getVendor() == null) {
+            task.setReasonForInCompletion("Missing vendor");
+            task.setStatus(TaskModel.Status.FAILED);
+            return;
+        }
+
+        SqlTemplate.Bound bound;
+        try {
+            bound = SqlTemplate.bind(input.getSqlTemplate(), input.getVendor(), input.getPayload());
+        } catch (IllegalArgumentException e) {
+            task.setReasonForInCompletion(e.getMessage());
             task.setStatus(TaskModel.Status.FAILED);
             return;
         }
@@ -99,21 +101,17 @@ public class JdbcTask extends WorkflowSystemTask {
             NamedParameterJdbcTemplate jdbc = new NamedParameterJdbcTemplate(dataSource);
             jdbc.getJdbcTemplate().setQueryTimeout(queryTimeoutSeconds);
 
-            MapSqlParameterSource params = new MapSqlParameterSource(
-                    input.getParameters() == null ? Map.of() : input.getParameters());
+            MapSqlParameterSource params = new MapSqlParameterSource(bound.parameters());
 
             Operation op = input.getOperation() == null ? Operation.QUERY : input.getOperation();
             JdbcResponse response = new JdbcResponse();
             switch (op) {
                 case QUERY -> {
-                    List<Map<String, Object>> rows = jdbc.queryForList(input.getSql(), params);
+                    List<Map<String, Object>> rows = jdbc.queryForList(bound.sql(), params);
                     response.rows = rows;
                     response.rowCount = rows.size();
                 }
-                case UPDATE -> {
-                    int affected = jdbc.update(input.getSql(), params);
-                    response.updateCount = affected;
-                }
+                case UPDATE -> response.updateCount = jdbc.update(bound.sql(), params);
             }
             task.setOutputData(response.asMap());
             task.setStatus(TaskModel.Status.COMPLETED);
@@ -122,7 +120,7 @@ public class JdbcTask extends WorkflowSystemTask {
                     "Failed to invoke {} task: {} - sql: {} in workflow: {}",
                     getTaskType(),
                     task.getTaskId(),
-                    input.getSql(),
+                    input.getSqlTemplate(),
                     task.getWorkflowInstanceId(),
                     e);
             task.setStatus(TaskModel.Status.FAILED);
@@ -149,37 +147,30 @@ public class JdbcTask extends WorkflowSystemTask {
         }
     }
 
-    /**
-     * JDBC 任务入参（连接信息 + SQL）。由 workflow 定义的 {@code inputParameters} 经占位符解析后映射而来；
-     * 每次调用独立建连，不做池化。
-     */
     public static class Input {
 
-        /** JDBC URL */
         private String url;
 
         private String username;
         private String password;
 
-        /** 显式驱动类名；与 {@link #vendor} 二选一 */
-        private String driverClassName;
-
-        /** 厂商枚举，用于解析默认驱动类名 */
+        /** 数据库厂商；驱动类名由 {@link JdbcVendor} 内部映射 */
         private JdbcVendor vendor;
 
-        /** 建连超时（毫秒），未指定时使用 {@code iflow.tasks.jdbc.connectTimeout} */
+        /** 建连超时（毫秒），未指定时使用系统默认 3000ms */
         private Integer connectionTimeOut;
 
-        /** SQL 执行超时（毫秒），未指定时使用 {@code iflow.tasks.jdbc.queryTimeout} */
+        /** SQL 执行超时（毫秒），未指定时使用系统默认 20000ms */
         private Integer queryTimeOut;
 
-        /** SQL（支持 {@code :name} 命名参数） */
-        private String sql;
+        /** SQL 模板；{@code $.字段} 读取 payload，{@code IN $.codes} 自动补括号并展开数组。 */
+        private String sqlTemplate;
 
         /** 操作类型，默认 QUERY */
         private Operation operation;
 
-        private Map<String, Object> parameters = new HashMap<>();
+        /** 任务业务输入；整体表达式或 Key / Value 配置均由编排层解析，保持原始 JSON 类型。 */
+        private Object payload;
 
         public String getUrl() {
             return url;
@@ -203,14 +194,6 @@ public class JdbcTask extends WorkflowSystemTask {
 
         public void setPassword(String password) {
             this.password = password;
-        }
-
-        public String getDriverClassName() {
-            return driverClassName;
-        }
-
-        public void setDriverClassName(String driverClassName) {
-            this.driverClassName = driverClassName;
         }
 
         public JdbcVendor getVendor() {
@@ -237,12 +220,12 @@ public class JdbcTask extends WorkflowSystemTask {
             this.queryTimeOut = queryTimeOut;
         }
 
-        public String getSql() {
-            return sql;
+        public String getSqlTemplate() {
+            return sqlTemplate;
         }
 
-        public void setSql(String sql) {
-            this.sql = sql;
+        public void setSqlTemplate(String sqlTemplate) {
+            this.sqlTemplate = sqlTemplate;
         }
 
         public Operation getOperation() {
@@ -253,12 +236,12 @@ public class JdbcTask extends WorkflowSystemTask {
             this.operation = operation;
         }
 
-        public Map<String, Object> getParameters() {
-            return parameters;
+        public Object getPayload() {
+            return payload;
         }
 
-        public void setParameters(Map<String, Object> parameters) {
-            this.parameters = parameters;
+        public void setPayload(Object payload) {
+            this.payload = payload;
         }
     }
 

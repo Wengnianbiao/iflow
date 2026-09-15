@@ -28,7 +28,7 @@ export interface TaskExecution {
   taskType?: string
   taskDefName?: string
   inputData?: Record<string, unknown>
-  outputData?: Record<string, unknown>
+  outputData?: unknown
   reasonForIncompletion?: string
   scheduledTime?: number
   startTime?: number
@@ -44,7 +44,7 @@ export interface WorkflowExecution {
   previousStatus?: WorkflowExecutionStatus
   correlationId?: string
   input?: Record<string, unknown>
-  output?: Record<string, unknown>
+  output?: unknown
   workflowDefinition?: WorkflowDef
   tasks?: TaskExecution[]
   startTime?: number

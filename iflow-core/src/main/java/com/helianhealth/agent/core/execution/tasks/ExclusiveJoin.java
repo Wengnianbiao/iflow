@@ -36,7 +36,7 @@ public class ExclusiveJoin extends WorkflowSystemTask {
         }
 
         if (hit.getStatus().isSuccessful()) {
-            task.addOutput(hit.getOutputData());
+            task.setOutputData(hit.getOutputData());
             task.setStatus(TaskModel.Status.COMPLETED);
         } else {
             task.setReasonForInCompletion(hit.getReasonForInCompletion());

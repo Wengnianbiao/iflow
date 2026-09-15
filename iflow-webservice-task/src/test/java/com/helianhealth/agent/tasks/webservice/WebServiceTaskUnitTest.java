@@ -26,7 +26,7 @@ class WebServiceTaskUnitTest {
 
     @BeforeEach
     void setup() {
-        DefaultSoapClientProvider provider = new DefaultSoapClientProvider(5000, 8000);
+        DefaultSoapClientProvider provider = new DefaultSoapClientProvider();
         webServiceTask = new WebServiceTask(provider, OBJECT_MAPPER);
     }
 
@@ -68,7 +68,7 @@ class WebServiceTaskUnitTest {
     @Test
     void writesResponseFieldsToOutputRoot() {
         WebServiceTask successfulTask =
-                new WebServiceTask(new DefaultSoapClientProvider(5000, 8000), OBJECT_MAPPER) {
+                new WebServiceTask(new DefaultSoapClientProvider(), OBJECT_MAPPER) {
                     @Override
                     protected WebServiceResponse soapCall(Input input) {
                         WebServiceResponse response = new WebServiceResponse();
@@ -88,9 +88,9 @@ class WebServiceTaskUnitTest {
         successfulTask.execute(workflow, task, null);
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
-        assertEquals("<result>ok</result>", task.getOutputData().get("body"));
-        assertEquals(200, task.getOutputData().get("statusCode"));
-        assertFalse(task.getOutputData().containsKey("result"));
-        assertFalse(task.getOutputData().containsKey("response"));
+        assertEquals("<result>ok</result>", task.outputAsMap().get("body"));
+        assertEquals(200, task.outputAsMap().get("statusCode"));
+        assertFalse(task.outputAsMap().containsKey("result"));
+        assertFalse(task.outputAsMap().containsKey("response"));
     }
 }

@@ -21,5 +21,14 @@ public enum MappingType {
     /**
      * GraalJS 表达式（通过 {@code $} 读取映射上下文）
      */
-    EXPRESSION
+    EXPRESSION,
+
+    /** 按子字段构造对象。 */
+    OBJECT,
+
+    /** 遍历源数组，用元素模板构造每一项。 */
+    ARRAY_MAP,
+
+    /** 按有序元素模板构造固定数组。 */
+    ARRAY_FIXED
 }

@@ -6,9 +6,14 @@ import com.helianhealth.agent.common.extension.AgentExtensionLoader;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -50,8 +55,8 @@ class SpiTaskUnitTest {
     @Test
     void blankRemoteExtensionUsesDefaultExtension() {
         SpiExtensionRouter router = new SpiExtensionRouter();
-        Map<String, Object> result = router.invoke(null, Map.of("patientName", "Alice"));
-        assertTrue(result.isEmpty());
+        Object result = router.invoke(null, Map.of("patientName", "Alice"));
+        assertEquals(Map.of(), result);
     }
 
     @Test
@@ -82,7 +87,7 @@ class SpiTaskUnitTest {
         spiTask.execute(workflow, task, null);
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
-        assertTrue(task.getOutputData().isEmpty());
+        assertEquals(Map.of(), task.getOutputData());
     }
 
     @Test
@@ -105,20 +110,20 @@ class SpiTaskUnitTest {
                         "com.helianhealth.agent.extension.NodeOnlineJava17Invoker",
                         sourceCode);
 
-        Map<String, Object> result =
+        Object result =
                 new SpiExtensionRouter()
                         .invoke(ONLINE_EXTENSION_NAME, definition, Map.of("value", "java17"));
 
-        assertEquals("java17", result.get("value"));
+        assertEquals(Map.of("value", "java17"), result);
     }
 
     private static final class RecordingSpiExtensionRouter extends SpiExtensionRouter {
         private String remoteExtension;
         private Map<String, Object> spiInput;
-        private Map<String, Object> result = Map.of();
+        private Object result = Map.of();
 
         @Override
-        public Map<String, Object> invoke(
+        public Object invoke(
                 String remoteExtension,
                 SpiTaskInput.ExtensionDefinition definition,
                 Map<String, Object> spiInput) {
@@ -126,5 +131,48 @@ class SpiTaskUnitTest {
             this.spiInput = spiInput;
             return result;
         }
+    }
+
+    @ParameterizedTest
+    @MethodSource("rawOutputs")
+    void extensionCanReturnAnyJsonValue(Object output) {
+        extensionRouter.result = output;
+        TaskModel task = new TaskModel();
+        task.setInputData(Map.of(SpiTaskInput.SPI_INPUT, Map.of()));
+
+        spiTask.execute(workflow, task, null);
+
+        assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
+        assertEquals(output, task.getOutputData());
+    }
+
+    private static Stream<Arguments> rawOutputs() {
+        return Stream.of(
+                Arguments.of(List.of(1, 2)), Arguments.of(List.of()),
+                Arguments.of("response"), Arguments.of(42), Arguments.of(false),
+                Arguments.of((Object) null));
+    }
+
+    @Test
+    void compilesEmbeddedExtensionReturningObjectArrayValue() {
+        String sourceCode = """
+                package com.helianhealth.agent.extension;
+                import com.helianhealth.agent.tasks.spi.InterfaceRemoteInvoker;
+                import java.util.Map;
+                import java.util.List;
+                public class NodeObjectOutputInvoker implements InterfaceRemoteInvoker {
+                    public Object remoteInvoke(Map<String,Object> input) {
+                        return List.of(input.get("value"));
+                    }
+                }
+                """;
+        SpiTaskInput.ExtensionDefinition definition = new SpiTaskInput.ExtensionDefinition(
+                ONLINE_EXTENSION_NAME, SpiTaskInput.MODE_ONLINE,
+                "com.helianhealth.agent.extension.NodeObjectOutputInvoker", sourceCode);
+
+        Object output = new SpiExtensionRouter().invoke(
+                ONLINE_EXTENSION_NAME, definition, Map.of("value", "array-item"));
+
+        assertEquals(List.of("array-item"), output);
     }
 }

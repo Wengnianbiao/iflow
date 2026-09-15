@@ -10,11 +10,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * 调用平台白名单纯函数，并把返回 Map 直接写入任务输出根级。
+ * 调用平台白名单纯函数，返回值直接作为 {@code outputData}。
  */
 @Component(TaskType.TASK_TYPE_FUNCTION)
 public class FunctionTask extends WorkflowSystemTask {
@@ -42,16 +41,16 @@ public class FunctionTask extends WorkflowSystemTask {
             }
 
             Object rawValue = input.get(INPUT_VALUE);
-            Map<String, Object> output;
+            Object result;
             if (rawValue == null) {
-                output = new LinkedHashMap<>();
+                result = null;
             } else if (rawValue instanceof String text) {
-                output = functionExecutor.execute(functionType, text);
+                result = functionExecutor.execute(functionType, text);
             } else {
                 throw new IllegalArgumentException("FUNCTION input 'value' must be a String or null");
             }
 
-            task.setOutputData(new LinkedHashMap<>(output));
+            task.setOutputData(result);
             task.setStatus(TaskModel.Status.COMPLETED);
         } catch (Exception e) {
             String message = e.getMessage() != null ? e.getMessage() : "FUNCTION execution failed";
@@ -60,7 +59,7 @@ public class FunctionTask extends WorkflowSystemTask {
                     workflow.getWorkflowId(),
                     task.getTaskId(),
                     e);
-            task.setOutputData(new LinkedHashMap<>());
+            task.setOutputData(null);
             addError(task, message);
             task.setReasonForInCompletion(message);
             task.setStatus(TaskModel.Status.FAILED);

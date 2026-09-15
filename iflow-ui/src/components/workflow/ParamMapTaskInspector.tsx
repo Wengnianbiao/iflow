@@ -1,56 +1,43 @@
 import {
   ArrowLeftIcon,
+  ArrowsInSimpleIcon,
+  ArrowsOutSimpleIcon,
   CaretDownIcon,
   CaretRightIcon,
   CheckIcon,
   CopyIcon,
-  MagnifyingGlassMinusIcon,
-  MagnifyingGlassPlusIcon,
+  DotsThreeIcon,
   MinusIcon,
-  PencilSimpleIcon,
   PlusIcon,
   PlusCircleIcon,
   TrashIcon,
-  TreeStructureIcon,
   XIcon,
 } from '@phosphor-icons/react'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { WorkflowCollapsibleSection } from '@/pages/definition/EditorPanel/InspectorFields'
+import { WorkflowCollapsibleSection, ParameterRows, VariableExpressionInput, valueText } from '@/pages/definition/EditorPanel/InspectorFields'
 import { InlineScriptEditor } from '@/pages/definition/EditorPanel/TaskFormTab/forms/InlineScriptEditor'
-import { countMappingTargetFields } from '@/tasks/mappingConfig'
+import {
+  PARAM_TYPES, MAPPING_TYPES, configChildren, withConfigChildren, configAtPath,
+  configNodeLabel, scopeAliases, normalizeConfig, normalizeForSave, emptyConfig, objectTemplate,
+  updateAtPath, removeAtPath, insertAfterPath, flattenConfigs, countMappingTargetFields,
+  parseMappingConfigs, validateNode,
+  type ParamMappingConfig, type ParamType, type MappingType, type ConfigPath,
+} from '@/tasks/mappingConfig'
+export type { ParamMappingConfig } from '@/tasks/mappingConfig'
 import type { WorkflowTask } from '@/types/workflow'
 
-const PARAM_TYPES = ['STRING', 'INTEGER', 'LONG', 'DOUBLE', 'BOOLEAN', 'OBJECT', 'ARRAY', 'NONE'] as const
-const MAPPING_TYPES = ['NAME', 'CONSTANT', 'EXPRESSION', 'BEAN_EXPRESSION', 'SINGLE_MAP'] as const
-const CONTAINER_TYPES = new Set<ParamType>(['OBJECT', 'ARRAY'])
-
-type ParamType = (typeof PARAM_TYPES)[number]
-type MappingType = (typeof MAPPING_TYPES)[number]
-type ConfigPath = number[]
 type EditorView = 'JSON' | 'PARAMETERS'
+type PayloadMode = 'expression' | 'parameters'
+type TreeDisplay = 'TABLE' | 'STRUCTURE'
 
-type MappingInput = {
-  key: string
-  value: unknown
-}
-
-export interface ParamMappingConfig {
-  sourceParamKey?: string
-  sourceParamType: ParamType
-  targetParamKey: string
-  targetParamType: ParamType
-  mappingType: MappingType
-  mappingRule?: string
-  paramDesc?: string
-  childParams: ParamMappingConfig[]
-  [key: string]: unknown
-}
+const PAYLOAD_KEY = 'payload'
+const DEFAULT_PAYLOAD_EXPRESSION = '${workflow.input}'
 
 type ParamMapTaskInspectorProps = {
   task: WorkflowTask
   header: ReactNode
-  renderInputValue: (value: string, onChange: (value: string) => void) => ReactNode
+  variableOptions: string[]
   onChange: (task: WorkflowTask) => void
 }
 
@@ -58,38 +45,27 @@ type EditSession = {
   kind: 'root' | 'child' | 'edit' | 'copy'
   path?: ConfigPath
   value: ParamMappingConfig
+  initialValue: string
+}
+
+function createEditSession(kind: EditSession['kind'], value: ParamMappingConfig, path?: ConfigPath): EditSession {
+  const normalized = normalizeConfig(value)
+  return { kind, path, value: normalized, initialValue: JSON.stringify(normalized) }
+}
+
+function configPathLabel(configs: ParamMappingConfig[], path: ConfigPath): string {
+  return path.map((_, index) => {
+    const config = configAtPath(configs, path.slice(0, index + 1))
+    return `${configNodeLabel(configs, path.slice(0, index + 1))}${config?.targetParamType === 'ARRAY' ? '[]' : ''}`
+  }).join('.')
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value != null && typeof value === 'object' && !Array.isArray(value)
 }
 
-function includesValue<T extends readonly string[]>(values: T, value: unknown): value is T[number] {
-  return typeof value === 'string' && values.includes(value as T[number])
-}
-
-function inputValueText(value: unknown) {
-  if (value == null) return ''
-  return typeof value === 'string' ? value : JSON.stringify(value)
-}
-
 function paramTypeLabel(type: ParamType) {
   return type.charAt(0) + type.slice(1).toLowerCase()
-}
-
-function normalizeConfig(value: unknown): ParamMappingConfig {
-  const raw = isRecord(value) ? value : {}
-  return {
-    ...raw,
-    sourceParamKey: typeof raw.sourceParamKey === 'string' ? raw.sourceParamKey : '',
-    sourceParamType: includesValue(PARAM_TYPES, raw.sourceParamType) ? raw.sourceParamType : 'NONE',
-    targetParamKey: typeof raw.targetParamKey === 'string' ? raw.targetParamKey : '',
-    targetParamType: includesValue(PARAM_TYPES, raw.targetParamType) ? raw.targetParamType : 'STRING',
-    mappingType: includesValue(MAPPING_TYPES, raw.mappingType) ? raw.mappingType : 'NAME',
-    mappingRule: typeof raw.mappingRule === 'string' ? raw.mappingRule : '',
-    paramDesc: typeof raw.paramDesc === 'string' ? raw.paramDesc : '',
-    childParams: Array.isArray(raw.childParams) ? raw.childParams.map(normalizeConfig) : [],
-  }
 }
 
 export function readParamMappingConfigs(task: WorkflowTask): ParamMappingConfig[] {
@@ -101,116 +77,68 @@ export function countParamMappingConfigs(configs: ParamMappingConfig[]): number 
   return countMappingTargetFields(configs)
 }
 
-function emptyConfig(): ParamMappingConfig {
-  return {
-    sourceParamKey: '',
-    sourceParamType: 'STRING',
-    targetParamKey: '',
-    targetParamType: 'STRING',
-    mappingType: 'NAME',
-    mappingRule: '',
-    paramDesc: '',
-    childParams: [],
-  }
-}
-
-function pathKey(path: ConfigPath) {
-  return path.join('.')
-}
-
-function updateAtPath(
-  configs: ParamMappingConfig[],
-  path: ConfigPath,
-  update: (config: ParamMappingConfig) => ParamMappingConfig,
-): ParamMappingConfig[] {
-  const [index, ...rest] = path
-  return configs.map((config, configIndex) => {
-    if (configIndex !== index) return config
-    if (!rest.length) return update(config)
-    return { ...config, childParams: updateAtPath(config.childParams, rest, update) }
-  })
-}
-
-function removeAtPath(configs: ParamMappingConfig[], path: ConfigPath): ParamMappingConfig[] {
-  const [index, ...rest] = path
-  if (!rest.length) return configs.filter((_, configIndex) => configIndex !== index)
-  return configs.map((config, configIndex) => (
-    configIndex === index
-      ? { ...config, childParams: removeAtPath(config.childParams, rest) }
-      : config
-  ))
-}
-
-function insertAfterPath(configs: ParamMappingConfig[], path: ConfigPath, value: ParamMappingConfig): ParamMappingConfig[] {
-  const [index, ...rest] = path
-  if (!rest.length) return [...configs.slice(0, index + 1), value, ...configs.slice(index + 1)]
-  return configs.map((config, configIndex) => (
-    configIndex === index
-      ? { ...config, childParams: insertAfterPath(config.childParams, rest, value) }
-      : config
-  ))
-}
-
-function flattenConfigs(
-  configs: ParamMappingConfig[],
-  parent: ConfigPath = [],
-): Array<{ config: ParamMappingConfig; path: ConfigPath; depth: number }> {
-  return configs.flatMap((config, index) => {
-    const path = [...parent, index]
-    return [
-      { config, path, depth: path.length - 1 },
-      ...flattenConfigs(config.childParams, path),
-    ]
-  })
-}
+function pathKey(path: ConfigPath) { return path.join('.') }
 
 function mappingLabel(type: MappingType) {
   switch (type) {
     case 'NAME': return '值映射'
     case 'CONSTANT': return '固定值'
-    case 'EXPRESSION': return '表达式'
-    case 'BEAN_EXPRESSION': return 'Bean 表达式'
-    case 'SINGLE_MAP': return '单值映射'
+    case 'EXPRESSION': return 'JS 表达式'
+    case 'OBJECT': return '配置子字段'
+    case 'ARRAY_MAP': return '循环生成'
+    case 'ARRAY_FIXED': return '固定元素'
   }
 }
 
-function normalizeForSave(value: ParamMappingConfig): ParamMappingConfig {
-  return {
-    ...value,
-    sourceParamKey: value.sourceParamType === 'NONE' ? '' : value.sourceParamKey?.trim(),
-    targetParamKey: value.targetParamKey.trim(),
-    mappingRule: value.mappingRule?.trim(),
-    paramDesc: value.paramDesc?.trim(),
-    childParams: CONTAINER_TYPES.has(value.targetParamType) ? value.childParams : [],
-  }
+function hasNextSibling(configs: ParamMappingConfig[], path: ConfigPath): boolean {
+  const parent = configAtPath(configs, path.slice(0, -1))
+  const siblings = parent ? configChildren(parent) : configs
+  return path[path.length - 1] < siblings.length - 1
 }
 
-export function ParamMapTaskInspector({ task, header, renderInputValue, onChange }: ParamMapTaskInspectorProps) {
+function structurePrefix(configs: ParamMappingConfig[], path: ConfigPath): string {
+  if (path.length === 1) return ''
+  const ancestors = path.slice(0, -1).map((_, index) => path.slice(0, index + 1))
+  const guides = ancestors.slice(0, -1).map((ancestor) => hasNextSibling(configs, ancestor) ? '│  ' : '   ').join('')
+  return `${guides}${hasNextSibling(configs, path) ? '├─ ' : '└─ '}`
+}
+
+function structureKind(config: ParamMappingConfig): string {
+  if (config.targetParamType === 'OBJECT') return '{ }'
+  if (config.targetParamType === 'ARRAY') return '[ ]'
+  return '·'
+}
+
+export function ParamMapTaskInspector({ task, header, variableOptions, onChange }: ParamMapTaskInspectorProps) {
   const inputParameters = task.inputParameters ?? {}
-  const mappingInputs: MappingInput[] = Object.entries(inputParameters)
-    .filter(([key]) => key !== 'paramsConfig')
-    .map(([key, value]) => ({ key, value }))
+  const payload = inputParameters[PAYLOAD_KEY]
+  const payloadMode: PayloadMode = isRecord(payload) ? 'parameters' : 'expression'
+  const payloadParams = isRecord(payload)
+    ? Object.entries(payload).map(([key, value]) => ({ key, value: valueText(value) }))
+    : []
   const configs = readParamMappingConfigs(task)
+  const storedConfigError = useMemo(() => {
+    try { parseMappingConfigs(inputParameters.paramsConfig ?? []); return '' }
+    catch (error) { return (error as Error).message }
+  }, [inputParameters.paramsConfig])
   const [view, setView] = useState<EditorView>('PARAMETERS')
-  const [jsonDraft, setJsonDraft] = useState(() => JSON.stringify(configs, null, 2))
+  const [jsonDraft, setJsonDraft] = useState(() => JSON.stringify(inputParameters.paramsConfig ?? [], null, 2))
   const [jsonError, setJsonError] = useState('')
-  const [visualOpen, setVisualOpen] = useState(false)
+  const visibleJsonError = jsonError || storedConfigError
   const [editSession, setEditSession] = useState<EditSession | null>(null)
 
   useEffect(() => {
-    const nextConfigs = readParamMappingConfigs(task)
-    setJsonDraft(JSON.stringify(nextConfigs, null, 2))
+    setJsonDraft(JSON.stringify(task.inputParameters?.paramsConfig ?? [], null, 2))
     setJsonError('')
     setView('PARAMETERS')
-    setVisualOpen(false)
     setEditSession(null)
   }, [task.taskReferenceName])
 
-  const commit = (nextInputs: MappingInput[], nextConfigs: ParamMappingConfig[]) => {
+  const commit = (nextPayload: unknown, nextConfigs: ParamMappingConfig[]) => {
     onChange({
       ...task,
       inputParameters: {
-        ...Object.fromEntries(nextInputs.map((item) => [item.key, item.value])),
+        [PAYLOAD_KEY]: nextPayload,
         paramsConfig: nextConfigs,
       },
     })
@@ -219,68 +147,108 @@ export function ParamMapTaskInspector({ task, header, renderInputValue, onChange
   const commitConfigs = (nextConfigs: ParamMappingConfig[]) => {
     setJsonDraft(JSON.stringify(nextConfigs, null, 2))
     setJsonError('')
-    commit(mappingInputs, nextConfigs)
+    commit(Object.prototype.hasOwnProperty.call(inputParameters, PAYLOAD_KEY) ? payload : DEFAULT_PAYLOAD_EXPRESSION, nextConfigs)
   }
 
   const updateJson = (nextValue: string) => {
     setJsonDraft(nextValue)
     try {
       const parsed = JSON.parse(nextValue)
-      if (!Array.isArray(parsed) || parsed.some((item) => !isRecord(item))) {
-        throw new Error('paramsConfig 必须是 JSON 对象数组')
-      }
+      const nextConfigs = parseMappingConfigs(parsed)
       setJsonError('')
-      commit(mappingInputs, parsed.map(normalizeConfig))
+      commit(Object.prototype.hasOwnProperty.call(inputParameters, PAYLOAD_KEY) ? payload : DEFAULT_PAYLOAD_EXPRESSION, nextConfigs)
     } catch (error) {
       setJsonError(error instanceof Error ? error.message : 'paramsConfig JSON 无效')
     }
   }
 
-  const openRootEditor = () => setEditSession({ kind: 'root', value: emptyConfig() })
-  const openChildEditor = (path: ConfigPath) => setEditSession({ kind: 'child', path, value: emptyConfig() })
-  const openEditEditor = (path: ConfigPath, value: ParamMappingConfig) => setEditSession({ kind: 'edit', path, value: normalizeConfig(value) })
-  const openCopyEditor = (path: ConfigPath, value: ParamMappingConfig) => setEditSession({ kind: 'copy', path, value: normalizeConfig(value) })
+  const canDiscardDraft = () => !editSession
+    || JSON.stringify(editSession.value) === editSession.initialValue
+    || window.confirm('当前字段有未应用的修改，是否放弃这些修改？')
 
-  const updateMappingInput = (index: number, nextInput: MappingInput) => {
-    const nextInputs = [...mappingInputs]
-    nextInputs[index] = nextInput
-    commit(nextInputs, configs)
+  const closeFieldEditor = () => {
+    if (!canDiscardDraft()) return false
+    setEditSession(null)
+    return true
   }
 
-  const addMappingInput = () => {
-    const names = new Set(mappingInputs.map((item) => item.key))
-    let index = mappingInputs.length + 1
-    while (names.has(`parameter_${index}`)) index += 1
-    commit([...mappingInputs, { key: `parameter_${index}`, value: '' }], configs)
+  const openSession = (session: EditSession) => {
+    if (canDiscardDraft()) setEditSession(session)
+  }
+  const openRootEditor = () => openSession(createEditSession('root', emptyConfig()))
+  const openChildEditor = (path: ConfigPath) => {
+    const parent = configAtPath(configs, path)
+    openSession(createEditSession('child', parent?.mappingType === 'ARRAY_FIXED' ? objectTemplate() : emptyConfig(), path))
+  }
+  const openEditEditor = (path: ConfigPath, value: ParamMappingConfig) => {
+    if (editSession?.kind === 'edit' && editSession.path && pathKey(editSession.path) === pathKey(path)) return
+    openSession(createEditSession('edit', value, path))
+  }
+  const openCopyEditor = (path: ConfigPath, value: ParamMappingConfig) => openSession(createEditSession('copy', value, path))
+
+  const setPayloadMode = (nextMode: PayloadMode) => {
+    if (nextMode === payloadMode) return
+    if (nextMode === 'parameters') {
+      commit(isRecord(payload) ? payload : {}, configs)
+      return
+    }
+    commit(typeof payload === 'string' ? payload : DEFAULT_PAYLOAD_EXPRESSION, configs)
   }
 
-  const deleteMappingInput = (index: number) => {
-    commit(mappingInputs.filter((_, itemIndex) => itemIndex !== index), configs)
+  const updatePayloadParam = (index: number, next: { key: string; value: string }) => {
+    const rows = [...payloadParams]
+    rows[index] = next
+    commit(Object.fromEntries(rows.map((item) => [item.key, item.value])), configs)
+  }
+
+  const addPayloadParam = () => {
+    const names = new Set(payloadParams.map((item) => item.key))
+    let index = payloadParams.length + 1
+    let key = `parameter_${index}`
+    while (names.has(key)) {
+      index += 1
+      key = `parameter_${index}`
+    }
+    commit({ ...(isRecord(payload) ? payload : {}), [key]: '' }, configs)
+  }
+
+  const deletePayloadParam = (index: number) => {
+    commit(
+      Object.fromEntries(payloadParams.filter((_, itemIndex) => itemIndex !== index).map((item) => [item.key, item.value])),
+      configs,
+    )
   }
 
   const saveEditSession = (value: ParamMappingConfig) => {
     if (!editSession) return
     const nextValue = normalizeForSave(value)
+    let nextPath = editSession.path ?? [configs.length]
     if (editSession.kind === 'root') {
       commitConfigs([...configs, nextValue])
     } else if (editSession.kind === 'child' && editSession.path) {
-      commitConfigs(updateAtPath(configs, editSession.path, (config) => ({
-        ...config,
-        childParams: [...config.childParams, nextValue],
-      })))
+      const parent = configAtPath(configs, editSession.path)
+      if (!parent) return
+      nextPath = [...editSession.path, configChildren(parent).length]
+      commitConfigs(updateAtPath(configs, editSession.path, (config) => withConfigChildren(config, [...configChildren(config), nextValue])))
     } else if (editSession.kind === 'edit' && editSession.path) {
       commitConfigs(updateAtPath(configs, editSession.path, () => nextValue))
     } else if (editSession.kind === 'copy' && editSession.path) {
+      nextPath = [...editSession.path.slice(0, -1), editSession.path[editSession.path.length - 1] + 1]
       commitConfigs(insertAfterPath(configs, editSession.path, nextValue))
     }
-    setEditSession(null)
+    setEditSession(createEditSession('edit', nextValue, nextPath))
   }
 
   const actions = {
     addChild: openChildEditor,
     edit: openEditEditor,
     copy: openCopyEditor,
-    remove: (path: ConfigPath) => commitConfigs(removeAtPath(configs, path)),
+    remove: (path: ConfigPath) => {
+      if (!canDiscardDraft()) return
+      // Paths use sibling indexes; clearing selection prevents editing a shifted sibling.
+      setEditSession(null)
+      commitConfigs(removeAtPath(configs, path))
+    },
   }
 
   return (
@@ -288,49 +256,71 @@ export function ParamMapTaskInspector({ task, header, renderInputValue, onChange
       {header}
 
       <WorkflowCollapsibleSection title="映射输入">
-        <div className="param-map-input-list">
-          {mappingInputs.map((item, index) => (
-            <div className="param-map-input-row" key={index}>
-              <label className="inspector-field">
-                <span>参数名</span>
-                <input
-                  value={item.key}
-                  onChange={(event) => updateMappingInput(index, { ...item, key: event.target.value })}
-                />
-              </label>
-              <label className="inspector-field param-map-input-value">
-                <span>映射值</span>
-                {renderInputValue(inputValueText(item.value), (value) => updateMappingInput(index, { ...item, value }))}
-              </label>
-              <button
-                type="button"
-                className="param-map-input-delete"
-                title={mappingInputs.length === 1 ? '至少保留一个映射输入' : '删除参数'}
-                disabled={mappingInputs.length === 1}
-                onClick={() => deleteMappingInput(index)}
-              >
-                <TrashIcon size={18} />
-              </button>
-            </div>
-          ))}
-          {!mappingInputs.length ? <p className="inspector-empty">暂未配置映射输入</p> : null}
+        <div className="switch-evaluator-heading">
+          <span>入参方式</span>
+          <div className="switch-evaluator-options" role="radiogroup" aria-label="映射输入方式">
+            <label>
+              <input
+                type="radio"
+                name={`param-map-payload-mode-${task.taskReferenceName}`}
+                value="expression"
+                checked={payloadMode === 'expression'}
+                onChange={() => setPayloadMode('expression')}
+              />
+              <span>表达式</span>
+            </label>
+            <label>
+              <input
+                type="radio"
+                name={`param-map-payload-mode-${task.taskReferenceName}`}
+                value="parameters"
+                checked={payloadMode === 'parameters'}
+                onChange={() => setPayloadMode('parameters')}
+              />
+              <span>参数</span>
+            </label>
+          </div>
         </div>
-        <button type="button" className="param-map-add-input" onClick={addMappingInput}>
-          <PlusCircleIcon size={16} />
-          添加映射输入
-        </button>
+        {payloadMode === 'expression' ? (
+          <label className="inspector-field">
+            <span>payload</span>
+            <VariableExpressionInput
+              value={typeof payload === 'string' ? payload : ''}
+              options={variableOptions}
+              onChange={(value) => commit(value, configs)}
+            />
+          </label>
+        ) : (
+          <>
+            <ParameterRows
+              items={payloadParams}
+              keyLabel="参数名"
+              valueLabel="映射值"
+              variableOptions={variableOptions}
+              onChange={updatePayloadParam}
+              onDelete={deletePayloadParam}
+            />
+            <button type="button" className="param-map-add-input" onClick={addPayloadParam}>
+              <PlusCircleIcon size={16} />
+              添加参数
+            </button>
+            <p className="field-help">
+              键值写入 <code>payload</code>。下方映射按参数名取值，例如 <code>$.patientCode</code>。
+            </p>
+          </>
+        )}
       </WorkflowCollapsibleSection>
 
       <WorkflowCollapsibleSection title="映射配置" className="param-map-config-section">
         <div className="param-map-config-toolbar">
           <div className="param-map-view-options" role="radiogroup" aria-label="映射配置编辑方式">
-            <label className={jsonError ? 'disabled' : ''}>
+            <label className={visibleJsonError ? 'disabled' : ''}>
               <input
                 type="radio"
                 name={`param-map-view-${task.taskReferenceName}`}
                 value="PARAMETERS"
-                checked={view === 'PARAMETERS'}
-                disabled={Boolean(jsonError)}
+                checked={view === 'PARAMETERS' && !storedConfigError}
+                disabled={Boolean(visibleJsonError)}
                 onChange={() => setView('PARAMETERS')}
               />
               <span>参数</span>
@@ -340,31 +330,19 @@ export function ParamMapTaskInspector({ task, header, renderInputValue, onChange
                 type="radio"
                 name={`param-map-view-${task.taskReferenceName}`}
                 value="JSON"
-                checked={view === 'JSON'}
-                onChange={() => setView('JSON')}
+                checked={view === 'JSON' || Boolean(storedConfigError)}
+                onChange={() => { if (closeFieldEditor()) setView('JSON') }}
               />
               <span>JSON</span>
             </label>
           </div>
           <div className="param-map-config-meta">
             <span className="param-map-field-count">{countParamMappingConfigs(configs)} 个字段</span>
-            <div className="param-map-config-actions">
-              <button type="button" className="param-map-visual-button" disabled={Boolean(jsonError)} onClick={() => setVisualOpen(true)}>
-                <TreeStructureIcon size={15} weight="bold" />
-                可视化映射
-              </button>
-              {view === 'PARAMETERS' ? (
-                <button type="button" className="param-map-add-button" onClick={openRootEditor}>
-                  <PlusIcon size={15} weight="bold" />
-                  新增字段
-                </button>
-              ) : null}
-            </div>
           </div>
         </div>
 
-        {view === 'JSON' ? (
-          <div className={`param-map-json-view ${jsonError ? 'has-error' : ''}`}>
+        {view === 'JSON' || storedConfigError ? (
+          <div className={`param-map-json-view ${visibleJsonError ? 'has-error' : ''}`}>
             <InlineScriptEditor
               value={jsonDraft}
               onChange={updateJson}
@@ -375,31 +353,32 @@ export function ParamMapTaskInspector({ task, header, renderInputValue, onChange
               modalTitle="映射配置 JSON 编辑器"
               autoSize={false}
             />
-            {jsonError ? <p className="inline-error">{jsonError}</p> : null}
+            {visibleJsonError ? <p className="inline-error" role="alert">{visibleJsonError}</p> : null}
           </div>
         ) : (
-          <ParameterConfigTable configs={configs} onAddRoot={openRootEditor} {...actions} />
+          <ParamMappingTreeEditor
+            key={task.taskReferenceName}
+            configs={configs}
+            onAddRoot={openRootEditor}
+            selectedPath={editSession?.path}
+            onCloseFieldEditor={closeFieldEditor}
+            fieldEditor={editSession ? (
+              <ParamConfigPanel
+                key={`${editSession.kind}:${editSession.path ? pathKey(editSession.path) : 'root'}`}
+                session={editSession}
+                parentPath={configPathLabel(configs, editSession.kind === 'child' ? editSession.path ?? [] : editSession.path?.slice(0, -1) ?? [])}
+                parentConfig={configAtPath(configs, editSession.kind === 'child' ? editSession.path ?? [] : editSession.path?.slice(0, -1) ?? [])}
+                aliases={scopeAliases(configs, editSession.kind === 'child' ? editSession.path ?? [] : editSession.path?.slice(0, -1) ?? [])}
+                onChange={(value) => setEditSession({ ...editSession, value })}
+                onCancel={closeFieldEditor}
+                onSave={saveEditSession}
+              />
+            ) : null}
+            {...actions}
+          />
         )}
       </WorkflowCollapsibleSection>
 
-      {visualOpen ? createPortal(
-        <ParamMapVisualization
-          configs={configs}
-          onClose={() => setVisualOpen(false)}
-          onAddRoot={openRootEditor}
-          {...actions}
-        />,
-        document.body,
-      ) : null}
-
-      {editSession ? createPortal(
-        <ParamConfigDialog
-          session={editSession}
-          onCancel={() => setEditSession(null)}
-          onSave={saveEditSession}
-        />,
-        document.body,
-      ) : null}
     </div>
   )
 }
@@ -411,66 +390,379 @@ type ConfigActions = {
   remove: (path: ConfigPath) => void
 }
 
-function ParameterConfigTable({
+function ParamMappingTreeEditor({
   configs,
   onAddRoot,
+  selectedPath,
+  fieldEditor,
+  onCloseFieldEditor,
   addChild,
   edit,
   copy,
   remove,
-}: { configs: ParamMappingConfig[]; onAddRoot: () => void } & ConfigActions) {
-  const rows = useMemo(() => flattenConfigs(configs), [configs])
+}: {
+  configs: ParamMappingConfig[]
+  onAddRoot: () => void
+  selectedPath?: ConfigPath
+  fieldEditor: ReactNode
+  onCloseFieldEditor: () => boolean
+} & ConfigActions) {
+  const allRows = useMemo(() => flattenConfigs(configs), [configs])
+  const containerPaths = useMemo(
+    () => allRows.filter(({ config }) => configChildren(config).length > 0).map(({ path }) => pathKey(path)),
+    [allRows],
+  )
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() => new Set(containerPaths))
+  const [display, setDisplay] = useState<TreeDisplay>('TABLE')
+  const [editorExpanded, setEditorExpanded] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const copyTimerRef = useRef<number | undefined>(undefined)
+  const knownContainerPathsRef = useRef(new Set(containerPaths))
+  const hostRef = useRef<HTMLDivElement>(null)
+  const modalRef = useRef<HTMLElement>(null)
+  const wasExpandedRef = useRef(false)
+  const hasFieldEditor = Boolean(fieldEditor)
+  const selectedKey = selectedPath ? pathKey(selectedPath) : ''
+
+  useEffect(() => {
+    if (!selectedKey) return
+    const path = selectedKey.split('.')
+    setExpandedPaths((current) => {
+      const next = new Set(current)
+      for (let depth = 1; depth < path.length; depth += 1) next.add(path.slice(0, depth).join('.'))
+      return next
+    })
+  }, [selectedKey])
+
+  const visibleRows = allRows.filter(({ path }) => {
+    for (let depth = 1; depth < path.length; depth += 1) {
+      if (!expandedPaths.has(pathKey(path.slice(0, depth)))) return false
+    }
+    return true
+  })
+
+  const toggle = (path: ConfigPath) => {
+    const key = pathKey(path)
+    setExpandedPaths((current) => {
+      const next = new Set(current)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  const copyConfig = async () => {
+    const text = JSON.stringify(configs, null, 2)
+    const legacyCopy = () => {
+      const textarea = document.createElement('textarea')
+      textarea.value = text
+      textarea.setAttribute('readonly', '')
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      textarea.remove()
+    }
+
+    try {
+      if (!navigator.clipboard) throw new Error('Clipboard API unavailable')
+      await navigator.clipboard.writeText(text)
+    } catch {
+      legacyCopy()
+    }
+
+    setCopied(true)
+    window.clearTimeout(copyTimerRef.current)
+    copyTimerRef.current = window.setTimeout(() => setCopied(false), 2200)
+  }
+
+  useEffect(() => () => window.clearTimeout(copyTimerRef.current), [])
+
+  useEffect(() => {
+    const nextContainerPaths = new Set(containerPaths)
+    setExpandedPaths((current) => {
+      const next = new Set([...current].filter((key) => nextContainerPaths.has(key)))
+      containerPaths.forEach((key) => {
+        if (!knownContainerPathsRef.current.has(key)) next.add(key)
+      })
+      return next
+    })
+    knownContainerPathsRef.current = nextContainerPaths
+  }, [containerPaths])
+
+  useEffect(() => {
+    if (editorExpanded) {
+      if (!modalRef.current?.contains(document.activeElement)) {
+        modalRef.current?.querySelector<HTMLButtonElement>('header button')?.focus({ preventScroll: true })
+      }
+    } else if (wasExpandedRef.current) {
+      hostRef.current?.querySelector<HTMLButtonElement>('.param-map-tree-editor-actions button')?.focus({ preventScroll: true })
+    }
+    wasExpandedRef.current = editorExpanded
+  }, [editorExpanded, hasFieldEditor])
+
+  useEffect(() => {
+    if (!editorExpanded) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [editorExpanded])
+
+  const closeEditor = () => {
+    if (onCloseFieldEditor()) setEditorExpanded(false)
+  }
+
+  const openFieldEditor = (action: () => void) => {
+    setEditorExpanded(true)
+    action()
+  }
+
+  const surface = (
+    <ParamMappingTreeSurface
+      configs={configs}
+      rows={visibleRows}
+      allRows={allRows}
+      display={display}
+      expandedPaths={expandedPaths}
+      expanded={editorExpanded}
+      onChangeDisplay={setDisplay}
+      onToggle={toggle}
+      onExpandAll={() => setExpandedPaths(new Set(containerPaths))}
+      onCollapseAll={() => setExpandedPaths(new Set())}
+      onAddRoot={() => openFieldEditor(onAddRoot)}
+      onToggleEditor={() => editorExpanded ? closeEditor() : setEditorExpanded(true)}
+      onCopy={() => void copyConfig()}
+      selectedPath={selectedPath}
+      fieldEditor={fieldEditor}
+      addChild={(path) => openFieldEditor(() => addChild(path))}
+      edit={(path, config) => openFieldEditor(() => edit(path, config))}
+      copy={(path, config) => openFieldEditor(() => copy(path, config))}
+      remove={remove}
+    />
+  )
+
   return (
-    <div className="param-map-parameters">
-      <div className="param-map-table-scroll">
-        <table className="param-map-table">
-          <thead>
-            <tr>
-              <th>目标参数名</th>
-              <th>目标类型</th>
-              <th>源参数名</th>
-              <th>源类型</th>
-              <th>映射类型</th>
-              <th>映射规则</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(({ config, path, depth }) => (
-              <tr key={pathKey(path)}>
-                <td title={config.targetParamKey || '-'}>
-                  <span className="param-map-tree-name" style={{ paddingLeft: depth * 18 }}>
-                    {depth ? <span className="param-map-tree-elbow">└</span> : null}
-                    {config.targetParamKey || '-'}
-                  </span>
-                </td>
-                <td><TypeBadge value={config.targetParamType} side="target" /></td>
-                <td title={config.sourceParamKey || '(无源参数)'}>{config.sourceParamKey || '(无源参数)'}</td>
-                <td><TypeBadge value={config.sourceParamType} side="source" /></td>
-                <td><span className="param-map-mapping-badge">{mappingLabel(config.mappingType)}</span></td>
-                <td className="param-map-rule-cell" title={config.mappingRule}>{config.mappingRule || '-'}</td>
-                <td><ConfigActionButtons config={config} path={path} addChild={addChild} edit={edit} copy={copy} remove={remove} /></td>
-              </tr>
+    <div ref={hostRef} className="param-map-tree-host">
+      {editorExpanded ? createPortal(
+        <div className="param-map-tree-modal-backdrop" onMouseDown={closeEditor}>
+          <section
+            ref={modalRef}
+            className="param-map-tree-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="参数映射编辑器"
+            onMouseDown={(event) => event.stopPropagation()}
+            onKeyDown={(event) => {
+              if (event.key === 'Tab') {
+                const controls = [...event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), summary')]
+                  .filter((control) => control.getClientRects().length > 0)
+                const first = controls[0]
+                const last = controls[controls.length - 1]
+                if (event.shiftKey && document.activeElement === first) {
+                  event.preventDefault()
+                  last?.focus()
+                } else if (!event.shiftKey && document.activeElement === last) {
+                  event.preventDefault()
+                  first?.focus()
+                }
+                return
+              }
+              if (event.key !== 'Escape') return
+              event.stopPropagation()
+              if (fieldEditor) onCloseFieldEditor()
+              else closeEditor()
+            }}
+          >
+            <header>
+              <div><h2>参数映射编辑器</h2><span>{countParamMappingConfigs(configs)} 个字段</span></div>
+              <button type="button" title="关闭" aria-label="关闭参数映射编辑器" onClick={closeEditor}><XIcon size={22} /></button>
+            </header>
+            <div className="param-map-tree-modal-content">{surface}</div>
+          </section>
+        </div>,
+        document.body,
+      ) : surface}
+      {copied ? <div className="code-copy-toast" role="status">映射配置已复制到剪贴板</div> : null}
+    </div>
+  )
+}
+
+function ParamMappingTreeSurface({
+  configs,
+  rows,
+  allRows,
+  display,
+  expandedPaths,
+  expanded,
+  onChangeDisplay,
+  onToggle,
+  onExpandAll,
+  onCollapseAll,
+  onAddRoot,
+  onToggleEditor,
+  onCopy,
+  selectedPath,
+  fieldEditor,
+  addChild,
+  edit,
+  copy,
+  remove,
+}: {
+  configs: ParamMappingConfig[]
+  rows: Array<{ config: ParamMappingConfig; path: ConfigPath; depth: number }>
+  allRows: Array<{ config: ParamMappingConfig; path: ConfigPath; depth: number }>
+  display: TreeDisplay
+  expandedPaths: Set<string>
+  expanded: boolean
+  onChangeDisplay: (display: TreeDisplay) => void
+  onToggle: (path: ConfigPath) => void
+  onExpandAll: () => void
+  onCollapseAll: () => void
+  onAddRoot: () => void
+  onToggleEditor: () => void
+  onCopy: () => void
+  selectedPath?: ConfigPath
+  fieldEditor: ReactNode
+} & ConfigActions) {
+  return (
+    <div className={`param-map-tree-editor ${expanded ? 'expanded' : 'embedded'}`}>
+      <div className="param-map-tree-toolbar">
+        <span>目标参数树 · {countParamMappingConfigs(configs)} 个字段</span>
+        <div>
+          <div className="param-map-display-toggle" role="group" aria-label="目标结构查看方式">
+            <button type="button" className={display === 'TABLE' ? 'active' : ''} aria-pressed={display === 'TABLE'} onClick={() => onChangeDisplay('TABLE')}>字段表格</button>
+            <button type="button" className={display === 'STRUCTURE' ? 'active' : ''} aria-pressed={display === 'STRUCTURE'} onClick={() => onChangeDisplay('STRUCTURE')}>结构预览</button>
+          </div>
+          {display === 'TABLE' && rows.length ? (
+            <>
+              <button type="button" onClick={onExpandAll}>展开全部</button>
+              <button type="button" onClick={onCollapseAll}>折叠全部</button>
+            </>
+          ) : null}
+          <button type="button" className="primary" onClick={onAddRoot}><PlusIcon size={14} weight="bold" />新增根字段</button>
+        </div>
+      </div>
+      <div className={`param-map-tree-workspace ${fieldEditor ? 'with-detail' : ''}`}>
+      <div className={`param-map-tree-list ${display === 'STRUCTURE' ? 'structure' : ''}`}>
+        {display === 'TABLE' ? <div className="param-map-tree-columns" aria-hidden="true">
+          <span>目标字段</span><span>类型</span><span>取值</span><span>操作</span>
+        </div> : null}
+      <div className={`param-map-tree-scroll ${display === 'STRUCTURE' ? 'structure' : ''}`} role="group" aria-label={display === 'STRUCTURE' ? '目标结构预览' : '目标参数树'}>
+        {display === 'STRUCTURE' ? (
+          <div className="param-map-structure-preview" role="tree" aria-label="目标 JSON 结构">
+            {allRows.map(({ config, path, depth }) => (
+              <button
+                type="button"
+                className={`param-map-structure-row ${selectedPath && pathKey(selectedPath) === pathKey(path) ? 'selected' : ''}`}
+                key={pathKey(path)}
+                role="treeitem"
+                aria-level={depth + 1}
+                aria-selected={Boolean(selectedPath && pathKey(selectedPath) === pathKey(path))}
+                title={`${configPathLabel(configs, path)}${config.paramDesc ? ` · ${config.paramDesc}` : ''}`}
+                onClick={() => edit(path, config)}
+              >
+                <code className="param-map-structure-prefix" aria-hidden="true">{structurePrefix(configs, path)}</code>
+                <span className={`param-map-structure-kind ${config.targetParamType.toLowerCase()}`} aria-hidden="true">{structureKind(config)}</span>
+                <strong>{configNodeLabel(configs, path)}</strong>
+                <TypeBadge value={config.targetParamType} side="target" />
+                {config.paramDesc ? <small>{config.paramDesc}</small> : null}
+              </button>
             ))}
-          </tbody>
-        </table>
-        {!rows.length ? (
-          <div className="param-map-empty">
-            <div className="param-map-empty-diagram" aria-hidden="true">
-              <span>目标字段</span>
-              <i><ArrowLeftIcon size={16} weight="bold" /></i>
-              <span>源字段</span>
+          </div>
+        ) : rows.map(({ config, path, depth }) => {
+          const hasChildren = configChildren(config).length > 0
+          return (
+            <div
+              className={`param-map-tree-row ${selectedPath && pathKey(selectedPath) === pathKey(path) ? 'selected' : ''}`}
+              key={pathKey(path)}
+              onClick={(event) => {
+                if (!(event.target as HTMLElement).closest('button, details')) edit(path, config)
+              }}
+            >
+              <div className="param-map-tree-field" style={{ '--param-map-depth': depth } as CSSProperties}>
+              <button
+                type="button"
+                className={`param-map-tree-toggle ${hasChildren ? '' : 'empty'}`}
+                disabled={!hasChildren}
+                aria-label={hasChildren ? `${expandedPaths.has(pathKey(path)) ? '折叠' : '展开'} ${configNodeLabel(configs, path)}` : undefined}
+                aria-expanded={hasChildren ? expandedPaths.has(pathKey(path)) : undefined}
+                onClick={() => onToggle(path)}
+              >
+                {hasChildren
+                  ? (expandedPaths.has(pathKey(path)) ? <CaretDownIcon size={15} /> : <CaretRightIcon size={15} />)
+                  : <MinusIcon size={11} />}
+              </button>
+              <button
+                type="button"
+                className="param-map-tree-target"
+                title={`${configPathLabel(configs, path)}${config.paramDesc ? ` · ${config.paramDesc}` : ''}`}
+                aria-label={`编辑字段 ${configPathLabel(configs, path)}`}
+                aria-pressed={Boolean(selectedPath && pathKey(selectedPath) === pathKey(path))}
+                onClick={() => edit(path, config)}
+              >
+                <strong>{configNodeLabel(configs, path)}</strong>
+              </button>
+              </div>
+              <button
+                type="button"
+                className="param-map-tree-type"
+                title={`编辑 ${configNodeLabel(configs, path)} 的目标类型`}
+                aria-label={`编辑 ${configNodeLabel(configs, path)} 的目标类型`}
+                onClick={() => edit(path, config)}
+              >
+                <TypeBadge value={config.targetParamType} side="target" />
+              </button>
+              <MappingSummary config={config} onEdit={() => edit(path, config)} />
+              <ConfigActionButtons config={config} path={path} isLoopTemplate={configAtPath(configs, path.slice(0, -1))?.mappingType === 'ARRAY_MAP'} label={configNodeLabel(configs, path)} addChild={addChild} edit={edit} copy={copy} remove={remove} />
             </div>
-            <strong>还没有字段映射</strong>
-            <p>添加目标字段，建立源数据到输出结果的转换关系。</p>
+          )
+        })}
+        {!rows.length ? (
+          <div className="param-map-tree-empty">
+            <strong>还没有目标字段</strong>
+            <p>新增字段，按目标结构配置取字段、固定值或 JS表达式。</p>
             <button type="button" onClick={onAddRoot}><PlusIcon size={15} weight="bold" />新增第一个字段</button>
           </div>
         ) : null}
       </div>
-      {rows.length ? (
-        <button type="button" className="param-map-table-add" onClick={onAddRoot}><PlusCircleIcon size={16} />新增根字段</button>
-      ) : null}
+      </div>
+      {fieldEditor}
+      </div>
+      <div className="param-map-tree-editor-actions">
+        <span>{selectedPath ? configPathLabel(configs, selectedPath) : '选择字段查看配置'}</span>
+        <div>
+        <button
+          type="button"
+          title={expanded ? '收起参数映射编辑器' : '放大参数映射编辑器'}
+          aria-label={expanded ? '收起参数映射编辑器' : '放大参数映射编辑器'}
+          onClick={onToggleEditor}
+        >
+          {expanded ? <ArrowsInSimpleIcon size={20} /> : <ArrowsOutSimpleIcon size={20} />}
+        </button>
+        <button type="button" title="复制映射配置" aria-label="复制映射配置" onClick={onCopy}><CopyIcon size={20} /></button>
+        </div>
+      </div>
     </div>
+  )
+}
+
+function MappingSummary({ config, onEdit }: { config: ParamMappingConfig; onEdit: () => void }) {
+  const mode = config.mappingType
+  const detail = mode === 'CONSTANT' ? JSON.stringify(config.mappingRule ?? null)
+    : mode === 'EXPRESSION' ? String(config.mappingRule ?? '')
+      : mode === 'ARRAY_MAP' ? `${config.sourceParamKey || '未配置循环源'} → ${config.itemAlias || '未命名变量'}`
+        : mode === 'ARRAY_FIXED' ? `${config.items.length} 个元素`
+          : mode === 'OBJECT' ? `${config.childParams.length} 个子字段` : config.sourceParamKey || '未配置路径'
+  const style = mode === 'CONSTANT' ? 'constant' : mode === 'EXPRESSION' ? 'expression'
+    : mode === 'NAME' || mode === 'ARRAY_MAP' ? 'source' : 'structure'
+  return (
+    <button type="button" className={`param-map-tree-binding ${style}`} title={detail} onClick={onEdit}>
+      <span className="param-map-tree-binding-label">{mode === 'NAME' ? '取值' : mappingLabel(mode)}</span>
+      {mode === 'NAME' ? <ArrowLeftIcon size={14} /> : null}<code>{detail}</code>
+    </button>
   )
 }
 
@@ -478,20 +770,45 @@ function TypeBadge({ value, side }: { value: ParamType; side: 'source' | 'target
   return <span className={`param-map-type-badge ${side}`}>{paramTypeLabel(value)}</span>
 }
 
-function ConfigActionButtons({ config, path, addChild, edit, copy, remove }: { config: ParamMappingConfig; path: ConfigPath } & ConfigActions) {
+function ConfigActionButtons({ config, path, isLoopTemplate, label, addChild, copy, remove }: { config: ParamMappingConfig; path: ConfigPath; isLoopTemplate: boolean; label: string } & ConfigActions) {
+  const [open, setOpen] = useState(false)
+  const menuRef = useRef<HTMLDetailsElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const close = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [open])
+
   return (
     <div className="param-map-actions">
-      {CONTAINER_TYPES.has(config.targetParamType) ? (
-        <button type="button" className="param-map-child-action" title="在当前节点下添加子节点" onClick={() => addChild(path)}>
+      {(config.mappingType === 'OBJECT' || config.mappingType === 'ARRAY_FIXED') ? (
+        <button type="button" className="param-map-child-action" title={config.mappingType === 'ARRAY_FIXED' ? '添加元素' : '添加子字段'} aria-label={`在 ${label} 下${config.mappingType === 'ARRAY_FIXED' ? '添加元素' : '添加子字段'}`} onClick={() => addChild(path)}>
           <PlusIcon size={14} weight="bold" />
-          <span>子节点</span>
         </button>
       ) : null}
-      <div className="param-map-secondary-actions">
-        <button type="button" title="编辑" onClick={() => edit(path, config)}><PencilSimpleIcon size={15} /></button>
-        <button type="button" title="复制" onClick={() => copy(path, config)}><CopyIcon size={15} /></button>
-        <button type="button" className="danger" title="删除" onClick={() => remove(path)}><TrashIcon size={15} /></button>
-      </div>
+      {!isLoopTemplate ? <details
+        className="param-map-row-more"
+        ref={menuRef}
+        open={open}
+        onToggle={(event) => setOpen(event.currentTarget.open)}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape' && open) {
+            event.stopPropagation()
+            setOpen(false)
+            menuRef.current?.querySelector('summary')?.focus()
+          }
+        }}
+      >
+        <summary title="更多操作" aria-label={`${label} 的更多操作`}><DotsThreeIcon size={18} weight="bold" /></summary>
+        <div className="param-map-row-menu">
+          <button type="button" onClick={() => { setOpen(false); copy(path, config) }}><CopyIcon size={15} />复制字段</button>
+          <button type="button" className="danger" onClick={() => { setOpen(false); remove(path) }}><TrashIcon size={15} />删除字段</button>
+        </div>
+      </details> : null}
     </div>
   )
 }
@@ -521,7 +838,13 @@ function MappingSelect<T extends string>({
   }, [open])
 
   return (
-    <div className={`param-map-select ${open ? 'open' : ''}`} ref={rootRef}>
+    <div className={`param-map-select ${open ? 'open' : ''}`} ref={rootRef} onKeyDown={(event) => {
+      if (event.key === 'Escape' && open) {
+        event.stopPropagation()
+        setOpen(false)
+        rootRef.current?.querySelector('button')?.focus()
+      }
+    }}>
       <button
         type="button"
         className="param-map-select-trigger"
@@ -565,131 +888,132 @@ function MappingSelect<T extends string>({
   )
 }
 
-function ParamConfigDialog({ session, onCancel, onSave }: { session: EditSession; onCancel: () => void; onSave: (value: ParamMappingConfig) => void }) {
-  const [value, setValue] = useState(() => normalizeConfig(session.value))
+function ParamConfigPanel({ session, parentPath, parentConfig, aliases, onChange, onCancel, onSave }: {
+  session: EditSession
+  parentPath: string
+  parentConfig?: ParamMappingConfig
+  aliases: string[]
+  onChange: (value: ParamMappingConfig) => void
+  onCancel: () => void
+  onSave: (value: ParamMappingConfig) => void
+}) {
+  const value = session.value
   const [error, setError] = useState('')
-  const title = session.kind === 'edit' ? '编辑映射配置'
-    : session.kind === 'copy' ? '复制映射配置'
-      : session.kind === 'child' ? '新增子节点'
-        : '新增映射配置'
+  const [saved, setSaved] = useState(false)
+  const [constantDraft, setConstantDraft] = useState(() => JSON.stringify(value.mappingRule ?? null, null, 2))
+  const panelRef = useRef<HTMLElement>(null)
+  const dirty = JSON.stringify(value) !== session.initialValue
+  const element = parentConfig?.mappingType === 'ARRAY_MAP' || parentConfig?.mappingType === 'ARRAY_FIXED'
+  const title = element ? '元素配置' : session.kind === 'edit' ? '字段配置'
+    : session.kind === 'copy' ? '复制字段' : session.kind === 'child' ? '新增子字段' : '新增根字段'
+  const pathLabel = [parentPath, element ? '元素' : value.targetParamKey || '新字段'].filter(Boolean).join('.')
+  const modes = MAPPING_TYPES.filter((mode) => mode === 'NAME'
+    ? value.targetParamType !== 'OBJECT' && value.targetParamType !== 'ARRAY'
+    : mode === 'OBJECT' ? value.targetParamType === 'OBJECT'
+      : mode === 'ARRAY_MAP' || mode === 'ARRAY_FIXED' ? value.targetParamType === 'ARRAY' : true)
+  const initialNode = normalizeConfig(JSON.parse(session.initialValue))
+  const clearsChildren = configChildren(initialNode).length > 0 && initialNode.mappingType !== value.mappingType
 
-  const submit = () => {
-    if (!value.targetParamKey.trim()) {
-      setError('目标参数名不能为空')
-      return
-    }
-    onSave(value)
+  useEffect(() => {
+    panelRef.current?.scrollIntoView({ block: 'nearest' })
+    panelRef.current?.querySelector<HTMLInputElement>('input')?.focus({ preventScroll: true })
+  }, [])
+
+  const setValue = (next: ParamMappingConfig) => {
+    setError('')
+    setSaved(false)
+    onChange(next)
   }
 
-  return (
-    <div className="param-map-dialog-backdrop" onMouseDown={onCancel}>
-      <section className="param-map-dialog" role="dialog" aria-modal="true" aria-label={title} onMouseDown={(event) => event.stopPropagation()}>
-        <header><h2>{title}</h2><button type="button" title="关闭" onClick={onCancel}><XIcon size={20} /></button></header>
-        <div className="param-map-dialog-body">
-          <div className="param-map-dialog-grid">
-            <label><span>目标参数名 <strong>*</strong></span><input value={value.targetParamKey} onChange={(event) => setValue({ ...value, targetParamKey: event.target.value })} /></label>
-            <div className="param-map-dialog-field">
-              <span>目标参数类型</span>
-              <MappingSelect
-                value={value.targetParamType}
-                options={PARAM_TYPES.map((type) => ({ value: type, label: paramTypeLabel(type) }))}
-                ariaLabel="目标参数类型"
-                onChange={(targetParamType) => setValue({ ...value, targetParamType })}
-              />
-            </div>
-            <label><span>源参数名</span><input disabled={value.sourceParamType === 'NONE'} value={value.sourceParamKey ?? ''} onChange={(event) => setValue({ ...value, sourceParamKey: event.target.value })} /></label>
-            <div className="param-map-dialog-field">
-              <span>源参数类型</span>
-              <MappingSelect
-                value={value.sourceParamType}
-                options={PARAM_TYPES.map((type) => ({ value: type, label: paramTypeLabel(type) }))}
-                ariaLabel="源参数类型"
-                onChange={(sourceParamType) => setValue({ ...value, sourceParamType })}
-              />
-            </div>
-            <div className="param-map-dialog-field">
-              <span>映射类型</span>
-              <MappingSelect
-                value={value.mappingType}
-                options={MAPPING_TYPES.map((type) => ({ value: type, label: mappingLabel(type) }))}
-                ariaLabel="映射类型"
-                onChange={(mappingType) => setValue({ ...value, mappingType })}
-              />
-            </div>
-            <label className="full"><span>映射规则</span><textarea rows={4} value={value.mappingRule ?? ''} onChange={(event) => setValue({ ...value, mappingRule: event.target.value })} placeholder="固定值或表达式；值映射可留空" /></label>
-            <label className="full"><span>参数描述</span><textarea rows={2} value={value.paramDesc ?? ''} onChange={(event) => setValue({ ...value, paramDesc: event.target.value })} /></label>
-          </div>
-          {error ? <p className="inline-error">{error}</p> : null}
-        </div>
-        <footer><button type="button" onClick={onCancel}>取消</button><button type="button" className="primary" onClick={submit}>确定</button></footer>
-      </section>
-    </div>
-  )
-}
-
-function ParamMapVisualization({ configs, onClose, onAddRoot, addChild, edit, copy, remove }: { configs: ParamMappingConfig[]; onClose: () => void; onAddRoot: () => void } & ConfigActions) {
-  const allRows = useMemo(() => flattenConfigs(configs), [configs])
-  const containerKeys = useMemo(() => allRows.filter(({ config }) => config.childParams.length).map(({ path }) => pathKey(path)), [allRows])
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(containerKeys))
-  const [zoom, setZoom] = useState(1)
-
-  const toggle = (path: ConfigPath) => {
-    const key = pathKey(path)
-    setExpanded((current) => {
-      const next = new Set(current)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
+  const changeMode = (mode: MappingType, type = value.targetParamType) => {
+    let aliasIndex = 1
+    let alias = 'item'
+    while (aliases.includes(alias)) alias = `item${++aliasIndex}`
+    const mappingRule = mode === 'CONSTANT' ? (value.mappingType === 'CONSTANT' ? value.mappingRule : type === 'STRING' ? '' : null)
+      : mode === 'EXPRESSION' ? (value.mappingType === 'EXPRESSION' ? value.mappingRule : '$') : undefined
+    setConstantDraft(JSON.stringify(mappingRule ?? null, null, 2))
+    setValue({ ...value, mappingType: mode, targetParamType: type, mappingRule,
+      itemAlias: mode === 'ARRAY_MAP' ? value.itemAlias || alias : value.itemAlias,
+      itemTemplate: mode === 'ARRAY_MAP' ? value.itemTemplate ?? objectTemplate() : value.itemTemplate,
     })
   }
 
-  const visibleRows = allRows.filter(({ path }) => {
-    for (let length = 1; length < path.length; length += 1) {
-      if (!expanded.has(pathKey(path.slice(0, length)))) return false
+  const submit = () => {
+    try {
+      const next = normalizeForSave({ ...value, targetParamKey: element ? '' : value.targetParamKey,
+        mappingRule: value.mappingType === 'CONSTANT' ? JSON.parse(constantDraft) : value.mappingRule })
+      validateNode(next, aliases, element)
+      setError('')
+      onSave(next)
+      setSaved(true)
+    } catch (error) {
+      setError(error instanceof SyntaxError ? '固定值必须是有效 JSON，字符串需要双引号' : (error as Error).message)
     }
-    return true
-  })
+  }
 
   return (
-    <div className="param-map-visual-backdrop">
-      <section className="param-map-visual-workspace" role="dialog" aria-modal="true" aria-label="参数映射可视化">
-        <header className="param-map-visual-header">
-          <div><strong>参数映射可视化</strong></div>
-          <button type="button" title="关闭" onClick={onClose}><XIcon size={21} /></button>
-        </header>
-        <div className="param-map-visual-toolbar">
-          <div className="param-map-visual-legend"><span className="target">目标参数</span><span>←</span><span className="source">源参数</span></div>
-          <div className="param-map-visual-tools">
-            <button type="button" onClick={onAddRoot}><PlusIcon size={15} />新增配置</button>
-            <button type="button" onClick={() => setExpanded(new Set(containerKeys))}>展开全部</button>
-            <button type="button" onClick={() => setExpanded(new Set())}>折叠全部</button>
-            <button type="button" title="缩小" onClick={() => setZoom((value) => Math.max(0.7, value - 0.1))}><MagnifyingGlassMinusIcon size={16} /></button>
-            <button type="button" title="放大" onClick={() => setZoom((value) => Math.min(1.3, value + 0.1))}><MagnifyingGlassPlusIcon size={16} /></button>
-            <span>{Math.round(zoom * 100)}%</span>
+    <aside className="param-map-field-panel" aria-label={title} ref={panelRef}>
+      <header>
+        <div><small className="param-map-field-path">{pathLabel}</small><h3>{title}</h3></div>
+        <button type="button" title="关闭字段配置" aria-label="关闭字段配置" onClick={onCancel}><XIcon size={18} /></button>
+      </header>
+      <div className="param-map-dialog-body">
+        <div className="param-map-dialog-grid">
+          {!element ? <label><span>目标参数名 <strong>*</strong></span><input aria-required="true" value={value.targetParamKey} onChange={(event) => setValue({ ...value, targetParamKey: event.target.value })} /></label> : null}
+          <div className="param-map-dialog-field">
+            <span>{element ? '元素类型' : '目标参数类型'}</span>
+            <MappingSelect value={value.targetParamType}
+              options={PARAM_TYPES.map((type) => ({ value: type, label: paramTypeLabel(type) }))}
+              ariaLabel={element ? '元素类型' : '目标参数类型'}
+              onChange={(type) => changeMode(type === 'OBJECT' ? 'OBJECT' : type === 'ARRAY' ? 'ARRAY_MAP'
+                : ['OBJECT', 'ARRAY_MAP', 'ARRAY_FIXED'].includes(value.mappingType) ? 'NAME' : value.mappingType, type)} />
           </div>
-        </div>
-        <div className="param-map-visual-canvas">
-          <div className="param-map-visual-content" style={{ transform: `scale(${zoom})` }}>
-            {visibleRows.map(({ config, path, depth }) => {
-              const hasChildren = config.childParams.length > 0
-              const isExpanded = expanded.has(pathKey(path))
-              return (
-                <div className="param-map-visual-row" key={pathKey(path)} style={{ marginLeft: depth * 48 }}>
-                  {depth ? <span className="param-map-visual-connector" /> : null}
-                  <button type="button" className={`param-map-expand ${hasChildren ? '' : 'empty'}`} disabled={!hasChildren} onClick={() => toggle(path)}>
-                    {hasChildren ? (isExpanded ? <CaretDownIcon size={15} /> : <CaretRightIcon size={15} />) : <MinusIcon size={12} />}
-                  </button>
-                  <div className="param-map-visual-target"><strong>{config.targetParamKey || '-'}</strong><TypeBadge value={config.targetParamType} side="target" /></div>
-                  <div className="param-map-visual-arrow"><span>{mappingLabel(config.mappingType)}</span><i /></div>
-                  <div className="param-map-visual-source"><strong>{config.sourceParamKey || '(无源参数)'}</strong><TypeBadge value={config.sourceParamType} side="source" /></div>
-                  <ConfigActionButtons config={config} path={path} addChild={addChild} edit={edit} copy={copy} remove={remove} />
-                </div>
-              )
-            })}
-            {!visibleRows.length ? <div className="param-map-visual-empty">暂无映射配置</div> : null}
+          <div className="param-map-dialog-field">
+            <span>{value.targetParamType === 'ARRAY' ? '数组生成方式' : '取值方式'}</span>
+            <MappingSelect value={value.mappingType}
+              options={modes.map((mode) => ({ value: mode, label: mappingLabel(mode) }))}
+              ariaLabel={value.targetParamType === 'ARRAY' ? '数组生成方式' : '取值方式'} onChange={(mode) => changeMode(mode)} />
           </div>
+          {value.mappingType === 'NAME' || value.mappingType === 'ARRAY_MAP' ? (
+            <label className="full"><span>{value.mappingType === 'ARRAY_MAP' ? '循环源路径' : '取值路径'}</span>
+              <input value={value.sourceParamKey ?? ''} placeholder={value.mappingType === 'ARRAY_MAP' ? '$.items' : '$.patientId / item.code'} onChange={(event) => setValue({ ...value, sourceParamKey: event.target.value })} />
+            </label>
+          ) : null}
+          {value.mappingType === 'ARRAY_MAP' ? (
+            <label className="full"><span>循环变量名</span><input value={value.itemAlias ?? ''} placeholder="item" onChange={(event) => setValue({ ...value, itemAlias: event.target.value })} />
+              <small className="param-map-rule-help">应用后，在树中的“元素模板”配置每一项的结构。</small>
+            </label>
+          ) : null}
+          {value.mappingType === 'CONSTANT' ? (
+            <label className="full"><span>固定值（JSON）</span>
+              <textarea rows={4} value={constantDraft} placeholder={'例如："H001"、true、123、null、[]'} onChange={(event) => {
+                setConstantDraft(event.target.value)
+                setSaved(false)
+                try { setValue({ ...value, mappingRule: JSON.parse(event.target.value) }) }
+                catch { setError('固定值必须是有效 JSON，字符串需要双引号') }
+              }} />
+            </label>
+          ) : null}
+          {value.mappingType === 'EXPRESSION' ? (
+            <label className="full"><span>JS 表达式</span>
+              <textarea rows={6} value={typeof value.mappingRule === 'string' ? value.mappingRule : ''} placeholder="例如：$.patientId + ':' + item.code" onChange={(event) => setValue({ ...value, mappingRule: event.target.value })} />
+            </label>
+          ) : null}
+          <div className="param-map-field-context">
+            <span>可用上下文：<code>$</code>（原始 payload）{aliases.map((alias) => <span key={alias}>、<code>{alias}</code></span>)}</span>
+            {value.mappingType === 'OBJECT' ? <p>通过树中的“添加子字段”组织对象，不改变取值上下文。</p>
+              : value.mappingType === 'ARRAY_FIXED' ? <p>通过树中的“添加元素”配置固定数组，每个模板生成一项。</p>
+                : value.mappingType === 'ARRAY_MAP' ? <p>循环源为空时生成 []；元素模板决定对象、标量或嵌套数组。</p> : null}
+          </div>
+          <label className="full"><span>参数描述</span><textarea rows={2} value={value.paramDesc ?? ''} onChange={(event) => setValue({ ...value, paramDesc: event.target.value })} /></label>
         </div>
-      </section>
-    </div>
+        {clearsChildren ? <p className="param-map-field-notice" role="status">应用后将移除原来的子结构配置。</p> : null}
+        {error ? <p className="inline-error" role="alert">{error}</p> : null}
+      </div>
+      <footer>
+        <small role="status">{dirty ? '未应用的修改' : saved ? '已应用到工作流草稿' : ''}</small>
+        <button type="button" onClick={onCancel}>取消</button><button type="button" className="primary" onClick={submit}>应用到字段</button>
+      </footer>
+    </aside>
   )
 }

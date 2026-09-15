@@ -31,7 +31,7 @@ export const workflowTemplates: WorkflowTemplate[] = [
       description: '请求外部 API，并整理响应数据。',
       inputParameters: ['apiBaseUrl', 'resourceId'],
       outputParameters: {
-        result: '${format_response_ref.output.result}',
+        result: '${format_response_ref.output}',
       },
       workflowStatusListenerEnabled: false,
       timeoutSeconds: 0,

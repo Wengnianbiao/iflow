@@ -94,7 +94,7 @@ public class WorkflowModel {
     /**
      * 工作流出参
      */
-    private Map<String, Object> output = new HashMap<>();
+    private Object output = new HashMap<>();
 
     /**
      * 工作流定义
@@ -199,13 +199,21 @@ public class WorkflowModel {
     }
 
     public void addOutput(String key, Object value) {
-        this.output.put(key, value);
+        outputAsMap().put(key, value);
     }
 
     public void addOutput(Map<String, Object> data) {
         if (data != null) {
-            this.output.putAll(data);
+            outputAsMap().putAll(data);
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> outputAsMap() {
+        if (!(output instanceof Map<?, ?>)) {
+            throw new IllegalStateException("Workflow output must be an object to add named fields");
+        }
+        return (Map<String, Object>) output;
     }
 
     /**

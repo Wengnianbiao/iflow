@@ -116,10 +116,10 @@ public class TaskModel {
     private Map<String, Object> inputData = new HashMap<>();
 
     /**
-     * 出参（任务同步执行结果）。输出根节点保持 Map，具体字段由任务类型定义；
-     * 仅 INLINE 等返回任意单值的任务使用 {@code result} 键。失败诊断放在 {@code error} 键下。
+     * 任务原始返回值：可序列化为 JSON 的对象、数组、标量或 null，不添加引擎包装字段。
+     * 控制任务可维护自己的 Map 输出；执行诊断使用 {@code reasonForInCompletion}。
      */
-    private Map<String, Object> outputData = new HashMap<>();
+    private Object outputData = new HashMap<>();
 
     /**
      * 已重试次数
@@ -246,13 +246,24 @@ public class TaskModel {
     }
 
     public void addOutput(String key, Object value) {
-        this.outputData.put(key, value);
+        outputAsMap().put(key, value);
     }
 
     public void addOutput(Map<String, Object> data) {
         if (data != null) {
-            this.outputData.putAll(data);
+            outputAsMap().putAll(data);
         }
+    }
+
+    /** 供确定输出为对象的控制任务使用；不把数组、标量或 null 隐式转为 Map。 */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> outputAsMap() {
+        if (!(outputData instanceof Map<?, ?>)) {
+            throw new IllegalStateException("Task '" + referenceTaskName
+                    + "' requires an object output, but was "
+                    + (outputData == null ? "null" : outputData.getClass().getSimpleName()));
+        }
+        return (Map<String, Object>) outputData;
     }
 
     @Override

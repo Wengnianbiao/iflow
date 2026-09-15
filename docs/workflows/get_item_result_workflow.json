@@ -15,9 +15,9 @@
     "apiBaseUrl"
   ],
   "outputParameters": {
-    "serviceProviderType": "${build_output_ref.output.result.serviceProviderType}",
-    "requestBody": "${build_output_ref.output.result.requestBody}",
-    "response": "${build_output_ref.output.result.response}"
+    "serviceProviderType": "${build_output_ref.output.serviceProviderType}",
+    "requestBody": "${build_output_ref.output.requestBody}",
+    "response": "${build_output_ref.output.response}"
   },
   "tasks": [
     {
@@ -37,7 +37,7 @@
       "evaluatorType": "value-param",
       "expression": "serviceProviderType",
       "inputParameters": {
-        "serviceProviderType": "${build_item_result_request_ref.output.result.serviceProviderType}"
+        "serviceProviderType": "${build_item_result_request_ref.output.serviceProviderType}"
       },
       "decisionCases": {
         "LIS": [
@@ -46,13 +46,13 @@
             "taskReferenceName": "lis_result_ref",
             "type": "HTTP",
             "inputParameters": {
-              "uri": "${build_item_result_request_ref.output.result.apiBaseUrl}/lis-result",
+              "uri": "${build_item_result_request_ref.output.apiBaseUrl}/lis-result",
               "method": "POST",
               "contentType": "application/json",
               "accept": "application/json",
               "readTimeOut": 60000,
               "connectionTimeOut": 5000,
-              "body": "${build_item_result_request_ref.output.result.requestBody}"
+              "body": "${build_item_result_request_ref.output.requestBody}"
             }
           }
         ],
@@ -62,13 +62,13 @@
             "taskReferenceName": "pacs_result_ref",
             "type": "HTTP",
             "inputParameters": {
-              "uri": "${build_item_result_request_ref.output.result.apiBaseUrl}/pacs-result",
+              "uri": "${build_item_result_request_ref.output.apiBaseUrl}/pacs-result",
               "method": "POST",
               "contentType": "application/json",
               "accept": "application/json",
               "readTimeOut": 60000,
               "connectionTimeOut": 5000,
-              "body": "${build_item_result_request_ref.output.result.requestBody}"
+              "body": "${build_item_result_request_ref.output.requestBody}"
             }
           }
         ]
@@ -79,7 +79,7 @@
           "taskReferenceName": "unsupported_provider_ref",
           "type": "INLINE",
           "inputParameters": {
-            "serviceProviderType": "${build_item_result_request_ref.output.result.serviceProviderType}",
+            "serviceProviderType": "${build_item_result_request_ref.output.serviceProviderType}",
             "evaluatorType": "graaljs",
             "expression": "(function () {\n  return {\n    code: '400',\n    message: 'Unsupported ServiceProviderType: ' + ($.serviceProviderType || ''),\n    data: null\n  };\n})()"
           }
@@ -92,10 +92,10 @@
       "type": "INLINE",
       "inputParameters": {
         "selectedCase": "${route_ref.output.selectedCase}",
-        "requestBody": "${build_item_result_request_ref.output.result.requestBody}",
+        "requestBody": "${build_item_result_request_ref.output.requestBody}",
         "lisResponseBody": "${lis_result_ref.output.body}",
         "pacsResponseBody": "${pacs_result_ref.output.body}",
-        "unsupportedResponse": "${unsupported_provider_ref.output.result}",
+        "unsupportedResponse": "${unsupported_provider_ref.output}",
         "evaluatorType": "graaljs",
         "expression": "(function () {\n  function normalize(body) {\n    if (!body) {\n      return { code: '', message: '', data: null };\n    }\n    return {\n      code: body.code != null ? String(body.code)\n        : (body.returnCode != null ? String(body.returnCode) : ''),\n      message: body.message || body.msg || body.errorMessage || '',\n      data: body.data != null ? body.data : (body.result != null ? body.result : null)\n    };\n  }\n\n  var selectedCase = String($.selectedCase != null ? $.selectedCase : '');\n  var requestBody = $.requestBody || null;\n  var responseBody = null;\n  if (selectedCase === 'LIS') {\n    responseBody = $.lisResponseBody;\n  } else if (selectedCase === 'PACS') {\n    responseBody = $.pacsResponseBody;\n  } else {\n    return {\n      serviceProviderType: selectedCase,\n      requestBody: null,\n      response: $.unsupportedResponse || normalize(null)\n    };\n  }\n\n  return {\n    serviceProviderType: selectedCase,\n    requestBody: requestBody,\n    response: normalize(responseBody)\n  };\n})()"
       }

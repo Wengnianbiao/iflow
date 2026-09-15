@@ -15,7 +15,7 @@ import java.util.Map;
  *
  * <p>{@code inputParameters.remoteExtension} 为空 → 默认扩展（返回空 Map）；
  * 非空 → 路由到对应 {@link InterfaceRemoteInvoker} 实现。若节点携带 className/sourceCode，
- * 则在任务开始执行时先注入 ExtensionLoader，再传入 spiInput。扩展返回的 Map 直接作为任务根输出。
+ * 则在任务开始执行时先注入 ExtensionLoader，再传入 spiInput。扩展返回值直接作为任务根输出。
  */
 @Component(TaskType.TASK_TYPE_SPI)
 @Slf4j
@@ -37,7 +37,7 @@ public class SpiTask extends WorkflowSystemTask {
                     SpiTaskInput.extractExtensionDefinition(inputData);
             Map<String, Object> spiInput = SpiTaskInput.extractSpiInput(inputData);
 
-            Map<String, Object> result =
+            Object result =
                     extensionRouter.invoke(remoteExtension, definition, spiInput);
             task.setOutputData(result);
             task.setStatus(TaskModel.Status.COMPLETED);

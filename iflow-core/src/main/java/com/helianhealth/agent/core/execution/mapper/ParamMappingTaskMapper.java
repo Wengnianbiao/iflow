@@ -57,13 +57,10 @@ public class ParamMappingTaskMapper implements TaskMapper {
 
     private void validateInputParameters(Map<String, Object> inputParameters) {
         if (inputParameters == null
-                || !inputParameters.containsKey(PARAMS_CONFIG)
-                || inputParameters.size() < 2) {
+                || !inputParameters.containsKey(PAYLOAD)
+                || !inputParameters.containsKey(PARAMS_CONFIG)) {
             throw new IllegalArgumentException(
-                    "MAPPING inputParameters must contain paramsConfig and at least one mapping input");
-        }
-        if (inputParameters.keySet().stream().anyMatch(key -> key == null || key.isBlank())) {
-            throw new IllegalArgumentException("MAPPING input name must not be blank");
+                    "MAPPING inputParameters must contain payload and paramsConfig");
         }
     }
 

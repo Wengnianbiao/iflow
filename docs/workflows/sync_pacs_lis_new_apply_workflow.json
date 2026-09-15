@@ -2,7 +2,8 @@
   "name": "SyncPacsLisNewApply",
   "displayName": "发送申请单",
   "version": 1,
-  "description": "按 data.items 使用 DO_WHILE 逐条调用本地 sync-apply 发送申请单。入参 DepartType 非空时只发送对应科室类型；可用 apiBaseUrl 覆盖默认 http://127.0.0.1:8807。",
+  "description": "按 data.items.serviceProviderType 拆出 LIS / PACS 申请单后 Fork 并行发送",
+  "correlationExpression": "${workflow.input.data.patientInfo.patientCode}",
   "inputParameters": [
     "data",
     "BusinessMethod",
@@ -10,63 +11,98 @@
     "DepartType",
     "apiBaseUrl"
   ],
-  "outputParameters": {
-    "code": "${build_output_ref.output.result.code}",
-    "message": "${build_output_ref.output.result.message}",
-    "rsp": "${build_output_ref.output.result.rsp}",
-    "alertMsg": "${build_output_ref.output.result.alertMsg}",
-    "reqParam": "${build_output_ref.output.result.reqParam}",
-    "resParam": "${build_output_ref.output.result.resParam}",
-    "errorType": "${build_output_ref.output.result.errorType}"
-  },
+  "outputParameters": {},
   "tasks": [
     {
-      "name": "build_apply_requests",
-      "taskReferenceName": "build_apply_requests_ref",
-      "type": "INLINE",
+      "name": "拆分申请单列表",
+      "taskReferenceName": "split_apply_ref",
+      "type": "MAPPING",
+      "optional": false,
       "inputParameters": {
         "payload": "${workflow.input}",
-        "evaluatorType": "graaljs",
-        "expression": "(function () { var payload = $.payload || {}; if (payload.input != null && typeof payload.input === 'object') { payload = payload.input; } var data = payload.data || {}; function asArray(value) { if (value == null) { return []; } if (Array.isArray(value)) { return value; } if (typeof value.size === 'function' && typeof value.get === 'function') { var list = []; for (var i = 0; i < value.size(); i++) { list.push(value.get(i)); } return list; } return [value]; } function text(v) { return v == null || v === '' ? '' : String(v); } function pick(obj, key) { if (obj == null) { return null; } if (typeof obj.get === 'function') { var gv = obj.get(key); if (gv != null) { return gv; } } return obj[key]; } var apiBaseUrl = text(payload.apiBaseUrl) || 'http://127.0.0.1:8807'; if (apiBaseUrl.charAt(apiBaseUrl.length - 1) === '/') { apiBaseUrl = apiBaseUrl.substring(0, apiBaseUrl.length - 1); } var patientInfo = data.patientInfo || {}; var doctorInfo = data.doctorInfo || {}; var departType = text(payload.DepartType); var items = asArray(data.items); if (departType) { items = items.filter(function (item) { return item != null && text(pick(item, 'departType')) === departType; }); } var applyRequests = items.map(function (item) { return { patientInfo: patientInfo, doctorInfo: doctorInfo, items: [item], sourceId: text(pick(item, 'applyId') || pick(item, 'idPatientFeeItem')), applyId: pick(item, 'applyId'), idPatientFeeItem: pick(item, 'idPatientFeeItem'), idFeeItem: pick(item, 'idFeeItem'), feeItemName: pick(item, 'feeItemName'), interfaceCode: pick(item, 'interfaceCode'), departType: pick(item, 'departType'), departName: pick(item, 'departName'), idDepart: pick(item, 'idDepart'), sampleType: pick(item, 'sampleType'), sampleName: pick(item, 'sampleName'), sampleCode: pick(item, 'sampleCode'), barCode: pick(item, 'barCode'), patientName: pick(patientInfo, 'patientName'), patientCode: pick(patientInfo, 'patientCode'), hisPatientId: pick(patientInfo, 'hisPatientId'), sex: pick(patientInfo, 'sex'), age: pick(patientInfo, 'age'), birthday: pick(patientInfo, 'birthday'), identitycard: pick(patientInfo, 'identitycard'), phone: pick(patientInfo, 'phone'), address: pick(patientInfo, 'address'), doctorName: pick(doctorInfo, 'userName'), doctorCode: pick(doctorInfo, 'number'), idUser: pick(doctorInfo, 'idUser') }; }); return { apiBaseUrl: apiBaseUrl, applyCount: applyRequests.length, applyRequests: applyRequests }; })()"
+        "paramsConfig": [
+          {
+            "targetParamKey": "lisItems",
+            "targetParamType": "ARRAY",
+            "mappingType": "EXPRESSION",
+            "paramDesc": "按 serviceProviderType 过滤的 LIS 申请单",
+            "mappingRule": "($.data?.items || []).filter(item => String(item?.serviceProviderType ?? '') === 'LIS')"
+          },
+          {
+            "targetParamKey": "pacsItems",
+            "targetParamType": "ARRAY",
+            "mappingType": "EXPRESSION",
+            "paramDesc": "按 serviceProviderType 过滤的 PACS 申请单",
+            "mappingRule": "($.data?.items || []).filter(item => String(item?.serviceProviderType ?? '') === 'PACS')"
+          }
+        ]
       }
     },
     {
-      "name": "send_apply_loop",
-      "taskReferenceName": "send_apply_loop_ref",
-      "type": "DO_WHILE",
-      "evaluatorType": "graaljs",
-      "loopCondition": "true",
-      "items": "${build_apply_requests_ref.output.result.applyRequests}",
-      "inputParameters": {
-        "evaluatorType": "graaljs",
-        "_items": "${build_apply_requests_ref.output.result.applyRequests}"
-      },
-      "loopOver": [
-        {
-          "name": "sync_apply",
-          "taskReferenceName": "sync_apply_ref",
-          "type": "HTTP",
-          "inputParameters": {
-            "uri": "${build_apply_requests_ref.output.result.apiBaseUrl}/sync-apply",
-            "method": "POST",
-            "contentType": "application/json",
-            "accept": "application/json",
-            "readTimeOut": 30000,
-            "connectionTimeOut": 5000,
-            "body": "${send_apply_loop_ref.output.loopItem}"
+      "name": "并行发送申请单",
+      "taskReferenceName": "apply_fork_ref",
+      "type": "FORK_JOIN",
+      "inputParameters": {},
+      "forkTasks": [
+        [
+          {
+            "name": "sync_lis_apply",
+            "taskReferenceName": "sync_lis_ref",
+            "type": "HTTP",
+            "optional": false,
+            "inputParameters": {
+              "uri": "http://127.0.0.1:8807/sync-lis-apply",
+              "method": "POST",
+              "contentType": "application/json",
+              "accept": "application/json",
+              "readTimeOut": 60000,
+              "connectionTimeOut": 5000,
+              "body": "${split_apply_ref.output.lisItems}"
+            }
           }
-        }
+        ],
+        [
+          {
+            "name": "sync_pacs_apply",
+            "taskReferenceName": "sync_pacs_ref",
+            "type": "HTTP",
+            "optional": true,
+            "inputParameters": {
+              "uri": "http://127.0.0.1:8807/sync-pacs-apply",
+              "method": "POST",
+              "contentType": "application/json",
+              "accept": "application/json",
+              "readTimeOut": 60000,
+              "connectionTimeOut": 5000,
+              "body": "${split_apply_ref.output.pacsItems}"
+            }
+          }
+        ]
       ]
     },
     {
-      "name": "build_workflow_output",
-      "taskReferenceName": "build_output_ref",
+      "name": "apply_join",
+      "taskReferenceName": "apply_join_ref",
+      "type": "JOIN",
+      "inputParameters": {},
+      "joinOn": [
+        "sync_pacs_ref",
+        "sync_lis_ref"
+      ]
+    },
+    {
+      "name": "merge_apply_results",
+      "taskReferenceName": "merge_ref",
       "type": "INLINE",
+      "optional": false,
       "inputParameters": {
-        "loopOutput": "${send_apply_loop_ref.output}",
-        "applyRequests": "${build_apply_requests_ref.output.result.applyRequests}",
+        "lisBody": "${sync_lis_ref.output.body}",
+        "lisStatusCode": "${sync_lis_ref.output.statusCode}",
+        "pacsBody": "${sync_pacs_ref.output.body}",
+        "pacsStatusCode": "${sync_pacs_ref.output.statusCode}",
+        "splitSummary": "${split_apply_ref.output}",
         "evaluatorType": "graaljs",
-        "expression": "(function () { function asArray(value) { if (value == null) { return []; } if (Array.isArray(value)) { return value; } if (typeof value.size === 'function' && typeof value.get === 'function') { var list = []; for (var i = 0; i < value.size(); i++) { list.push(value.get(i)); } return list; } return [value]; } function read(obj, key) { if (obj == null) { return null; } if (typeof obj.get === 'function') { var gv = obj.get(key); if (gv != null) { return gv; } if (typeof key === 'string') { var ni = Number(key); if (!isNaN(ni)) { gv = obj.get(ni); if (gv != null) { return gv; } } } } return obj[key]; } function text(v) { return v == null || v === '' ? '' : String(v); } var requests = asArray($.applyRequests); var loop = $.loopOutput || {}; var iteration = Number(read(loop, 'iteration') || 0); var rsp = []; var failed = []; for (var i = 1; i <= iteration; i++) { var iter = read(loop, String(i)) || {}; var httpOut = read(iter, 'sync_apply_ref') || {}; var response = read(httpOut, 'response') || {}; var body = read(response, 'body') || {}; var request = requests[i - 1] || {}; var data = read(body, 'data'); if (data == null) { data = read(body, 'result'); } var pairs = asArray(data); if (!pairs.length && (read(body, 'medTechRequestId') != null || read(body, 'sourceId') != null)) { pairs = [body]; } var code = text(read(body, 'code') || read(body, 'returnCode')); var success = code === '' || code === '200' || code === '0' || code === '1' || code === 'T' || read(body, 'success') === true; if (!pairs.length) { pairs = [{}]; } for (var p = 0; p < pairs.length; p++) { var pair = pairs[p] || {}; var row = { medTechRequestId: read(pair, 'medTechRequestId') != null ? text(read(pair, 'medTechRequestId')) : null, sourceId: text(read(pair, 'sourceId') || read(request, 'sourceId')), applyId: read(request, 'applyId') != null ? text(read(request, 'applyId')) : null, feeItemName: read(request, 'feeItemName') != null ? text(read(request, 'feeItemName')) : null, departType: read(request, 'departType') != null ? text(read(request, 'departType')) : null }; rsp.push(row); if (!success) { failed.push(row); } } } return { code: failed.length ? '-1' : '200', message: failed.length ? '部分申请单发送失败' : (iteration === 0 ? '没有需要发送的申请单' : '成功'), rsp: rsp, alertMsg: null, reqParam: null, resParam: null, errorType: null }; })()"
+        "expression": "(function () {\n  function asArray(value) {\n    if (value == null) return [];\n    if (Array.isArray(value)) return value;\n    if (typeof value.size === 'function' && typeof value.get === 'function') {\n      var list = [];\n      for (var i = 0; i < value.size(); i++) list.push(value.get(i));\n      return list;\n    }\n    return [value];\n  }\n  function pick(obj, key) {\n    if (obj == null) return null;\n    if (typeof obj.get === 'function') {\n      var gv = obj.get(key);\n      if (gv != null) return gv;\n    }\n    return obj[key];\n  }\n\n  function extractList(body) {\n    if (!body) return [];\n    if (typeof body === 'string') {\n      try {\n        body = JSON.parse(body);\n      } catch (e) {\n        return [];\n      }\n    }\n    var data = pick(body, 'data');\n    if (data == null) data = pick(body, 'result');\n    if (Array.isArray(data) || (data != null && typeof data.size === 'function')) return asArray(data);\n    return data ? [data] : [];\n  }\n\n  function appendUnique(target, items) {\n    asArray(items).forEach(function (item) {\n      if (!item) return;\n      var exists = target.some(function (existing) {\n        return pick(existing, 'medTechRequestId') === pick(item, 'medTechRequestId')\n          && pick(existing, 'sourceId') === pick(item, 'sourceId');\n      });\n      if (!exists) target.push(item);\n    });\n  }\n\n  var merged = [];\n  var failures = [];\n  var splitSummary = $.splitSummary || {};\n  var lisItems = asArray(pick(splitSummary, 'lisItems'));\n  var pacsItems = asArray(pick(splitSummary, 'pacsItems'));\n\n  var lisStatus = Number($.lisStatusCode);\n  if (lisStatus >= 200 && lisStatus < 300) {\n    appendUnique(merged, extractList($.lisBody));\n  } else if ($.lisBody != null || $.lisStatusCode != null) {\n    failures.push({ branch: 'LIS', statusCode: $.lisStatusCode, body: $.lisBody });\n  }\n\n  var pacsStatus = Number($.pacsStatusCode);\n  if (pacsStatus >= 200 && pacsStatus < 300) {\n    appendUnique(merged, extractList($.pacsBody));\n  } else if ($.pacsBody != null || $.pacsStatusCode != null) {\n    failures.push({ branch: 'PACS', statusCode: $.pacsStatusCode, body: $.pacsBody });\n  }\n\n  return {\n    returnCode: failures.length === 0 ? '200' : '500',\n    errorMessage: failures.length === 0 ? '成功' : ('部分调用失败: ' + failures.length),\n    data: merged,\n    lisItemCount: lisItems.length,\n    pacsItemCount: pacsItems.length,\n    skippedItemCount: pick(splitSummary, 'skippedItemCount') || 0,\n    failures: failures\n  };\n})()"
       }
     }
   ]

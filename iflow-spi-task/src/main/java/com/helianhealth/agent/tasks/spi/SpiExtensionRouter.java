@@ -17,12 +17,12 @@ public class SpiExtensionRouter {
     private final ConcurrentMap<String, SpiTaskInput.ExtensionDefinition> registeredDefinitions =
             new ConcurrentHashMap<>();
 
-    public Map<String, Object> invoke(String remoteExtension, Map<String, Object> spiInput) {
+    public Object invoke(String remoteExtension, Map<String, Object> spiInput) {
         return invoke(remoteExtension, null, spiInput);
     }
 
     /** 在执行 SPI 节点时注册/刷新节点内嵌实现，然后立即调用。 */
-    public Map<String, Object> invoke(
+    public Object invoke(
             String remoteExtension,
             SpiTaskInput.ExtensionDefinition definition,
             Map<String, Object> spiInput) {

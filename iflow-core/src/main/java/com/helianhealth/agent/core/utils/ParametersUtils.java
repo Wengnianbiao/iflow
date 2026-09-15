@@ -1,7 +1,9 @@
 package com.helianhealth.agent.core.utils;
 
 import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONWriter;
 import com.alibaba.fastjson2.TypeReference;
+import com.helianhealth.agent.core.exception.TerminateWorkflowException;
 import com.helianhealth.agent.core.model.TaskModel;
 import com.helianhealth.agent.core.model.WorkflowModel;
 import com.jayway.jsonpath.Configuration;
@@ -23,6 +25,9 @@ import java.util.regex.Pattern;
  * 解析工作流 / 任务定义中的 {@code ${...}} 占位符
  *
  * <p>由 TaskMapper 在 Decider 调度阶段调用，Task 运行时只消费已替换完毕的 {@link TaskModel#getInputData()}。
+ *
+ * <p>这是编排层表达式，根上下文是全局工作流上下文。任务内部模板的取值属于任务层，
+ * 使用 {@code $.字段}，由各任务模块按宿主语言处理；编排层不会解析裸 {@code $.} 路径。
  */
 @Component
 public class ParametersUtils {
@@ -33,6 +38,11 @@ public class ParametersUtils {
                     Pattern.DOTALL);
 
     private final TypeReference<Map<String, Object>> mapType = new TypeReference<>() {};
+
+    private static final Pattern TASK_OUTPUT_PATH =
+            Pattern.compile("^(?:\\$\\.)?([\\w-]+)\\.output(?:\\.|\\[|$)");
+    private static final Pattern FINAL_PROPERTY = Pattern.compile(
+            "(?:\\.[\\p{L}\\p{N}_$-]+|\\[['\"](?:[^'\"\\\\]|\\\\.)*['\"]\\])$");
 
     public Map<String, Object> getTaskInput(
             Map<String, Object> input, WorkflowModel workflow, String taskId) {
@@ -109,22 +119,26 @@ public class ParametersUtils {
                     });
         }
 
-        Configuration option =
-                Configuration.defaultConfiguration().addOptions(Option.SUPPRESS_EXCEPTIONS);
-        DocumentContext documentContext = JsonPath.parse(inputMap, option);
-        return replace(inputParams, documentContext, taskId);
+        return replace(inputParams, parse(inputMap), taskId);
     }
 
     public Map<String, Object> replace(Map<String, Object> input, Object json) {
+        return replace(input, parse(json), null);
+    }
+
+    /**
+     * 按引擎统一的 JsonPath 配置解析根上下文。缺失的叶子字段读为 null，而不是抛异常。
+     *
+     * <p>JDBC 等任务可复用此配置读取自己的 payload，保持字段缺失时的求值语义一致。
+     */
+    public static DocumentContext parse(Object json) {
         Configuration option =
-                Configuration.defaultConfiguration().addOptions(Option.SUPPRESS_EXCEPTIONS);
-        DocumentContext documentContext =
-                JsonPath.parse(json instanceof String ? json.toString() : json, option);
-        return replace(input, documentContext, null);
+                Configuration.defaultConfiguration().addOptions(Option.DEFAULT_PATH_LEAF_TO_NULL);
+        return JsonPath.parse(json instanceof String ? json.toString() : json, option);
     }
 
     private Map<String, Object> clone(Map<String, Object> input) {
-        return JSON.parseObject(JSON.toJSONString(input), mapType);
+        return JSON.parseObject(JSON.toJSONString(input, JSONWriter.Feature.WriteNulls), mapType);
     }
 
     @SuppressWarnings("unchecked")
@@ -184,9 +198,19 @@ public class ParametersUtils {
                 continue;
             }
             try {
-                replacements.add(new Replacement(documentContext.read(paramPath), start, end));
-            } catch (Exception ignored) {
-                replacements.add(new Replacement(null, start, end));
+                JsonPath.compile(paramPath);
+                // SWITCH 未执行分支没有运行时任务，保留其输出引用为 null。
+                var outputPath = TASK_OUTPUT_PATH.matcher(paramPath);
+                boolean absentTask = outputPath.find()
+                        && documentContext.json() instanceof Map<?, ?> root
+                        && !root.containsKey(outputPath.group(1));
+                Object resolved = absentTask ? null : readPath(documentContext, paramPath);
+                replacements.add(new Replacement(resolved, start, end));
+            } catch (Exception error) {
+                throw new TerminateWorkflowException(
+                        "Cannot resolve expression '${" + paramPath + "}'"
+                                + (taskId == null ? "" : " for task '" + taskId + "'")
+                                + ": check the output type and field path");
             }
         }
         if (replacements.size() == 1
@@ -204,6 +228,22 @@ public class ParametersUtils {
                     Objects.toString(replacement.getReplacement(), ""));
         }
         return builder.toString().replaceAll("\\$\\$\\{", "\\${");
+    }
+
+    /**
+     * 读取单个 JsonPath 表达式，保留原始类型。任务层表达式复用此方法，确保两层的取值与报错语义一致。
+     */
+    public static Object readPath(DocumentContext context, String path) {
+        // DEFAULT_PATH_LEAF_TO_NULL 也会把“标量上取字段”当作缺失字段，先验证字段的父节点。
+        var property = FINAL_PROPERTY.matcher(path);
+        if (JsonPath.isPathDefinite(path) && property.find()) {
+            String parentPath = path.substring(0, property.start());
+            Object parent = context.read(parentPath.isEmpty() ? "$" : parentPath);
+            if (!(parent instanceof Map<?, ?>)) {
+                throw new IllegalArgumentException("A field can only be read from an object");
+            }
+        }
+        return context.read(path);
     }
 
     private static String taskRefKey(TaskModel task) {

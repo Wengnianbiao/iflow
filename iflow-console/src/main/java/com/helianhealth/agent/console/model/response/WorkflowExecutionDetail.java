@@ -19,7 +19,7 @@ public class WorkflowExecutionDetail {
     private String previousStatus;
     private String correlationId;
     private Map<String, Object> input;
-    private Map<String, Object> output;
+    private Object output;
     private WorkflowDef workflowDefinition;
     private List<TaskExecutionView> tasks;
     private long startTime;

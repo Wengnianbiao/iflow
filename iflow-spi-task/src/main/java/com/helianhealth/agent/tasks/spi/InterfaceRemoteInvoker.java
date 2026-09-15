@@ -9,10 +9,10 @@ import java.util.Map;
  *
  * <p>{@code inputParameters.remoteExtension} 为空时路由到 {@code default} 实现（返回空 Map）；
  * 非空时路由到对应扩展类。扩展只接收 {@code inputParameters.input} 解析后的
- * {@code Map<String, Object>}，返回 {@code Map<String, Object>}。
+ * {@code Map<String, Object>}，返回可序列化为 JSON 的对象、数组、标量或 null。
  */
 @AgentSPI("default")
 public interface InterfaceRemoteInvoker {
 
-    Map<String, Object> remoteInvoke(Map<String, Object> input);
+    Object remoteInvoke(Map<String, Object> input);
 }

@@ -32,13 +32,10 @@ public enum JdbcVendor {
         return JdbcVendor.valueOf(value.trim().toUpperCase());
     }
 
-    public static String resolveDriverClassName(String driverClassName, JdbcVendor vendor) {
-        if (driverClassName != null && !driverClassName.isBlank()) {
-            return driverClassName.trim();
+    public static String resolveDriverClassName(JdbcVendor vendor) {
+        if (vendor == null) {
+            throw new IllegalArgumentException("missing vendor");
         }
-        if (vendor != null) {
-            return vendor.getDriverClassName();
-        }
-        throw new IllegalArgumentException("missing driverClassName or vendor");
+        return vendor.getDriverClassName();
     }
 }

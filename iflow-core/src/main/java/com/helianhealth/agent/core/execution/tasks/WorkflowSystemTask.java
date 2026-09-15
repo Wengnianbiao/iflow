@@ -12,9 +12,6 @@ import com.helianhealth.agent.core.model.WorkflowModel;
  */
 public abstract class WorkflowSystemTask {
 
-    /** 系统任务执行失败时统一使用的诊断信息键。 */
-    public static final String OUTPUT_ERROR = "error";
-
     private final String taskType;
 
     protected WorkflowSystemTask(String taskType) {
@@ -34,10 +31,12 @@ public abstract class WorkflowSystemTask {
     }
 
     /**
-     * 将任务执行失败的诊断信息写入 {@code outputData.error}。
+     * 补充任务执行失败诊断，不修改业务输出，也不覆盖任务已提供的更详细原因。
      */
     protected final void addError(TaskModel task, Object error) {
-        task.addOutput(OUTPUT_ERROR, error);
+        if (task.getReasonForInCompletion() == null || task.getReasonForInCompletion().isBlank()) {
+            task.setReasonForInCompletion(error == null ? null : error.toString());
+        }
     }
 
     public final String getTaskType() {

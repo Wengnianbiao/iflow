@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * JDBC 任务 Mapper：调度阶段解析连接信息与 SQL 占位符。
+ * JDBC 任务 Mapper：编排层解析平铺输入中的 ${...}，SQL 的 $.路径留给任务执行阶段。
  */
 @Component
 public class JdbcTaskMapper implements TaskMapper {
@@ -30,9 +30,10 @@ public class JdbcTaskMapper implements TaskMapper {
     @Override
     public List<TaskModel> getMappedTasks(TaskMapperContext context) {
         WorkflowTask workflowTask = context.getWorkflowTask();
-        Map<String, Object> inputParameters = new HashMap<>(workflowTask.getInputParameters());
-        Map<String, Object> input = parametersUtils.getTaskInput(
-                inputParameters, context.getWorkflowModel(), context.getTaskId());
+        Map<String, Object> input = context.getTaskInput() != null
+                ? new HashMap<>(context.getTaskInput())
+                : parametersUtils.getTaskInput(
+                        workflowTask.getInputParameters(), context.getWorkflowModel(), context.getTaskId());
 
         TaskModel jdbcTask = context.createTaskModel();
         jdbcTask.setInputData(input);

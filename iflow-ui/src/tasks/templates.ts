@@ -10,7 +10,7 @@ import java.util.Map;
 public class ${simpleName} implements InterfaceRemoteInvoker {
 
     @Override
-    public Map<String, Object> remoteInvoke(Map<String, Object> spiInput) {
+    public Object remoteInvoke(Map<String, Object> spiInput) {
         Map<String, Object> result = new LinkedHashMap<>(spiInput);
         // TODO 在这里实现当前 SPI 节点的接口业务逻辑
         return result;

@@ -62,7 +62,7 @@ public class Task {
     private Map<String, Object> inputData = new HashMap<>();
 
     @Builder.Default
-    private Map<String, Object> outputData = new HashMap<>();
+    private Object outputData = new HashMap<>();
 
     private String referenceTaskName;
 

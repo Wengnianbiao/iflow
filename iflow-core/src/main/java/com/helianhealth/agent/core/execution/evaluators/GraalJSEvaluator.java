@@ -20,10 +20,17 @@ public class GraalJSEvaluator implements Evaluator {
 
     @Override
     public Object evaluate(String expression, Map<String, Object> input) {
+        return evaluateWithBindings(expression, input, Map.of());
+    }
+
+    /** 局部绑定独立于 $，用于 MAPPING 的命名循环变量。 */
+    @SuppressWarnings("unchecked")
+    public Object evaluateWithBindings(String expression, Object input, Map<String, Object> bindings) {
         log.debug("GraalJS evaluator -- expression: {}", expression);
         String script = GraalScriptUtils.normalizeScript(expression);
         Object inputCopy = ScriptEvaluator.deepCopy(input);
-        Object result = ScriptEvaluator.eval(script, inputCopy);
+        Object result = ScriptEvaluator.eval(script, inputCopy,
+                (Map<String, Object>) ScriptEvaluator.deepCopy(bindings));
         log.debug("GraalJS evaluator -- result: {}", result);
         return result;
     }

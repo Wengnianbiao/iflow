@@ -66,7 +66,7 @@ public class Workflow {
     private Map<String, Object> input = new HashMap<>();
 
     @Builder.Default
-    private Map<String, Object> output = new HashMap<>();
+    private Object output = new HashMap<>();
 
     private String correlationId;
 

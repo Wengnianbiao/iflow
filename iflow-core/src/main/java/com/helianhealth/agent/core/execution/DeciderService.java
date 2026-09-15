@@ -10,6 +10,8 @@ import com.helianhealth.agent.core.execution.mapper.TaskMapperContext;
 import com.helianhealth.agent.core.execution.tasks.SystemTaskRegistry;
 import com.helianhealth.agent.core.model.TaskModel;
 import com.helianhealth.agent.core.model.WorkflowModel;
+import com.helianhealth.agent.core.model.WorkflowExecutionMapper;
+import com.helianhealth.agent.core.execution.tasks.Terminate;
 import com.helianhealth.agent.core.utils.IDGenerator;
 import com.helianhealth.agent.core.utils.ParametersUtils;
 import com.helianhealth.agent.core.utils.TaskUtils;
@@ -108,11 +110,12 @@ public class DeciderService {
             int retryCount,
             String retriedTaskId,
             String forkTaskId) {
-        // 解析运行时task入参
-        Map<String, Object> input = parametersUtils.getTaskInput(
-                                taskToSchedule.getInputParameters(), workflow, null);
-
         String type = taskToSchedule.getType();
+        String taskId = idGenerator.generate();
+        // WEBSERVICE 的 Mapper 先准备局部模板变量，再解析 soapTemplate。
+        Map<String, Object> input = TaskType.TASK_TYPE_WEBSERVICE.equals(type)
+                ? new HashMap<>()
+                : parametersUtils.getTaskInput(taskToSchedule.getInputParameters(), workflow, taskId);
         List<String> tasksInWorkflow =
                 workflow.getTasks().stream()
                         .filter(
@@ -122,7 +125,6 @@ public class DeciderService {
                         .map(TaskModel::getReferenceTaskName)
                         .toList();
 
-        String taskId = idGenerator.generate();
         // 构建运行时task上下文
         TaskMapperContext taskMapperContext =
                 TaskMapperContext.builder()
@@ -191,8 +193,8 @@ public class DeciderService {
             if (TaskType.TASK_TYPE_TERMINATE.equals(t.getTaskType())
                     && t.getStatus().isTerminal()
                     && t.getStatus().isSuccessful()
-                    && !t.getOutputData().isEmpty()) {
-                workflow.setOutput(new HashMap<>(t.getOutputData()));
+                    && t.getInputData().containsKey(Terminate.INPUT_WORKFLOW_OUTPUT)) {
+                workflow.setOutput(WorkflowExecutionMapper.copyOutput(t.getOutputData()));
                 return;
             }
         }
@@ -207,7 +209,7 @@ public class DeciderService {
         }
 
         TaskModel last = task != null ? task : allTasks.get(allTasks.size() - 1);
-        workflow.setOutput(new HashMap<>(last.getOutputData()));
+        workflow.setOutput(WorkflowExecutionMapper.copyOutput(last.getOutputData()));
     }
 
     List<TaskModel> getNextTask(WorkflowModel workflow, TaskModel task) {

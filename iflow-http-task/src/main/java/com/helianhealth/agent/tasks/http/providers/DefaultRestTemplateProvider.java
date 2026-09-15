@@ -6,39 +6,35 @@ import org.apache.hc.client5.http.classic.HttpClient;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.core5.util.Timeout;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
-import java.time.Duration;
 import java.util.Optional;
 
 /**
- * 默认 {@link RestTemplateProvider}：按任务入参（或全局默认）超时配置，每次调用新建 {@link RestTemplate}。
+ * 默认 {@link RestTemplateProvider}：按任务入参超时配置，每次调用新建 {@link RestTemplate}。
+ *
+ * <p>任务未指定超时时使用系统默认；任务入参 {@code connectionTimeOut}/{@code readTimeOut} 可覆盖。
  */
 @Component
 public class DefaultRestTemplateProvider implements RestTemplateProvider {
 
-    private final int defaultReadTimeout;
-    private final int defaultConnectTimeout;
+    static final int DEFAULT_CONNECT_TIMEOUT_MS = 5000;
+    static final int DEFAULT_READ_TIMEOUT_MS = 30000;
+
     private final ObjectMapper objectMapper;
 
-    public DefaultRestTemplateProvider(
-            @Value("${iflow.tasks.http.readTimeout:3000ms}") Duration readTimeout,
-            @Value("${iflow.tasks.http.connectTimeout:3000ms}") Duration connectTimeout,
-            ObjectMapper objectMapper) {
-        this.defaultReadTimeout = (int) readTimeout.toMillis();
-        this.defaultConnectTimeout = (int) connectTimeout.toMillis();
+    public DefaultRestTemplateProvider(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
 
     @Override
     public @NonNull RestTemplate getRestTemplate(@NonNull HttpTask.Input input) {
-        int readMs = Optional.ofNullable(input.getReadTimeOut()).orElse(defaultReadTimeout);
-        int connectMs = Optional.ofNullable(input.getConnectionTimeOut()).orElse(defaultConnectTimeout);
+        int readMs = Optional.ofNullable(input.getReadTimeOut()).orElse(DEFAULT_READ_TIMEOUT_MS);
+        int connectMs = Optional.ofNullable(input.getConnectionTimeOut()).orElse(DEFAULT_CONNECT_TIMEOUT_MS);
 
         RequestConfig requestConfig =
                 RequestConfig.custom()

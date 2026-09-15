@@ -5,19 +5,25 @@ import com.helianhealth.agent.core.model.TaskModel;
 import com.helianhealth.agent.core.model.WorkflowModel;
 import com.helianhealth.agent.core.utils.ParametersUtils;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FunctionTaskTest {
 
     private final FunctionTask functionTask = new FunctionTask(new FunctionExecutor(1_000));
 
     @Test
-    void writesParsedMapDirectlyToOutputRoot() {
+    void writesParsedMapDirectlyToOutput() {
         TaskModel task = execute(Map.of(
                 FunctionTask.INPUT_FUNCTION,
                 "JSON_PARSE",
@@ -28,19 +34,85 @@ class FunctionTaskTest {
         assertEquals(
                 Map.of("patientCode", "82601230009", "applyStatus", "3"),
                 task.getOutputData());
-        assertFalse(task.getOutputData().containsKey("result"));
     }
 
-    @Test
-    void nullInputCompletesWithEmptyMap() {
+    @ParameterizedTest
+    @ValueSource(strings = {"JSON_PARSE", "XML_PARSE"})
+    void nullInputCompletesWithNullOutput(String function) {
         Map<String, Object> input = new HashMap<>();
-        input.put(FunctionTask.INPUT_FUNCTION, "JSON_PARSE");
+        input.put(FunctionTask.INPUT_FUNCTION, function);
         input.put(FunctionTask.INPUT_VALUE, null);
 
         TaskModel task = execute(input);
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
-        assertEquals(Map.of(), task.getOutputData());
+        assertEquals(null, task.getOutputData());
+    }
+
+    @ParameterizedTest
+    @MethodSource("jsonResults")
+    void bindsCompleteResultWithoutChangingItsType(String value, Object expected) {
+        TaskModel task = execute(Map.of(
+                FunctionTask.INPUT_FUNCTION, "JSON_PARSE",
+                FunctionTask.INPUT_VALUE, value));
+
+        assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
+        assertEquals(expected, task.getOutputData());
+        Map<String, Object> input = bind(task, "${parse_request_ref.output}");
+        assertTrue(input.containsKey("value"));
+        assertEquals(expected, input.get("value"));
+    }
+
+    private static Stream<Arguments> jsonResults() {
+        return Stream.of(
+                Arguments.of("{\"error\":\"business\",\"result\":7}",
+                        Map.of("error", "business", "result", 7)),
+                Arguments.of("{}", Map.of()),
+                Arguments.of("[]", List.of()),
+                Arguments.of("[{\"id\":1}]", List.of(Map.of("id", 1))),
+                Arguments.of("\"hello\"", "hello"),
+                Arguments.of("\"\"", ""),
+                Arguments.of("42", 42),
+                Arguments.of("true", true),
+                Arguments.of("false", false),
+                Arguments.of("null", null));
+    }
+
+    @Test
+    void parsedArrayElementsCanBeBoundByDownstreamTasks() {
+        TaskModel task = execute(Map.of(
+                FunctionTask.INPUT_FUNCTION, "JSON_PARSE",
+                FunctionTask.INPUT_VALUE, "[{\"patientCode\":\"82601230009\"}]"));
+
+        assertEquals("82601230009", bind(task,
+                "${parse_request_ref.output[0].patientCode}").get("value"));
+    }
+
+    @Test
+    void xmlOutputRetainsRootElement() {
+        TaskModel task = execute(Map.of(
+                FunctionTask.INPUT_FUNCTION, "XML_PARSE",
+                FunctionTask.INPUT_VALUE, "<patient><code>82601230009</code></patient>"));
+
+        assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
+        assertEquals(Map.of("patient", Map.of("code", "82601230009")),
+                task.getOutputData());
+        assertEquals("82601230009", bind(task,
+                "${parse_request_ref.output.patient.code}").get("value"));
+    }
+
+    @Test
+    void failedParsingRemovesPreviousResult() {
+        TaskModel task = execute(Map.of(
+                FunctionTask.INPUT_FUNCTION, "JSON_PARSE",
+                FunctionTask.INPUT_VALUE, "[1]"));
+        task.setInputData(Map.of(
+                FunctionTask.INPUT_FUNCTION, "JSON_PARSE",
+                FunctionTask.INPUT_VALUE, "[invalid"));
+
+        functionTask.execute(new WorkflowModel(), task, null);
+
+        assertFailure(task, "FUNCTION JSON_PARSE failed: invalid JSON");
     }
 
     @Test
@@ -86,19 +158,21 @@ class FunctionTaskTest {
                 "JSON_PARSE",
                 FunctionTask.INPUT_VALUE,
                 "{\"patientCode\":\"82601230009\"}"));
+        assertEquals("82601230009", bind(task,
+                "${parse_request_ref.output.patientCode}").get("value"));
+    }
+
+    private Map<String, Object> bind(TaskModel task, String expression) {
         task.setReferenceTaskName("parse_request_ref");
         WorkflowModel workflow = new WorkflowModel();
         workflow.setInput(Map.of());
-        workflow.setTasks(java.util.List.of(task));
+        workflow.setTasks(List.of(task));
 
-        Map<String, Object> downstreamInput =
-                new ParametersUtils()
+        return new ParametersUtils()
                         .getTaskInput(
-                                Map.of("patientCode", "${parse_request_ref.output.patientCode}"),
+                                Map.of("value", expression),
                                 workflow,
                                 "downstream-task");
-
-        assertEquals("82601230009", downstreamInput.get("patientCode"));
     }
 
     private TaskModel execute(Map<String, Object> input) {
@@ -116,6 +190,6 @@ class FunctionTaskTest {
     private void assertFailure(TaskModel task, String expectedMessage) {
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertEquals(expectedMessage, task.getReasonForInCompletion());
-        assertEquals(Map.of("error", expectedMessage), task.getOutputData());
+        assertEquals(null, task.getOutputData());
     }
 }

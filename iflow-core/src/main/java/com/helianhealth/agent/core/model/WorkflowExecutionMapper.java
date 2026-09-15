@@ -4,6 +4,7 @@ import com.helianhealth.agent.common.domain.run.Task;
 import com.helianhealth.agent.common.domain.run.Workflow;
 
 import java.util.Comparator;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -29,7 +30,7 @@ public final class WorkflowExecutionMapper {
         workflow.setWorkflowId(model.getWorkflowId());
         workflow.setCorrelationId(model.getCorrelationId());
         workflow.setInput(copyMap(model.getInput()));
-        workflow.setOutput(copyMap(model.getOutput()));
+        workflow.setOutput(copyOutput(model.getOutput()));
         workflow.setWorkflowDefinition(model.getWorkflowDefinition());
         workflow.setCreateTime(model.getStartTime());
         workflow.setEndTime(model.getEndTime());
@@ -53,7 +54,7 @@ public final class WorkflowExecutionMapper {
         model.setWorkflowId(workflow.getWorkflowId());
         model.setCorrelationId(workflow.getCorrelationId());
         model.setInput(copyMap(workflow.getInput()));
-        model.setOutput(copyMap(workflow.getOutput()));
+        model.setOutput(copyOutput(workflow.getOutput()));
         model.setWorkflowDefinition(workflow.getWorkflowDefinition());
         model.setStartTime(workflow.getCreateTime());
         model.setEndTime(workflow.getEndTime());
@@ -86,7 +87,7 @@ public final class WorkflowExecutionMapper {
         task.setStatus(mapTaskStatus(model.getStatus()));
         task.setPreviousStatus(mapTaskStatus(model.getPreviousStatus()));
         task.setInputData(copyMap(model.getInputData()));
-        task.setOutputData(copyMap(model.getOutputData()));
+        task.setOutputData(copyOutput(model.getOutputData()));
         task.setRetryCount(model.getRetryCount());
         task.setSeq(model.getSeq());
         task.setRetriedTaskId(model.getRetriedTaskId());
@@ -120,7 +121,7 @@ public final class WorkflowExecutionMapper {
         model.setStatus(mapModelTaskStatus(task.getStatus()));
         model.setPreviousStatus(mapModelTaskStatus(task.getPreviousStatus()));
         model.setInputData(copyMap(task.getInputData()));
-        model.setOutputData(copyMap(task.getOutputData()));
+        model.setOutputData(copyOutput(task.getOutputData()));
         model.setRetryCount(task.getRetryCount());
         model.setSeq(task.getSeq());
         model.setRetriedTaskId(task.getRetriedTaskId());
@@ -158,6 +159,21 @@ public final class WorkflowExecutionMapper {
 
     private static HashMap<String, Object> copyMap(Map<String, Object> source) {
         return source == null ? new HashMap<>() : new HashMap<>(source);
+    }
+
+    /** 保持输出根节点的类型和 null 语义，并复制可变容器。 */
+    public static Object copyOutput(Object source) {
+        if (source instanceof Map<?, ?> map) {
+            Map<String, Object> copy = new HashMap<>();
+            map.forEach((key, value) -> copy.put(String.valueOf(key), copyOutput(value)));
+            return copy;
+        }
+        if (source instanceof List<?> list) {
+            List<Object> copy = new ArrayList<>(list.size());
+            list.forEach(value -> copy.add(copyOutput(value)));
+            return copy;
+        }
+        return source;
     }
 
     private static HashSet<String> copySet(java.util.Set<String> source) {

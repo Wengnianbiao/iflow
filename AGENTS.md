@@ -67,3 +67,4 @@ DB init scripts live under `docs/init_mysql/`. Product docs under `docs/`.
 - UI / canvas / definition editor → `iflow-ui/AGENTS.md`
 - Executor, Decider, system tasks, fork execution → `iflow-core/AGENTS.md`
 - Synchronous execution behavior → `docs/synchronous-workflow-execution.md`
+- Orchestration-tier `${...}` vs task-local `$.` expressions → `docs/expression-tiers.md`

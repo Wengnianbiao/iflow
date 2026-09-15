@@ -1,11 +1,18 @@
 package com.helianhealth.agent.core.execution.function;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
+import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class FunctionExecutorTest {
@@ -24,7 +31,7 @@ class FunctionExecutorTest {
                 }
                 """;
 
-        Map<String, Object> output = executor.execute(FunctionType.JSON_PARSE, input);
+        Map<?, ?> output = assertInstanceOf(Map.class, executor.execute(FunctionType.JSON_PARSE, input));
 
         assertEquals("82601230009", output.get("patientCode"));
         assertEquals("B202601230001", output.get("barCode"));
@@ -33,20 +40,26 @@ class FunctionExecutorTest {
         assertEquals(List.of("urgent", "lab"), output.get("tags"));
     }
 
-    @Test
-    void rejectsNonObjectJsonRoots() {
-        assertEquals(
-                "FUNCTION JSON_PARSE requires a JSON object root",
-                assertThrows(
-                                IllegalArgumentException.class,
-                                () -> executor.execute(FunctionType.JSON_PARSE, "[1, 2]"))
-                        .getMessage());
-        assertEquals(
-                "FUNCTION JSON_PARSE requires a JSON object root",
-                assertThrows(
-                                IllegalArgumentException.class,
-                                () -> executor.execute(FunctionType.JSON_PARSE, "null"))
-                        .getMessage());
+    @ParameterizedTest
+    @MethodSource("jsonValues")
+    void parsesAnyJsonRoot(String input, Object expected) {
+        assertEquals(expected, executor.execute(FunctionType.JSON_PARSE, input));
+    }
+
+    private static Stream<Arguments> jsonValues() {
+        return Stream.of(
+                Arguments.of("{}", Map.of()),
+                Arguments.of("[]", List.of()),
+                Arguments.of("[1, {\"items\":[true, null]}]",
+                        List.of(1, Map.of("items", Arrays.asList(true, null)))),
+                Arguments.of("\"hello\"", "hello"),
+                Arguments.of("\"\"", ""),
+                Arguments.of("42", 42),
+                Arguments.of("2147483648", 2147483648L),
+                Arguments.of("1.25", new BigDecimal("1.25")),
+                Arguments.of("true", true),
+                Arguments.of("false", false),
+                Arguments.of("null", null));
     }
 
     @Test
@@ -72,7 +85,7 @@ class FunctionExecutorTest {
                 </patient>
                 """;
 
-        Map<String, Object> output = executor.execute(FunctionType.XML_PARSE, input);
+        Map<?, ?> output = assertInstanceOf(Map.class, executor.execute(FunctionType.XML_PARSE, input));
 
         assertEquals(
                 Map.of(

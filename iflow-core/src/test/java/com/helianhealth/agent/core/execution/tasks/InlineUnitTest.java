@@ -5,29 +5,56 @@ import com.helianhealth.agent.core.execution.evaluators.GraalJSEvaluator;
 import com.helianhealth.agent.core.model.TaskModel;
 import com.helianhealth.agent.core.model.WorkflowModel;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class InlineUnitTest {
 
     @Test
-    void wrapsScalarResultInStableResultField() {
+    void usesScalarAsOutput() {
         TaskModel task = executeInline("ok");
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
-        assertEquals(Map.of("result", "ok"), task.getOutputData());
+        assertEquals("ok", task.getOutputData());
     }
 
     @Test
-    void keepsMapResultUnderStableResultField() {
+    void usesBusinessMapAsOutput() {
         Map<String, Object> scriptResult = Map.of("code", "OK");
 
         TaskModel task = executeInline(scriptResult);
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
-        assertEquals(Map.of("result", scriptResult), task.getOutputData());
+        assertEquals(scriptResult, task.getOutputData());
+    }
+
+    @ParameterizedTest
+    @MethodSource("scriptResults")
+    void graalScriptResultsRetainTheirJsonShape(String expression, Object expected) {
+        Inline inline = new Inline(Map.of(GraalJSEvaluator.NAME, new GraalJSEvaluator()));
+        TaskModel task = new TaskModel();
+        task.setInputData(Map.of(Inline.INPUT_EXPRESSION, expression));
+
+        inline.execute(new WorkflowModel(), task, null);
+
+        assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
+        assertEquals(expected, task.getOutputData());
+    }
+
+    private static Stream<Arguments> scriptResults() {
+        return Stream.of(
+                Arguments.of("[{id: 1}]", List.of(Map.of("id", 1))),
+                Arguments.of("[]", List.of()),
+                Arguments.of("42", 42),
+                Arguments.of("false", false),
+                Arguments.of("null", null));
     }
 
     private TaskModel executeInline(Object result) {

@@ -77,12 +77,11 @@ public class OpenApiServiceImpl implements OpenApiService {
                     WorkFlowErrorCode.INTERNAL_ERROR.getCode(),
                     resolveFailureMessage(workflow));
         }
-        Map<String, Object> output = workflow.getOutput() != null ? workflow.getOutput() : Map.of();
-        Object response = output.get(RESPONSE_KEY);
-        if (response != null) {
-            return String.valueOf(response);
+        Object output = workflow.getOutput();
+        if (output instanceof Map<?, ?> map && map.get(RESPONSE_KEY) != null) {
+            return String.valueOf(map.get(RESPONSE_KEY));
         }
-        return JsonUtils.toJsonString(output);
+        return output instanceof String text ? text : JsonUtils.toJsonStringWithNulls(output);
     }
 
     private String resolveFailureMessage(WorkflowModel workflow) {

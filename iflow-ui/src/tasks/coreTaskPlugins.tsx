@@ -6,11 +6,13 @@ import {
   FileJsIcon,
   FunctionIcon,
   GitBranchIcon,
+  GitForkIcon,
   GlobeIcon,
   LightningIcon,
   PlugsConnectedIcon,
   RepeatIcon,
 } from '@phosphor-icons/react'
+import type { IconProps } from '@phosphor-icons/react'
 import { TaskType } from '@/flow/taskType'
 import {
   DoWhileTaskForm,
@@ -42,6 +44,10 @@ const DEFAULT_NODE_WIDTH = 350
 const SWITCH_SIZE_INCREMENTER = 60
 const MIN_AMOUNT_OF_SWITCH_PORTS = 4
 
+function ForkJoinIcon({ style, ...props }: IconProps) {
+  return <GitForkIcon {...props} style={{ ...style, transform: 'rotate(180deg)' }} />
+}
+
 function additionalPortWidth(portCount: number) {
   return portCount > MIN_AMOUNT_OF_SWITCH_PORTS
     ? (portCount - MIN_AMOUNT_OF_SWITCH_PORTS) * SWITCH_SIZE_INCREMENTER
@@ -64,10 +70,6 @@ function outputVariableOptions(task: WorkflowTask, fields: string[] = []) {
     output,
     ...fields.map((field) => `${output.slice(0, -1)}.${field}}`),
   ]
-}
-
-function resultVariableOptions(task: WorkflowTask) {
-  return outputVariableOptions(task, ['result'])
 }
 
 function responseVariableOptions(task: WorkflowTask) {
@@ -122,7 +124,7 @@ registerCoreTaskPlugins([
     form: INLINETaskForm,
     inspectorLayout: 'bare',
     flow: { nodeSize: { width: DEFAULT_NODE_WIDTH, height: 140 } },
-    variableOptions: resultVariableOptions,
+    variableOptions: outputVariableOptions,
     create: (context) => baseTask(context, {
       inputParameters: {
         evaluatorType: 'graaljs',
@@ -133,9 +135,9 @@ registerCoreTaskPlugins([
   {
     type: TaskType.FUNCTION,
     label: '函数转换',
-    cardLabel: 'FUNCTION',
+    cardLabel: '函数转化',
     icon: FunctionIcon,
-    menu: { label: TaskType.FUNCTION, description: '将 JSON 或 XML 字符串解析为结构化参数。' },
+    menu: { label: TaskType.FUNCTION, description: '解析 JSON 或 XML 字符串。' },
     card: FUNCTIONTaskCard,
     form: FunctionTaskForm,
     inspectorLayout: 'bare',
@@ -169,7 +171,7 @@ registerCoreTaskPlugins([
     type: TaskType.FORK_JOIN,
     label: '并行分支',
     cardLabel: 'FORK JOIN',
-    icon: GitBranchIcon,
+    icon: ForkJoinIcon,
     menu: { label: 'FORK JOIN', description: '并行执行多个任务分支并在 JOIN 汇聚。' },
     form: ForkJoinTaskForm,
     appearance: { cardVariant: 'operator' },
@@ -243,24 +245,23 @@ registerCoreTaskPlugins([
   {
     type: TaskType.JDBC,
     label: '数据库',
+    cardLabel: '数据库',
     icon: DatabaseIcon,
-    menu: { label: TaskType.JDBC, description: '执行数据库查询。' },
+    menu: { label: '数据库', description: '执行数据库查询。' },
     card: JDBCTaskCard,
     form: JDBCTaskForm,
     variableOptions: jdbcVariableOptions,
     create: (context) => baseTask(context, {
       name: `jdbc_${context.suffix}`,
       inputParameters: {
-        jdbc_request: {
-          url: 'jdbc:mysql://localhost:3306/demo',
-          vendor: 'MYSQL',
-          username: '',
-          operation: 'QUERY',
-          sql: 'SELECT 1',
-          parameters: {},
-          connectionTimeOut: 5000,
-          queryTimeOut: 30000,
-        },
+        url: 'jdbc:mysql://localhost:3306/demo',
+        vendor: 'MYSQL',
+        username: '',
+        operation: 'QUERY',
+        payload: '${workflow.input.data}',
+        sqlTemplate: 'SELECT * FROM demo WHERE id IN $.ids',
+        connectionTimeOut: 5000,
+        queryTimeOut: 30000,
       },
     }),
   },
@@ -303,7 +304,7 @@ registerCoreTaskPlugins([
   {
     type: TaskType.JOIN,
     label: '汇聚',
-    icon: LightningIcon,
+    icon: GitForkIcon,
     form: JoinTaskForm,
     appearance: { cardVariant: 'operator' },
     flow: { kind: 'join', nodeSize: { width: DEFAULT_NODE_WIDTH, height: 80 } },

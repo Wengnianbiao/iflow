@@ -21,8 +21,8 @@ import java.util.Map;
  *   "templateParameters": { "payload": "${workflow.input}" },
  *   "soapTemplate": "<soap:Envelope>...<id>${$.payload.id}</id>...</soap:Envelope>",
  *   "contentType": "text/xml;charset=UTF-8",
- *   "connectionTimeOut": 3000,
- *   "readTimeOut": 3000
+ *   "connectionTimeOut": 5000,
+ *   "readTimeOut": 30000
  * }
  * }</pre>
  */

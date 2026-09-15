@@ -6,9 +6,6 @@ import com.helianhealth.agent.core.model.TaskModel;
 import com.helianhealth.agent.core.model.WorkflowModel;
 import org.springframework.stereotype.Component;
 
-import java.util.HashMap;
-import java.util.Map;
-
 /**
  * 主动终止工作流任务。
  *
@@ -42,7 +39,7 @@ public class Terminate extends WorkflowSystemTask {
             task.setStatus(TaskModel.Status.FAILED);
             return;
         }
-        task.setOutputData(extractOutput(task.getInputData()));
+        task.setOutputData(task.getInputData().get(INPUT_WORKFLOW_OUTPUT));
         task.setStatus(TaskModel.Status.COMPLETED);
     }
 
@@ -64,18 +61,4 @@ public class Terminate extends WorkflowSystemTask {
         return INPUT_WORKFLOW_OUTPUT;
     }
 
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> extractOutput(Map<String, Object> input) {
-        Map<String, Object> output = new HashMap<>();
-        Object value = input.get(INPUT_WORKFLOW_OUTPUT);
-        if (value == null) {
-            return output;
-        }
-        if (value instanceof Map<?, ?>) {
-            output.putAll((Map<String, Object>) value);
-        } else {
-            output.put("output", value);
-        }
-        return output;
-    }
 }

@@ -42,6 +42,23 @@ public class Join extends WorkflowSystemTask {
                             .toList();
         }
 
+        List<String> missingRefs =
+                joinOn.stream().filter(ref -> workflow.getTaskByRefName(ref) == null).toList();
+        if (!missingRefs.isEmpty()) {
+            String joinRef = task.getReferenceTaskName();
+            String reason =
+                    (joinRef == null || joinRef.isBlank())
+                            ? "JOIN 配置错误：等待任务 " + String.join(", ", missingRefs) + " 不存在"
+                            : "JOIN "
+                                    + joinRef
+                                    + " 配置错误：等待任务 "
+                                    + String.join(", ", missingRefs)
+                                    + " 不存在";
+            task.setReasonForInCompletion(reason);
+            task.setStatus(TaskModel.Status.FAILED_WITH_TERMINAL_ERROR);
+            return;
+        }
+
         boolean allTerminal = joinOn.stream()
                 .map(workflow::getTaskByRefName)
                 .allMatch(t -> t != null && t.getStatus().isTerminal());
@@ -53,9 +70,7 @@ public class Join extends WorkflowSystemTask {
                 continue;
             }
 
-            if (!forked.getOutputData().isEmpty()) {
-                task.addOutput(ref, forked.getOutputData());
-            }
+            task.addOutput(ref, forked.getOutputData());
 
             TaskModel.Status status = forked.getStatus();
             WorkflowTask def = forked.getWorkflowTask();

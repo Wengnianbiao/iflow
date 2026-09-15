@@ -272,7 +272,6 @@ function processFork(task: WorkflowTask, crumbs: Crumb[]): WalkResult {
         fromPort: forkBranchSouthPortId(id, branchIndex),
         to: firstNode.id,
         toPort: nodeTargetPortId(firstNode.id),
-        text: `分支 ${branchIndex + 1}`,
         data: { forkReferenceName: id, branchIndex },
       })
     }

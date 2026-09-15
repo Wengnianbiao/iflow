@@ -4,7 +4,7 @@ import {
   CheckIcon,
   CircleNotchIcon,
   DiamondIcon,
-  GitBranchIcon,
+  GitForkIcon,
   LightningIcon,
   ProhibitIcon,
   RepeatIcon,
@@ -162,7 +162,7 @@ function TaskCard({
               onAddBranch(event)
             }}
           >
-            <GitBranchIcon size={14} weight="bold" />
+            <GitForkIcon size={14} weight="bold" style={{ transform: 'rotate(180deg)' }} />
             <span>添加分支</span>
           </button>
         ) : null}

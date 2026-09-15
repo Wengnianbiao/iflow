@@ -9,9 +9,13 @@ import org.graalvm.polyglot.Source;
 import org.graalvm.polyglot.SourceSection;
 import org.graalvm.polyglot.Value;
 import org.graalvm.polyglot.io.IOAccess;
+import org.graalvm.polyglot.proxy.ProxyArray;
+import org.graalvm.polyglot.proxy.ProxyObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -56,6 +60,30 @@ public final class ScriptEvaluator {
 
     private static final Engine ENGINE = buildEngine();
     private static final ConcurrentMap<String, Source> SOURCE_CACHE = new ConcurrentHashMap<>();
+
+    private static final Set<String> RESERVED_BINDINGS = Set.of(
+            "$", "XML", "arguments", "eval", "undefined", "NaN", "Infinity", "globalThis",
+            "Object", "Function", "Boolean", "Symbol", "Number", "BigInt", "Math", "Date",
+            "String", "RegExp", "Array", "JSON", "Map", "Set", "WeakMap", "WeakSet",
+            "Promise", "Reflect", "Proxy", "Intl", "Atomics", "WebAssembly", "console",
+            "Error", "TypeError", "RangeError", "SyntaxError", "ReferenceError", "URIError",
+            "ArrayBuffer", "SharedArrayBuffer", "DataView", "Int8Array", "Uint8Array",
+            "Uint8ClampedArray", "Int16Array", "Uint16Array", "Int32Array", "Uint32Array",
+            "Float32Array", "Float64Array", "BigInt64Array", "BigUint64Array",
+            "parseInt", "parseFloat", "isNaN", "isFinite", "encodeURI", "decodeURI",
+            "encodeURIComponent", "decodeURIComponent", "escape", "unescape",
+            "break", "case", "catch", "class", "const", "continue", "debugger", "default",
+            "delete", "do", "else", "export", "extends", "finally", "for", "function", "if",
+            "import", "in", "instanceof", "new", "return", "super", "switch", "this", "throw",
+            "try", "typeof", "var", "void", "while", "with", "yield", "let", "static", "enum",
+            "await", "implements", "package", "protected", "interface", "private", "public",
+            "null", "true", "false");
+
+    public static void validateBindingName(String name) {
+        if (name == null || !name.matches("[A-Za-z_$][A-Za-z0-9_$]*") || RESERVED_BINDINGS.contains(name)) {
+            throw new IllegalArgumentException("无效或保留的循环变量名: " + name);
+        }
+    }
 
     private ScriptEvaluator() {}
 
@@ -211,6 +239,11 @@ public final class ScriptEvaluator {
     }
 
     public static Object eval(String script, Object input) {
+        return eval(script, input, Map.of());
+    }
+
+    public static Object eval(String script, Object input, Map<String, Object> localBindings) {
+        localBindings.keySet().forEach(ScriptEvaluator::validateBindingName);
         ensureInitialized();
         final Source source = getSource(script);
 
@@ -219,7 +252,7 @@ public final class ScriptEvaluator {
             try {
                 scriptContext = contextPool.take();
                 final ScriptExecutionContext finalScriptContext = scriptContext;
-                finalScriptContext.prepareBindings(input);
+                finalScriptContext.prepareBindings(input, localBindings);
                 Future<Value> futureResult =
                         executorService.submit(() -> finalScriptContext.getContext().eval(source));
                 Value value =
@@ -251,8 +284,9 @@ public final class ScriptEvaluator {
 
         try (Context context = createNewContext()) {
             final Value jsBindings = context.getBindings("js");
-            jsBindings.putMember("$", input);
+            jsBindings.putMember("$", toScriptValue(input));
             jsBindings.putMember("XML", XML_BRIDGE);
+            bindLocals(jsBindings, localBindings);
             final Future<Value> futureResult = executorService.submit(() -> context.eval(source));
             Value value = futureResult.get(maxExecutionTimeSeconds.getSeconds(), TimeUnit.SECONDS);
             return getObject(value);
@@ -268,6 +302,56 @@ public final class ScriptEvaluator {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Script execution interrupted: " + ie.getMessage());
         }
+    }
+
+    private static void bindLocals(Value bindings, Map<String, Object> locals) {
+        for (String name : locals.keySet()) {
+            if (bindings.hasMember(name)) {
+                throw new IllegalArgumentException("循环变量与 JS 全局变量冲突: " + name);
+            }
+        }
+        locals.forEach((name, value) -> bindings.putMember(name, toScriptValue(value)));
+    }
+
+    /** 显式暴露 JSON 成员，避免 Java Map 在 Object.keys / JSON.stringify 中表现为空对象。 */
+    private static Object toScriptValue(Object value) {
+        if (value instanceof Map<?, ?> map) {
+            Map<String, Object> members = new LinkedHashMap<>();
+            map.forEach((key, item) -> members.put(String.valueOf(key), toScriptValue(item)));
+            return ProxyObject.fromMap(members);
+        }
+        if (value instanceof List<?> list) {
+            List<Object> items = new ArrayList<>(list.size());
+            list.forEach(item -> items.add(toScriptValue(item)));
+            return ProxyArray.fromList(items);
+        }
+        return jsonCompatibleScalar(value);
+    }
+
+    /**
+     * BigDecimal / BigInteger 对 GraalJS 不是 JS Number，而是带方法的 Java 对象。
+     * 不转成数字的话，回写时会把 {@code longValueExact} 等方法展开成空对象。
+     */
+    private static Object jsonCompatibleScalar(Object value) {
+        if (value instanceof BigDecimal decimal) {
+            return jsonNumber(decimal);
+        }
+        if (value instanceof BigInteger integer) {
+            return integer.bitLength() <= 63 ? integer.longValue() : integer.toString();
+        }
+        return value;
+    }
+
+    private static Number jsonNumber(BigDecimal decimal) {
+        BigDecimal stripped = decimal.stripTrailingZeros();
+        if (stripped.scale() <= 0) {
+            try {
+                return stripped.longValueExact();
+            } catch (ArithmeticException ignored) {
+                return stripped.doubleValue();
+            }
+        }
+        return stripped.doubleValue();
     }
 
     private static void handlePolyglotException(ExecutionException ee) {
@@ -306,6 +390,9 @@ public final class ScriptEvaluator {
                 return value.asDouble();
             }
         }
+        if (value.isHostObject()) {
+            return jsonCompatibleScalar(value.asHostObject());
+        }
         if (value.hasArrayElements()) {
             List<Object> items = new ArrayList<>();
             for (int i = 0; i < value.getArraySize(); i++) {
@@ -340,6 +427,7 @@ public final class ScriptEvaluator {
     private static final class ScriptExecutionContext {
         private final Context context;
         private final Value bindings;
+        private Set<String> localNames = Set.of();
 
         ScriptExecutionContext(Context context) {
             this.context = context;
@@ -350,12 +438,16 @@ public final class ScriptEvaluator {
             return context;
         }
 
-        void prepareBindings(Object input) {
-            bindings.putMember("$", input);
+        void prepareBindings(Object input, Map<String, Object> locals) {
+            bindings.putMember("$", toScriptValue(input));
             bindings.putMember("XML", XML_BRIDGE);
+            bindLocals(bindings, locals);
+            localNames = new HashSet<>(locals.keySet());
         }
 
         void clearBindings() {
+            localNames.forEach(bindings::removeMember);
+            localNames = Set.of();
             bindings.removeMember("$");
             bindings.removeMember("XML");
         }

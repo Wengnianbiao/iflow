@@ -11,9 +11,9 @@ import org.junit.jupiter.api.Test;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
-import static com.helianhealth.agent.core.execution.tasks.WorkflowSystemTask.OUTPUT_ERROR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -21,9 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * JdbcTask 单元测试（对齐 HttpTask：inputParameters → Input 反序列化）。
- *
- * <p>覆盖 Input 反序列化、jdbc_request 键 / 平铺 input 两种形态。
+ * JdbcTask 单元测试：平铺输入、payload 类型、校验与任务诊断。
  */
 class JdbcTaskUnitTest {
 
@@ -34,7 +32,7 @@ class JdbcTaskUnitTest {
 
     @BeforeEach
     void setup() {
-        jdbcTask = new JdbcTask(new DefaultJdbcConnectionProvider(3000, 20000), OBJECT_MAPPER);
+        jdbcTask = new JdbcTask(new DefaultJdbcConnectionProvider(), OBJECT_MAPPER);
     }
 
     @Test
@@ -44,11 +42,11 @@ class JdbcTaskUnitTest {
         inputMap.put("username", "root");
         inputMap.put("password", "secret");
         inputMap.put("vendor", "MYSQL");
-        inputMap.put("sql", "SELECT :id");
+        inputMap.put("sqlTemplate", "SELECT $.id");
         inputMap.put("operation", "query");
         inputMap.put("connectionTimeOut", 1000);
         inputMap.put("queryTimeOut", 5000);
-        inputMap.put("parameters", Map.of("id", 1));
+        inputMap.put("payload", Map.of("id", 1));
 
         JdbcTask.Input parsed = OBJECT_MAPPER.convertValue(inputMap, JdbcTask.Input.class);
 
@@ -57,36 +55,45 @@ class JdbcTaskUnitTest {
         assertEquals("root", parsed.getUsername());
         assertEquals("secret", parsed.getPassword());
         assertEquals(JdbcVendor.MYSQL, parsed.getVendor());
-        assertEquals("SELECT :id", parsed.getSql());
+        assertEquals("SELECT $.id", parsed.getSqlTemplate());
         assertEquals(JdbcTask.Operation.QUERY, parsed.getOperation());
         assertEquals(1000, parsed.getConnectionTimeOut());
         assertEquals(5000, parsed.getQueryTimeOut());
-        assertEquals(1, parsed.getParameters().get("id"));
+        assertEquals(1, ((Map<?, ?>) parsed.getPayload()).get("id"));
     }
 
     @Test
-    void parseNestedJdbcRequest() {
-        Map<String, Object> nested = new HashMap<>();
-        nested.put("url", "jdbc:postgresql://localhost/demo");
-        nested.put("driverClassName", "org.postgresql.Driver");
-        nested.put("sql", "UPDATE t SET v = :v");
-        nested.put("operation", "update");
+    void rejectsOldContractEvenWhenApplicationMapperIgnoresUnknownProperties() {
+        ObjectMapper lenient = OBJECT_MAPPER.copy().disable(
+                com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+        JdbcTask strictTask = new JdbcTask(new DefaultJdbcConnectionProvider(), lenient);
+        for (String field : List.of("jdbc_request", "sql", "parameters")) {
+            TaskModel task = new TaskModel();
+            Map<String, Object> input = new HashMap<>();
+            input.put("url", "jdbc:mysql://localhost:3306/demo");
+            input.put("vendor", "MYSQL");
+            input.put("sqlTemplate", "SELECT 1");
+            input.put(field, Map.of());
+            task.setInputData(input);
+            strictTask.execute(workflow, task, null);
+            assertEquals(TaskModel.Status.FAILED, task.getStatus());
+            assertTrue(task.getReasonForInCompletion().contains(field));
+        }
+    }
 
+    @Test
+    void startFailsWhenMissingSqlTemplate() {
         TaskModel task = new TaskModel();
-        task.setInputData(Map.of(JdbcTask.REQUEST_PARAMETER_NAME, nested));
-
-        Object request = task.getInputData().get(JdbcTask.REQUEST_PARAMETER_NAME);
-        JdbcTask.Input parsed = OBJECT_MAPPER.convertValue(request, JdbcTask.Input.class);
-
-        assertEquals("jdbc:postgresql://localhost/demo", parsed.getUrl());
-        assertEquals("org.postgresql.Driver", parsed.getDriverClassName());
-        assertEquals(JdbcTask.Operation.UPDATE, parsed.getOperation());
+        task.setInputData(Map.of("url", "jdbc:mysql://localhost/demo", "vendor", "MYSQL"));
+        jdbcTask.execute(workflow, task, null);
+        assertEquals(TaskModel.Status.FAILED, task.getStatus());
+        assertTrue(task.getReasonForInCompletion().contains("Missing sqlTemplate"));
     }
 
     @Test
     void startFailsWhenMissingUrl() {
         TaskModel task = new TaskModel();
-        task.setInputData(Map.of("sql", "SELECT 1", "vendor", "MYSQL"));
+        task.setInputData(Map.of("sqlTemplate", "SELECT 1", "vendor", "MYSQL"));
 
         jdbcTask.execute(workflow, task, null);
 
@@ -106,25 +113,60 @@ class JdbcTaskUnitTest {
     }
 
     @Test
-    void startFailsWhenMissingDriver() {
+    void startFailsWhenMissingVendor() {
         TaskModel task = new TaskModel();
         Map<String, Object> input = new HashMap<>();
         input.put("url", "jdbc:mysql://localhost:3306/demo");
-        input.put("sql", "SELECT 1");
+        input.put("sqlTemplate", "SELECT 1");
         task.setInputData(input);
 
         jdbcTask.execute(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
-        assertTrue(task.getReasonForInCompletion().contains("Missing driverClassName or vendor"));
+        assertTrue(task.getReasonForInCompletion().contains("Missing vendor"));
+    }
+
+    @Test
+    void startFailsBeforeConnectingWhenArrayIsEmpty() {
+        JdbcConnectionProvider refusing = new JdbcConnectionProvider() {
+            @Override
+            public Connection openConnection(JdbcTask.Input input) throws SQLException {
+                throw new AssertionError("must not open a connection when SQL binding fails");
+            }
+
+            @Override
+            public int resolveConnectTimeoutMs(JdbcTask.Input input) {
+                return 1000;
+            }
+
+            @Override
+            public int resolveQueryTimeoutMs(JdbcTask.Input input) {
+                return 1000;
+            }
+        };
+        TaskModel task = new TaskModel();
+        task.setInputData(
+                Map.of(
+                        "url", "jdbc:mysql://localhost:3306/demo",
+                        "vendor", "MYSQL",
+                        "sqlTemplate", "SELECT * FROM t WHERE id IN $.ids",
+                        "payload", Map.of("ids", List.of())));
+
+        new JdbcTask(refusing, OBJECT_MAPPER).execute(workflow, task, null);
+
+        assertEquals(TaskModel.Status.FAILED, task.getStatus());
+        assertTrue(task.getReasonForInCompletion().contains("empty arrays"));
     }
 
     @Test
     void vendorResolvesDriverClassName() {
-        assertEquals("com.mysql.cj.jdbc.Driver",
-                JdbcVendor.resolveDriverClassName(null, JdbcVendor.MYSQL));
-        assertEquals("custom.Driver",
-                JdbcVendor.resolveDriverClassName("custom.Driver", JdbcVendor.MYSQL));
+        assertEquals("com.mysql.cj.jdbc.Driver", JdbcVendor.resolveDriverClassName(JdbcVendor.MYSQL));
+        assertEquals("org.postgresql.Driver", JdbcVendor.resolveDriverClassName(JdbcVendor.POSTGRES));
+        assertEquals("com.microsoft.sqlserver.jdbc.SQLServerDriver",
+                JdbcVendor.resolveDriverClassName(JdbcVendor.SQLSERVER));
+        assertEquals("oracle.jdbc.OracleDriver", JdbcVendor.resolveDriverClassName(JdbcVendor.ORACLE));
+        assertEquals("org.opengauss.Driver", JdbcVendor.resolveDriverClassName(JdbcVendor.OPENGAUSS));
+        assertEquals("com.kingbase8.Driver", JdbcVendor.resolveDriverClassName(JdbcVendor.KINGBASE));
     }
 
     @Test
@@ -138,13 +180,13 @@ class JdbcTaskUnitTest {
         JdbcTask.Input parsed = OBJECT_MAPPER.convertValue(Map.of(), JdbcTask.Input.class);
         assertNotNull(parsed);
         assertNull(parsed.getUrl());
-        assertNull(parsed.getSql());
+        assertNull(parsed.getSqlTemplate());
     }
 
     @Test
     void jdbcResponseDefinesRootOutputFields() {
         JdbcTask.JdbcResponse response = new JdbcTask.JdbcResponse();
-        response.rows = java.util.List.of(Map.of("id", 1));
+        response.rows = List.of(Map.of("id", 1));
         response.rowCount = 1;
 
         Map<String, Object> output = response.asMap();
@@ -156,7 +198,7 @@ class JdbcTaskUnitTest {
     }
 
     @Test
-    void executionFailureWritesDiagnosticToErrorKey() {
+    void executionFailureWritesDiagnostic() {
         JdbcConnectionProvider provider = new JdbcConnectionProvider() {
             @Override
             public Connection openConnection(JdbcTask.Input input) throws SQLException {
@@ -179,12 +221,12 @@ class JdbcTaskUnitTest {
                 Map.of(
                         "url", "jdbc:mysql://localhost:3306/demo",
                         "vendor", "MYSQL",
-                        "sql", "SELECT 1"));
+                        "sqlTemplate", "SELECT 1"));
 
         failingTask.execute(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
-        assertTrue(String.valueOf(task.getOutputData().get(OUTPUT_ERROR)).contains("database unavailable"));
-        assertFalse(task.getOutputData().containsKey("response"));
+        assertTrue(task.getReasonForInCompletion().contains("database unavailable"));
+        assertFalse(task.outputAsMap().containsKey("response"));
     }
 }

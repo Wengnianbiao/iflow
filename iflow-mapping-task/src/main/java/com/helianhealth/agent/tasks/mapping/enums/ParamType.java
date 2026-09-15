@@ -41,10 +41,5 @@ public enum ParamType {
     /**
      * 数组
      */
-    ARRAY,
-
-    /**
-     * 无类型
-     */
-    NONE
+    ARRAY
 }
