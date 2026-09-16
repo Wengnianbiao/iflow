@@ -1,0 +1,7 @@
+**/*
+!iflow-web/
+!iflow-web/target/
+!iflow-web/target/iflow.jar
+!docs/
+!docs/init_mysql/
+!docs/init_mysql/**

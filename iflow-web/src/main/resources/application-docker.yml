@@ -1,0 +1,19 @@
+server:
+  port: 8099
+
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://132.147.160.230:2881/iflow?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true}
+    username: ${SPRING_DATASOURCE_USERNAME:health_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:Helian@2022}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 60000
+      connection-test-query: select 1
+      auto-commit: false
+
+agent:
+  repository:
+    vendor: mysql
