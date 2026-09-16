@@ -43,6 +43,16 @@ class ScriptEvaluatorBindingsTest {
     }
 
     @Test
+    void xmlStringifyUsesSharedMapConvention() {
+        Map<String, Object> patient = new LinkedHashMap<>();
+        patient.put("code", "82601230009");
+        patient.put("tag", List.of("urgent", "lab"));
+        assertEquals(
+                "<his><patient><code>82601230009</code><tag>urgent</tag><tag>lab</tag></patient></his>",
+                evaluator.evaluate("XML.stringify('his', $.payload)", Map.of("payload", Map.of("patient", patient))));
+    }
+
+    @Test
     void filterKeepsBigDecimalFieldsAsNumbers() {
         Map<String, Object> lis = new LinkedHashMap<>();
         lis.put("applyId", "80158311");

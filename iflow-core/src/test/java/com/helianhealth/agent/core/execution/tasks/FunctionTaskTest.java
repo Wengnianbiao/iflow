@@ -11,6 +11,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -20,14 +21,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FunctionTaskTest {
 
-    private final FunctionTask functionTask = new FunctionTask(new FunctionExecutor(1_000));
+    private final Function functionTask = new Function(new FunctionExecutor(1_000));
 
     @Test
     void writesParsedMapDirectlyToOutput() {
         TaskModel task = execute(Map.of(
-                FunctionTask.INPUT_FUNCTION,
+                Function.INPUT_FUNCTION,
                 "JSON_PARSE",
-                FunctionTask.INPUT_VALUE,
+                Function.INPUT_VALUE,
                 "{\"patientCode\":\"82601230009\",\"applyStatus\":\"3\"}"));
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
@@ -36,12 +37,44 @@ class FunctionTaskTest {
                 task.getOutputData());
     }
 
+    @Test
+    void writesStringifiedJsonDirectlyToOutput() {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("patientCode", "82601230009");
+        payload.put("applyStatus", "3");
+        TaskModel task = execute(Map.of(
+                Function.INPUT_FUNCTION,
+                "JSON_STRINGIFY",
+                Function.INPUT_VALUE,
+                payload));
+
+        assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
+        assertEquals("{\"patientCode\":\"82601230009\",\"applyStatus\":\"3\"}", task.getOutputData());
+    }
+
+    @Test
+    void writesStringifiedXmlDirectlyToOutput() {
+        TaskModel task = execute(Map.of(
+                Function.INPUT_FUNCTION,
+                "XML_STRINGIFY",
+                Function.INPUT_ROOT_NAME,
+                "patient",
+                Function.INPUT_VALUE,
+                Map.of("code", "82601230009")));
+
+        assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
+        assertEquals("<patient><code>82601230009</code></patient>", task.getOutputData());
+        assertEquals(
+                "<patient><code>82601230009</code></patient>",
+                bind(task, "${parse_request_ref.output}").get("value"));
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"JSON_PARSE", "XML_PARSE"})
     void nullInputCompletesWithNullOutput(String function) {
         Map<String, Object> input = new HashMap<>();
-        input.put(FunctionTask.INPUT_FUNCTION, function);
-        input.put(FunctionTask.INPUT_VALUE, null);
+        input.put(Function.INPUT_FUNCTION, function);
+        input.put(Function.INPUT_VALUE, null);
 
         TaskModel task = execute(input);
 
@@ -53,8 +86,8 @@ class FunctionTaskTest {
     @MethodSource("jsonResults")
     void bindsCompleteResultWithoutChangingItsType(String value, Object expected) {
         TaskModel task = execute(Map.of(
-                FunctionTask.INPUT_FUNCTION, "JSON_PARSE",
-                FunctionTask.INPUT_VALUE, value));
+                Function.INPUT_FUNCTION, "JSON_PARSE",
+                Function.INPUT_VALUE, value));
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
         assertEquals(expected, task.getOutputData());
@@ -81,8 +114,8 @@ class FunctionTaskTest {
     @Test
     void parsedArrayElementsCanBeBoundByDownstreamTasks() {
         TaskModel task = execute(Map.of(
-                FunctionTask.INPUT_FUNCTION, "JSON_PARSE",
-                FunctionTask.INPUT_VALUE, "[{\"patientCode\":\"82601230009\"}]"));
+                Function.INPUT_FUNCTION, "JSON_PARSE",
+                Function.INPUT_VALUE, "[{\"patientCode\":\"82601230009\"}]"));
 
         assertEquals("82601230009", bind(task,
                 "${parse_request_ref.output[0].patientCode}").get("value"));
@@ -91,8 +124,8 @@ class FunctionTaskTest {
     @Test
     void xmlOutputRetainsRootElement() {
         TaskModel task = execute(Map.of(
-                FunctionTask.INPUT_FUNCTION, "XML_PARSE",
-                FunctionTask.INPUT_VALUE, "<patient><code>82601230009</code></patient>"));
+                Function.INPUT_FUNCTION, "XML_PARSE",
+                Function.INPUT_VALUE, "<patient><code>82601230009</code></patient>"));
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
         assertEquals(Map.of("patient", Map.of("code", "82601230009")),
@@ -104,11 +137,11 @@ class FunctionTaskTest {
     @Test
     void failedParsingRemovesPreviousResult() {
         TaskModel task = execute(Map.of(
-                FunctionTask.INPUT_FUNCTION, "JSON_PARSE",
-                FunctionTask.INPUT_VALUE, "[1]"));
+                Function.INPUT_FUNCTION, "JSON_PARSE",
+                Function.INPUT_VALUE, "[1]"));
         task.setInputData(Map.of(
-                FunctionTask.INPUT_FUNCTION, "JSON_PARSE",
-                FunctionTask.INPUT_VALUE, "[invalid"));
+                Function.INPUT_FUNCTION, "JSON_PARSE",
+                Function.INPUT_VALUE, "[invalid"));
 
         functionTask.execute(new WorkflowModel(), task, null);
 
@@ -117,35 +150,72 @@ class FunctionTaskTest {
 
     @Test
     void missingValueFailsTask() {
-        TaskModel task = execute(Map.of(FunctionTask.INPUT_FUNCTION, "JSON_PARSE"));
+        TaskModel task = execute(Map.of(Function.INPUT_FUNCTION, "JSON_PARSE"));
 
         assertFailure(task, "FUNCTION input 'value' must be provided");
     }
 
     @Test
     void missingFunctionFailsTask() {
-        TaskModel task = execute(Map.of(FunctionTask.INPUT_VALUE, "{}"));
+        TaskModel task = execute(Map.of(Function.INPUT_VALUE, "{}"));
 
         assertFailure(task, "FUNCTION input 'function' must be provided");
     }
 
     @Test
-    void nonStringValueFailsTask() {
+    void jsonStringifyNullCompletesWithNullLiteral() {
+        Map<String, Object> input = new HashMap<>();
+        input.put(Function.INPUT_FUNCTION, "JSON_STRINGIFY");
+        input.put(Function.INPUT_VALUE, null);
+
+        TaskModel task = execute(input);
+
+        assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
+        assertEquals("null", task.getOutputData());
+    }
+
+    @Test
+    void xmlStringifyNullWithoutRootCompletesWithNullOutput() {
+        Map<String, Object> input = new HashMap<>();
+        input.put(Function.INPUT_FUNCTION, "XML_STRINGIFY");
+        input.put(Function.INPUT_VALUE, null);
+
+        TaskModel task = execute(input);
+
+        assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
+        assertEquals(null, task.getOutputData());
+    }
+
+    @Test
+    void nonStringValueFailsParseTask() {
         TaskModel task = execute(Map.of(
-                FunctionTask.INPUT_FUNCTION,
+                Function.INPUT_FUNCTION,
                 "JSON_PARSE",
-                FunctionTask.INPUT_VALUE,
+                Function.INPUT_VALUE,
                 Map.of("already", "parsed")));
 
         assertFailure(task, "FUNCTION input 'value' must be a String or null");
     }
 
     @Test
+    void nonStringRootNameFailsXmlStringify() {
+        TaskModel task = execute(Map.of(
+                Function.INPUT_FUNCTION,
+                "XML_STRINGIFY",
+                Function.INPUT_ROOT_NAME,
+                Map.of("name", "patient"),
+                Function.INPUT_VALUE,
+                Map.of("code", "1")));
+
+        assertFailure(task, "FUNCTION input 'rootName' must be a String");
+    }
+
+    @Test
     void unknownFunctionFailsTask() {
         TaskModel task = execute(Map.of(
-                FunctionTask.INPUT_FUNCTION,
+                Function.INPUT_FUNCTION,
                 "YAML_PARSE",
-                FunctionTask.INPUT_VALUE,
+                Function.INPUT_VALUE,
                 "value"));
 
         assertFailure(task, "Unsupported FUNCTION function: YAML_PARSE");
@@ -154,9 +224,9 @@ class FunctionTaskTest {
     @Test
     void parsedFieldsCanBeBoundByDownstreamTasks() {
         TaskModel task = execute(Map.of(
-                FunctionTask.INPUT_FUNCTION,
+                Function.INPUT_FUNCTION,
                 "JSON_PARSE",
-                FunctionTask.INPUT_VALUE,
+                Function.INPUT_VALUE,
                 "{\"patientCode\":\"82601230009\"}"));
         assertEquals("82601230009", bind(task,
                 "${parse_request_ref.output.patientCode}").get("value"));

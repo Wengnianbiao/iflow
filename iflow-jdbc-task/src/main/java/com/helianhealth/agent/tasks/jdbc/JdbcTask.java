@@ -30,7 +30,7 @@ import java.util.Map;
  *
  * <p>表达式分两层：编排层 {@code ${...}} 由 {@link com.helianhealth.agent.core.execution.mapper.JdbcTaskMapper}
  * + {@link com.helianhealth.agent.core.utils.ParametersUtils} 在调度阶段解析，把上游业务数据搬进
- * {@code payload}（整体表达式或 Key / Value 对象）；执行阶段由 {@link SqlTemplate} 解析
+ * {@code payload}（固定的 Key / Value 对象）；执行阶段由 {@link SqlTemplate} 解析
  * {@code sqlTemplate} 中的 {@code $.字段}，从 payload 取值并改写成绑定参数。
  *
  * <p>支持 {@link Operation#QUERY} 与 {@link Operation#UPDATE}。
@@ -79,6 +79,11 @@ public class JdbcTask extends WorkflowSystemTask {
         }
         if (input.getVendor() == null) {
             task.setReasonForInCompletion("Missing vendor");
+            task.setStatus(TaskModel.Status.FAILED);
+            return;
+        }
+        if (input.getPayload() == null) {
+            task.setReasonForInCompletion("Missing payload");
             task.setStatus(TaskModel.Status.FAILED);
             return;
         }
@@ -169,8 +174,8 @@ public class JdbcTask extends WorkflowSystemTask {
         /** 操作类型，默认 QUERY */
         private Operation operation;
 
-        /** 任务业务输入；整体表达式或 Key / Value 配置均由编排层解析，保持原始 JSON 类型。 */
-        private Object payload;
+        /** SQL 模板参数；键对应 {@code $.字段}，值由编排层解析并保持原始 JSON 类型。 */
+        private Map<String, Object> payload;
 
         public String getUrl() {
             return url;
@@ -236,11 +241,11 @@ public class JdbcTask extends WorkflowSystemTask {
             this.operation = operation;
         }
 
-        public Object getPayload() {
+        public Map<String, Object> getPayload() {
             return payload;
         }
 
-        public void setPayload(Object payload) {
+        public void setPayload(Map<String, Object> payload) {
             this.payload = payload;
         }
     }

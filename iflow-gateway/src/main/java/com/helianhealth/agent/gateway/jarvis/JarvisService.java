@@ -1,12 +1,14 @@
 package com.helianhealth.agent.gateway.jarvis;
 
 import com.helianhealth.agent.gateway.jarvis.model.JarvisRequest;
-import com.helianhealth.agent.gateway.jarvis.model.JarvisResultData;
 
 /**
  * Jarvis 入站服务。
  */
 public interface JarvisService {
 
-    JarvisResultData<Object> invoke(JarvisRequest request);
+    /**
+     * 成功时返回工作流原始输出，失败时返回 Jarvis 错误对象。
+     */
+    Object invoke(JarvisRequest request);
 }

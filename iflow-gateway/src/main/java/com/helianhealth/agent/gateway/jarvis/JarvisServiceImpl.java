@@ -1,10 +1,6 @@
 package com.helianhealth.agent.gateway.jarvis;
 
-import com.alibaba.fastjson2.JSON;
-import com.alibaba.fastjson2.TypeReference;
 import com.helianhealth.agent.common.domain.run.StartWorkflowRequest;
-import com.helianhealth.agent.common.exception.WorkFlowConfigException;
-import com.helianhealth.agent.common.exception.WorkFlowErrorCode;
 import com.helianhealth.agent.common.exception.WorkFlowException;
 import com.helianhealth.agent.common.utils.JsonUtils;
 import com.helianhealth.agent.core.model.WorkflowModel;
@@ -28,7 +24,7 @@ public class JarvisServiceImpl implements JarvisService {
     }
 
     @Override
-    public JarvisResultData<Object> invoke(JarvisRequest request) {
+    public Object invoke(JarvisRequest request) {
 
         String workflowName = request.getBusinessMethod();
         try {
@@ -39,14 +35,7 @@ public class JarvisServiceImpl implements JarvisService {
                                     .name(workflowName)
                                     .input(input)
                                     .build());
-            return toJarvisResult(executedWorkflow);
-        } catch (WorkFlowConfigException e) {
-            if (e.getErrorCode() == WorkFlowErrorCode.WORKFLOW_NOT_FOUND.getCode()) {
-                log.warn("jarvis接口未匹配工作流, name={}", workflowName);
-                return JarvisResultData.ok();
-            }
-            log.error("jarvis调度异常, name={}: {}", workflowName, e.getMessage(), e);
-            return JarvisResultData.error(workflowName + " | " + e.getMessage());
+            return toJarvisResponse(executedWorkflow);
         } catch (WorkFlowException e) {
             log.error("jarvis调度异常, name={}: {}", workflowName, e.getMessage(), e);
             return JarvisResultData.error(workflowName + " | " + e.getMessage());
@@ -56,23 +45,11 @@ public class JarvisServiceImpl implements JarvisService {
         }
     }
 
-    private JarvisResultData<Object> toJarvisResult(WorkflowModel workflow) {
+    private Object toJarvisResponse(WorkflowModel workflow) {
         if (!workflow.getStatus().isSuccessful()) {
             return JarvisResultData.error(resolveFailureMessage(workflow));
         }
-        Object output = workflow.getOutput();
-        if (output == null) {
-            return JarvisResultData.ok();
-        }
-        if (!(output instanceof Map<?, ?> map)) {
-            throw new IllegalArgumentException(
-                    "Jarvis requires an object workflow output; configure outputParameters to map the response");
-        }
-        if (map.isEmpty()) {
-            return JarvisResultData.ok();
-        }
-        return JSON.parseObject(JSON.toJSONString(map), new TypeReference<>() {
-        });
+        return workflow.getOutput();
     }
 
     private String resolveFailureMessage(WorkflowModel workflow) {

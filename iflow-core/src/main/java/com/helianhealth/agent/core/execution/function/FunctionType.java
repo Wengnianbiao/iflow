@@ -5,7 +5,13 @@ package com.helianhealth.agent.core.execution.function;
  */
 public enum FunctionType {
     JSON_PARSE,
-    XML_PARSE;
+    JSON_STRINGIFY,
+    XML_PARSE,
+    XML_STRINGIFY;
+
+    public boolean requiresStringInput() {
+        return this == JSON_PARSE || this == XML_PARSE;
+    }
 
     public static FunctionType from(Object value) {
         if (!(value instanceof String text) || text.isBlank()) {

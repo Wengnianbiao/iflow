@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { BracketsCurlyIcon, CaretDownIcon, TrashIcon } from '@phosphor-icons/react'
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
+import { BracketsCurlyIcon, CaretDownIcon, CheckIcon, TrashIcon } from '@phosphor-icons/react'
 
 const VARIABLE_REGEX = /\$\{[^}]*$/
 
@@ -62,6 +62,124 @@ export function WorkflowCollapsibleSection({
       </button>
       {expanded ? <div className="workflow-section-body">{children}</div> : null}
     </section>
+  )
+}
+
+export function InspectorSelect({
+  value,
+  options,
+  ariaLabel,
+  onChange,
+}: {
+  value: string
+  options: ReadonlyArray<{ value: string; label: string }>
+  ariaLabel: string
+  onChange: (value: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([])
+  const optionsId = useId()
+  const selected = options.find((option) => option.value === value)
+
+  useEffect(() => {
+    if (!open) return
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', closeOnOutsidePointer)
+    return () => document.removeEventListener('pointerdown', closeOnOutsidePointer)
+  }, [open])
+
+  const openAndFocus = (index: number) => {
+    setOpen(true)
+    requestAnimationFrame(() => optionRefs.current[index]?.focus())
+  }
+
+  const closeAndFocusTrigger = () => {
+    setOpen(false)
+    triggerRef.current?.focus()
+  }
+
+  return (
+    <div
+      className={`inspector-select ${open ? 'open' : ''}`}
+      ref={rootRef}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false)
+      }}
+    >
+      <button
+        type="button"
+        className="inspector-select-trigger"
+        ref={triggerRef}
+        role="combobox"
+        aria-label={ariaLabel}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={optionsId}
+        onClick={() => setOpen((current) => !current)}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowDown') {
+            event.preventDefault()
+            openAndFocus(0)
+          } else if (event.key === 'ArrowUp') {
+            event.preventDefault()
+            openAndFocus(options.length - 1)
+          } else if (event.key === 'Escape' && open) {
+            event.preventDefault()
+            setOpen(false)
+          }
+        }}
+      >
+        <span>{selected?.label ?? value}</span>
+        <CaretDownIcon size={18} weight="bold" aria-hidden="true" />
+      </button>
+      {open ? (
+        <div className="inspector-select-options" id={optionsId} role="listbox" aria-label={`${ariaLabel}选项`}>
+          {options.map((option, index) => {
+            const isSelected = option.value === value
+            return (
+              <button
+                type="button"
+                className={isSelected ? 'selected' : ''}
+                ref={(element) => { optionRefs.current[index] = element }}
+                role="option"
+                aria-selected={isSelected}
+                key={option.value}
+                onClick={() => {
+                  onChange(option.value)
+                  setOpen(false)
+                  triggerRef.current?.focus()
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'ArrowDown') {
+                    event.preventDefault()
+                    optionRefs.current[(index + 1) % options.length]?.focus()
+                  } else if (event.key === 'ArrowUp') {
+                    event.preventDefault()
+                    optionRefs.current[(index - 1 + options.length) % options.length]?.focus()
+                  } else if (event.key === 'Home') {
+                    event.preventDefault()
+                    optionRefs.current[0]?.focus()
+                  } else if (event.key === 'End') {
+                    event.preventDefault()
+                    optionRefs.current[options.length - 1]?.focus()
+                  } else if (event.key === 'Escape') {
+                    event.preventDefault()
+                    closeAndFocusTrigger()
+                  }
+                }}
+              >
+                <span>{option.label}</span>
+                {isSelected ? <CheckIcon size={17} weight="bold" aria-hidden="true" /> : null}
+              </button>
+            )
+          })}
+        </div>
+      ) : null}
+    </div>
   )
 }
 

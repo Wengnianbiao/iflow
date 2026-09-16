@@ -82,6 +82,23 @@ class JdbcTaskUnitTest {
     }
 
     @Test
+    void rejectsPayloadThatIsNotAMap() {
+        for (Object payload : List.of("${workflow.input.data}", List.of(1, 2))) {
+            TaskModel task = new TaskModel();
+            task.setInputData(Map.of(
+                    "url", "jdbc:mysql://localhost:3306/demo",
+                    "vendor", "MYSQL",
+                    "sqlTemplate", "SELECT 1",
+                    "payload", payload));
+
+            jdbcTask.execute(workflow, task, null);
+
+            assertEquals(TaskModel.Status.FAILED, task.getStatus());
+            assertTrue(task.getReasonForInCompletion().contains("Invalid JDBC inputParameters"));
+        }
+    }
+
+    @Test
     void startFailsWhenMissingSqlTemplate() {
         TaskModel task = new TaskModel();
         task.setInputData(Map.of("url", "jdbc:mysql://localhost/demo", "vendor", "MYSQL"));
@@ -124,6 +141,20 @@ class JdbcTaskUnitTest {
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertTrue(task.getReasonForInCompletion().contains("Missing vendor"));
+    }
+
+    @Test
+    void startFailsWhenMissingPayload() {
+        TaskModel task = new TaskModel();
+        task.setInputData(Map.of(
+                "url", "jdbc:mysql://localhost:3306/demo",
+                "vendor", "MYSQL",
+                "sqlTemplate", "SELECT 1"));
+
+        jdbcTask.execute(workflow, task, null);
+
+        assertEquals(TaskModel.Status.FAILED, task.getStatus());
+        assertTrue(task.getReasonForInCompletion().contains("Missing payload"));
     }
 
     @Test
@@ -221,7 +252,8 @@ class JdbcTaskUnitTest {
                 Map.of(
                         "url", "jdbc:mysql://localhost:3306/demo",
                         "vendor", "MYSQL",
-                        "sqlTemplate", "SELECT 1"));
+                        "sqlTemplate", "SELECT 1",
+                        "payload", Map.of()));
 
         failingTask.execute(workflow, task, null);
 

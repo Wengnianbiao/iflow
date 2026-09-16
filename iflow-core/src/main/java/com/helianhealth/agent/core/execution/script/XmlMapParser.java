@@ -12,7 +12,13 @@ import org.xml.sax.SAXParseException;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
 import java.io.ByteArrayInputStream;
+import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -20,7 +26,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 将 XML 文档解析为普通 Java Map/List 结构。
+ * 将 XML 文档与普通 Java Map/List 结构互相转换。
  *
  * <p>根元素名会保留；属性以 {@code @} 为前缀，混合文本使用 {@code #text}，
  * 重复同名子元素转换为 List。DOCTYPE、外部实体、外部 DTD 和 Schema 均被禁用。
@@ -129,5 +135,104 @@ public final class XmlMapParser {
             list.add(value);
             map.put(name, list);
         }
+    }
+
+    /**
+     * 将 {@link #parse(String)} 的单根对象写回 XML。{@code value} 必须是恰好包含一个根元素键的 Map。
+     */
+    public static String stringify(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (!(value instanceof Map<?, ?> map) || map.isEmpty()) {
+            throw new IllegalArgumentException("XML stringify value must be a single-root object");
+        }
+        if (map.size() != 1) {
+            throw new IllegalArgumentException("XML stringify value must have a single root element");
+        }
+        Map.Entry<?, ?> root = map.entrySet().iterator().next();
+        Object key = root.getKey();
+        if (key == null || String.valueOf(key).isBlank()) {
+            throw new IllegalArgumentException("rootName must be provided for XML.stringify");
+        }
+        return stringify(String.valueOf(key), root.getValue());
+    }
+
+    /**
+     * 以 {@code rootName} 为根元素，将对象/数组/标量写成 XML。约定与 {@link #parse(String)} 相同。
+     */
+    public static String stringify(String rootName, Object value) {
+        if (rootName == null || rootName.isBlank()) {
+            throw new IllegalArgumentException("rootName must be provided for XML.stringify");
+        }
+        try {
+            DocumentBuilder builder = newDocumentBuilder();
+            Document document = builder.newDocument();
+            Element root = document.createElement(rootName);
+            document.appendChild(root);
+            appendValue(document, root, value);
+
+            Transformer transformer = newTransformer();
+            StringWriter writer = new StringWriter();
+            transformer.transform(new DOMSource(document), new StreamResult(writer));
+            return writer.toString();
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Failed to serialize XML: invalid document");
+        }
+    }
+
+    private static Transformer newTransformer() throws Exception {
+        TransformerFactory factory = TransformerFactory.newInstance();
+        factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        try {
+            factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+            factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, "");
+        } catch (IllegalArgumentException ignored) {
+            // Some JDK TransformerFactory implementations do not support these attributes.
+        }
+        Transformer transformer = factory.newTransformer();
+        transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
+        return transformer;
+    }
+
+    private static void appendValue(Document document, Element parent, Object value) {
+        if (value == null) {
+            return;
+        }
+        if (value instanceof Map<?, ?> map) {
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                String key = String.valueOf(entry.getKey());
+                Object child = entry.getValue();
+                if (key.startsWith(ATTRIBUTE_PREFIX)) {
+                    parent.setAttribute(
+                            key.substring(ATTRIBUTE_PREFIX.length()),
+                            String.valueOf(child));
+                } else if (TEXT_KEY.equals(key)) {
+                    parent.appendChild(document.createTextNode(String.valueOf(child)));
+                } else if (child instanceof List<?> list) {
+                    for (Object item : list) {
+                        Element element = document.createElement(key);
+                        parent.appendChild(element);
+                        appendValue(document, element, item);
+                    }
+                } else {
+                    Element element = document.createElement(key);
+                    parent.appendChild(element);
+                    appendValue(document, element, child);
+                }
+            }
+            return;
+        }
+        if (value instanceof List<?> list) {
+            for (Object item : list) {
+                Element element = document.createElement("item");
+                parent.appendChild(element);
+                appendValue(document, element, item);
+            }
+            return;
+        }
+        parent.appendChild(document.createTextNode(String.valueOf(value)));
     }
 }

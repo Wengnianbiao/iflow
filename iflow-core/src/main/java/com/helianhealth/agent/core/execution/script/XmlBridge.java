@@ -3,15 +3,6 @@ package com.helianhealth.agent.core.execution.script;
 import org.graalvm.polyglot.Value;
 import org.graalvm.polyglot.proxy.ProxyArray;
 import org.graalvm.polyglot.proxy.ProxyObject;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.transform.OutputKeys;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.stream.StreamResult;
-import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -30,24 +21,7 @@ public class XmlBridge {
     }
 
     public String stringify(String rootName, Object value) {
-        if (rootName == null || rootName.isBlank()) {
-            throw new IllegalArgumentException("rootName must be provided for XML.stringify");
-        }
-        try {
-            DocumentBuilder builder = XmlMapParser.newDocumentBuilder();
-            Document document = builder.newDocument();
-            Element root = document.createElement(rootName);
-            document.appendChild(root);
-            appendValue(document, root, unwrap(value));
-
-            Transformer transformer = TransformerFactory.newInstance().newTransformer();
-            transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
-            StringWriter writer = new StringWriter();
-            transformer.transform(new DOMSource(document), new StreamResult(writer));
-            return writer.toString();
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Failed to serialize XML: " + e.getMessage(), e);
-        }
+        return XmlMapParser.stringify(rootName, unwrap(value));
     }
 
     @SuppressWarnings("unchecked")
@@ -122,43 +96,5 @@ public class XmlBridge {
             return map;
         }
         return value.toString();
-    }
-
-    @SuppressWarnings("unchecked")
-    private void appendValue(Document document, Element parent, Object value) {
-        if (value == null) {
-            return;
-        }
-        if (value instanceof Map) {
-            for (Map.Entry<String, Object> entry : ((Map<String, Object>) value).entrySet()) {
-                String key = entry.getKey();
-                Object child = entry.getValue();
-                if (key.startsWith(XmlMapParser.ATTRIBUTE_PREFIX)) {
-                    parent.setAttribute(
-                            key.substring(XmlMapParser.ATTRIBUTE_PREFIX.length()),
-                            String.valueOf(child));
-                } else if (XmlMapParser.TEXT_KEY.equals(key)) {
-                    parent.appendChild(document.createTextNode(String.valueOf(child)));
-                } else if (child instanceof List) {
-                    for (Object item : (List<Object>) child) {
-                        Element element = document.createElement(key);
-                        parent.appendChild(element);
-                        appendValue(document, element, item);
-                    }
-                } else {
-                    Element element = document.createElement(key);
-                    parent.appendChild(element);
-                    appendValue(document, element, child);
-                }
-            }
-        } else if (value instanceof List) {
-            for (Object item : (List<Object>) value) {
-                Element element = document.createElement("item");
-                parent.appendChild(element);
-                appendValue(document, element, item);
-            }
-        } else {
-            parent.appendChild(document.createTextNode(String.valueOf(value)));
-        }
     }
 }

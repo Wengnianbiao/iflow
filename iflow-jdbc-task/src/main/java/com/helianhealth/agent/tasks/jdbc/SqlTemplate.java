@@ -5,7 +5,6 @@ import com.jayway.jsonpath.DocumentContext;
 
 import java.util.Collection;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -22,7 +21,7 @@ final class SqlTemplate {
 
     record Bound(String sql, Map<String, Object> parameters) {}
 
-    static Bound bind(String sql, JdbcVendor vendor, Object payload) {
+    static Bound bind(String sql, JdbcVendor vendor, Map<String, Object> payload) {
         StringBuilder rewritten = new StringBuilder(sql.length());
         Map<String, Object> bound = new LinkedHashMap<>();
         DocumentContext root = null;
@@ -53,10 +52,8 @@ final class SqlTemplate {
                 int end = endOfPath(sql, i);
                 String path = sql.substring(i, end);
                 if (root == null) {
-                    if (!(payload instanceof Map<?, ?>) && !(payload instanceof List<?>)) {
-                        throw new IllegalArgumentException(
-                                "JDBC payload must be an object or array to resolve " + path);
-                    }
+                    if (payload == null) throw new IllegalArgumentException(
+                            "JDBC payload must be an object to resolve " + path);
                     root = ParametersUtils.parse(payload);
                 }
                 Object value = readValue(root, path);

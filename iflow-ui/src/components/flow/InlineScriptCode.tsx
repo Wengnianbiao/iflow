@@ -30,6 +30,56 @@ const JS_KEYWORDS = new Set([
   'while',
 ])
 
+const SQL_KEYWORDS = new Set([
+  'add',
+  'all',
+  'alter',
+  'and',
+  'as',
+  'asc',
+  'between',
+  'by',
+  'case',
+  'create',
+  'delete',
+  'desc',
+  'distinct',
+  'drop',
+  'else',
+  'end',
+  'exists',
+  'from',
+  'full',
+  'group',
+  'having',
+  'in',
+  'inner',
+  'insert',
+  'into',
+  'is',
+  'join',
+  'left',
+  'like',
+  'limit',
+  'not',
+  'null',
+  'offset',
+  'on',
+  'or',
+  'order',
+  'outer',
+  'right',
+  'select',
+  'set',
+  'table',
+  'then',
+  'union',
+  'update',
+  'values',
+  'when',
+  'where',
+])
+
 function normalizeWhitespace(value: string) {
   return value
     .replace(/\s+/g, ' ')
@@ -171,14 +221,41 @@ export function highlightInlineScriptLine(line: string, keyPrefix: string): Reac
   return tokens
 }
 
+export function highlightSqlLine(line: string, keyPrefix: string): ReactNode[] {
+  const tokens: ReactNode[] = []
+  const pattern = /(--.*|\/\*.*?\*\/|'(?:''|[^'])*'|"(?:""|[^"])*"|\$\{[^}]+\}|\$\.[A-Za-z_][\w.$]*(?:\[\d+\])?|\b\d+(?:\.\d+)?\b|\b[A-Za-z_][\w$]*\b)/g
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  while ((match = pattern.exec(line))) {
+    const [token] = match
+    if (match.index > lastIndex) tokens.push(line.slice(lastIndex, match.index))
+    const rest = line.slice(match.index + token.length)
+    let className = ''
+    if (token.startsWith('--') || token.startsWith('/*')) className = 'token-comment'
+    else if (/^['"]/.test(token)) className = 'token-string'
+    else if (/^\d/.test(token)) className = 'token-number'
+    else if (token.startsWith('$')) className = 'token-variable'
+    else if (SQL_KEYWORDS.has(token.toLowerCase())) className = 'token-keyword'
+    else if (rest.trimStart().startsWith('(')) className = 'token-function'
+    tokens.push(className ? <span className={className} key={`${keyPrefix}-${match.index}`}>{token}</span> : token)
+    lastIndex = match.index + token.length
+  }
+
+  if (lastIndex < line.length) tokens.push(line.slice(lastIndex))
+  return tokens
+}
+
 export function InlineHighlightedCode({
   code,
   className = '',
   format = true,
+  language = 'javascript',
 }: {
   code: string
   className?: string
   format?: boolean
+  language?: 'javascript' | 'sql'
 }) {
   const formatted = format ? formatInlineScript(code) : code
   const lines = formatted.split('\n')
@@ -186,7 +263,9 @@ export function InlineHighlightedCode({
     <span className={`inline-highlighted-code ${className}`}>
       {lines.map((line, index) => (
         <span className="inline-highlighted-line" key={`${index}-${line}`}>
-          {highlightInlineScriptLine(line, `line-${index}`)}
+          {language === 'sql'
+            ? highlightSqlLine(line, `line-${index}`)
+            : highlightInlineScriptLine(line, `line-${index}`)}
           {index < lines.length - 1 ? '\n' : null}
         </span>
       ))}

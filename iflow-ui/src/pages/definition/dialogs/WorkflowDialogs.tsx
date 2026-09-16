@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Component, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useSelector } from '@xstate/react'
 import { DiffEditor, type MonacoDiffEditor } from '@monaco-editor/react'
@@ -16,6 +16,25 @@ import type { WorkflowDefinitionActor } from '../state'
 
 function prettyJson(value: unknown) {
   return JSON.stringify(value ?? {}, null, 2)
+}
+
+function isMonacoDisposedError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error)
+  return message.includes('InstantiationService has been disposed')
+}
+
+class MonacoDisposeBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null as Error | null }
+
+  static getDerivedStateFromError(error: Error) {
+    return { error }
+  }
+
+  render() {
+    if (!this.state.error) return this.props.children
+    if (isMonacoDisposedError(this.state.error)) return null
+    throw this.state.error
+  }
 }
 
 function SaveWorkflowDialog({
@@ -36,17 +55,33 @@ function SaveWorkflowDialog({
   const updateRef = useRef<{ dispose: () => void } | null>(null)
 
   const mountEditor = useCallback((editor: MonacoDiffEditor) => {
-    const model = editor.getModel()
-    if (model) {
-      model.original.setValue(isNewWorkflow ? '{}' : baseline ? prettyJson(baseline) : '{}')
-      model.modified.setValue(workflow ? prettyJson(workflow) : '{}')
+    try {
+      const model = editor.getModel()
+      if (model) {
+        model.original.setValue(isNewWorkflow ? '{}' : baseline ? prettyJson(baseline) : '{}')
+        model.modified.setValue(workflow ? prettyJson(workflow) : '{}')
+      }
+      editorRef.current = editor
+      updateRef.current?.dispose()
+      const updateChangeCount = () => {
+        try {
+          setChangeCount(editor.getLineChanges()?.length ?? 0)
+        } catch (error) {
+          if (!isMonacoDisposedError(error)) throw error
+        }
+      }
+      updateRef.current = editor.onDidUpdateDiff(updateChangeCount)
+      updateChangeCount()
+    } catch (error) {
+      if (!isMonacoDisposedError(error)) throw error
     }
-    editorRef.current = editor
-    updateRef.current?.dispose()
-    const updateChangeCount = () => setChangeCount(editor.getLineChanges()?.length ?? 0)
-    updateRef.current = editor.onDidUpdateDiff(updateChangeCount)
-    updateChangeCount()
   }, [baseline, isNewWorkflow, workflow])
+
+  useEffect(() => () => {
+    updateRef.current?.dispose()
+    updateRef.current = null
+    editorRef.current = null
+  }, [])
 
   useEffect(() => {
     if (open) return
@@ -113,28 +148,28 @@ function SaveWorkflowDialog({
         </div>
 
         <div className="workflow-save-diff-editor">
-          <DiffEditor
-            height="100%"
-            language="json"
-            originalModelPath={`inmemory://workflow-save/${encodeURIComponent(workflow.name)}-${workflow.version}-original.json`}
-            modifiedModelPath={`inmemory://workflow-save/${encodeURIComponent(workflow.name)}-${workflow.version}-modified.json`}
-            keepCurrentOriginalModel
-            keepCurrentModifiedModel
-            onMount={mountEditor}
-            original={isNewWorkflow ? '{}' : baseline ? prettyJson(baseline) : '{}'}
-            modified={prettyJson(workflow)}
-            options={{
-              automaticLayout: true,
-              fontFamily: 'SFMono-Regular, Consolas, Liberation Mono, monospace',
-              fontSize: 12,
-              lineHeight: 19,
-              minimap: { enabled: false },
-              originalEditable: false,
-              readOnly: true,
-              renderSideBySide: true,
-              scrollBeyondLastLine: false,
-            }}
-          />
+          <MonacoDisposeBoundary>
+            <DiffEditor
+              height="100%"
+              language="json"
+              originalModelPath={`inmemory://workflow-save/${encodeURIComponent(workflow.name)}-${workflow.version}-original.json`}
+              modifiedModelPath={`inmemory://workflow-save/${encodeURIComponent(workflow.name)}-${workflow.version}-modified.json`}
+              onMount={mountEditor}
+              original={isNewWorkflow ? '{}' : baseline ? prettyJson(baseline) : '{}'}
+              modified={prettyJson(workflow)}
+              options={{
+                automaticLayout: true,
+                fontFamily: 'SFMono-Regular, Consolas, Liberation Mono, monospace',
+                fontSize: 12,
+                lineHeight: 19,
+                minimap: { enabled: false },
+                originalEditable: false,
+                readOnly: true,
+                renderSideBySide: true,
+                scrollBeyondLastLine: false,
+              }}
+            />
+          </MonacoDisposeBoundary>
         </div>
 
         <footer>

@@ -1,8 +1,6 @@
 package com.helianhealth.agent.gateway.jarvis;
 
 import com.helianhealth.agent.gateway.jarvis.model.JarvisRequest;
-import com.helianhealth.agent.gateway.jarvis.model.JarvisResultData;
-import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -17,7 +15,7 @@ public class JarvisController {
     }
 
     @PostMapping("/HLOpenApi/Hjk")
-    public JarvisResultData<Object> invokeJarvisApi(@RequestBody JarvisRequest request) {
+    public Object invokeJarvisApi(@RequestBody JarvisRequest request) {
         return jarvisService.invoke(request);
     }
 }

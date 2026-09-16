@@ -21,29 +21,27 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** 真实 JDBC 执行：编排表达式 → 原始 payload → SQL 列表展开与参数绑定。 */
+/** 真实 JDBC 执行：Key / Value 表达式 → payload Map → SQL 列表展开与参数绑定。 */
 class JdbcPayloadExecutionTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"IN $.barcodes", "IN ($.barcodes)", "NOT IN $.barcodes", "NOT IN ($.barcodes)"})
-    void queryWithExpressionOrKeyValuePayload(String predicate) throws Exception {
+    void queryWithKeyValuePayload(String predicate) throws Exception {
         String url = databaseUrl();
         try (Connection keeper = DriverManager.getConnection(url)) {
             keeper.createStatement().execute("CREATE TABLE v_lis_apply (barcode VARCHAR(100), active BOOLEAN)");
             keeper.createStatement().execute("INSERT INTO v_lis_apply VALUES ('A001',true),('A002',true),('B003',true)");
-            for (Object payload : List.of("${workflow.input.data}",
-                    Map.of("barcodes", "${workflow.input.data.barcodes}", "active", "${workflow.input.data.active}"))) {
-                Map<String, Object> definitionInput = Map.of(
-                        "url", "${workflow.input.dbUrl}", "vendor", "MYSQL", "operation", "QUERY",
-                        "payload", payload,
-                        "sqlTemplate", "SELECT barcode FROM v_lis_apply WHERE active=$.active AND barcode " + predicate + " ORDER BY barcode");
-                TaskModel task = run(url, definitionInput, Map.of("barcodes", List.of("A001", "A002"), "active", true));
-                assertEquals(TaskModel.Status.COMPLETED, task.getStatus(), task.getReasonForInCompletion());
-                assertEquals(predicate.startsWith("NOT") ? 1 : 2, task.outputAsMap().get("rowCount"));
-                assertEquals(predicate.startsWith("NOT") ? List.of(Map.of("barcode", "B003"))
-                        : List.of(Map.of("barcode", "A001"), Map.of("barcode", "A002")), task.outputAsMap().get("rows"));
-                assertEquals(List.of("A001", "A002"), ((Map<?, ?>) task.getInputData().get("payload")).get("barcodes"));
-            }
+            Map<String, Object> definitionInput = Map.of(
+                    "url", "${workflow.input.dbUrl}", "vendor", "MYSQL", "operation", "QUERY",
+                    "payload", Map.of("barcodes", "${workflow.input.data.barcodes}",
+                            "active", "${workflow.input.data.active}"),
+                    "sqlTemplate", "SELECT barcode FROM v_lis_apply WHERE active=$.active AND barcode " + predicate + " ORDER BY barcode");
+            TaskModel task = run(url, definitionInput, Map.of("barcodes", List.of("A001", "A002"), "active", true));
+            assertEquals(TaskModel.Status.COMPLETED, task.getStatus(), task.getReasonForInCompletion());
+            assertEquals(predicate.startsWith("NOT") ? 1 : 2, task.outputAsMap().get("rowCount"));
+            assertEquals(predicate.startsWith("NOT") ? List.of(Map.of("barcode", "B003"))
+                    : List.of(Map.of("barcode", "A001"), Map.of("barcode", "A002")), task.outputAsMap().get("rows"));
+            assertEquals(List.of("A001", "A002"), ((Map<?, ?>) task.getInputData().get("payload")).get("barcodes"));
         }
     }
 
@@ -55,7 +53,7 @@ class JdbcPayloadExecutionTest {
             keeper.createStatement().execute("CREATE TABLE v_lis_apply (barcode VARCHAR(100))");
             keeper.createStatement().execute("INSERT INTO v_lis_apply VALUES ('other')");
             TaskModel inserted = run(url, Map.of("url", url, "vendor", "MYSQL", "operation", "UPDATE",
-                    "payload", "${workflow.input.data}",
+                    "payload", Map.of("barcode", "${workflow.input.data.barcode}"),
                     "sqlTemplate", "INSERT INTO v_lis_apply (barcode) VALUES ($.barcode)"), Map.of("barcode", barcode));
             assertEquals(TaskModel.Status.COMPLETED, inserted.getStatus(), inserted.getReasonForInCompletion());
             assertEquals(1, inserted.outputAsMap().get("updateCount"));

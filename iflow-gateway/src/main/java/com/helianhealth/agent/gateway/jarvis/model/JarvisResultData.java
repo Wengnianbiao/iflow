@@ -6,7 +6,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Jarvis 链路专用响应数据。
+ * Jarvis 链路错误响应数据。
+ *
+ * <p>成功响应不使用该结构，而是直接返回工作流输出。
  */
 @Data
 @Builder

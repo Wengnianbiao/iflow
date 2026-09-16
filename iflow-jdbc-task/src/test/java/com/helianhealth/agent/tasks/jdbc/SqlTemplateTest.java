@@ -61,8 +61,6 @@ class SqlTemplateTest {
                         "items", List.of(Map.of("code", "A001")), "a-b", 8, "a.b", 9,
                         "患者", Map.of("条码", "C")));
         assertEquals(Map.of("_p0", 7, "_p1", "A001", "_p2", 8, "_p3", 9, "_p4", "C"), bound.parameters());
-        assertEquals(Map.of("_p0", 7), SqlTemplate.bind("SELECT $[0].id", JdbcVendor.SQLSERVER,
-                List.of(Map.of("id", 7))).parameters());
     }
 
     @Test
@@ -156,11 +154,9 @@ class SqlTemplateTest {
     }
 
     @Test
-    void payloadIsRequiredOnlyWhenReadingAPathAndStringsAreNotParsedAsJson() {
+    void payloadIsRequiredOnlyWhenReadingAPath() {
         assertEquals("SELECT 1", SqlTemplate.bind("SELECT 1", JdbcVendor.MYSQL, null).sql());
         assertThrows(IllegalArgumentException.class, () -> SqlTemplate.bind("SELECT $.id", JdbcVendor.MYSQL, null));
-        assertThrows(IllegalArgumentException.class,
-                () -> SqlTemplate.bind("SELECT $.id", JdbcVendor.MYSQL, "{\"id\":7}"));
     }
 
     @Test

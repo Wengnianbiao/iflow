@@ -1,8 +1,11 @@
 package com.helianhealth.agent.gateway;
 
+import com.helianhealth.agent.common.exception.WorkFlowConfigException;
+import com.helianhealth.agent.common.exception.WorkFlowErrorCode;
 import com.helianhealth.agent.core.model.WorkflowModel;
 import com.helianhealth.agent.gateway.jarvis.JarvisServiceImpl;
 import com.helianhealth.agent.gateway.jarvis.model.JarvisRequest;
+import com.helianhealth.agent.gateway.jarvis.model.JarvisResultData;
 import com.helianhealth.agent.gateway.rest.OpenApiServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -35,21 +38,53 @@ class ObjectOutputGatewayTest {
         assertEquals(expected, gateway.invoke("request", "/test"));
     }
 
-    @Test
-    void jarvisRejectsNonObjectOutputWithClearMessage() {
-        JarvisServiceImpl gateway = new JarvisServiceImpl(request -> completed(List.of(1, 2)));
-        var response = gateway.invoke(new JarvisRequest());
-        assertEquals("-1", response.getCode());
-        assertTrue(response.getMessage().contains("requires an object workflow output"));
+    static Stream<Object> jarvisResponses() {
+        return Stream.of(
+                List.of(1, 2),
+                Map.of("code", "OK"),
+                "<response>ok</response>",
+                42,
+                false);
+    }
+
+    @ParameterizedTest
+    @MethodSource("jarvisResponses")
+    void jarvisReturnsRawWorkflowValues(Object output) {
+        JarvisServiceImpl gateway = new JarvisServiceImpl(request -> completed(output));
+        assertEquals(output, gateway.invoke(new JarvisRequest()));
     }
 
     @Test
-    void jarvisKeepsObjectResponseContract() {
-        JarvisServiceImpl gateway = new JarvisServiceImpl(request -> completed(
-                Map.of("code", "200", "rsp", List.of(1, 2))));
-        var response = gateway.invoke(new JarvisRequest());
-        assertEquals("200", response.getCode());
-        assertEquals(List.of(1, 2), response.getRsp());
+    void jarvisReturnsNullWorkflowOutput() {
+        JarvisServiceImpl gateway = new JarvisServiceImpl(request -> completed(null));
+        assertNull(gateway.invoke(new JarvisRequest()));
+    }
+
+    @Test
+    void jarvisWrapsFailedWorkflowAsError() {
+        WorkflowModel workflow = new WorkflowModel();
+        workflow.setStatus(WorkflowModel.Status.FAILED);
+        workflow.setReasonForInCompletion("task failed");
+        JarvisServiceImpl gateway = new JarvisServiceImpl(request -> workflow);
+
+        JarvisResultData<?> response = assertInstanceOf(
+                JarvisResultData.class, gateway.invoke(new JarvisRequest()));
+        assertEquals("-1", response.getCode());
+        assertEquals("task failed", response.getMessage());
+    }
+
+    @Test
+    void jarvisWrapsInvocationExceptionAsError() {
+        JarvisServiceImpl gateway = new JarvisServiceImpl(request -> {
+            throw new WorkFlowConfigException(WorkFlowErrorCode.WORKFLOW_NOT_FOUND);
+        });
+        JarvisRequest request = new JarvisRequest();
+        request.setBusinessMethod("missingWorkflow");
+
+        JarvisResultData<?> response = assertInstanceOf(
+                JarvisResultData.class, gateway.invoke(request));
+        assertEquals("-1", response.getCode());
+        assertTrue(response.getMessage().contains("missingWorkflow"));
     }
 
     private WorkflowModel completed(Object output) {

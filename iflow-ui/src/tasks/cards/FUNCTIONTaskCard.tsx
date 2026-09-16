@@ -3,7 +3,9 @@ import { cardText, truncateCardText } from './utils'
 
 const FUNCTION_LABELS: Record<string, string> = {
   JSON_PARSE: 'JSON.parse',
+  JSON_STRINGIFY: 'JSON.stringify',
   XML_PARSE: 'XML.parse',
+  XML_STRINGIFY: 'XML.stringify',
 }
 
 export function FUNCTIONTaskCard({ task }: TaskCardContentProps) {

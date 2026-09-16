@@ -1,6 +1,8 @@
+import { useEffect } from 'react'
 import { PlusCircleIcon } from '@phosphor-icons/react'
 import type { WorkflowTask } from '@/types/workflow'
 import {
+  InspectorSelect,
   ParameterRows,
   VariableExpressionInput,
   WorkflowCollapsibleSection,
@@ -11,12 +13,22 @@ import { InlineScriptEditor } from './InlineScriptEditor'
 import { TaskPanelHeader } from './TaskPanelHeader'
 import { isRecord } from './formUtils'
 
+const JDBC_VENDOR_OPTIONS = ['MYSQL', 'POSTGRES', 'SQLSERVER', 'ORACLE', 'OPENGAUSS', 'KINGBASE']
+  .map((vendor) => ({ value: vendor, label: vendor }))
+
 export function JDBCTaskForm({ task, variableOptions, onChange }: { task: WorkflowTask; variableOptions: string[]; onChange: (task: WorkflowTask) => void }) {
   const request = task.inputParameters ?? {}
-  const payload = request.payload
-  const payloadMode = isRecord(payload) ? 'parameters' : 'expression'
-  const parameterEntries = Object.entries(isRecord(payload) ? payload : {})
+  const payload = isRecord(request.payload) ? request.payload : {}
+  const parameterEntries = Object.entries(payload)
   const parameterRows = parameterEntries.map(([key, value]) => ({ key, value: value === null ? 'null' : valueText(value) }))
+
+  useEffect(() => {
+    if (isRecord(task.inputParameters?.payload)) return
+    onChange({
+      ...task,
+      inputParameters: { ...task.inputParameters, payload: {} },
+    })
+  }, [task.taskReferenceName])
 
   const updateJdbcRequest = (next: Record<string, unknown>) => {
     onChange({
@@ -55,14 +67,15 @@ export function JDBCTaskForm({ task, variableOptions, onChange }: { task: Workfl
             <span>JDBC URL <strong>*</strong></span>
             <VariableExpressionInput value={String(request.url ?? '')} options={variableOptions} onChange={(value) => updateJdbcRequest({ url: value })} />
           </label>
-          <label className="inspector-field">
+          <div className="inspector-field">
             <span>数据库厂商 <strong>*</strong></span>
-            <select value={String(request.vendor ?? 'MYSQL')} onChange={(event) => updateJdbcRequest({ vendor: event.target.value })}>
-              {['MYSQL', 'POSTGRES', 'SQLSERVER', 'ORACLE', 'OPENGAUSS', 'KINGBASE'].map((vendor) => (
-                <option value={vendor} key={vendor}>{vendor}</option>
-              ))}
-            </select>
-          </label>
+            <InspectorSelect
+              value={String(request.vendor ?? 'MYSQL')}
+              options={JDBC_VENDOR_OPTIONS}
+              ariaLabel="数据库厂商"
+              onChange={(vendor) => updateJdbcRequest({ vendor })}
+            />
+          </div>
           <label className="inspector-field">
             <span>用户名</span>
             <VariableExpressionInput value={String(request.username ?? '')} options={variableOptions} onChange={(value) => updateJdbcRequest({ username: value })} />
@@ -82,7 +95,22 @@ export function JDBCTaskForm({ task, variableOptions, onChange }: { task: Workfl
         </div>
       </WorkflowCollapsibleSection>
 
-      <WorkflowCollapsibleSection title="SQL 语句">
+      <WorkflowCollapsibleSection title="SQL 模板参数">
+        <ParameterRows
+          items={parameterRows}
+          keyLabel="占位符名称"
+          valueLabel="参数值"
+          variableOptions={variableOptions}
+          onChange={updateParameter}
+          onDelete={(index) => updateJdbcRequest({ payload: Object.fromEntries(parameterEntries.filter((_, row) => row !== index)) })}
+        />
+        <button type="button" className="add-parameter-button" onClick={addParameter}>
+          <PlusCircleIcon size={15} />
+          添加模板参数
+        </button>
+      </WorkflowCollapsibleSection>
+
+      <WorkflowCollapsibleSection title="SQL 模板">
         <div className="jdbc-operation-options" role="radiogroup" aria-label="JDBC 操作类型">
           {['QUERY', 'UPDATE'].map((operation) => (
             <label key={operation}>
@@ -106,46 +134,6 @@ export function JDBCTaskForm({ task, variableOptions, onChange }: { task: Workfl
           codeLabel="Statement"
           modalTitle="JDBC SQL 编辑器"
         />
-        <p className="field-help">使用 <code>$.字段</code> 读取 payload 并绑定参数。<code>IN $.barcodes</code> 和 <code>NOT IN $.barcodes</code> 自动补齐括号、展开数组；已有括号时直接沿用。空数组会报错。UPDATE 同时适用于 INSERT、UPDATE 和 DELETE。</p>
-      </WorkflowCollapsibleSection>
-
-      <WorkflowCollapsibleSection title="任务输入">
-        <div className="switch-evaluator-heading">
-          <span>入参方式</span>
-          <div className="switch-evaluator-options" role="radiogroup" aria-label="JDBC 输入方式">
-            <label>
-              <input type="radio" name={`jdbc-payload-mode-${task.taskReferenceName}`} value="expression"
-                checked={payloadMode === 'expression'}
-                onChange={() => updateJdbcRequest({ payload: '${workflow.input.data}' })} />
-              <span>表达式</span>
-            </label>
-            <label>
-              <input type="radio" name={`jdbc-payload-mode-${task.taskReferenceName}`} value="parameters"
-                checked={payloadMode === 'parameters'}
-                onChange={() => updateJdbcRequest({ payload: {} })} />
-              <span>Key / Value</span>
-            </label>
-          </div>
-        </div>
-        {payloadMode === 'expression' ? (
-          <label className="inspector-field">
-            <span>payload</span>
-            <VariableExpressionInput value={typeof payload === 'string' ? payload : ''}
-              options={variableOptions} onChange={(value) => updateJdbcRequest({ payload: value })} />
-          </label>
-        ) : (
-          <>
-            <ParameterRows items={parameterRows} keyLabel="字段名" valueLabel="值"
-              variableOptions={variableOptions} onChange={updateParameter}
-              onDelete={(index) => updateJdbcRequest({ payload: Object.fromEntries(parameterEntries.filter((_, row) => row !== index)) })} />
-            <button type="button" className="add-parameter-button" onClick={addParameter}>
-              <PlusCircleIcon size={15} />
-              添加字段
-            </button>
-            <p className="field-help">值支持文本、JSON 和 <code>{'${...}'}</code> 表达式；数组、对象和数值保留类型。纯字符串可用 JSON 双引号包裹。</p>
-          </>
-        )}
-        <p className="field-help">两种方式都写入 payload。用 <code>{'${workflow.input.data}'}</code> 传入业务数据后，SQL 中直接用 <code>$.barcode</code> 读取字段。SQL 引号内的路径保留原文。</p>
       </WorkflowCollapsibleSection>
     </div>
   )

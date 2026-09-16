@@ -24,7 +24,7 @@
 - 未配置输出映射：完整保留最后一个任务的输出，包括数组、标量和 null。
 - TERMINATE 显式提供 `workflowOutput`：优先使用该值，空对象、空数组、null 同样有效；不再包装成 `{ "output": ... }`。
 - Open API 支持直接返回字符串和其他 JSON 值；现有对象中的 `response` 特殊字段处理保持有效。
-- Jarvis 需要协议规定的对象输出。数组、标量应通过 `outputParameters` 映射到 `rsp` 等协议字段，否则返回明确的类型错误。
+- Jarvis 成功时直接返回工作流输出，不限定对象结构；工作流失败或调度异常时，才返回 `{ "code": "-1", "message": "..." }` 错误对象。
 
 ## 配置与错误
 
@@ -35,7 +35,7 @@
 ## 上线前迁移
 
 - 原 INLINE 引用 `${ref.output.result}` 改为 `${ref.output}`，`${ref.output.result.name}` 改为 `${ref.output.name}`。脚本本身返回的业务字段 `result` 保留，不能无条件删除所有 `.result`。
-- FUNCTION 直接返回解析值，旧根对象引用继续有效；曾采用 result 包装的定义应移除引擎包装层。仓库中的示例与 UI 模板已同步。
+- FUNCTION 直接返回解析值或序列化字符串，旧根对象引用继续有效；曾采用 result 包装的定义应移除引擎包装层。仓库中的示例与 UI 模板已同步。
 - SPI 接口改为 `Object remoteInvoke(Map<String, Object> input)`。返回 Map 的源码实现仍可通过 Java 协变返回类型继续使用；已编译扩展需重新编译。
 - 原诊断引用 `${ref.output.error}` 改为 `${ref.reasonForInCompletion}`。历史运行记录不自动改写。
 - 数据库中已保存的流程、外部导出的定义和调用方 DTO 需要按上述规则更新；不提供随结果形状自动拆包的兼容逻辑。

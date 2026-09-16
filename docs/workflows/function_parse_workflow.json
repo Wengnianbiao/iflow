@@ -1,8 +1,8 @@
 {
   "name": "function_parse_example",
-  "displayName": "JSON/XML 字符串反序列化示例",
+  "displayName": "JSON/XML 解析与序列化示例",
   "version": 1,
-  "description": "通过 FUNCTION 内置函数解析工作流输入中的 JSON、XML 字符串，返回值直接作为任务 output。",
+  "description": "通过 FUNCTION 内置函数解析工作流输入中的 JSON、XML 字符串，再序列化回字符串；返回值直接作为任务 output。",
   "inputParameters": [
     "request",
     "xmlRequest"
@@ -10,7 +10,9 @@
   "outputParameters": {
     "patientCode": "${parse_json_ref.output.patientCode}",
     "json": "${parse_json_ref.output}",
-    "xml": "${parse_xml_ref.output}"
+    "jsonText": "${stringify_json_ref.output}",
+    "xml": "${parse_xml_ref.output}",
+    "xmlText": "${stringify_xml_ref.output}"
   },
   "tasks": [
     {
@@ -29,6 +31,24 @@
       "inputParameters": {
         "function": "XML_PARSE",
         "value": "${workflow.input.xmlRequest}"
+      }
+    },
+    {
+      "name": "stringify_json_request",
+      "taskReferenceName": "stringify_json_ref",
+      "type": "FUNCTION",
+      "inputParameters": {
+        "function": "JSON_STRINGIFY",
+        "value": "${parse_json_ref.output}"
+      }
+    },
+    {
+      "name": "stringify_xml_request",
+      "taskReferenceName": "stringify_xml_ref",
+      "type": "FUNCTION",
+      "inputParameters": {
+        "function": "XML_STRINGIFY",
+        "value": "${parse_xml_ref.output}"
       }
     }
   ]

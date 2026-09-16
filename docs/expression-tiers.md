@@ -38,7 +38,9 @@ INLINE 与 MAPPING 的宿主语言是 JavaScript，`$.id` 本身就是合法的 
     "url": "${workflow.input.dbUrl}",
     "vendor": "MYSQL",
     "operation": "QUERY",
-    "payload": "${workflow.input.data}",
+    "payload": {
+      "barcodes": "${workflow.input.data.barcodes}"
+    },
     "sqlTemplate": "SELECT * FROM v_lis_apply WHERE barcode IN $.barcodes"
   }
 }
@@ -46,10 +48,9 @@ INLINE 与 MAPPING 的宿主语言是 JavaScript，`$.id` 本身就是合法的 
 
 所有 JDBC 配置平铺在 `inputParameters`。`payload` 是业务数据入口，`sqlTemplate` 是 SQL 模板。`$` 直接代表解析后的 payload，所以使用 `$.barcode`，不额外加一层 `$.payload`。
 
-### payload 的两种配置
+### SQL 模板参数
 
-- **表达式**：`"payload": "${workflow.input.data}"`，整体接收工作流输入或前置任务输出。
-- **Key / Value**：用对象组装输入，每个值支持 `${...}`；完整表达式解析为数组、对象、数值或布尔值时保留类型。
+`payload` 固定为 Key / Value 对象。键对应 SQL 模板中的 `$.字段`，值支持 `${...}`；完整表达式解析为数组、对象、数值或布尔值时保留类型。
 
 ```json
 {
@@ -62,7 +63,7 @@ INLINE 与 MAPPING 的宿主语言是 JavaScript，`$.id` 本身就是合法的 
 }
 ```
 
-两种模式都写入同一个 payload，不增加模式字段。控制台的 Key / Value 值支持文本和 JSON；例如 `["A001","A002"]` 保存为数组，`123` 保存为数值，`"123"` 保存为字符串。编辑其他字段或改名时保留已有值的类型。payload 中的 JSON 字符串不会在任务执行时再次解析成对象。
+控制台的模板参数值支持文本和 JSON；例如 `["A001","A002"]` 保存为数组，`123` 保存为数值，`"123"` 保存为字符串。编辑其他字段或改名时保留已有值的类型。payload 中的 JSON 字符串不会在任务执行时再次解析成对象。
 
 ### 数组展开
 
@@ -72,11 +73,11 @@ INLINE 与 MAPPING 的宿主语言是 JavaScript，`$.id` 本身就是合法的 
 
 ### 规则
 
-- 支持确定路径：`$.barcode`、`$.patient.id`、`$.items[0].code`、`$['特殊字段名']`。数组索引为非负整数；带连字符或点的字段名使用括号形式。
+- 支持确定路径：`$.barcode`、`$.patient.id`、`$.items[0].code`、`$['特殊字段名']`。payload 根必须是对象，数组放在命名参数下；数组索引为非负整数，带连字符或点的字段名使用括号形式。
 - 不支持通配符、递归查找、筛选和脚本计算；这些数据处理交给上游任务。路径之外的 `-`、`+`、`::` 等仍按 SQL 处理。
 - SQL 字符串、引用标识符和注释里的 `$.` 保留原文。例如 `JSON_EXTRACT(doc, '$.barcode')` 中的路径由数据库处理。
 - 模糊查询使用 `LIKE CONCAT('%', $.keyword, '%')`；`LIKE '%$.keyword%'` 是普通字符串，不替换。
 - 绑定值可以是标量、null 或非空的一维标量数组。对象、嵌套数组和非法路径在连接前报错。缺失叶子字段绑定 null；`= null` 仍遵循 SQL 的 null 比较语义。
-- 无任务路径的 SQL 可以省略 payload；读取路径时 payload 必须是对象或数组。
+- payload 必须是对象；无任务路径的 SQL 使用空对象 `{}`，数组需要放在命名参数下。
 - 绑定参数不能替代表名、列名、排序方向。动态 SQL 结构由上游生成，使用 `"sqlTemplate": "${build_sql_ref.output}"` 传入，并保留其中的 `$.字段` 给 JDBC 绑定。
 - 本次重构直接移除 `jdbc_request`、`parameters`、`sql` 和 `#{...}` 旧契约，现有定义需改为新结构。
