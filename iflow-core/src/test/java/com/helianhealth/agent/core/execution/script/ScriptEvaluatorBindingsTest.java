@@ -43,6 +43,18 @@ class ScriptEvaluatorBindingsTest {
     }
 
     @Test
+    void cryptoMd5ReturnsLowercaseUtf8Hex() {
+        assertEquals("900150983cd24fb0d6963f7d28e17f72", evaluator.evaluate("Crypto.md5('abc')", Map.of()));
+        assertEquals(
+                "e2467edd4a29bf5f621125683d83b1c1",
+                evaluator.evaluate(
+                        "Crypto.md5(($.appID || '') + 'examineregister' + '20260920')",
+                        Map.of("appID", "test")));
+        assertThrows(IllegalArgumentException.class,
+                () -> evaluator.evaluateWithBindings("Crypto", Map.of(), Map.of("Crypto", "other")));
+    }
+
+    @Test
     void xmlStringifyUsesSharedMapConvention() {
         Map<String, Object> patient = new LinkedHashMap<>();
         patient.put("code", "82601230009");

@@ -128,6 +128,13 @@ public class ParamMapTransformer {
             if (mode == null || type == null) {
                 throw new IllegalArgumentException("必须指定 mappingType 和有效的 targetParamType");
             }
+            if (type == ParamType.ARRAY && mode != MappingType.ARRAY_MAP
+                    && mode != MappingType.ARRAY_FIXED && mode != MappingType.EXPRESSION) {
+                throw new IllegalArgumentException("数组仅支持循环映射、固定长度或 JS 表达式");
+            }
+            if (type == ParamType.OBJECT && mode != MappingType.OBJECT && mode != MappingType.EXPRESSION) {
+                throw new IllegalArgumentException("对象仅支持对象构建或 JS 表达式");
+            }
             if (mode != MappingType.OBJECT && !safeList(config.getChildParams()).isEmpty()
                     || mode != MappingType.ARRAY_FIXED && !safeList(config.getItems()).isEmpty()
                     || mode != MappingType.ARRAY_MAP && (config.getItemTemplate() != null || config.getItemAlias() != null)) {
@@ -135,9 +142,6 @@ public class ParamMapTransformer {
             }
             switch (mode) {
                 case NAME -> {
-                    if (type == ParamType.OBJECT || type == ParamType.ARRAY) {
-                        throw new IllegalArgumentException("NAME 仅支持标量目标类型；对象请配置子字段，数组请循环生成或固定组装");
-                    }
                     ParamSourceReader.validate(config.getSourceParamKey(), aliases);
                 }
                 case CONSTANT -> { }

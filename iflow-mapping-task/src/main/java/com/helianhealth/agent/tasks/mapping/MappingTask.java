@@ -60,7 +60,7 @@ public class MappingTask extends WorkflowSystemTask {
     private Map<String, Object> map(Map<String, Object> input) {
         Object payload = resolvePayload(input);
         List<ParamMappingConfig> configs =
-                objectMapper.convertValue(input == null ? null : input.get(INPUT_PARAMS_CONFIG), PARAM_MAPPING_CONFIGS);
+                objectMapper.convertValue(input.get(INPUT_PARAMS_CONFIG), PARAM_MAPPING_CONFIGS);
         if (configs == null || configs.isEmpty()) {
             throw new IllegalArgumentException("MAPPING inputParameters.paramsConfig must be a non-empty JSON array");
         }

@@ -78,11 +78,27 @@ class ParamMapTransformerTest {
 
     @Test
     void nativeConstantsAndExpressionResultsPreserveJsonTypes() {
-        assertEquals(List.of(Map.of("a", true)), map(constant("out", ParamType.ARRAY, List.of(Map.of("a", true))), Map.of()));
         assertEquals(Map.of("a", 1), map(expression("out", ParamType.OBJECT, "({a: 1})"), Map.of()));
         assertEquals(List.of(1, 2), map(expression("out", ParamType.ARRAY, "[1, 2]"), Map.of()));
         assertEquals(12, map(constant("out", ParamType.INTEGER, "12"), Map.of()));
         assertEquals("  keep spaces  ", map(constant("out", ParamType.STRING, "  keep spaces  "), Map.of()));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void expressionCanPassThroughObjectsWithoutSharingPayloadState() {
+        var patient = new LinkedHashMap<String, Object>();
+        patient.put("id", "P1");
+        var payload = new LinkedHashMap<String, Object>();
+        payload.put("patient", patient);
+
+        var copiedPatient = (Map<String, Object>) map(expression("patient", ParamType.OBJECT, "$.patient"), payload);
+
+        assertEquals(Map.of("id", "P1"), copiedPatient);
+        assertNotSame(patient, copiedPatient);
+
+        copiedPatient.put("id", "changed");
+        assertEquals("P1", patient.get("id"));
     }
 
     @Test
@@ -125,7 +141,7 @@ class ParamMapTransformerTest {
 
     @Test
     void invalidTemplatesAndAliasesAreRejectedEvenForEmptySources() {
-        for (String alias : List.of("$", "XML", "JSON", "for", "bad-name")) {
+        for (String alias : List.of("$", "XML", "Crypto", "JSON", "for", "bad-name")) {
             assertThrows(IllegalArgumentException.class, () -> map(loop("rows", "$", alias,
                     constant(null, ParamType.STRING, "a")), List.of()));
         }
@@ -142,12 +158,36 @@ class ParamMapTransformerTest {
     void invalidModesPathsAndDuplicateFieldsAreRejected() {
         assertThrows(IllegalArgumentException.class, () -> map(name("out", ParamType.STRING, "id"), Map.of("id", "P1")));
         assertThrows(IllegalArgumentException.class, () -> map(name("out", ParamType.STRING, "$.items["), Map.of()));
-        assertTrue(assertThrows(IllegalArgumentException.class,
-                () -> map(name("out", ParamType.OBJECT, "$.object"), Map.of("object", Map.of())))
-                .getMessage().contains("NAME 仅支持标量"));
-        assertTrue(assertThrows(IllegalArgumentException.class,
-                () -> map(name("out", ParamType.ARRAY, "$.items"), Map.of("items", List.of())))
-                .getMessage().contains("NAME 仅支持标量"));
+        var objectNameFailure = assertThrows(IllegalArgumentException.class,
+                () -> map(name("out", ParamType.OBJECT, "$.object"), Map.of("object", Map.of())));
+        assertTrue(objectNameFailure.getMessage().contains("$.out"), objectNameFailure.getMessage());
+        assertTrue(objectNameFailure.getMessage().contains("对象仅支持对象构建或 JS 表达式"),
+                objectNameFailure.getMessage());
+        var objectConstantFailure = assertThrows(IllegalArgumentException.class,
+                () -> map(constant("out", ParamType.OBJECT, Map.of()), Map.of()));
+        assertTrue(objectConstantFailure.getMessage().contains("$.out"), objectConstantFailure.getMessage());
+        assertTrue(objectConstantFailure.getMessage().contains("对象仅支持对象构建或 JS 表达式"),
+                objectConstantFailure.getMessage());
+        var nestedObjectNameFailure = assertThrows(IllegalArgumentException.class,
+                () -> map(fixed("outer", name(null, ParamType.OBJECT, "$.patient")), Map.of("patient", Map.of())));
+        assertTrue(nestedObjectNameFailure.getMessage().contains("$.outer[0]"), nestedObjectNameFailure.getMessage());
+        assertTrue(nestedObjectNameFailure.getMessage().contains("对象仅支持对象构建或 JS 表达式"),
+                nestedObjectNameFailure.getMessage());
+        var arrayNameFailure = assertThrows(IllegalArgumentException.class,
+                () -> map(name("out", ParamType.ARRAY, "$.items"), Map.of("items", List.of())));
+        assertTrue(arrayNameFailure.getMessage().contains("$.out"), arrayNameFailure.getMessage());
+        assertTrue(arrayNameFailure.getMessage().contains("数组仅支持循环映射、固定长度或 JS 表达式"),
+                arrayNameFailure.getMessage());
+        var arrayConstantFailure = assertThrows(IllegalArgumentException.class,
+                () -> map(constant("out", ParamType.ARRAY, List.of()), Map.of()));
+        assertTrue(arrayConstantFailure.getMessage().contains("$.out"), arrayConstantFailure.getMessage());
+        assertTrue(arrayConstantFailure.getMessage().contains("数组仅支持循环映射、固定长度或 JS 表达式"),
+                arrayConstantFailure.getMessage());
+        var nestedArrayNameFailure = assertThrows(IllegalArgumentException.class,
+                () -> map(fixed("outer", name(null, ParamType.ARRAY, "$.items")), Map.of("items", List.of())));
+        assertTrue(nestedArrayNameFailure.getMessage().contains("$.outer[0]"), nestedArrayNameFailure.getMessage());
+        assertTrue(nestedArrayNameFailure.getMessage().contains("数组仅支持循环映射、固定长度或 JS 表达式"),
+                nestedArrayNameFailure.getMessage());
         var oldObject = name("out", ParamType.OBJECT, "$");
         oldObject.setChildParams(List.of(name("id", ParamType.STRING, "$.id")));
         assertThrows(IllegalArgumentException.class, () -> map(oldObject, Map.of()));

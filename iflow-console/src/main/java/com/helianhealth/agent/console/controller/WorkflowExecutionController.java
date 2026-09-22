@@ -63,6 +63,7 @@ public class WorkflowExecutionController {
     public ResultData<PageList<WorkflowExecutionSummary>> search(
             @RequestParam(value = "workflowName", required = false) String workflowName,
             @RequestParam(value = "name", required = false) String legacyWorkflowName,
+            @RequestParam(value = "workflowNames", required = false) List<String> workflowNames,
             @RequestParam(value = "version", required = false) Integer version,
             @RequestParam(value = "status", required = false) String status,
             @RequestParam(value = "workflowId", required = false) String workflowId,
@@ -73,15 +74,21 @@ public class WorkflowExecutionController {
             @RequestParam(value = "pageSize", defaultValue = "20") int pageSize) {
         int safePageNum = Math.max(1, pageNum);
         int safePageSize = clamp(pageSize, 1, MAX_PAGE_SIZE);
-        String name = firstText(workflowName, legacyWorkflowName);
+        List<String> names = workflowNames == null ? List.of() : workflowNames.stream()
+                .filter(StringUtils::hasText).map(String::trim).distinct().toList();
+        String legacyName = firstText(workflowName, legacyWorkflowName);
+        if (names.isEmpty() && StringUtils.hasText(legacyName)) {
+            names = List.of(legacyName);
+        }
+        Set<String> selectedNames = new LinkedHashSet<>(names);
 
         List<WorkflowModel> workflows =
-                loadSearchCandidates(name, workflowId, correlationId, startTime, endTime);
+                loadSearchCandidates(names, workflowId, correlationId, startTime, endTime);
         Set<String> statuses = parseStatuses(status);
         List<WorkflowExecutionSummary> filtered =
                 workflows.stream()
                         .filter(workflow -> matchesWorkflowId(workflow, workflowId))
-                        .filter(workflow -> matchesName(workflow, name))
+                        .filter(workflow -> selectedNames.isEmpty() || selectedNames.contains(workflow.getWorkflowName()))
                         .filter(workflow -> matchesVersion(workflow, version))
                         .filter(workflow -> matchesStatus(workflow, statuses))
                         .filter(workflow -> matchesCorrelationId(workflow, correlationId))
@@ -142,7 +149,7 @@ public class WorkflowExecutionController {
     }
 
     private List<WorkflowModel> loadSearchCandidates(
-            String workflowName,
+            List<String> workflowNames,
             String workflowId,
             String correlationId,
             Long startTime,
@@ -151,7 +158,7 @@ public class WorkflowExecutionController {
             return executionDAO.getWorkflow(workflowId, false).stream().toList();
         }
 
-        List<String> names = resolveWorkflowNames(workflowName);
+        List<String> names = resolveWorkflowNames(workflowNames);
         if (StringUtils.hasText(correlationId)) {
             return names.stream()
                     .flatMap(name -> executionDAO.getWorkflowsByCorrelationId(name, correlationId, false).stream())
@@ -175,9 +182,9 @@ public class WorkflowExecutionController {
                 .collect(Collectors.toList());
     }
 
-    private List<String> resolveWorkflowNames(String workflowName) {
-        if (StringUtils.hasText(workflowName)) {
-            return List.of(workflowName);
+    private List<String> resolveWorkflowNames(List<String> workflowNames) {
+        if (!workflowNames.isEmpty()) {
+            return workflowNames;
         }
         return metadataService.getAllLatest().stream()
                 .map(WorkflowDef::getName)
@@ -197,11 +204,6 @@ public class WorkflowExecutionController {
     private static boolean matchesWorkflowId(WorkflowModel workflow, String workflowId) {
         return !StringUtils.hasText(workflowId)
                 || workflowId.equals(workflow.getWorkflowId());
-    }
-
-    private static boolean matchesName(WorkflowModel workflow, String workflowName) {
-        return !StringUtils.hasText(workflowName)
-                || workflowName.equals(workflow.getWorkflowName());
     }
 
     private static boolean matchesVersion(WorkflowModel workflow, Integer version) {

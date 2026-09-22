@@ -39,12 +39,14 @@ import java.util.concurrent.TimeoutException;
 /**
  * GraalJS 脚本求值器。
  *
- * <p>脚本内通过全局 {@code $} 访问任务 input；{@code XML} 提供 XML 解析/序列化。
+ * <p>脚本内通过全局 {@code $} 访问任务 input；{@code XML} 提供 XML 解析/序列化；
+ * {@code Crypto.md5} 按 UTF-8 计算小写 32 位十六进制摘要。
  */
 public final class ScriptEvaluator {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ScriptEvaluator.class);
     private static final XmlBridge XML_BRIDGE = new XmlBridge();
+    private static final CryptoBridge CRYPTO_BRIDGE = new CryptoBridge();
 
     private static final int DEFAULT_MAX_EXECUTION_SECONDS = 4;
     private static final int DEFAULT_CONTEXT_POOL_SIZE = 10;
@@ -62,7 +64,7 @@ public final class ScriptEvaluator {
     private static final ConcurrentMap<String, Source> SOURCE_CACHE = new ConcurrentHashMap<>();
 
     private static final Set<String> RESERVED_BINDINGS = Set.of(
-            "$", "XML", "arguments", "eval", "undefined", "NaN", "Infinity", "globalThis",
+            "$", "XML", "Crypto", "arguments", "eval", "undefined", "NaN", "Infinity", "globalThis",
             "Object", "Function", "Boolean", "Symbol", "Number", "BigInt", "Math", "Date",
             "String", "RegExp", "Array", "JSON", "Map", "Set", "WeakMap", "WeakSet",
             "Promise", "Reflect", "Proxy", "Intl", "Atomics", "WebAssembly", "console",
@@ -286,6 +288,7 @@ public final class ScriptEvaluator {
             final Value jsBindings = context.getBindings("js");
             jsBindings.putMember("$", toScriptValue(input));
             jsBindings.putMember("XML", XML_BRIDGE);
+            jsBindings.putMember("Crypto", CRYPTO_BRIDGE);
             bindLocals(jsBindings, localBindings);
             final Future<Value> futureResult = executorService.submit(() -> context.eval(source));
             Value value = futureResult.get(maxExecutionTimeSeconds.getSeconds(), TimeUnit.SECONDS);
@@ -441,6 +444,7 @@ public final class ScriptEvaluator {
         void prepareBindings(Object input, Map<String, Object> locals) {
             bindings.putMember("$", toScriptValue(input));
             bindings.putMember("XML", XML_BRIDGE);
+            bindings.putMember("Crypto", CRYPTO_BRIDGE);
             bindLocals(bindings, locals);
             localNames = new HashSet<>(locals.keySet());
         }
@@ -450,6 +454,7 @@ public final class ScriptEvaluator {
             localNames = Set.of();
             bindings.removeMember("$");
             bindings.removeMember("XML");
+            bindings.removeMember("Crypto");
         }
     }
 }

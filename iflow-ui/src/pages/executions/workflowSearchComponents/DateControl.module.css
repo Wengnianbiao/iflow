@@ -1,0 +1,57 @@
+.control { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.controlLabel { color: var(--iflow-color-text-muted); font-size: 12px; }
+.picker { color: var(--iflow-color-text-secondary); }
+.header { display: flex; align-items: flex-start; justify-content: space-between; padding: 20px 20px 16px 24px; }
+.title { display: flex; align-items: center; gap: 8px; color: var(--iflow-color-text); font-size: 14px; font-weight: 600; }
+.title svg { color: var(--iflow-color-primary); }
+.subtitle { margin: 7px 0 0; color: var(--iflow-color-text-muted); font-size: 12px; }
+.sectionLabel { color: var(--iflow-color-text-muted); font-size: 12px; }
+.presets { padding: 20px 24px 18px; }
+.presetGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; margin-top: 12px; }
+.preset { display: flex; align-items: center; justify-content: space-between; height: 38px; padding: 0 12px; border: 1px solid var(--iflow-color-border); border-radius: 5px; background: var(--iflow-color-surface); color: var(--iflow-color-text-secondary); font: inherit; font-size: 13px; cursor: pointer; transition: background .15s, border-color .15s; }
+.preset svg { color: var(--iflow-color-text-muted); opacity: .6; }
+.preset:hover, .preset:focus-visible { color: var(--iflow-color-primary); border-color: var(--iflow-color-primary); background: var(--iflow-color-primary-muted); }
+.preset:hover svg { opacity: 1; color: inherit; }
+.hint { display: flex; align-items: center; gap: 6px; margin-top: 18px; color: var(--iflow-color-text-muted); font-size: 11px; }
+.absolute { display: grid; grid-template-columns: minmax(0, 1fr) 204px; padding: 20px 24px; gap: 24px; }
+.calendar { min-width: 0; }
+.monthHeader { display: flex; justify-content: space-between; align-items: center; height: 32px; margin-bottom: 8px; font-size: 13px; font-weight: 600; }
+.monthHeader > div { display: flex; gap: 4px; }
+.days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-auto-rows: 36px; row-gap: 3px; }
+.weekday { display: grid; place-items: center; color: var(--iflow-color-text-muted); font-size: 11px; }
+.dayCell { display: grid; place-items: center; }
+.inRange { background: var(--iflow-color-primary-soft); }
+.rangeStart { border-radius: 50% 0 0 50%; }
+.rangeEnd { border-radius: 0 50% 50% 0; }
+.rangeStart.rangeEnd { border-radius: 50%; }
+.day { position: relative; width: 34px; height: 34px; display: grid; place-items: center; padding: 0; border: 1px solid transparent; border-radius: 50%; color: var(--iflow-color-text-secondary); background: transparent; font: inherit; font-size: 12px; font-variant-numeric: tabular-nums; cursor: pointer; }
+.day:hover:not(:disabled) { border-color: var(--iflow-color-primary); background: var(--iflow-color-primary-muted); color: var(--iflow-color-primary); }
+.day:disabled { color: var(--iflow-color-text-muted); opacity: .35; cursor: default; }
+.today:not(.selectedDay) { border-color: var(--iflow-color-border); color: var(--iflow-color-primary); }
+.selectedDay, .selectedDay:hover:not(:disabled) { color: white; background: var(--iflow-color-primary); font-weight: 600; }
+.day:focus-visible, .preset:focus-visible { outline: 2px solid var(--iflow-color-primary); outline-offset: 2px; }
+.calendarHint { margin-top: 12px; font-size: 11px; color: var(--iflow-color-text-muted); }
+.timeFields { border-left: 1px solid var(--iflow-color-border); padding-left: 20px; display: flex; flex-direction: column; gap: 20px; }
+.fieldLabel { display: block; margin: 4px 0 8px; color: var(--iflow-color-text-muted); font-size: 12px; }
+.dateInputGroup { border: 1px solid var(--iflow-color-border); border-radius: 5px; overflow: hidden; }
+.dateInputGroup:focus-within { border-color: var(--iflow-color-primary); box-shadow: 0 0 0 1px var(--iflow-color-primary); }
+.inputRow { display: flex; align-items: center; gap: 8px; padding: 0 10px; height: 38px; }
+.inputRow + .inputRow { border-top: 1px solid var(--iflow-color-border); background: var(--iflow-color-surface-muted); }
+.inputRow svg { color: var(--iflow-color-text-muted); flex-shrink: 0; }
+.inputRow input { width: 100%; min-width: 0; padding: 0; border: 0; outline: 0; background: transparent; color: var(--iflow-color-text-secondary); font: inherit; font-size: 12px; font-variant-numeric: tabular-nums; }
+.timeHint { margin-top: auto; color: var(--iflow-color-text-muted); font-size: 11px; }
+.relative { padding: 24px; }
+.roundControl { display: flex; justify-content: space-between; align-items: center; margin: 16px 0; font-size: 12px; cursor: pointer; }
+.preview { padding: 14px 16px; background: var(--iflow-color-surface-muted); border-radius: 5px; }
+.preview p { margin: 8px 0 0; font-size: 12px; font-variant-numeric: tabular-nums; }
+.error { color: var(--iflow-color-danger); }
+.footer { display: flex; align-items: center; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--iflow-color-border); background: var(--iflow-color-surface-muted); }
+@media (max-width: 600px) {
+  .absolute { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .timeFields { border-left: 0; border-top: 1px solid var(--iflow-color-border); padding: 12px 0 0; flex-direction: row; flex-wrap: wrap; gap: 12px; }
+  .dateField { flex: 1; min-width: 110px; }
+  .timeHint { width: 100%; }
+  .footer { flex-wrap: wrap; }
+  .footer > p { flex-basis: 100%; }
+  .footer > button:first-of-type { margin-left: auto; }
+}

@@ -25,15 +25,6 @@ import java.util.Map;
 
 /**
  * WebService (SOAP) 外呼系统任务。
- *
- * <p>{@code inputParameters} 字段与 {@link com.helianhealth.agent.tasks.http.HttpTask.Input} 对齐，
- * 唯一差异是用 {@link Input#soapTemplate} 替代 HTTP 的 {@code body}：SOAP/XML 字符串模板，
- * 内含 {@code ${...}} 占位符，由 {@link com.helianhealth.agent.core.execution.mapper.WebServiceTaskMapper}
- * + {@link com.helianhealth.agent.core.utils.ParametersUtils} 在调度阶段替换后作为请求体 POST。
- *
- * <p>入参直接取自 {@link TaskModel#getInputData()}（即定义层 {@code inputParameters}），无额外包装键；
- * 执行结果写入 {@code outputData} 根级
- *（{@code body}/{@code headers}/{@code statusCode}/{@code reasonPhrase}）。
  */
 @Component(TaskType.TASK_TYPE_WEBSERVICE)
 public class WebServiceTask extends WorkflowSystemTask {

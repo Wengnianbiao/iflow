@@ -34,6 +34,7 @@ export async function searchWorkflowExecutions(
 ): Promise<PageResult<WorkflowExecutionSummary>> {
   try {
     const { data } = await axios.get<ApiResult<PageResult<WorkflowExecutionSummary>>>(`${BASE}/search`, {
+      paramsSerializer: { indexes: null },
       params: {
         ...params,
         status: params.status?.length ? params.status.join(',') : undefined,

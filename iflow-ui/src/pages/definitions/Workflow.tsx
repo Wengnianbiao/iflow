@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import { Helmet } from 'react-helmet'
 import {
   Button,
-  Dropdown,
-  Empty,
-  Space,
+  CircularProgress,
+  IconButton,
+  Menu,
+  MenuItem,
+  Stack,
   Tooltip,
-  type MenuProps,
-  type TableColumnsType,
-} from 'antd'
+  Typography,
+} from '@mui/material'
 import {
   CaretDownIcon,
   CopyIcon,
@@ -27,6 +28,7 @@ import { useMessageContext } from '@/components/providers/messageContext'
 import {
   DataTable,
   DEFAULT_PAGE_SIZE_OPTIONS,
+  type DataTableColumn,
 } from '@/components/ui/DataTable'
 import { NavLink } from '@/components/ui/NavLink'
 import type { WorkflowDef } from '@/types/workflow'
@@ -59,6 +61,7 @@ export default function WorkflowDefinitions() {
   const { setMessage } = useMessageContext()
   const importInputRef = useRef<HTMLInputElement>(null)
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false)
+  const [createMenuAnchor, setCreateMenuAnchor] = useState<HTMLElement | null>(null)
   const { data, isFetching, error, refetch }: UseQueryResult<WorkflowDef[]> =
     useWorkflowDefs()
   const [
@@ -142,26 +145,7 @@ export default function WorkflowDefinitions() {
     openWorkflowDraft(template.create(name))
   }
 
-  const createMenu = useMemo<MenuProps>(() => ({
-    items: [
-      {
-        key: 'import',
-        icon: <FileArrowUpIcon size={18} />,
-        label: '导入工作流',
-      },
-      {
-        key: 'template',
-        icon: <SquaresFourIcon size={18} />,
-        label: '选择工作流模板',
-      },
-    ],
-    onClick: ({ key }) => {
-      if (key === 'import') importInputRef.current?.click()
-      if (key === 'template') setTemplateDialogOpen(true)
-    },
-  }), [])
-
-  const columns = useMemo<TableColumnsType<WorkflowDef>>(
+  const columns = useMemo<DataTableColumn<WorkflowDef>[]>(
     () => [
       {
         title: '工作流名称',
@@ -183,23 +167,26 @@ export default function WorkflowDefinitions() {
         dataIndex: 'name',
         key: 'route',
         width: 210,
-        render: (name: string) => <code className={styles.route}>{name}</code>,
+        render: (name) => <code className={styles.route}>{String(name)}</code>,
       },
       {
         title: '描述',
         dataIndex: 'description',
         key: 'description',
-        ellipsis: true,
-        render: (description?: string) => description || '-',
+        render: (description) => (
+          <span className={styles.description}>
+            {typeof description === 'string' && description ? description : '-'}
+          </span>
+        ),
       },
       {
         title: '创建时间',
         dataIndex: 'createTime',
         key: 'createTime',
         width: 185,
-        render: (value?: number | string) => {
+        render: (value) => {
           if (value == null || value === '') return '-'
-          const date = new Date(value)
+          const date = new Date(value as number | string)
           if (Number.isNaN(date.getTime())) return '-'
 
           const pad = (part: number) => String(part).padStart(2, '0')
@@ -212,7 +199,7 @@ export default function WorkflowDefinitions() {
         key: 'version',
         width: 105,
         align: 'center',
-        render: (version?: number) => version ?? '-',
+        render: (version) => typeof version === 'number' ? version : '-',
       },
       {
         title: '操作',
@@ -220,47 +207,50 @@ export default function WorkflowDefinitions() {
         width: 136,
         fixed: 'right',
         render: (_value, definition: WorkflowDef) => (
-          <Space size={2}>
+          <Stack direction="row" spacing={0.25}>
             <Tooltip title="复制工作流定义">
-              <Button
-                type="text"
+              <IconButton
+                size="small"
                 aria-label={`复制 ${definition.name}`}
-                icon={<CopyIcon size={18} />}
                 onClick={() =>
                   setSelectedWorkflowWithAction({
                     selectedWorkflow: definition,
                     action: 'clone',
                   })
                 }
-              />
+              >
+                <CopyIcon size={18} />
+              </IconButton>
             </Tooltip>
             <Tooltip title="编辑工作流">
-              <Button
-                type="text"
+              <IconButton
+                size="small"
                 aria-label={`编辑 ${definition.name}`}
-                icon={<PencilSimpleIcon size={18} />}
                 onClick={() =>
                   navigate(
                     `/workflowDef/${encodeURIComponent(definition.name)}/${definition.version}`,
                   )
                 }
-              />
+              >
+                <PencilSimpleIcon size={18} />
+              </IconButton>
             </Tooltip>
             <Tooltip title="删除工作流">
-              <Button
-                type="text"
-                danger
+              <IconButton
+                size="small"
+                color="error"
                 aria-label={`删除 ${definition.name}`}
-                icon={<TrashIcon size={18} />}
                 onClick={() =>
                   setSelectedWorkflowWithAction({
                     selectedWorkflow: definition,
                     action: 'delete',
                   })
                 }
-              />
+              >
+                <TrashIcon size={18} />
+              </IconButton>
             </Tooltip>
-          </Space>
+          </Stack>
         ),
       },
     ],
@@ -342,8 +332,8 @@ export default function WorkflowDefinitions() {
         actions={
           <div className={styles.createWorkflowGroup}>
             <Button
-              type="primary"
-              icon={<PlusIcon size={17} />}
+              variant="contained"
+              startIcon={<PlusIcon size={17} />}
               className={styles.createWorkflowButton}
               onClick={() => navigate(newWorkflowUrl(
                 nextAvailableWorkflowName('new_workflow', data ?? []),
@@ -351,19 +341,45 @@ export default function WorkflowDefinitions() {
             >
               新建工作流
             </Button>
-            <Dropdown
-              menu={createMenu}
-              trigger={['click']}
-              placement="bottomRight"
-              overlayClassName={styles.createWorkflowMenu}
+            <Button
+              variant="contained"
+              className={styles.createWorkflowMenuButton}
+              aria-label="更多新建工作流方式"
+              aria-controls={createMenuAnchor ? 'create-workflow-menu' : undefined}
+              aria-haspopup="true"
+              aria-expanded={createMenuAnchor ? 'true' : undefined}
+              onClick={(event) => setCreateMenuAnchor(event.currentTarget)}
             >
-              <Button
-                type="primary"
-                className={styles.createWorkflowMenuButton}
-                icon={<CaretDownIcon size={16} weight="bold" />}
-                aria-label="更多新建工作流方式"
-              />
-            </Dropdown>
+              <CaretDownIcon size={16} weight="bold" />
+            </Button>
+            <Menu
+              id="create-workflow-menu"
+              anchorEl={createMenuAnchor}
+              open={Boolean(createMenuAnchor)}
+              onClose={() => setCreateMenuAnchor(null)}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+              slotProps={{ paper: { className: styles.createWorkflowMenu } }}
+            >
+              <MenuItem
+                onClick={() => {
+                  setCreateMenuAnchor(null)
+                  importInputRef.current?.click()
+                }}
+              >
+                <FileArrowUpIcon size={18} />
+                导入工作流
+              </MenuItem>
+              <MenuItem
+                onClick={() => {
+                  setCreateMenuAnchor(null)
+                  setTemplateDialogOpen(true)
+                }}
+              >
+                <SquaresFourIcon size={18} />
+                选择工作流模板
+              </MenuItem>
+            </Menu>
           </div>
         }
       />
@@ -382,9 +398,11 @@ export default function WorkflowDefinitions() {
           }
           customActions={
             <Button
-              type="text"
-              icon={<ArrowClockwiseIcon size={17} />}
-              loading={isFetching}
+              variant="text"
+              startIcon={isFetching
+                ? <CircularProgress color="inherit" size={16} />
+                : <ArrowClockwiseIcon size={17} />}
+              disabled={isFetching}
               onClick={() => void refetch()}
             >
               刷新
@@ -396,7 +414,7 @@ export default function WorkflowDefinitions() {
           rowKey={(definition) => `${definition.name}-${definition.version}`}
           scroll={{ x: 970 }}
           locale={{
-            emptyText: <Empty description="没有匹配的工作流配置" />,
+            emptyText: <Typography color="text.secondary">没有匹配的工作流配置</Typography>,
           }}
           pagination={{
             current: currentPage,
@@ -405,7 +423,6 @@ export default function WorkflowDefinitions() {
             showSizeChanger: true,
             showTotal: (total, range) =>
               total ? `${range[0]}-${range[1]} / ${total}` : '0-0 / 0',
-            placement: ['bottomEnd'],
             onChange: (page) => handlePageChange(page),
           }}
         />

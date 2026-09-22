@@ -1,5 +1,4 @@
 import {
-  ArrowsLeftRightIcon,
   BracketsCurlyIcon,
   DatabaseIcon,
   DiamondIcon,
@@ -209,7 +208,7 @@ registerCoreTaskPlugins([
     label: '参数映射',
     cardLabel: '参数映射',
     icon: LightningIcon,
-    menu: { label: '参数映射', description: '映射和整理任务参数。', icon: ArrowsLeftRightIcon },
+    menu: { label: '参数映射', description: '映射和整理任务参数。', icon: LightningIcon },
     card: MAPPINGTaskCard,
     form: ParamMapTaskForm,
     inspectorLayout: 'bare',

@@ -290,6 +290,13 @@ public class MySqlExecutionDAO extends MySqlBaseDAO implements ExecutionDAO {
     }
 
     @Override
+    public List<String> getRunningWorkflowIds() {
+        return queryWithTransaction(
+                "SELECT workflow_id FROM workflow_pending",
+                q -> q.executeAndFetch(String.class));
+    }
+
+    @Override
     public List<WorkflowModel> getPendingWorkflowsByType(String workflowName, int version) {
         return getWithTransaction(
                 tx -> {

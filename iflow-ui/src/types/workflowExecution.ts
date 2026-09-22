@@ -57,6 +57,7 @@ export interface WorkflowExecution {
 export interface WorkflowExecutionSummary {
   workflowId: string
   workflowName: string
+  displayName?: string
   workflowVersion: number
   status: WorkflowExecutionStatus
   correlationId?: string
@@ -69,6 +70,7 @@ export interface WorkflowExecutionSummary {
 }
 
 export interface WorkflowExecutionSearchParams {
+  workflowNames?: string[]
   workflowName?: string
   version?: number
   status?: string[]

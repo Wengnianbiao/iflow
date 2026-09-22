@@ -18,18 +18,17 @@ import { createPortal } from 'react-dom'
 import { WorkflowCollapsibleSection, ParameterRows, VariableExpressionInput, valueText } from '@/pages/definition/EditorPanel/InspectorFields'
 import { InlineScriptEditor } from '@/pages/definition/EditorPanel/TaskFormTab/forms/InlineScriptEditor'
 import {
-  PARAM_TYPES, MAPPING_TYPES, configChildren, withConfigChildren, configAtPath,
-  configNodeLabel, scopeAliases, normalizeConfig, normalizeForSave, emptyConfig, objectTemplate,
-  updateAtPath, removeAtPath, insertAfterPath, flattenConfigs, countMappingTargetFields,
-  parseMappingConfigs, validateNode,
-  type ParamMappingConfig, type ParamType, type MappingType, type ConfigPath,
+  PARAM_TYPES, configChildren, withConfigChildren, configAtPath,
+  configNodeLabel, loopElementLabel, scopeAliases, normalizeConfig, normalizeForSave, emptyConfig, objectTemplate,
+  updateAtPath, removeAtPath, insertAfterPath, flattenDisplayConfigs, countMappingTargetFields,
+  parseMappingConfigs, validateNode, sourcePathAfterTargetRename, aliasPathCorrection, mappingTypesForTargetType,
+  type ParamMappingConfig, type ParamType, type MappingType, type ConfigPath, type DisplayConfigRow,
 } from '@/tasks/mappingConfig'
 export type { ParamMappingConfig } from '@/tasks/mappingConfig'
 import type { WorkflowTask } from '@/types/workflow'
 
 type EditorView = 'JSON' | 'PARAMETERS'
 type PayloadMode = 'expression' | 'parameters'
-type TreeDisplay = 'TABLE' | 'STRUCTURE'
 
 const PAYLOAD_KEY = 'payload'
 const DEFAULT_PAYLOAD_EXPRESSION = '${workflow.input}'
@@ -54,9 +53,10 @@ function createEditSession(kind: EditSession['kind'], value: ParamMappingConfig,
 }
 
 function configPathLabel(configs: ParamMappingConfig[], path: ConfigPath): string {
-  return path.map((_, index) => {
+  return path.flatMap((_, index) => {
+    const currentPath = path.slice(0, index + 1)
     const config = configAtPath(configs, path.slice(0, index + 1))
-    return `${configNodeLabel(configs, path.slice(0, index + 1))}${config?.targetParamType === 'ARRAY' ? '[]' : ''}`
+    return [`${configNodeLabel(configs, currentPath)}${config?.targetParamType === 'ARRAY' ? '[]' : ''}`]
   }).join('.')
 }
 
@@ -84,29 +84,10 @@ function mappingLabel(type: MappingType) {
     case 'NAME': return '值映射'
     case 'CONSTANT': return '固定值'
     case 'EXPRESSION': return 'JS 表达式'
-    case 'OBJECT': return '配置子字段'
-    case 'ARRAY_MAP': return '循环生成'
-    case 'ARRAY_FIXED': return '固定元素'
+    case 'OBJECT': return '对象构建'
+    case 'ARRAY_MAP': return '循环映射'
+    case 'ARRAY_FIXED': return '固定长度'
   }
-}
-
-function hasNextSibling(configs: ParamMappingConfig[], path: ConfigPath): boolean {
-  const parent = configAtPath(configs, path.slice(0, -1))
-  const siblings = parent ? configChildren(parent) : configs
-  return path[path.length - 1] < siblings.length - 1
-}
-
-function structurePrefix(configs: ParamMappingConfig[], path: ConfigPath): string {
-  if (path.length === 1) return ''
-  const ancestors = path.slice(0, -1).map((_, index) => path.slice(0, index + 1))
-  const guides = ancestors.slice(0, -1).map((ancestor) => hasNextSibling(configs, ancestor) ? '│  ' : '   ').join('')
-  return `${guides}${hasNextSibling(configs, path) ? '├─ ' : '└─ '}`
-}
-
-function structureKind(config: ParamMappingConfig): string {
-  if (config.targetParamType === 'OBJECT') return '{ }'
-  if (config.targetParamType === 'ARRAY') return '[ ]'
-  return '·'
 }
 
 export function ParamMapTaskInspector({ task, header, variableOptions, onChange }: ParamMapTaskInspectorProps) {
@@ -116,7 +97,7 @@ export function ParamMapTaskInspector({ task, header, variableOptions, onChange 
   const payloadParams = isRecord(payload)
     ? Object.entries(payload).map(([key, value]) => ({ key, value: valueText(value) }))
     : []
-  const configs = readParamMappingConfigs(task)
+  const configs = useMemo(() => readParamMappingConfigs(task), [task.inputParameters?.paramsConfig])
   const storedConfigError = useMemo(() => {
     try { parseMappingConfigs(inputParameters.paramsConfig ?? []); return '' }
     catch (error) { return (error as Error).message }
@@ -178,7 +159,10 @@ export function ParamMapTaskInspector({ task, header, variableOptions, onChange 
   const openRootEditor = () => openSession(createEditSession('root', emptyConfig()))
   const openChildEditor = (path: ConfigPath) => {
     const parent = configAtPath(configs, path)
-    openSession(createEditSession('child', parent?.mappingType === 'ARRAY_FIXED' ? objectTemplate() : emptyConfig(), path))
+    const aliases = scopeAliases(configs, path)
+    const sourceRoot = aliases[aliases.length - 1] ?? '$'
+    const isArrayElement = parent?.mappingType === 'ARRAY_MAP' || parent?.mappingType === 'ARRAY_FIXED'
+    openSession(createEditSession('child', isArrayElement ? objectTemplate() : emptyConfig(sourceRoot), path))
   }
   const openEditEditor = (path: ConfigPath, value: ParamMappingConfig) => {
     if (editSession?.kind === 'edit' && editSession.path && pathKey(editSession.path) === pathKey(path)) return
@@ -407,13 +391,12 @@ function ParamMappingTreeEditor({
   fieldEditor: ReactNode
   onCloseFieldEditor: () => boolean
 } & ConfigActions) {
-  const allRows = useMemo(() => flattenConfigs(configs), [configs])
+  const allRows = useMemo(() => flattenDisplayConfigs(configs), [configs])
   const containerPaths = useMemo(
-    () => allRows.filter(({ config }) => configChildren(config).length > 0).map(({ path }) => pathKey(path)),
+    () => allRows.filter((row, index) => allRows[index + 1]?.depth > row.depth).map(({ path }) => pathKey(path)),
     [allRows],
   )
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() => new Set(containerPaths))
-  const [display, setDisplay] = useState<TreeDisplay>('TABLE')
   const [editorExpanded, setEditorExpanded] = useState(false)
   const [copied, setCopied] = useState(false)
   const copyTimerRef = useRef<number | undefined>(undefined)
@@ -426,20 +409,18 @@ function ParamMappingTreeEditor({
 
   useEffect(() => {
     if (!selectedKey) return
-    const path = selectedKey.split('.')
+    const selectedRow = allRows.find(({ path }) => pathKey(path) === selectedKey)
+    const ancestors = selectedRow?.ancestors
+      ?? allRows.filter(({ path }) => selectedPath && path.length < selectedPath.length
+        && path.every((part, index) => selectedPath[index] === part)).map(({ path }) => path)
     setExpandedPaths((current) => {
       const next = new Set(current)
-      for (let depth = 1; depth < path.length; depth += 1) next.add(path.slice(0, depth).join('.'))
+      ancestors.forEach((path) => next.add(pathKey(path)))
       return next
     })
   }, [selectedKey])
 
-  const visibleRows = allRows.filter(({ path }) => {
-    for (let depth = 1; depth < path.length; depth += 1) {
-      if (!expandedPaths.has(pathKey(path.slice(0, depth)))) return false
-    }
-    return true
-  })
+  const visibleRows = allRows.filter(({ ancestors }) => ancestors.every((path) => expandedPaths.has(pathKey(path))))
 
   const toggle = (path: ConfigPath) => {
     const key = pathKey(path)
@@ -525,10 +506,8 @@ function ParamMappingTreeEditor({
       configs={configs}
       rows={visibleRows}
       allRows={allRows}
-      display={display}
       expandedPaths={expandedPaths}
       expanded={editorExpanded}
-      onChangeDisplay={setDisplay}
       onToggle={toggle}
       onExpandAll={() => setExpandedPaths(new Set(containerPaths))}
       onCollapseAll={() => setExpandedPaths(new Set())}
@@ -594,10 +573,8 @@ function ParamMappingTreeSurface({
   configs,
   rows,
   allRows,
-  display,
   expandedPaths,
   expanded,
-  onChangeDisplay,
   onToggle,
   onExpandAll,
   onCollapseAll,
@@ -612,12 +589,10 @@ function ParamMappingTreeSurface({
   remove,
 }: {
   configs: ParamMappingConfig[]
-  rows: Array<{ config: ParamMappingConfig; path: ConfigPath; depth: number }>
-  allRows: Array<{ config: ParamMappingConfig; path: ConfigPath; depth: number }>
-  display: TreeDisplay
+  rows: DisplayConfigRow[]
+  allRows: DisplayConfigRow[]
   expandedPaths: Set<string>
   expanded: boolean
-  onChangeDisplay: (display: TreeDisplay) => void
   onToggle: (path: ConfigPath) => void
   onExpandAll: () => void
   onCollapseAll: () => void
@@ -627,16 +602,15 @@ function ParamMappingTreeSurface({
   selectedPath?: ConfigPath
   fieldEditor: ReactNode
 } & ConfigActions) {
+  const containerPathKeys = new Set(allRows
+    .filter((row, index) => allRows[index + 1]?.depth > row.depth)
+    .map(({ path }) => pathKey(path)))
   return (
     <div className={`param-map-tree-editor ${expanded ? 'expanded' : 'embedded'}`}>
       <div className="param-map-tree-toolbar">
         <span>目标参数树 · {countParamMappingConfigs(configs)} 个字段</span>
         <div>
-          <div className="param-map-display-toggle" role="group" aria-label="目标结构查看方式">
-            <button type="button" className={display === 'TABLE' ? 'active' : ''} aria-pressed={display === 'TABLE'} onClick={() => onChangeDisplay('TABLE')}>字段表格</button>
-            <button type="button" className={display === 'STRUCTURE' ? 'active' : ''} aria-pressed={display === 'STRUCTURE'} onClick={() => onChangeDisplay('STRUCTURE')}>结构预览</button>
-          </div>
-          {display === 'TABLE' && rows.length ? (
+          {rows.length ? (
             <>
               <button type="button" onClick={onExpandAll}>展开全部</button>
               <button type="button" onClick={onCollapseAll}>折叠全部</button>
@@ -646,34 +620,13 @@ function ParamMappingTreeSurface({
         </div>
       </div>
       <div className={`param-map-tree-workspace ${fieldEditor ? 'with-detail' : ''}`}>
-      <div className={`param-map-tree-list ${display === 'STRUCTURE' ? 'structure' : ''}`}>
-        {display === 'TABLE' ? <div className="param-map-tree-columns" aria-hidden="true">
+      <div className="param-map-tree-list">
+        <div className="param-map-tree-columns" aria-hidden="true">
           <span>目标字段</span><span>类型</span><span>取值</span><span>操作</span>
-        </div> : null}
-      <div className={`param-map-tree-scroll ${display === 'STRUCTURE' ? 'structure' : ''}`} role="group" aria-label={display === 'STRUCTURE' ? '目标结构预览' : '目标参数树'}>
-        {display === 'STRUCTURE' ? (
-          <div className="param-map-structure-preview" role="tree" aria-label="目标 JSON 结构">
-            {allRows.map(({ config, path, depth }) => (
-              <button
-                type="button"
-                className={`param-map-structure-row ${selectedPath && pathKey(selectedPath) === pathKey(path) ? 'selected' : ''}`}
-                key={pathKey(path)}
-                role="treeitem"
-                aria-level={depth + 1}
-                aria-selected={Boolean(selectedPath && pathKey(selectedPath) === pathKey(path))}
-                title={`${configPathLabel(configs, path)}${config.paramDesc ? ` · ${config.paramDesc}` : ''}`}
-                onClick={() => edit(path, config)}
-              >
-                <code className="param-map-structure-prefix" aria-hidden="true">{structurePrefix(configs, path)}</code>
-                <span className={`param-map-structure-kind ${config.targetParamType.toLowerCase()}`} aria-hidden="true">{structureKind(config)}</span>
-                <strong>{configNodeLabel(configs, path)}</strong>
-                <TypeBadge value={config.targetParamType} side="target" />
-                {config.paramDesc ? <small>{config.paramDesc}</small> : null}
-              </button>
-            ))}
-          </div>
-        ) : rows.map(({ config, path, depth }) => {
-          const hasChildren = configChildren(config).length > 0
+        </div>
+      <div className="param-map-tree-scroll" role="group" aria-label="目标参数树">
+        {rows.map(({ config, path, depth }) => {
+          const hasChildren = containerPathKeys.has(pathKey(path))
           return (
             <div
               className={`param-map-tree-row ${selectedPath && pathKey(selectedPath) === pathKey(path) ? 'selected' : ''}`}
@@ -771,42 +724,47 @@ function TypeBadge({ value, side }: { value: ParamType; side: 'source' | 'target
 }
 
 function ConfigActionButtons({ config, path, isLoopTemplate, label, addChild, copy, remove }: { config: ParamMappingConfig; path: ConfigPath; isLoopTemplate: boolean; label: string } & ConfigActions) {
-  const [open, setOpen] = useState(false)
-  const menuRef = useRef<HTMLDetailsElement>(null)
+  const [openMenu, setOpenMenu] = useState<'more' | null>(null)
+  const actionsRef = useRef<HTMLDivElement>(null)
+  const moreMenuRef = useRef<HTMLDetailsElement>(null)
+  const needsLoopTemplate = config.mappingType === 'ARRAY_MAP' && !config.itemTemplate
 
   useEffect(() => {
-    if (!open) return
+    if (!openMenu) return
     const close = (event: MouseEvent) => {
-      if (!menuRef.current?.contains(event.target as Node)) setOpen(false)
+      if (!actionsRef.current?.contains(event.target as Node)) setOpenMenu(null)
     }
     document.addEventListener('mousedown', close)
     return () => document.removeEventListener('mousedown', close)
-  }, [open])
+  }, [openMenu])
 
   return (
-    <div className="param-map-actions">
-      {(config.mappingType === 'OBJECT' || config.mappingType === 'ARRAY_FIXED') ? (
-        <button type="button" className="param-map-child-action" title={config.mappingType === 'ARRAY_FIXED' ? '添加元素' : '添加子字段'} aria-label={`在 ${label} 下${config.mappingType === 'ARRAY_FIXED' ? '添加元素' : '添加子字段'}`} onClick={() => addChild(path)}>
+    <div className="param-map-actions" ref={actionsRef}>
+      {needsLoopTemplate || config.mappingType === 'OBJECT' || config.mappingType === 'ARRAY_FIXED' ? (
+        <button type="button" className="param-map-child-action"
+          title={needsLoopTemplate ? '配置元素' : config.mappingType === 'ARRAY_FIXED' ? '添加元素' : '添加子字段'}
+          aria-label={needsLoopTemplate ? `配置 ${label} 的元素` : `在 ${label} 下${config.mappingType === 'ARRAY_FIXED' ? '添加元素' : '添加子字段'}`}
+          onClick={() => addChild(path)}>
           <PlusIcon size={14} weight="bold" />
         </button>
       ) : null}
       {!isLoopTemplate ? <details
         className="param-map-row-more"
-        ref={menuRef}
-        open={open}
-        onToggle={(event) => setOpen(event.currentTarget.open)}
+        ref={moreMenuRef}
+        open={openMenu === 'more'}
+        onToggle={(event) => setOpenMenu((current) => event.currentTarget.open ? 'more' : current === 'more' ? null : current)}
         onKeyDown={(event) => {
-          if (event.key === 'Escape' && open) {
+          if (event.key === 'Escape' && openMenu === 'more') {
             event.stopPropagation()
-            setOpen(false)
-            menuRef.current?.querySelector('summary')?.focus()
+            setOpenMenu(null)
+            moreMenuRef.current?.querySelector('summary')?.focus()
           }
         }}
       >
         <summary title="更多操作" aria-label={`${label} 的更多操作`}><DotsThreeIcon size={18} weight="bold" /></summary>
         <div className="param-map-row-menu">
-          <button type="button" onClick={() => { setOpen(false); copy(path, config) }}><CopyIcon size={15} />复制字段</button>
-          <button type="button" className="danger" onClick={() => { setOpen(false); remove(path) }}><TrashIcon size={15} />删除字段</button>
+          <button type="button" onClick={() => { setOpenMenu(null); copy(path, config) }}><CopyIcon size={15} />复制字段</button>
+          <button type="button" className="danger" onClick={() => { setOpenMenu(null); remove(path) }}><TrashIcon size={15} />删除字段</button>
         </div>
       </details> : null}
     </div>
@@ -903,14 +861,18 @@ function ParamConfigPanel({ session, parentPath, parentConfig, aliases, onChange
   const [constantDraft, setConstantDraft] = useState(() => JSON.stringify(value.mappingRule ?? null, null, 2))
   const panelRef = useRef<HTMLElement>(null)
   const dirty = JSON.stringify(value) !== session.initialValue
-  const element = parentConfig?.mappingType === 'ARRAY_MAP' || parentConfig?.mappingType === 'ARRAY_FIXED'
-  const title = element ? '元素配置' : session.kind === 'edit' ? '字段配置'
+  const loopElement = parentConfig?.mappingType === 'ARRAY_MAP'
+  const element = loopElement || parentConfig?.mappingType === 'ARRAY_FIXED'
+  const sourceRoot = aliases[aliases.length - 1] ?? '$'
+  const pathCorrection = value.mappingType === 'NAME' || value.mappingType === 'ARRAY_MAP'
+    ? aliasPathCorrection(value.sourceParamKey ?? '', aliases) : undefined
+  const elementLabel = loopElement ? loopElementLabel(value) : '元素配置'
+  const title = element ? elementLabel : session.kind === 'edit' ? '字段配置'
     : session.kind === 'copy' ? '复制字段' : session.kind === 'child' ? '新增子字段' : '新增根字段'
-  const pathLabel = [parentPath, element ? '元素' : value.targetParamKey || '新字段'].filter(Boolean).join('.')
-  const modes = MAPPING_TYPES.filter((mode) => mode === 'NAME'
-    ? value.targetParamType !== 'OBJECT' && value.targetParamType !== 'ARRAY'
-    : mode === 'OBJECT' ? value.targetParamType === 'OBJECT'
-      : mode === 'ARRAY_MAP' || mode === 'ARRAY_FIXED' ? value.targetParamType === 'ARRAY' : true)
+  const pathLabel = [parentPath, element ? elementLabel : value.targetParamKey || '新字段'].filter(Boolean).join('.')
+  const modes = mappingTypesForTargetType(value.targetParamType)
+  const modeFieldLabel = value.targetParamType === 'ARRAY' ? '数组生成方式'
+    : value.targetParamType === 'OBJECT' ? '对象生成方式' : '取值方式'
   const initialNode = normalizeConfig(JSON.parse(session.initialValue))
   const clearsChildren = configChildren(initialNode).length > 0 && initialNode.mappingType !== value.mappingType
 
@@ -930,11 +892,22 @@ function ParamConfigPanel({ session, parentPath, parentConfig, aliases, onChange
     let alias = 'item'
     while (aliases.includes(alias)) alias = `item${++aliasIndex}`
     const mappingRule = mode === 'CONSTANT' ? (value.mappingType === 'CONSTANT' ? value.mappingRule : type === 'STRING' ? '' : null)
-      : mode === 'EXPRESSION' ? (value.mappingType === 'EXPRESSION' ? value.mappingRule : '$') : undefined
+      : mode === 'EXPRESSION' ? (value.mappingType === 'EXPRESSION' ? value.mappingRule : sourceRoot) : undefined
     setConstantDraft(JSON.stringify(mappingRule ?? null, null, 2))
     setValue({ ...value, mappingType: mode, targetParamType: type, mappingRule,
+      sourceParamKey: (mode === 'NAME' || mode === 'ARRAY_MAP') && !value.sourceParamKey ? sourceRoot : value.sourceParamKey,
       itemAlias: mode === 'ARRAY_MAP' ? value.itemAlias || alias : value.itemAlias,
       itemTemplate: mode === 'ARRAY_MAP' ? value.itemTemplate ?? objectTemplate() : value.itemTemplate,
+    })
+  }
+
+  const changeTargetParamKey = (targetParamKey: string) => {
+    setValue({
+      ...value,
+      targetParamKey,
+      sourceParamKey: value.mappingType === 'NAME' || value.mappingType === 'ARRAY_MAP'
+        ? sourcePathAfterTargetRename(value.sourceParamKey, sourceRoot, value.targetParamKey, targetParamKey)
+        : value.sourceParamKey,
     })
   }
 
@@ -959,7 +932,7 @@ function ParamConfigPanel({ session, parentPath, parentConfig, aliases, onChange
       </header>
       <div className="param-map-dialog-body">
         <div className="param-map-dialog-grid">
-          {!element ? <label><span>目标参数名 <strong>*</strong></span><input aria-required="true" value={value.targetParamKey} onChange={(event) => setValue({ ...value, targetParamKey: event.target.value })} /></label> : null}
+          {!element ? <label><span>目标参数名 <strong>*</strong></span><input aria-required="true" value={value.targetParamKey} onChange={(event) => changeTargetParamKey(event.target.value)} /></label> : null}
           <div className="param-map-dialog-field">
             <span>{element ? '元素类型' : '目标参数类型'}</span>
             <MappingSelect value={value.targetParamType}
@@ -969,19 +942,32 @@ function ParamConfigPanel({ session, parentPath, parentConfig, aliases, onChange
                 : ['OBJECT', 'ARRAY_MAP', 'ARRAY_FIXED'].includes(value.mappingType) ? 'NAME' : value.mappingType, type)} />
           </div>
           <div className="param-map-dialog-field">
-            <span>{value.targetParamType === 'ARRAY' ? '数组生成方式' : '取值方式'}</span>
+            <span>{modeFieldLabel}</span>
             <MappingSelect value={value.mappingType}
               options={modes.map((mode) => ({ value: mode, label: mappingLabel(mode) }))}
-              ariaLabel={value.targetParamType === 'ARRAY' ? '数组生成方式' : '取值方式'} onChange={(mode) => changeMode(mode)} />
+              ariaLabel={modeFieldLabel} onChange={(mode) => changeMode(mode)} />
+          </div>
+          <div className="param-map-field-context">
+            <strong>可用上下文</strong>
+            <span className="param-map-context-roots"><span><small>根</small><code>$</code></span>
+              {aliases.map((alias, index) => <span key={alias}><small>{index === aliases.length - 1 ? '当前元素' : '外层元素'}</small><code>{alias}</code></span>)}
+            </span>
+            {value.mappingType === 'OBJECT' ? <p>通过树中的“添加子字段”构建对象，不改变取值上下文。</p>
+              : value.mappingType === 'ARRAY_FIXED' ? <p>通过树中的“添加元素”配置固定长度数组，每个模板生成一项。</p>
+                : value.mappingType === 'ARRAY_MAP' ? <p>循环源为空时生成 []；通过树中的元素节点设置对象、标量或嵌套数组。</p> : null}
           </div>
           {value.mappingType === 'NAME' || value.mappingType === 'ARRAY_MAP' ? (
             <label className="full"><span>{value.mappingType === 'ARRAY_MAP' ? '循环源路径' : '取值路径'}</span>
               <input value={value.sourceParamKey ?? ''} placeholder={value.mappingType === 'ARRAY_MAP' ? '$.items' : '$.patientId / item.code'} onChange={(event) => setValue({ ...value, sourceParamKey: event.target.value })} />
+              {pathCorrection ? <span className="param-map-path-warning" role="status">
+                <span><code>$</code> 表示根输入；如果要读取当前循环元素，请使用 <code>{pathCorrection}</code>。</span>
+                <button type="button" onClick={() => setValue({ ...value, sourceParamKey: pathCorrection })}>改为 <code>{pathCorrection}</code></button>
+              </span> : null}
             </label>
           ) : null}
           {value.mappingType === 'ARRAY_MAP' ? (
             <label className="full"><span>循环变量名</span><input value={value.itemAlias ?? ''} placeholder="item" onChange={(event) => setValue({ ...value, itemAlias: event.target.value })} />
-              <small className="param-map-rule-help">应用后，在树中的“元素模板”配置每一项的结构。</small>
+              <small className="param-map-rule-help">在树中打开对应的元素节点选择元素类型；对象元素可继续添加子字段。</small>
             </label>
           ) : null}
           {value.mappingType === 'CONSTANT' ? (
@@ -996,15 +982,11 @@ function ParamConfigPanel({ session, parentPath, parentConfig, aliases, onChange
           ) : null}
           {value.mappingType === 'EXPRESSION' ? (
             <label className="full"><span>JS 表达式</span>
-              <textarea rows={6} value={typeof value.mappingRule === 'string' ? value.mappingRule : ''} placeholder="例如：$.patientId + ':' + item.code" onChange={(event) => setValue({ ...value, mappingRule: event.target.value })} />
+              <textarea rows={6} value={typeof value.mappingRule === 'string' ? value.mappingRule : ''}
+                placeholder={value.targetParamType === 'OBJECT' ? '例如：$.patient 或 ({ id: $.patientId })' : '例如：$.patientId + ":" + item.code'}
+                onChange={(event) => setValue({ ...value, mappingRule: event.target.value })} />
             </label>
           ) : null}
-          <div className="param-map-field-context">
-            <span>可用上下文：<code>$</code>（原始 payload）{aliases.map((alias) => <span key={alias}>、<code>{alias}</code></span>)}</span>
-            {value.mappingType === 'OBJECT' ? <p>通过树中的“添加子字段”组织对象，不改变取值上下文。</p>
-              : value.mappingType === 'ARRAY_FIXED' ? <p>通过树中的“添加元素”配置固定数组，每个模板生成一项。</p>
-                : value.mappingType === 'ARRAY_MAP' ? <p>循环源为空时生成 []；元素模板决定对象、标量或嵌套数组。</p> : null}
-          </div>
           <label className="full"><span>参数描述</span><textarea rows={2} value={value.paramDesc ?? ''} onChange={(event) => setValue({ ...value, paramDesc: event.target.value })} /></label>
         </div>
         {clearsChildren ? <p className="param-map-field-notice" role="status">应用后将移除原来的子结构配置。</p> : null}

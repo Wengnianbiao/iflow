@@ -125,6 +125,13 @@ public interface ExecutionDAO {
     List<String> getRunningWorkflowIds(String workflowName, int version);
 
     /**
+     * 取全部处于 RUNNING 的工作流实例 ID。
+     *
+     * <p>供超时 sweep 扫描。扫到到期实例后只做终止，不用于恢复或继续调度。
+     */
+    List<String> getRunningWorkflowIds();
+
+    /**
      * 取指定工作流定义当前处于运行中的实例（含任务列表）。
      */
     List<WorkflowModel> getPendingWorkflowsByType(String workflowName, int version);

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent, type ReactNode, type WheelEvent } from 'react'
-import { Canvas, Edge, type EdgeData, type ElkRoot, type NodeData, type PortData } from 'reaflow'
+import { Canvas, Edge, type EdgeData, type EdgeProps, type ElkRoot, type NodeData, type PortData } from 'reaflow'
 import {
   workflowToReaflow,
   EDGE_SPACING,
@@ -8,6 +8,11 @@ import {
   type NodeTaskData,
 } from '@/flow/conductorMapper'
 import { conductorTheme } from '@/flow/conductorTheme'
+import {
+  compactFlowLayoutOptions,
+  normalizeForkJoinEdgeSections,
+  type FlowEdgeSections,
+} from '@/flow/layoutOptions'
 import { getTaskFlowKind, isTaskSelectable, type AddableTaskType } from '@/tasks'
 import {
   addSwitchCase,
@@ -138,6 +143,13 @@ function initialZoomCenter(layout: LayoutSize, viewportWidth: number, zoomValue:
     x: viewportWidth / 2 - realXPosition * zoomValue,
     y: (startNode.y ?? 0) + PADDING_TOP,
   }
+}
+
+function FlowEdge(props: Partial<EdgeProps>) {
+  const sections = props.properties?.data?.forkJoinMerge
+    ? normalizeForkJoinEdgeSections(props.sections as unknown as FlowEdgeSections) as unknown as EdgeProps['sections']
+    : props.sections
+  return <Edge {...props} sections={sections} />
 }
 
 function applyAddTask(workflow: WorkflowDef, target: MenuTarget, type: AddableTaskType) {
@@ -436,6 +448,7 @@ export function ConductorFlowCanvas({
               zoomable={false}
               pannable={false}
               layoutOptions={{
+                ...compactFlowLayoutOptions,
                 'org.eclipse.elk.spacing.edgeEdge': EDGE_SPACING.toString(),
                 'org.eclipse.elk.padding': '[top=10,left=100,bottom=10,right=100]',
                 'org.eclipse.elk.layered.edgeLabels.centerLabelPlacementStrategy': 'SPACE_EFFICIENT_LAYER',
@@ -448,7 +461,7 @@ export function ConductorFlowCanvas({
                 const completed = ['COMPLETED', 'COMPLETED_WITH_ERRORS'].includes(runtimeStatus)
                 const unreachable = ['CANCELED', 'SKIPPED'].includes(runtimeStatus)
                 return (
-                  <Edge
+                  <FlowEdge
                     selectable={false}
                     label={<CustomLabel />}
                     style={

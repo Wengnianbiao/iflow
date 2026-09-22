@@ -6,6 +6,11 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { CssBaseline } from '@mui/material'
+import {
+  ThemeProvider as MuiThemeProvider,
+  createTheme as createMuiTheme,
+} from '@mui/material/styles'
 import {
   applyThemeCssVariables,
   getTheme,
@@ -47,6 +52,55 @@ export function ThemeProvider({
   })
 
   const theme = useMemo(() => getTheme(mode), [mode])
+  const muiTheme = useMemo(
+    () => createMuiTheme({
+      palette: {
+        mode,
+        primary: { main: theme.colors.primary },
+        error: { main: theme.colors.danger },
+        success: { main: theme.colors.success },
+        warning: { main: theme.colors.warning },
+        background: {
+          default: theme.colors.background,
+          paper: theme.colors.surface,
+        },
+        text: {
+          primary: theme.colors.text,
+          secondary: theme.colors.textSecondary,
+        },
+        divider: theme.colors.border,
+      },
+      typography: {
+        fontFamily: theme.fontFamily,
+        fontSize: 13,
+        button: { textTransform: 'none', fontWeight: 600 },
+      },
+      shape: { borderRadius: 6 },
+      components: {
+        MuiButton: {
+          defaultProps: { disableElevation: true },
+        },
+        MuiDialogTitle: {
+          styleOverrides: { root: { fontSize: 18, fontWeight: 700 } },
+        },
+        MuiTableCell: {
+          styleOverrides: {
+            head: {
+              color: theme.colors.textMuted,
+              backgroundColor: theme.colors.surfaceMuted,
+              fontSize: 12,
+              fontWeight: 700,
+            },
+            body: {
+              color: theme.colors.textSecondary,
+              fontSize: 13,
+            },
+          },
+        },
+      },
+    }),
+    [mode, theme],
+  )
 
   useEffect(() => {
     applyThemeCssVariables(theme)
@@ -67,7 +121,14 @@ export function ThemeProvider({
     [mode, theme],
   )
 
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
+  return (
+    <ThemeContext.Provider value={value}>
+      <MuiThemeProvider theme={muiTheme}>
+        <CssBaseline />
+        {children}
+      </MuiThemeProvider>
+    </ThemeContext.Provider>
+  )
 }
 
 export function useTheme() {

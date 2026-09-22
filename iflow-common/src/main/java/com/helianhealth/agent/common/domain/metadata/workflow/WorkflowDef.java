@@ -52,6 +52,20 @@ public class WorkflowDef extends Auditable {
     private String description;
 
     /**
+     * 执行期限（秒）。{@code <= 0} 时继承系统默认值
+     * {@code iflow.workflow-execution.default-timeout-seconds}。
+     */
+    @Builder.Default
+    private long timeoutSeconds = 0;
+
+    /**
+     * 与控制台草稿对齐的超时策略字段。到期后的 sweep 只终止当前运行实例，
+     * 不按 Conductor 的 {@code ALERT_ONLY} 继续调度。
+     */
+    @Builder.Default
+    private TimeoutPolicy timeoutPolicy = TimeoutPolicy.TIME_OUT_WF;
+
+    /**
      * 关键字字段表达式，启动时解析后写入运行时实例的 {@code correlationId}。
      */
     private String correlationExpression;
@@ -90,6 +104,14 @@ public class WorkflowDef extends Auditable {
      */
     public static boolean isValidName(String name) {
         return name != null && name.matches("^[A-Za-z0-9][A-Za-z0-9._/-]{0,254}$");
+    }
+
+    /**
+     * 工作流超时策略。字段与控制台草稿兼容；运行时 sweep 到期后统一终止，不继续调度。
+     */
+    public enum TimeoutPolicy {
+        TIME_OUT_WF,
+        ALERT_ONLY
     }
 
 

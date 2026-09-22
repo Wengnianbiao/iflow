@@ -1,0 +1,142 @@
+{
+  "name": "hl-open-api/lis-status",
+  "version": 1,
+  "displayName": "LIS状态通知",
+  "description": "LIS 按条码号推送申请单状态，转成 Jarvis receiveStateSync 后回写体检系统",
+  "correlationExpression": "",
+  "inputParameters": [
+    "request"
+  ],
+  "outputParameters": {
+    "code": "${mapping_lis_status_resp_ref.output.code}",
+    "message": "${mapping_lis_status_resp_ref.output.message}"
+  },
+  "tasks": [
+    {
+      "name": "解析LIS状态入参",
+      "taskReferenceName": "function_lis_ref",
+      "type": "FUNCTION",
+      "optional": false,
+      "inputParameters": {
+        "function": "JSON_PARSE",
+        "value": "${workflow.input.request}"
+      }
+    },
+    {
+      "name": "映射Jarvis状态推送",
+      "taskReferenceName": "mapping_lis_status_ref",
+      "type": "MAPPING",
+      "optional": false,
+      "inputParameters": {
+        "payload": "${function_lis_ref.output}",
+        "paramsConfig": [
+          {
+            "targetParamKey": "items",
+            "targetParamType": "ARRAY",
+            "mappingType": "ARRAY_FIXED",
+            "items": [
+              {
+                "targetParamType": "OBJECT",
+                "mappingType": "OBJECT",
+                "childParams": [
+                  {
+                    "targetParamKey": "serviceProviderType",
+                    "targetParamType": "STRING",
+                    "mappingType": "CONSTANT",
+                    "mappingRule": "LIS",
+                    "paramDesc": "厂商类型"
+                  },
+                  {
+                    "targetParamKey": "patientCode",
+                    "targetParamType": "STRING",
+                    "mappingType": "NAME",
+                    "sourceParamKey": "$.patientCode",
+                    "paramDesc": "体检编号"
+                  },
+                  {
+                    "targetParamKey": "barCode",
+                    "targetParamType": "STRING",
+                    "mappingType": "EXPRESSION",
+                    "mappingRule": "$.barCode || $.barcode || ''",
+                    "paramDesc": "条码号"
+                  },
+                  {
+                    "targetParamKey": "paramType",
+                    "targetParamType": "INTEGER",
+                    "mappingType": "CONSTANT",
+                    "mappingRule": 3,
+                    "paramDesc": "按条码号匹配"
+                  },
+                  {
+                    "targetParamKey": "state",
+                    "targetParamType": "INTEGER",
+                    "mappingType": "EXPRESSION",
+                    "mappingRule": "(function () { var m = {'1':0,'2':2,'3':1,'4':3}; var k = String($.applyStatus == null ? '' : $.applyStatus); return (k in m) ? m[k] : 99; })()",
+                    "paramDesc": "1已登记→0, 2取消登记→2, 3已审核→1, 4取消审核→3"
+                  },
+                  {
+                    "targetParamKey": "stateName",
+                    "targetParamType": "STRING",
+                    "mappingType": "EXPRESSION",
+                    "mappingRule": "(function () { var m = {'1':'已登记','2':'取消登记','3':'已审核','4':'取消审核'}; var k = String($.applyStatus == null ? '' : $.applyStatus); return (k in m) ? m[k] : '特殊状态'; })()",
+                    "paramDesc": "申请单状态名称"
+                  }
+                ]
+              }
+            ],
+            "paramDesc": "Jarvis receiveStateSync 数组"
+          }
+        ]
+      }
+    },
+    {
+      "name": "序列化Jarvis状态推送",
+      "taskReferenceName": "stringify_lis_status_ref",
+      "type": "FUNCTION",
+      "optional": false,
+      "inputParameters": {
+        "function": "JSON_STRINGIFY",
+        "value": "${mapping_lis_status_ref.output.items}"
+      }
+    },
+    {
+      "name": "推送Jarvis状态",
+      "taskReferenceName": "http_jarvis_ref",
+      "type": "HTTP",
+      "optional": false,
+      "inputParameters": {
+        "uri": "http://127.0.0.1:8802/itemResult/receiveStateSync",
+        "method": "POST",
+        "contentType": "application/json",
+        "accept": "application/json",
+        "connectionTimeOut": 5000,
+        "readTimeOut": 30000,
+        "body": "${stringify_lis_status_ref.output}"
+      }
+    },
+    {
+      "name": "映射LIS状态响应",
+      "taskReferenceName": "mapping_lis_status_resp_ref",
+      "type": "MAPPING",
+      "optional": false,
+      "inputParameters": {
+        "payload": "${http_jarvis_ref.output.body}",
+        "paramsConfig": [
+          {
+            "targetParamKey": "code",
+            "targetParamType": "STRING",
+            "mappingType": "EXPRESSION",
+            "mappingRule": "(function () { var c = $.code; if (c == null) return '200'; return (String(c) === '200' || c === 200) ? '200' : '-1'; })()",
+            "paramDesc": "200成功 / -1失败"
+          },
+          {
+            "targetParamKey": "message",
+            "targetParamType": "STRING",
+            "mappingType": "EXPRESSION",
+            "mappingRule": "($.code == null || String($.code) === '200' || $.code === 200) ? ($.message || '成功') : ($.message || '失败')"
+          }
+        ]
+      }
+    }
+  ]
+}

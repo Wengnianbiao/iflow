@@ -34,12 +34,6 @@ import java.util.stream.Collectors;
 
 /**
  * HTTP 外呼系统任务
- *
- * <p>从 {@link TaskModel#getInputData()} 解析 {@link Input}（可嵌套在 {@code http_request} 下，
- * 也可平铺在 inputData 根级），通过 {@link RestTemplateProvider} 发起请求，结果写入
- * {@code outputData} 根级（{@code body}/{@code headers}/{@code statusCode}/{@code reasonPhrase}）。
- *
- * <p>任务由 Decider 直接调用；普通链路在请求线程执行，FORK 分支在线程池中执行。
  */
 @Component(TaskType.TASK_TYPE_HTTP)
 public class HttpTask extends WorkflowSystemTask {
@@ -133,7 +127,7 @@ public class HttpTask extends WorkflowSystemTask {
             }
         });
 
-        HttpEntity<Object> request = new HttpEntity<>(normalizeRequestBody(input.getBody()), headers);
+        HttpEntity<Object> request = new HttpEntity<>(input.getBody(), headers);
         HttpResponse response = new HttpResponse();
         try {
             ResponseEntity<String> responseEntity = restTemplate.exchange(
@@ -157,13 +151,6 @@ public class HttpTask extends WorkflowSystemTask {
                     ex);
             throw new Exception(ex.getLocalizedMessage(), ex);
         }
-    }
-
-    private Object normalizeRequestBody(Object body) {
-        if (body == null || body instanceof String || body instanceof byte[]) {
-            return body;
-        }
-        return objectMapper.convertValue(body, mapOfObj);
     }
 
     private Object extractBody(String responseBody) {

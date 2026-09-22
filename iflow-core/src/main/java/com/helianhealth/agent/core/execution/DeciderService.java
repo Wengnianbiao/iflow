@@ -261,8 +261,7 @@ public class DeciderService {
             return outcome;
         }
 
-        // todo 增加超时时间check,or 框架工作流不配置超时，由task层保证
-        checkWorkflowTimeout(workflow);
+        // 超时终止在 decide 之前由 WorkflowSweeper 完成，这里不再调度后续任务。
 
         // 1、收集当前工作流运行时
         // decide本轮pending的task
@@ -399,9 +398,6 @@ public class DeciderService {
                     iterationTask.setIteration(task.getIteration());
                 });
         return iterationTasks;
-    }
-
-    private void checkWorkflowTimeout(WorkflowModel workflow) {
     }
 
     List<TaskModel> filterNextLoopOverTasks(

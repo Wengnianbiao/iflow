@@ -1,5 +1,7 @@
 package com.helianhealth.agent.core.lock;
 
+import org.springframework.stereotype.Component;
+
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -12,6 +14,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * <p>锁按工作流实例 ID 隔离，并在没有持有者和等待者后清理。该实现只保证单进程内互斥；集群部署时应注入分布式
  * {@link ExecutionLockService} 实现。
  */
+@Component
 public class InMemoryExecutionLockService implements ExecutionLockService {
 
     static final long DEFAULT_TIME_TO_TRY_MILLIS = 500;

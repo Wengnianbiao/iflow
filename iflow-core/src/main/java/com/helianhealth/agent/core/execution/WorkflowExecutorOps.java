@@ -44,6 +44,7 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
     private final IDGenerator idGenerator;
     private final ParametersUtils parametersUtils;
     private final ExecutionLockService executionLockService;
+    private WorkflowSweeper workflowSweeper;
     private TaskScheduler taskScheduler;
 
     @Autowired
@@ -65,9 +66,18 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
                 executionLockService != null
                         ? executionLockService
                         : new InMemoryExecutionLockService();
+        this.workflowSweeper =
+                new WorkflowSweeper(systemTaskRegistry, this.executionDAOFacade, null, 3600L);
         this.taskScheduler =
                 new CallerAndForkTaskScheduler(
                         ForkJoinPool.commonPool(), systemTaskRegistry);
+    }
+
+    @Autowired(required = false)
+    public void setWorkflowSweeper(WorkflowSweeper workflowSweeper) {
+        if (workflowSweeper != null) {
+            this.workflowSweeper = workflowSweeper;
+        }
     }
 
     @Autowired
@@ -125,8 +135,10 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
     }
 
     private WorkflowModel driveWorkflow(WorkflowModel workflow) {
-        // 同步DAG,死循环到工作流状态为terminal, todo是否全由task实现超时呢?ops层是不是也需要加入workflow超时的逻辑
         while (!workflow.getStatus().isTerminal()) {
+            if (workflowSweeper.sweep(workflow, this)) {
+                return workflow;
+            }
 
             DeciderService.DeciderOutcome outcome = deciderService.decide(workflow);
             if (outcome.isComplete) {

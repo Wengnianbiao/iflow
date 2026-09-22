@@ -1,18 +1,23 @@
-import { useEffect, useState } from 'react'
-import { Form, Input, Modal } from 'antd'
+import { useEffect, useState, type FormEvent } from 'react'
+import {
+  Button,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  TextField,
+  Typography,
+} from '@mui/material'
 import { registerWorkflowDefinition } from '@/api/workflowDefinition'
 import { useMessageContext } from '@/components/providers/messageContext'
 import type { WorkflowDef } from '@/types/workflow'
 
 type CloneWorkflowDialogProps = {
-  selectedWorkflow: WorkflowDef | null;
-  workflowList: WorkflowDef[];
-  onClose: () => void;
-  onSuccess: () => void;
-}
-
-type CloneFormValues = {
-  name: string
+  selectedWorkflow: WorkflowDef | null
+  workflowList: WorkflowDef[]
+  onClose: () => void
+  onSuccess: () => void
 }
 
 function nextCopyName(name: string, definitions: WorkflowDef[]) {
@@ -31,27 +36,32 @@ export function CloneWorkflowDialog({
   onClose,
   onSuccess,
 }: CloneWorkflowDialogProps) {
-  const [form] = Form.useForm<CloneFormValues>()
   const { setMessage } = useMessageContext()
+  const [name, setName] = useState('')
+  const [nameError, setNameError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     if (!definition) return
-    form.setFieldsValue({ name: nextCopyName(definition.name, definitions) })
-    form.setFields([{ name: 'name', errors: [] }])
-  }, [definition, definitions, form])
+    setName(nextCopyName(definition.name, definitions))
+    setNameError('')
+  }, [definition, definitions])
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (event?: FormEvent) => {
+    event?.preventDefault()
     if (!definition) return
 
-    try {
-      const { name } = await form.validateFields()
-      const normalizedName = name.trim()
-      if (definitions.some((item) => item.name === normalizedName)) {
-        form.setFields([{ name: 'name', errors: [`工作流名称已存在：${normalizedName}`] }])
-        return
-      }
+    const normalizedName = name.trim()
+    if (!normalizedName) {
+      setNameError('请输入工作流名称')
+      return
+    }
+    if (definitions.some((item) => item.name === normalizedName)) {
+      setNameError(`工作流名称已存在：${normalizedName}`)
+      return
+    }
 
+    try {
       setSubmitting(true)
       await registerWorkflowDefinition({
         ...definition,
@@ -63,7 +73,6 @@ export function CloneWorkflowDialog({
       })
       onSuccess()
     } catch (reason) {
-      if (reason && typeof reason === 'object' && 'errorFields' in reason) return
       setMessage({
         severity: 'error',
         text: reason instanceof Error ? reason.message : '复制工作流失败',
@@ -74,31 +83,41 @@ export function CloneWorkflowDialog({
   }
 
   return (
-    <Modal
-      title="复制工作流"
-      open={Boolean(definition)}
-      okText="确认复制"
-      cancelText="取消"
-      confirmLoading={submitting}
-      destroyOnHidden
-      onCancel={onClose}
-      onOk={() => void handleSubmit()}
-    >
-      <p>
-        复制 <strong>{definition?.displayName?.trim() || definition?.name}</strong>{' '}
-        的最新定义，副本版本将从 1 开始。
-      </p>
-      <Form form={form} layout="vertical" preserve={false}>
-        <Form.Item
-          name="name"
-          label="工作流名称"
-          rules={[
-            { required: true, whitespace: true, message: '请输入工作流名称' },
-          ]}
+    <Dialog open={Boolean(definition)} fullWidth maxWidth="sm" onClose={onClose}>
+      <DialogTitle>复制工作流</DialogTitle>
+      <DialogContent>
+        <Typography sx={{ mb: 2 }}>
+          复制 <strong>{definition?.displayName?.trim() || definition?.name}</strong>{' '}
+          的最新定义，副本版本将从 1 开始。
+        </Typography>
+        <form id="clone-workflow-form" onSubmit={(event) => void handleSubmit(event)}>
+          <TextField
+            autoFocus
+            fullWidth
+            label="工作流名称"
+            error={Boolean(nameError)}
+            helperText={nameError}
+            spellCheck={false}
+            value={name}
+            onChange={(event) => {
+              setName(event.target.value)
+              if (nameError) setNameError('')
+            }}
+          />
+        </form>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>取消</Button>
+        <Button
+          variant="contained"
+          type="submit"
+          form="clone-workflow-form"
+          disabled={submitting}
+          startIcon={submitting ? <CircularProgress color="inherit" size={16} /> : undefined}
         >
-          <Input autoFocus spellCheck={false} />
-        </Form.Item>
-      </Form>
-    </Modal>
+          确认复制
+        </Button>
+      </DialogActions>
+    </Dialog>
   )
 }

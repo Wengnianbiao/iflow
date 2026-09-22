@@ -9,7 +9,7 @@ const STATUS_OPTIONS = ['RUNNING', 'COMPLETED', 'FAILED', 'TIMED_OUT', 'TERMINAT
 export function ExecutionExplorerPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [workflowName, setWorkflowName] = useState(searchParams.get('workflowType') ?? searchParams.get('workflowName') ?? '')
-  const [workflowId, setWorkflowId] = useState(searchParams.get('workflowId') ?? '')
+  const [keyword, setKeyword] = useState(searchParams.get('correlationId') ?? '')
   const [status, setStatus] = useState(searchParams.get('status') ?? '')
   const [rows, setRows] = useState<WorkflowExecutionSummary[]>([])
   const [total, setTotal] = useState(0)
@@ -23,7 +23,7 @@ export function ExecutionExplorerPage() {
     try {
       const result = await searchWorkflowExecutions({
         workflowName: workflowName.trim() || undefined,
-        workflowId: workflowId.trim() || undefined,
+        correlationId: keyword.trim() || undefined,
         status: status ? [status] : undefined,
         pageNum: nextPage,
         pageSize: 15,
@@ -38,7 +38,7 @@ export function ExecutionExplorerPage() {
     } finally {
       setLoading(false)
     }
-  }, [pageNum, status, workflowId, workflowName])
+  }, [keyword, pageNum, status, workflowName])
 
   useEffect(() => {
     void load(1)
@@ -50,7 +50,7 @@ export function ExecutionExplorerPage() {
     event.preventDefault()
     const next = new URLSearchParams()
     if (workflowName.trim()) next.set('workflowType', workflowName.trim())
-    if (workflowId.trim()) next.set('workflowId', workflowId.trim())
+    if (keyword.trim()) next.set('correlationId', keyword.trim())
     if (status) next.set('status', status)
     setSearchParams(next, { replace: true })
     setPageNum(1)
@@ -79,8 +79,8 @@ export function ExecutionExplorerPage() {
           <input value={workflowName} onChange={(event) => setWorkflowName(event.target.value)} placeholder="例如：get_item_result_workflow" />
         </label>
         <label>
-          <span>工作流 ID</span>
-          <input value={workflowId} onChange={(event) => setWorkflowId(event.target.value)} placeholder="输入完整实例 ID" />
+          <span>关键字</span>
+          <input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="输入关键字" />
         </label>
         <label>
           <span>状态</span>
@@ -110,23 +110,21 @@ export function ExecutionExplorerPage() {
                 <th>开始时间</th>
                 <th>耗时</th>
                 <th>关键字</th>
-                <th>工作流 ID</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
                 <tr key={row.workflowId}>
-                  <td><Link className="workflow-name-link" to={`/executions/${encodeURIComponent(row.workflowId)}`}>{row.workflowName}</Link></td>
+                  <td><Link className="workflow-name-link" to={`/executions/${encodeURIComponent(row.workflowId)}`}>{row.displayName || '-'}</Link></td>
                   <td>{row.workflowVersion}</td>
                   <td><span className={`execution-status status-${row.status.toLowerCase()}`}>{statusText(row.status)}</span></td>
                   <td>{formatTime(row.startTime)}</td>
                   <td>{formatDuration(row.durationMs ?? ((row.endTime ?? Date.now()) - row.startTime))}</td>
                   <td className="mono-cell">{row.correlationId || '-'}</td>
-                  <td><Link className="query-link mono-cell" to={`/executions/${encodeURIComponent(row.workflowId)}`}>{row.workflowId}</Link></td>
                 </tr>
               ))}
               {!loading && rows.length === 0 ? (
-                <tr><td colSpan={7} className="empty-table">没有匹配的执行记录</td></tr>
+                <tr><td colSpan={6} className="empty-table">没有匹配的执行记录</td></tr>
               ) : null}
             </tbody>
           </table>

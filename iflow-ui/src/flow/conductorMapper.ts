@@ -114,6 +114,19 @@ function withParent(node: NodeData<NodeTaskData>, parent?: string): NodeData<Nod
   return parent ? { ...node, parent } : node
 }
 
+function alignForkBranchHead(node: NodeData<NodeTaskData>): NodeData<NodeTaskData> {
+  // Reaflow supplies padding and port constraints while mapping NodeData to ELK.
+  const layoutOptions = {
+    ...node.layoutOptions,
+    'org.eclipse.elk.alignment': 'TOP',
+  } as NonNullable<NodeData<NodeTaskData>['layoutOptions']>
+
+  return {
+    ...node,
+    layoutOptions,
+  }
+}
+
 function sourceSouthPort(node: NodeData<NodeTaskData>) {
   return node.data?.nodeKind === 'switch_join' ? switchJoinSouthPortId(node.id) : `${node.id}-south-port`
 }
@@ -262,9 +275,12 @@ function processFork(task: WorkflowTask, crumbs: Crumb[]): WalkResult {
       forkIndex: branchIndex,
     })
     const branchResult = walkTasks(taskList(branch), branchCrumbs)
-    result.nodes.push(...branchResult.nodes)
+    const branchNodes = branchResult.nodes.map((node, index) => (
+      index === 0 ? alignForkBranchHead(node) : node
+    ))
+    result.nodes.push(...branchNodes)
     result.edges.push(...branchResult.edges)
-    const firstNode = branchResult.nodes[0]
+    const firstNode = branchNodes[0]
     if (firstNode) {
       addEdge(result.edges, {
         id: edgeId(id, firstNode.id, String(branchIndex)),
@@ -310,6 +326,7 @@ function connectForkToJoin(result: WalkResult, joinTask: WorkflowTask, crumbs: C
       data: {
         forkReferenceName: forkId,
         branchIndex,
+        forkJoinMerge: true,
         delayedEdge: Boolean(tail && !(joinTask.joinOn ?? []).includes(tail.id)),
       },
     })

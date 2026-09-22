@@ -1,12 +1,24 @@
 # 同步工作流执行模型
 
-iFlow 面向院内本地接口串联，工作流由入口请求同步驱动，不使用任务队列、后台 Worker 或任务恢复轮询。`WorkflowSystemTask` 只有一个 `execute` 生命周期：
+iFlow 面向院内本地接口串联，工作流由入口请求同步驱动，不使用任务队列、后台 Worker，也不靠 sweep 恢复执行。`WorkflowSystemTask` 只有一个 `execute` 生命周期：
 
 - 普通链路的 INLINE、HTTP、JDBC、WebService 等任务由启动工作流的调用线程执行；
 - 只有 FORK 分支执行域内的任务提交到专用有界线程池；
 - `startWorkflow` 同步等待工作流终态后返回完整运行时结果；
 - WAIT、`startDelay`、`asyncComplete` 以及队列拉取次数均不属于运行模型；
 - 任务状态和工作流状态仍会持久化，用于查询、审计与问题定位，但不会据此恢复执行。
+- 执行期限到期后，`WorkflowSweeper` 只把当前运行实例标为 `TIMED_OUT`，进行中的任务标为 `TIMED_OUT`，其余未完成任务标为 `CANCELED`，然后结束同步调用。它不会重新 decide，也不会继续调度后续任务。进程重启后仍留在 `workflow_pending` 且已经到期的实例同样只终止。
+
+```yaml
+iflow:
+  workflow-execution:
+    default-timeout-seconds: 3600
+    sweeper:
+      enabled: true
+      interval-seconds: 30
+```
+
+定义上的 `timeoutSeconds <= 0` 继承 `default-timeout-seconds`。两者都 `<= 0` 时不启用超时终止。
 
 ## FORK / JOIN
 

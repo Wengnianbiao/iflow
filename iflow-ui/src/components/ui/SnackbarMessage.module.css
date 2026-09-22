@@ -1,16 +1,12 @@
 .snackbar {
-  position: fixed;
   z-index: 2000;
-  top: 24px;
-  left: 50%;
-  width: max-content;
-  min-width: 320px;
-  max-width: min(560px, calc(100vw - 32px));
-  transform: translateX(-50%);
   animation: snackbar-enter 160ms ease-out;
 }
 
-.snackbar :global(.ant-alert) {
+.snackbar :global(.MuiAlert-root) {
+  width: max-content;
+  min-width: 320px;
+  max-width: min(560px, calc(100vw - 32px));
   box-shadow:
     0 6px 16px rgba(0, 0, 0, 0.08),
     0 3px 6px -4px rgba(0, 0, 0, 0.12),
@@ -20,18 +16,17 @@
 @keyframes snackbar-enter {
   from {
     opacity: 0;
-    transform: translate(-50%, -8px);
+    transform: translateY(-8px);
   }
 
   to {
     opacity: 1;
-    transform: translate(-50%, 0);
+    transform: translateY(0);
   }
 }
 
 @media (max-width: 480px) {
-  .snackbar {
-    top: 16px;
+  .snackbar :global(.MuiAlert-root) {
     width: calc(100vw - 32px);
     min-width: 0;
   }

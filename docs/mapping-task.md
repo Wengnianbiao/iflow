@@ -10,16 +10,41 @@ MAPPING 以 `inputParameters.payload` 为输入，用 `paramsConfig` 构造目�
 
 | mappingType | 配置 | 行为 |
 |---|---|---|
-| NAME | sourceParamKey | 从 payload 或循环变量读取标量值 |
-| CONSTANT | mappingRule | 原生 JSON 常量，包括字符串、数字、布尔、null、对象、数组 |
+| NAME | sourceParamKey | 从 payload 或循环变量读取标量 |
+| CONSTANT | mappingRule | 原生 JSON 标量常量，包括字符串、数字、布尔和 null |
 | EXPRESSION | mappingRule | 非空 JS 字符串，直接使用结果 |
 | OBJECT | childParams | 递归构造对象，targetParamType 为 OBJECT |
 | ARRAY_MAP | sourceParamKey、itemAlias、itemTemplate | 遍历源数组，targetParamType 为 ARRAY |
-| ARRAY_FIXED | items | 按模板顺序生成固定元素，targetParamType 为 ARRAY |
+| ARRAY_FIXED | items | 按模板顺序生成固定长度数组，targetParamType 为 ARRAY |
 
-目标类型支持 STRING、INTEGER、LONG、DOUBLE、BOOLEAN、OBJECT、ARRAY。NAME 只允许标量目标类型；对象通过 OBJECT 组装，数组通过 ARRAY_MAP 或 ARRAY_FIXED 组装。CONSTANT 与 EXPRESSION 仍可直接产生对象或数组，并检查非空结果类型。标量沿用现有类型转换，不隐式解包、取首项或包装。
+目标类型支持 STRING、INTEGER、LONG、DOUBLE、BOOLEAN、OBJECT、ARRAY。对象只允许 OBJECT 和 EXPRESSION，分别对应对象构建和 JS 表达式；数组只允许 ARRAY_MAP、ARRAY_FIXED 和 EXPRESSION，分别对应循环映射、固定长度和 JS 表达式。各取值模式都会检查非空结果的目标类型；标量沿用现有类型转换，不隐式解包、取首项或包装。
 
 NAME 路径必须以 `$` 或可用的循环变量开头，例如 `$.patient.id`、`$[0]`、`item.code`、`$['field.name']`。仅支持确定的字段与下标路径，过滤等复杂选择使用 EXPRESSION 或前置 INLINE。
+
+## 对象生成方式
+
+需要重新组织对象字段时使用 OBJECT，通过 `childParams` 逐字段构建。需要整体计算或直接返回对象时使用 EXPRESSION，例如将 payload 中的 `patient` 作为独立对象写入输出：
+
+```json
+{
+  "targetParamKey": "patient",
+  "targetParamType": "OBJECT",
+  "mappingType": "EXPRESSION",
+  "mappingRule": "$.patient"
+}
+```
+
+对象不支持 NAME 或 CONSTANT。EXPRESSION 的非空结果必须是对象，否则任务失败并报出目标路径；缺失值仍保留为 `null`。
+
+## 数组生成方式
+
+- 循环映射：使用 ARRAY_MAP 遍历源数组并按元素模板重塑。
+- 固定长度：使用 ARRAY_FIXED 逐项配置；`items` 数量就是输出数组长度。
+- JS 表达式：使用 EXPRESSION 整体计算或直接返回数组，例如 `$.rows`。
+
+控制台会根据 `ARRAY_MAP` 唯一 `itemTemplate` 的目标类型，将其显示为“对象元素”“标量元素”或“数组元素”节点。对象元素可继续添加子字段，数组元素可继续配置嵌套数组结构。
+
+数组不支持 NAME 或 CONSTANT；嵌套数组和数组元素模板遵守相同规则。
 
 ## 循环数组
 
@@ -61,9 +86,9 @@ NAME 路径必须以 `$` 或可用的循环变量开头，例如 `$.patient.id`�
 { "targetParamType": "STRING", "mappingType": "NAME", "sourceParamKey": "item.code" }
 ```
 
-循环变量只在该元素模板及其子节点有效。嵌套循环可给外层命名 `order`、内层命名 `line`，循环源写 `order.lines`，内层表达式可同时读 `$.patientId`、`order.id` 和 `line.code`。变量不能重名，也不能使用 `$`、`XML`、JS 关键字或内置全局变量名。
+循环变量只在该元素模板及其子节点有效。嵌套循环可给外层命名 `order`、内层命名 `line`，循环源写 `order.lines`，内层表达式可同时读 `$.patientId`、`order.id` 和 `line.code`。变量不能重名，也不能使用 `$`、`XML`、`Crypto`、JS 关键字或内置全局变量名。
 
-## 固定数组
+## 固定长度数组
 
 `items` 中每个模板恰好生成一个元素；单对象包装用一个对象模板表达。下面生成 `{"patients":[{"id":"P1"}]}`：
 

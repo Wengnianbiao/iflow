@@ -1,0 +1,294 @@
+{
+  "nodes": [
+    {
+      "id": "__start__",
+      "width": 80,
+      "height": 80,
+      "ports": [
+        {
+          "id": "__start__-south-port",
+          "width": 2,
+          "height": 2,
+          "side": "SOUTH",
+          "disabled": true
+        }
+      ]
+    },
+    {
+      "id": "split_apply_ref",
+      "width": 350,
+      "height": 140,
+      "ports": [
+        {
+          "id": "split_apply_ref-south-port",
+          "width": 2,
+          "height": 2,
+          "side": "SOUTH",
+          "disabled": true
+        }
+      ]
+    },
+    {
+      "id": "apply_fork_ref",
+      "width": 350,
+      "height": 120,
+      "ports": [
+        {
+          "id": "apply_fork_ref_[key=0]-south-port",
+          "width": 2,
+          "height": 2,
+          "side": "SOUTH",
+          "disabled": true,
+          "index": 0
+        },
+        {
+          "id": "apply_fork_ref_[key=1]-south-port",
+          "width": 2,
+          "height": 2,
+          "side": "SOUTH",
+          "disabled": true,
+          "index": 1
+        }
+      ]
+    },
+    {
+      "id": "pacs_loop_ref",
+      "width": 570,
+      "height": 450,
+      "ports": [
+        {
+          "id": "pacs_loop_ref-south-port",
+          "width": 2,
+          "height": 2,
+          "side": "SOUTH",
+          "disabled": true
+        }
+      ],
+      "nodePadding": [
+        50,
+        110,
+        50,
+        110
+      ],
+      "layoutOptions": {
+        "org.eclipse.elk.alignment": "TOP"
+      }
+    },
+    {
+      "id": "build_pacs_soap_ref",
+      "width": 350,
+      "height": 140,
+      "ports": [
+        {
+          "id": "build_pacs_soap_ref-south-port",
+          "width": 2,
+          "height": 2,
+          "side": "SOUTH",
+          "disabled": true
+        },
+        {
+          "id": "build_pacs_soap_ref-north-port",
+          "width": 2,
+          "height": 2,
+          "side": "NORTH",
+          "disabled": true,
+          "hidden": false
+        }
+      ],
+      "parent": "pacs_loop_ref"
+    },
+    {
+      "id": "sync_pacs_ws_ref",
+      "width": 350,
+      "height": 100,
+      "ports": [
+        {
+          "id": "sync_pacs_ws_ref-south-port",
+          "width": 2,
+          "height": 2,
+          "side": "SOUTH",
+          "disabled": true
+        }
+      ],
+      "parent": "pacs_loop_ref"
+    },
+    {
+      "id": "parse_pacs_resp_ref",
+      "width": 350,
+      "height": 140,
+      "ports": [
+        {
+          "id": "parse_pacs_resp_ref-south-port",
+          "width": 2,
+          "height": 2,
+          "side": "SOUTH",
+          "disabled": true
+        }
+      ],
+      "parent": "pacs_loop_ref"
+    },
+    {
+      "id": "mapping_ecg_req_ref",
+      "width": 350,
+      "height": 140,
+      "ports": [
+        {
+          "id": "mapping_ecg_req_ref-south-port",
+          "width": 2,
+          "height": 2,
+          "side": "SOUTH",
+          "disabled": true
+        }
+      ],
+      "layoutOptions": {
+        "org.eclipse.elk.alignment": "TOP"
+      }
+    },
+    {
+      "id": "sync_ecg_ref",
+      "width": 350,
+      "height": 130,
+      "ports": [
+        {
+          "id": "sync_ecg_ref-south-port",
+          "width": 2,
+          "height": 2,
+          "side": "SOUTH",
+          "disabled": true
+        }
+      ]
+    },
+    {
+      "id": "apply_join_ref",
+      "width": 350,
+      "height": 80,
+      "ports": [
+        {
+          "id": "apply_join_ref-south-port",
+          "width": 2,
+          "height": 2,
+          "side": "SOUTH",
+          "disabled": true
+        },
+        {
+          "id": "apply_join_ref-joinOnTask-0-north-port",
+          "width": 2,
+          "height": 2,
+          "side": "NORTH",
+          "disabled": true,
+          "hidden": true,
+          "index": 1
+        },
+        {
+          "id": "apply_join_ref-joinOnTask-1-north-port",
+          "width": 2,
+          "height": 2,
+          "side": "NORTH",
+          "disabled": true,
+          "hidden": true,
+          "index": 0
+        }
+      ]
+    },
+    {
+      "id": "merge_ref",
+      "width": 350,
+      "height": 140,
+      "ports": [
+        {
+          "id": "merge_ref-south-port",
+          "width": 2,
+          "height": 2,
+          "side": "SOUTH",
+          "disabled": true
+        }
+      ]
+    },
+    {
+      "id": "__end__",
+      "width": 80,
+      "height": 80
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_split_apply_ref_apply_fork_ref",
+      "from": "split_apply_ref",
+      "fromPort": "split_apply_ref-south-port",
+      "to": "apply_fork_ref",
+      "toPort": "apply_fork_ref-to"
+    },
+    {
+      "id": "edge_build_pacs_soap_ref_sync_pacs_ws_ref",
+      "from": "build_pacs_soap_ref",
+      "fromPort": "build_pacs_soap_ref-south-port",
+      "to": "sync_pacs_ws_ref",
+      "toPort": "sync_pacs_ws_ref-to",
+      "parent": "pacs_loop_ref"
+    },
+    {
+      "id": "edge_sync_pacs_ws_ref_parse_pacs_resp_ref",
+      "from": "sync_pacs_ws_ref",
+      "fromPort": "sync_pacs_ws_ref-south-port",
+      "to": "parse_pacs_resp_ref",
+      "toPort": "parse_pacs_resp_ref-to",
+      "parent": "pacs_loop_ref"
+    },
+    {
+      "id": "edge_apply_fork_ref_pacs_loop_ref_0",
+      "from": "apply_fork_ref",
+      "fromPort": "apply_fork_ref_[key=0]-south-port",
+      "to": "pacs_loop_ref",
+      "toPort": "pacs_loop_ref-to"
+    },
+    {
+      "id": "edge_mapping_ecg_req_ref_sync_ecg_ref",
+      "from": "mapping_ecg_req_ref",
+      "fromPort": "mapping_ecg_req_ref-south-port",
+      "to": "sync_ecg_ref",
+      "toPort": "sync_ecg_ref-to"
+    },
+    {
+      "id": "edge_apply_fork_ref_mapping_ecg_req_ref_1",
+      "from": "apply_fork_ref",
+      "fromPort": "apply_fork_ref_[key=1]-south-port",
+      "to": "mapping_ecg_req_ref",
+      "toPort": "mapping_ecg_req_ref-to"
+    },
+    {
+      "id": "edge_fork_join_apply_fork_ref_apply_join_ref_0",
+      "from": "pacs_loop_ref",
+      "fromPort": "pacs_loop_ref-south-port",
+      "to": "apply_join_ref",
+      "toPort": "apply_join_ref-joinOnTask-0-north-port"
+    },
+    {
+      "id": "edge_fork_join_apply_fork_ref_apply_join_ref_1",
+      "from": "sync_ecg_ref",
+      "fromPort": "sync_ecg_ref-south-port",
+      "to": "apply_join_ref",
+      "toPort": "apply_join_ref-joinOnTask-1-north-port"
+    },
+    {
+      "id": "edge_apply_join_ref_merge_ref",
+      "from": "apply_join_ref",
+      "fromPort": "apply_join_ref-south-port",
+      "to": "merge_ref",
+      "toPort": "merge_ref-to"
+    },
+    {
+      "id": "edge___start___split_apply_ref",
+      "from": "__start__",
+      "fromPort": "__start__-south-port",
+      "to": "split_apply_ref",
+      "toPort": "split_apply_ref-to"
+    },
+    {
+      "id": "edge_merge_ref___end__",
+      "from": "merge_ref",
+      "fromPort": "merge_ref-south-port",
+      "to": "__end__",
+      "toPort": "__end__-to"
+    }
+  ]
+}

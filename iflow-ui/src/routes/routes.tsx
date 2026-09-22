@@ -2,8 +2,7 @@ import { Navigate, type RouteObject } from 'react-router-dom'
 import { App } from '@/components/App'
 import { WorkflowDefinitions } from '@/pages/definitions'
 import { Workflow } from '@/pages/definition'
-import { WorkflowExcutions } from '@/pages/excutions'
-import { ExecutionDetailPage } from '@/pages/ExecutionDetailPage'
+import { ExecutionDetailPage, WorkflowSearch } from '@/pages/executions'
 
 export const routes: RouteObject[] = [
   {
@@ -13,7 +12,7 @@ export const routes: RouteObject[] = [
       { path: '/workflowDef', element: <WorkflowDefinitions /> },
       { path: '/workflowDef/edit', element: <Workflow /> },
       { path: '/workflowDef/:name/:version?', element: <Workflow /> },
-      { path: '/executions', element: <WorkflowExcutions /> },
+      { path: '/executions', element: <WorkflowSearch /> },
       { path: '/executions/:workflowId', element: <ExecutionDetailPage /> },
       { path: '/execution/:workflowId', element: <ExecutionDetailPage /> },
     ],

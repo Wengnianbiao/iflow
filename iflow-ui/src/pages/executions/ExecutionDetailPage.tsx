@@ -23,6 +23,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { getWorkflowExecution, terminateWorkflow } from '@/api/workflowExecution'
 import { ConductorFlowCanvas } from '@/components/flow/ConductorFlowCanvas'
 import { useMessageContext } from '@/components/providers/messageContext'
+import { JsonViewer, serializeJson } from '@/components/ui/JsonViewer'
 import type { WorkflowTask } from '@/types/workflow'
 import type { TaskExecution, WorkflowExecution } from '@/types/workflowExecution'
 import { formatDuration, formatTime, statusText } from './ExecutionExplorerPage'
@@ -186,8 +187,7 @@ export function ExecutionDetailPage() {
     ? taskRows
     : taskRows.filter((task) => task.status === taskStatusFilter)
 
-  const title = execution?.workflowDefinition?.displayName || execution?.workflowDefinition?.name || '工作流实例'
-  const technicalTitle = execution?.workflowDefinition?.name || title
+  const displayName = execution?.workflowDefinition?.displayName?.trim() || '工作流实例'
   const duration = execution?.startTime
     ? formatDuration(((execution.endTime && execution.endTime > 0) ? execution.endTime : Date.now()) - execution.startTime)
     : '-'
@@ -268,24 +268,24 @@ export function ExecutionDetailPage() {
 
   return (
     <main className={styles.page}>
-      <Helmet><title>执行详情 - {technicalTitle} - {execution.workflowId}</title></Helmet>
+      <Helmet><title>执行详情 - {displayName}</title></Helmet>
 
       <header className={styles.header}>
         <div className={styles.headerCopy}>
           <div className={styles.breadcrumb}>
             <Link to="/executions">工作流执行记录</Link>
             <span>/</span>
-            <span title={execution.workflowId}>{execution.workflowId}</span>
+            <span title={displayName}>{displayName}</span>
             <CopyButton
-              label="复制工作流 ID"
-              onClick={() => void copyText(execution.workflowId, '工作流 ID')}
+              label="复制工作流名称"
+              onClick={() => void copyText(displayName, '工作流名称')}
             />
           </div>
           <div className={styles.titleLine}>
-            <h1 title={technicalTitle}>{technicalTitle}</h1>
+            <h1 title={displayName}>{displayName}</h1>
             <CopyButton
               label="复制工作流名称"
-              onClick={() => void copyText(technicalTitle, '工作流名称')}
+              onClick={() => void copyText(displayName, '工作流名称')}
             />
             <StatusBadge status={execution.status} />
           </div>
@@ -371,13 +371,13 @@ export function ExecutionDetailPage() {
 
           {mainTab === 'summary' ? (
             <div className={styles.scrollPane}>
-              <KeyValueTable rows={workflowSummaryRows(execution, technicalTitle, duration, failedTask, selectTaskExecution)} />
+              <KeyValueTable rows={workflowSummaryRows(execution, displayName, duration, failedTask, selectTaskExecution)} />
             </div>
           ) : null}
 
           {mainTab === 'io' ? (
             <JsonPairView
-              workflowName={technicalTitle}
+              workflowName={displayName}
               input={execution.input}
               output={execution.output}
               onCopy={copyText}
@@ -687,7 +687,7 @@ function JsonCard({
   fullScreen?: boolean
   compact?: boolean
 }) {
-  const content = json(value)
+  const content = serializeJson(value)
   const [copied, setCopied] = useState(false)
   const copy = async () => {
     await onCopy(content, title)
@@ -709,7 +709,7 @@ function JsonCard({
           ) : null}
         </div>
       </header>
-      <pre>{content}</pre>
+      <JsonViewer value={value} ariaLabel={`${title} JSON`} />
     </section>
   )
 }
@@ -737,7 +737,6 @@ function workflowSummaryRows(
   onSelectTask: (task: TaskExecution) => void,
 ): KeyValueRow[] {
   const rows: KeyValueRow[] = [
-    { label: '工作流 ID', value: execution.workflowId, monospace: true },
     { label: '状态', value: <StatusBadge status={execution.status} /> },
   ]
   if (execution.reasonForIncompletion) {
@@ -832,10 +831,6 @@ function formatTimelineTick(value: number) {
   const date = new Date(value)
   const pad = (part: number, length = 2) => String(part).padStart(length, '0')
   return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`
-}
-
-function json(value: unknown) {
-  return JSON.stringify(value === undefined ? {} : value, null, 2)
 }
 
 function statusTone(status?: string) {

@@ -3,6 +3,19 @@ export const MAPPING_TYPES = ['NAME', 'CONSTANT', 'EXPRESSION', 'OBJECT', 'ARRAY
 export type ParamType = (typeof PARAM_TYPES)[number]
 export type MappingType = (typeof MAPPING_TYPES)[number]
 export type ConfigPath = number[]
+
+export function mappingTypesForTargetType(targetType: ParamType): MappingType[] {
+  if (targetType === 'ARRAY') return ['ARRAY_MAP', 'ARRAY_FIXED', 'EXPRESSION']
+  if (targetType === 'OBJECT') return ['OBJECT', 'EXPRESSION']
+  return ['NAME', 'CONSTANT', 'EXPRESSION']
+}
+
+export type DisplayConfigRow = {
+  config: ParamMappingConfig
+  path: ConfigPath
+  depth: number
+  ancestors: ConfigPath[]
+}
 export interface ParamMappingConfig {
   targetParamKey: string
   targetParamType: ParamType
@@ -14,6 +27,13 @@ export interface ParamMappingConfig {
   itemAlias?: string
   itemTemplate?: ParamMappingConfig
   items: ParamMappingConfig[]
+}
+
+export function loopElementLabel(config?: Pick<ParamMappingConfig, 'targetParamType'>): string {
+  if (!config) return '元素'
+  if (config.targetParamType === 'OBJECT') return '对象元素'
+  if (config.targetParamType === 'ARRAY') return '数组元素'
+  return '标量元素'
 }
 
 export function configChildren(config: ParamMappingConfig): ParamMappingConfig[] {
@@ -46,8 +66,8 @@ export function normalizeConfig(value: unknown): ParamMappingConfig {
   }
 }
 
-export function emptyConfig(): ParamMappingConfig {
-  return normalizeConfig({ sourceParamKey: '$', targetParamType: 'STRING', mappingType: 'NAME' })
+export function emptyConfig(sourceRoot = '$'): ParamMappingConfig {
+  return normalizeConfig({ sourceParamKey: sourceRoot, targetParamType: 'STRING', mappingType: 'NAME' })
 }
 
 export function objectTemplate(): ParamMappingConfig {
@@ -111,6 +131,17 @@ Array<{ config: ParamMappingConfig; path: ConfigPath; depth: number }> {
   })
 }
 
+/** Builds the editor tree with ARRAY_MAP's single element template shown explicitly. */
+export function flattenDisplayConfigs(configs: ParamMappingConfig[], parent: ConfigPath = [],
+  depth = 0, ancestors: ConfigPath[] = []): DisplayConfigRow[] {
+  return configs.flatMap((config, index) => {
+    const path = [...parent, index]
+    const row: DisplayConfigRow = { config, path, depth, ancestors }
+    const visibleAncestors = [...ancestors, path]
+    return [row, ...flattenDisplayConfigs(configChildren(config), path, depth + 1, visibleAncestors)]
+  })
+}
+
 export function scopeAliases(configs: ParamMappingConfig[], parentPath: ConfigPath): string[] {
   return parentPath.flatMap((_, i) => {
     const node = configAtPath(configs, parentPath.slice(0, i + 1))
@@ -121,9 +152,32 @@ export function scopeAliases(configs: ParamMappingConfig[], parentPath: ConfigPa
 export function configNodeLabel(configs: ParamMappingConfig[], path: ConfigPath): string {
   const node = configAtPath(configs, path)
   const parent = configAtPath(configs, path.slice(0, -1))
-  if (parent?.mappingType === 'ARRAY_MAP') return '元素模板'
+  if (parent?.mappingType === 'ARRAY_MAP') return loopElementLabel(node)
   if (parent?.mappingType === 'ARRAY_FIXED') return `[${path[path.length - 1]}]`
   return node?.targetParamKey || '未命名字段'
+}
+
+const PATH_IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/
+
+export function sourcePathForKey(root: string, key: string): string {
+  if (!key) return root
+  if (PATH_IDENTIFIER.test(key)) return `${root}.${key}`
+  return `${root}['${key.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}']`
+}
+
+export function sourcePathAfterTargetRename(currentPath: string | undefined, root: string,
+  previousKey: string, nextKey: string): string | undefined {
+  return currentPath === sourcePathForKey(root, previousKey) ? sourcePathForKey(root, nextKey) : currentPath
+}
+
+export function aliasPathCorrection(path: string, aliases: string[]): string | undefined {
+  for (const alias of aliases) {
+    for (const prefix of [`$.${alias}`, `$['${alias}']`, `$["${alias}"]`]) {
+      if (path === prefix) return alias
+      if (path.startsWith(`${prefix}.`) || path.startsWith(`${prefix}[`)) return `${alias}${path.slice(prefix.length)}`
+    }
+  }
+  return undefined
 }
 
 export function countMappingTargetFields(value: unknown): number {
@@ -137,13 +191,16 @@ export function countMappingTargetFields(value: unknown): number {
   }, 0)
 }
 
-const RESERVED = new Set('$ XML arguments eval undefined NaN Infinity globalThis Object Function Boolean Symbol Number BigInt Math Date String RegExp Array JSON Map Set WeakMap WeakSet Promise Reflect Proxy Intl Atomics WebAssembly console Error TypeError RangeError SyntaxError ReferenceError URIError ArrayBuffer SharedArrayBuffer DataView Int8Array Uint8Array Uint8ClampedArray Int16Array Uint16Array Int32Array Uint32Array Float32Array Float64Array BigInt64Array BigUint64Array parseInt parseFloat isNaN isFinite encodeURI decodeURI encodeURIComponent decodeURIComponent escape unescape break case catch class const continue debugger default delete do else export extends finally for function if import in instanceof new return super switch this throw try typeof var void while with yield let static enum await implements package protected interface private public null true false'.split(' '))
+const RESERVED = new Set('$ XML Crypto arguments eval undefined NaN Infinity globalThis Object Function Boolean Symbol Number BigInt Math Date String RegExp Array JSON Map Set WeakMap WeakSet Promise Reflect Proxy Intl Atomics WebAssembly console Error TypeError RangeError SyntaxError ReferenceError URIError ArrayBuffer SharedArrayBuffer DataView Int8Array Uint8Array Uint8ClampedArray Int16Array Uint16Array Int32Array Uint32Array Float32Array Float64Array BigInt64Array BigUint64Array parseInt parseFloat isNaN isFinite encodeURI decodeURI encodeURIComponent decodeURIComponent escape unescape break case catch class const continue debugger default delete do else export extends finally for function if import in instanceof new return super switch this throw try typeof var void while with yield let static enum await implements package protected interface private public null true false'.split(' '))
 
 export function validateNode(config: ParamMappingConfig, aliases: string[], element: boolean): void {
   if (!element && !config.targetParamKey.trim()) throw new Error('目标参数名不能为空')
   if (element && config.targetParamKey) throw new Error('数组元素模板不填写目标参数名')
-  if (config.mappingType === 'NAME' && (config.targetParamType === 'OBJECT' || config.targetParamType === 'ARRAY')) {
-    throw new Error('值映射仅支持标量类型；对象请配置子字段，数组请循环生成或固定组装')
+  if (config.targetParamType === 'ARRAY' && !mappingTypesForTargetType('ARRAY').includes(config.mappingType)) {
+    throw new Error('数组仅支持循环映射、固定长度或 JS 表达式')
+  }
+  if (config.targetParamType === 'OBJECT' && !mappingTypesForTargetType('OBJECT').includes(config.mappingType)) {
+    throw new Error('对象仅支持对象构建或 JS 表达式')
   }
   if (config.mappingType === 'NAME' || config.mappingType === 'ARRAY_MAP') {
     const path = config.sourceParamKey ?? ''

@@ -28,10 +28,16 @@ fi
 mkdir -p /opt/iflow/logs
 
 # Host network: reach OceanBase/MySQL on 2881 and publish 8099 without Docker 20.10 DNAT issues.
+# extra_hosts: JDBC 建连会反查容器主机名/本机 IP；容器 /etc/hosts 与宿主机隔离，不配会固定卡约 10s。
 docker run -d \
   --name "$CONTAINER_NAME" \
   --restart unless-stopped \
   --network host \
+  --hostname localhost.localdomain \
+  --add-host=iflow:127.0.0.1 \
+  --add-host=localhost.localdomain:127.0.0.1 \
+  --add-host=localhost.localdomain:132.147.160.231 \
+  --add-host=ob:132.147.160.230 \
   -e PROFILES_ACTIVE=docker \
   -e SPRING_DATASOURCE_URL="jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DB}?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true" \
   -e SPRING_DATASOURCE_USERNAME="$MYSQL_USER" \

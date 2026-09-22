@@ -1,5 +1,4 @@
-import { useEffect } from 'react'
-import { Alert } from 'antd'
+import { Alert, Snackbar } from '@mui/material'
 import type { MessageSeverity } from '@/components/providers/messageContext'
 import styles from './SnackbarMessage.module.css'
 
@@ -16,21 +15,25 @@ export function SnackbarMessage({
   autoHideDuration = 3000,
   onDismiss,
 }: SnackbarMessageProps) {
-  useEffect(() => {
-    if (!onDismiss || autoHideDuration <= 0) return
-    const timer = window.setTimeout(onDismiss, autoHideDuration)
-    return () => window.clearTimeout(timer)
-  }, [autoHideDuration, message, onDismiss])
-
   return (
-    <div className={styles.snackbar} role="status" aria-live="polite">
+    <Snackbar
+      className={styles.snackbar}
+      open
+      anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      autoHideDuration={autoHideDuration > 0 ? autoHideDuration : null}
+      onClose={(_event, reason) => {
+        if (reason !== 'clickaway') onDismiss?.()
+      }}
+    >
       <Alert
-        type={severity}
-        message={message}
-        showIcon
-        closable={Boolean(onDismiss)}
+        severity={severity}
+        variant="filled"
         onClose={onDismiss}
-      />
-    </div>
+        role="status"
+        aria-live="polite"
+      >
+        {message}
+      </Alert>
+    </Snackbar>
   )
 }

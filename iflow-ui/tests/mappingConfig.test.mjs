@@ -1,9 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  configAtPath, configChildren, configNodeLabel, countMappingTargetFields, flattenConfigs,
-  insertAfterPath, normalizeForSave, objectTemplate, parseMappingConfigs, removeAtPath,
-  scopeAliases, updateAtPath, validateNode, withConfigChildren,
+  aliasPathCorrection, configAtPath, configChildren, configNodeLabel, countMappingTargetFields,
+  flattenConfigs, flattenDisplayConfigs,
+  insertAfterPath, loopElementLabel, mappingTypesForTargetType, normalizeConfig, normalizeForSave, objectTemplate, parseMappingConfigs, removeAtPath,
+  scopeAliases, sourcePathAfterTargetRename, sourcePathForKey, updateAtPath, validateNode, withConfigChildren,
 } from '../src/tasks/mappingConfig.ts'
 
 const leaf = (key, path = '$.id') => ({ targetParamKey: key, targetParamType: 'STRING', mappingType: 'NAME', sourceParamKey: path })
@@ -27,8 +28,24 @@ test('nested templates survive JSON, field normalization and reopening', () => {
   assert.deepEqual(scopeAliases(reopened, [0, 0, 1, 0]), ['order', 'line'])
   assert.equal(countMappingTargetFields(reopened), 7)
   assert.equal(flattenConfigs(reopened).length, 11)
-  assert.equal(configNodeLabel(reopened, [0, 0]), '元素模板')
+  assert.equal(configNodeLabel(reopened, [0, 0]), '对象元素')
   assert.equal(configNodeLabel(reopened, [0, 0, 2, 1]), '[1]')
+})
+
+test('loop element labels follow the element target type', () => {
+  const scalarLoop = parseMappingConfigs([{
+    targetParamKey: 'values', targetParamType: 'ARRAY', mappingType: 'ARRAY_MAP', sourceParamKey: '$.values', itemAlias: 'value',
+    itemTemplate: { targetParamType: 'STRING', mappingType: 'NAME', sourceParamKey: 'value' },
+  }])
+  const arrayLoop = parseMappingConfigs([{
+    targetParamKey: 'groups', targetParamType: 'ARRAY', mappingType: 'ARRAY_MAP', sourceParamKey: '$.groups', itemAlias: 'group',
+    itemTemplate: { targetParamType: 'ARRAY', mappingType: 'ARRAY_FIXED', items: [] },
+  }])
+
+  assert.equal(configNodeLabel(scalarLoop, [0, 0]), '标量元素')
+  assert.equal(configNodeLabel(arrayLoop, [0, 0]), '数组元素')
+  assert.equal(loopElementLabel(normalizeConfig({ targetParamType: 'INTEGER' })), '标量元素')
+  assert.equal(loopElementLabel(objectTemplate()), '对象元素')
 })
 
 test('editing, adding, copying and removing fixed elements and nested fields preserves siblings', () => {
@@ -51,6 +68,50 @@ test('a loop keeps exactly one element template', () => {
   assert.deepEqual(insertAfterPath(configs, [0, 0], objectTemplate()), configs)
   const changed = updateAtPath(configs, [0, 0], () => parseMappingConfigs([leaf('temp')])[0])
   assert.equal(configChildren(changed[0]).length, 1)
+})
+
+test('loop element templates are explicit tree rows without changing persisted paths', () => {
+  const configs = parseMappingConfigs(raw)
+  const rows = flattenDisplayConfigs(configs)
+  assert.deepEqual(rows.map(({ path, depth }) => ({ path, depth })), [
+    { path: [0], depth: 0 },
+    { path: [0, 0], depth: 1 },
+    { path: [0, 0, 0], depth: 2 },
+    { path: [0, 0, 1], depth: 2 },
+    { path: [0, 0, 1, 0], depth: 3 },
+    { path: [0, 0, 1, 0, 0], depth: 4 },
+    { path: [0, 0, 1, 0, 1], depth: 4 },
+    { path: [0, 0, 2], depth: 2 },
+    { path: [0, 0, 2, 0], depth: 3 },
+    { path: [0, 0, 2, 0, 0], depth: 4 },
+    { path: [0, 0, 2, 1], depth: 3 },
+  ])
+  assert.deepEqual(rows.find(({ path }) => path.join('.') === '0.0.0').ancestors, [[0], [0, 0]])
+  assert.equal(flattenConfigs(configs).length, 11)
+})
+
+test('source path suggestions follow scope and quote non-identifier fields', () => {
+  assert.equal(sourcePathForKey('$', 'patientCode'), '$.patientCode')
+  assert.equal(sourcePathForKey('item', 'patientCode'), 'item.patientCode')
+  assert.equal(sourcePathForKey('item', 'patient.code'), "item['patient.code']")
+  assert.equal(sourcePathForKey('item', "doctor's-code"), "item['doctor\\'s-code']")
+  assert.equal(sourcePathAfterTargetRename('item', 'item', '', 'patientCode'), 'item.patientCode')
+  assert.equal(sourcePathAfterTargetRename('item.patientCode', 'item', 'patientCode', 'code'), 'item.code')
+  assert.equal(sourcePathAfterTargetRename('$.manual', 'item', 'patientCode', 'code'), '$.manual')
+  assert.equal(aliasPathCorrection('$.item.patientCode', ['item']), 'item.patientCode')
+  assert.equal(aliasPathCorrection("$['line'][0].code", ['item', 'line']), 'line[0].code')
+  assert.equal(aliasPathCorrection('$.patient.item', ['item']), undefined)
+  const aliases = scopeAliases(parseMappingConfigs(raw), [0, 0, 1, 0])
+  assert.equal(sourcePathForKey(aliases.at(-1), 'code'), 'line.code')
+})
+
+test('mapping modes follow target types and object construction survives save and reopen', () => {
+  assert.deepEqual(mappingTypesForTargetType('ARRAY'), ['ARRAY_MAP', 'ARRAY_FIXED', 'EXPRESSION'])
+  assert.deepEqual(mappingTypesForTargetType('OBJECT'), ['OBJECT', 'EXPRESSION'])
+  assert.deepEqual(mappingTypesForTargetType('STRING'), ['NAME', 'CONSTANT', 'EXPRESSION'])
+  const constructed = [{ targetParamKey: 'patient', targetParamType: 'OBJECT', mappingType: 'OBJECT', childParams: [leaf('id', '$.patient.id')] }]
+  const saved = parseMappingConfigs(constructed).map(normalizeForSave)
+  assert.deepEqual(parseMappingConfigs(JSON.parse(JSON.stringify(saved))).map(normalizeForSave), saved)
 })
 
 test('constant JSON values and string whitespace are preserved', () => {
@@ -80,8 +141,30 @@ test('invalid JSON configurations do not silently normalize into different behav
   assert.throws(() => validateNode({ ...config, itemAlias: 'order' }, ['order'], false), /重名/)
   assert.throws(() => parseMappingConfigs([{ ...leaf('id'), sourceParamKey: 'missing.id' }]), /循环变量/)
   assert.throws(() => parseMappingConfigs([{ ...leaf('id'), sourceParamKey: '$.items[' }]), /路径语法/)
-  assert.throws(() => parseMappingConfigs([{ ...leaf('object'), targetParamType: 'OBJECT' }]), /仅支持标量/)
-  assert.throws(() => parseMappingConfigs([{ ...leaf('array'), targetParamType: 'ARRAY' }]), /仅支持标量/)
+  assert.throws(() => parseMappingConfigs([{ ...leaf('object'), targetParamType: 'OBJECT' }]), /对象仅支持对象构建或 JS 表达式/)
+  assert.throws(() => parseMappingConfigs([{
+    targetParamKey: 'object', targetParamType: 'OBJECT', mappingType: 'CONSTANT', mappingRule: {},
+  }]), /对象仅支持对象构建或 JS 表达式/)
+  assert.throws(() => parseMappingConfigs([{
+    targetParamKey: 'outer', targetParamType: 'ARRAY', mappingType: 'ARRAY_FIXED', items: [
+      { targetParamType: 'OBJECT', mappingType: 'NAME', sourceParamKey: '$.patient' },
+    ],
+  }]), /paramsConfig\[0\]\.items\[0\].*对象仅支持对象构建或 JS 表达式/)
+  assert.doesNotThrow(() => parseMappingConfigs([{
+    targetParamKey: 'object', targetParamType: 'OBJECT', mappingType: 'EXPRESSION', mappingRule: '$.patient',
+  }]))
+  assert.throws(() => parseMappingConfigs([{ ...leaf('array'), targetParamType: 'ARRAY' }]), /数组仅支持循环映射、固定长度或 JS 表达式/)
+  assert.throws(() => parseMappingConfigs([{
+    targetParamKey: 'array', targetParamType: 'ARRAY', mappingType: 'CONSTANT', mappingRule: [],
+  }]), /数组仅支持循环映射、固定长度或 JS 表达式/)
+  assert.throws(() => parseMappingConfigs([{
+    targetParamKey: 'outer', targetParamType: 'ARRAY', mappingType: 'ARRAY_FIXED', items: [
+      { targetParamType: 'ARRAY', mappingType: 'NAME', sourceParamKey: '$.rows' },
+    ],
+  }]), /paramsConfig\[0\]\.items\[0\].*数组仅支持循环映射、固定长度或 JS 表达式/)
+  assert.doesNotThrow(() => parseMappingConfigs([{
+    targetParamKey: 'array', targetParamType: 'ARRAY', mappingType: 'EXPRESSION', mappingRule: '$.rows',
+  }]))
   assert.throws(() => parseMappingConfigs([{ ...leaf('id'), childParams: 'invalid' }]), /必须是数组/)
   assert.throws(() => parseMappingConfigs([{ ...leaf('id'), unsupported: 'value' }]), /未知配置字段/)
   assert.doesNotThrow(() => parseMappingConfigs([{ ...leaf('id'), sourceParamKey: '$[0]["field.name"]' }]))
