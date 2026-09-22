@@ -115,7 +115,7 @@
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <version>${spring-boot.version}</version>
                 <configuration>
-                    <mainClass>com.helianhealth.agent.IflowApplication</mainClass>
+                    <mainClass>com.helianhealth.iflow.web.IflowApplication</mainClass>
                 </configuration>
                 <executions>
                     <execution>

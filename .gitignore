@@ -75,6 +75,6 @@ Thumbs.db
 # ===========================
 jetty/
 vcs.xml
-iflow
 conductor-3.30.2
 dist/
+/iflow

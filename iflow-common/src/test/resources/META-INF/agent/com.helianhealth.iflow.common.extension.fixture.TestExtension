@@ -1,0 +1,4 @@
+default=com.helianhealth.iflow.common.extension.fixture.DefaultTestExtension
+custom=com.helianhealth.iflow.common.extension.fixture.CustomTestExtension
+activated=com.helianhealth.iflow.common.extension.fixture.ActivatedTestExtension
+high-priority=com.helianhealth.iflow.common.extension.fixture.HighPriorityActivatedExtension

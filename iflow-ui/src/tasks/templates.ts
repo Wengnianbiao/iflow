@@ -2,7 +2,7 @@ export function spiJavaTemplate(className: string) {
   const separator = className.lastIndexOf('.')
   const packageName = separator > 0 ? className.slice(0, separator) : ''
   const simpleName = separator > 0 ? className.slice(separator + 1) : className
-  return `${packageName ? `package ${packageName};\n\n` : ''}import com.helianhealth.agent.tasks.spi.InterfaceRemoteInvoker;
+  return `${packageName ? `package ${packageName};\n\n` : ''}import com.helianhealth.iflow.tasks.spi.InterfaceRemoteInvoker;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

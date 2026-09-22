@@ -26,7 +26,7 @@ export function SPITaskForm({ task, variableOptions, onChange }: { task: Workflo
   const [javaSource, setJavaSource] = useState(() => (
     typeof inputParameters.sourceCode === 'string'
       ? inputParameters.sourceCode
-      : spiJavaTemplate(className || 'com.helianhealth.agent.extension.CustomSpiTaskExtension')
+      : spiJavaTemplate(className || 'com.helianhealth.iflow.extension.CustomSpiTaskExtension')
   ))
   const [inputError, setInputError] = useState('')
 

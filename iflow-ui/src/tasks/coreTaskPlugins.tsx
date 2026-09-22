@@ -228,7 +228,7 @@ registerCoreTaskPlugins([
     inspectorLayout: 'bare',
     flow: { nodeSize: { width: DEFAULT_NODE_WIDTH, height: 130 } },
     create: (context) => {
-      const className = `com.helianhealth.agent.extension.SpiTaskExtension_${context.suffix}`
+      const className = `com.helianhealth.iflow.extension.SpiTaskExtension_${context.suffix}`
       return baseTask(context, {
         name: `spi_${context.suffix}`,
         inputParameters: {

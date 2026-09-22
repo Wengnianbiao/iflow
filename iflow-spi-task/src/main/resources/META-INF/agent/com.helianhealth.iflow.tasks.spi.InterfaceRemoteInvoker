@@ -1,0 +1,1 @@
+default=com.helianhealth.iflow.tasks.spi.DefaultInterfaceRemoteInvoker
