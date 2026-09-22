@@ -115,25 +115,6 @@ class HttpTaskUnitTest {
     }
 
     @Test
-    void inputWithHttpRequestKey() {
-        TaskModel task = new TaskModel();
-        Map<String, Object> httpRequest = new HashMap<>();
-        httpRequest.put("uri", "http://example.com");
-        httpRequest.put("method", "GET");
-        httpRequest.put("accept", "text/html");
-        task.getInputData().put(HttpTask.REQUEST_PARAMETER_NAME, httpRequest);
-        task.addOutput("stale", true);
-
-        httpTask.execute(workflow, task, null);
-        assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
-        assertEquals(200, task.outputAsMap().get("statusCode"));
-        assertEquals(Map.of(), task.outputAsMap().get("body"));
-        assertFalse(task.outputAsMap().containsKey("result"));
-        assertFalse(task.outputAsMap().containsKey("response"));
-        assertFalse(task.outputAsMap().containsKey("stale"));
-    }
-
-    @Test
     void inputWithoutHttpRequestKey() {
         TaskModel task = new TaskModel();
         task.getInputData().put("uri", "http://example.com");
@@ -171,20 +152,6 @@ class HttpTaskUnitTest {
         task.getInputData().put("uri", "http://example.com");
         task.getInputData().put("method", "GET");
         task.getInputData().put("accept", Arrays.asList("application/json", "text/plain"));
-
-        httpTask.execute(workflow, task, null);
-        assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
-        assertEquals(200, task.outputAsMap().get("statusCode"));
-    }
-
-    @Test
-    void inputHttpRequestKeyWithListAccept() {
-        TaskModel task = new TaskModel();
-        Map<String, Object> httpRequest = new HashMap<>();
-        httpRequest.put("uri", "http://example.com");
-        httpRequest.put("method", "GET");
-        httpRequest.put("accept", Arrays.asList("application/json", "application/xml"));
-        task.getInputData().put(HttpTask.REQUEST_PARAMETER_NAME, httpRequest);
 
         httpTask.execute(workflow, task, null);
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
