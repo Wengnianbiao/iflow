@@ -19,7 +19,7 @@ public enum MappingType {
     NAME,
 
     /**
-     * GraalJS 表达式（通过 {@code $} 读取映射上下文）
+     * GraalJS 表达式
      */
     EXPRESSION,
 

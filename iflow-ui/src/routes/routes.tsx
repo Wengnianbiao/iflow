@@ -3,6 +3,7 @@ import { App } from '@/components/App'
 import { WorkflowDefinitions } from '@/pages/definitions'
 import { Workflow } from '@/pages/definition'
 import { ExecutionDetailPage, WorkflowSearch } from '@/pages/executions'
+import { InvokeWorkflowPage } from '@/pages/invoke'
 
 export const routes: RouteObject[] = [
   {
@@ -12,6 +13,7 @@ export const routes: RouteObject[] = [
       { path: '/workflowDef', element: <WorkflowDefinitions /> },
       { path: '/workflowDef/edit', element: <Workflow /> },
       { path: '/workflowDef/:name/:version?', element: <Workflow /> },
+      { path: '/invoke', element: <InvokeWorkflowPage /> },
       { path: '/executions', element: <WorkflowSearch /> },
       { path: '/executions/:workflowId', element: <ExecutionDetailPage /> },
       { path: '/execution/:workflowId', element: <ExecutionDetailPage /> },

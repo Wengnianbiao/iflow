@@ -15,8 +15,10 @@ import {
 } from '@phosphor-icons/react'
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { WorkflowCollapsibleSection, ParameterRows, VariableExpressionInput, valueText } from '@/pages/definition/EditorPanel/InspectorFields'
-import { InlineScriptEditor } from '@/pages/definition/EditorPanel/TaskFormTab/forms/InlineScriptEditor'
+import { WorkflowCollapsibleSection, ParameterRows, VariableExpressionInput, valueText } from '../../../InspectorFields'
+import { InlineScriptEditor } from '../InlineScriptEditor'
+import { TaskPanelHeader } from '../TaskPanelHeader'
+import type { TaskFormProps } from '../types'
 import {
   PARAM_TYPES, configChildren, withConfigChildren, configAtPath,
   configNodeLabel, loopElementLabel, scopeAliases, normalizeConfig, normalizeForSave, emptyConfig, objectTemplate,
@@ -24,7 +26,6 @@ import {
   parseMappingConfigs, validateNode, sourcePathAfterTargetRename, aliasPathCorrection, mappingTypesForTargetType,
   type ParamMappingConfig, type ParamType, type MappingType, type ConfigPath, type DisplayConfigRow,
 } from '@/tasks/mappingConfig'
-export type { ParamMappingConfig } from '@/tasks/mappingConfig'
 import type { WorkflowTask } from '@/types/workflow'
 
 type EditorView = 'JSON' | 'PARAMETERS'
@@ -32,13 +33,6 @@ type PayloadMode = 'expression' | 'parameters'
 
 const PAYLOAD_KEY = 'payload'
 const DEFAULT_PAYLOAD_EXPRESSION = '${workflow.input}'
-
-type ParamMapTaskInspectorProps = {
-  task: WorkflowTask
-  header: ReactNode
-  variableOptions: string[]
-  onChange: (task: WorkflowTask) => void
-}
 
 type EditSession = {
   kind: 'root' | 'child' | 'edit' | 'copy'
@@ -68,12 +62,12 @@ function paramTypeLabel(type: ParamType) {
   return type.charAt(0) + type.slice(1).toLowerCase()
 }
 
-export function readParamMappingConfigs(task: WorkflowTask): ParamMappingConfig[] {
+function readParamMappingConfigs(task: WorkflowTask): ParamMappingConfig[] {
   const raw = task.inputParameters?.paramsConfig
   return Array.isArray(raw) ? raw.map(normalizeConfig) : []
 }
 
-export function countParamMappingConfigs(configs: ParamMappingConfig[]): number {
+function countParamMappingConfigs(configs: ParamMappingConfig[]): number {
   return countMappingTargetFields(configs)
 }
 
@@ -90,7 +84,7 @@ function mappingLabel(type: MappingType) {
   }
 }
 
-export function ParamMapTaskInspector({ task, header, variableOptions, onChange }: ParamMapTaskInspectorProps) {
+export function ParamMapTaskForm({ task, variableOptions, onChange }: TaskFormProps) {
   const inputParameters = task.inputParameters ?? {}
   const payload = inputParameters[PAYLOAD_KEY]
   const payloadMode: PayloadMode = isRecord(payload) ? 'parameters' : 'expression'
@@ -237,11 +231,10 @@ export function ParamMapTaskInspector({ task, header, variableOptions, onChange 
 
   return (
     <div className="workflow-form-panel inline-task-inspector param-map-task-inspector">
-      {header}
+      <TaskPanelHeader task={task} label="参数映射" onChange={onChange} />
 
       <WorkflowCollapsibleSection title="映射输入">
         <div className="switch-evaluator-heading">
-          <span>入参方式</span>
           <div className="switch-evaluator-options" role="radiogroup" aria-label="映射输入方式">
             <label>
               <input
@@ -288,9 +281,6 @@ export function ParamMapTaskInspector({ task, header, variableOptions, onChange 
               <PlusCircleIcon size={16} />
               添加参数
             </button>
-            <p className="field-help">
-              键值写入 <code>payload</code>。下方映射按参数名取值，例如 <code>$.patientCode</code>。
-            </p>
           </>
         )}
       </WorkflowCollapsibleSection>

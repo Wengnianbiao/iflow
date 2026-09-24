@@ -1,0 +1,78 @@
+{
+  "name": "hl-open-api/query-item",
+  "version": 1,
+  "displayName": "查询项目信息",
+  "description": "POST /hl-open-api/query-item。请求体为 { request: 诊疗项目字典查询入参 }，取出 request 放入 encryptData 后调用 GHIS queryCureService。",
+  "timeoutPolicy": "TIME_OUT_WF",
+  "inputParameters": [
+    "request"
+  ],
+  "outputParameters": {},
+  "tasks": [
+    {
+      "name": "组装网关查询报文",
+      "taskReferenceName": "wrap_request_ref",
+      "type": "INLINE",
+      "optional": false,
+      "inputParameters": {
+        "request": "${workflow.input.request}",
+        "evaluatorType": "graaljs",
+        "expression": "(function () { var raw = $.request; var body = raw; if (typeof raw === 'string') { body = raw ? JSON.parse(raw) : {}; } if (body == null) { body = {}; } var query = body.request != null ? body.request : body; return { rows: Array.isArray(query) ? query : [query], timestamp: String(Date.now()) }; })()"
+      }
+    },
+    {
+      "name": "查询入参序列化",
+      "taskReferenceName": "serialize_encrypt_data_ref",
+      "type": "FUNCTION",
+      "optional": false,
+      "inputParameters": {
+        "function": "JSON_STRINGIFY",
+        "value": "${wrap_request_ref.output.rows}"
+      }
+    },
+    {
+      "name": "调用诊疗项目查询",
+      "taskReferenceName": "call_his_ref",
+      "type": "HTTP",
+      "optional": false,
+      "inputParameters": {
+        "uri": "http://132.147.181.104/gateway/api",
+        "method": "POST",
+        "contentType": "application/json",
+        "accept": "application/json",
+        "connectionTimeOut": 5000,
+        "readTimeOut": 30000,
+        "body": {
+          "appId": "6a4daeb8b4ac040015386004",
+          "encryptData": "${serialize_encrypt_data_ref.output}",
+          "sign": "",
+          "timestamp": "${wrap_request_ref.output.timestamp}",
+          "version": "1.0.0",
+          "beanName": "exchange.stand.queryCureServiceProvider",
+          "methodName": "queryCureService"
+        }
+      }
+    },
+    {
+      "name": "查询响应反序列化",
+      "taskReferenceName": "parse_encrypt_data_ref",
+      "type": "FUNCTION",
+      "optional": false,
+      "inputParameters": {
+        "function": "JSON_PARSE",
+        "value": "${call_his_ref.output.body.encryptData}"
+      }
+    },
+    {
+      "name": "展开查询响应",
+      "taskReferenceName": "unwrap_response_ref",
+      "type": "INLINE",
+      "optional": false,
+      "inputParameters": {
+        "parsed": "${parse_encrypt_data_ref.output}",
+        "evaluatorType": "graaljs",
+        "expression": "(function () { var raw = $.parsed; var body = Array.isArray(raw) ? (raw.length ? raw[0] : {}) : (raw || {}); if (body && body.body && (body.body.data != null || body.body.status != null || body.body.detail != null)) { body = body.body; } return body; })()"
+      }
+    }
+  ]
+}

@@ -27,12 +27,12 @@ fi
 
 mkdir -p /opt/iflow/logs
 
-# Host network: reach OceanBase/MySQL on 2881 and publish 8099 without Docker 20.10 DNAT issues.
+# Publish container 8099 on every host address, including 132.147.160.231:8099.
 # extra_hosts: JDBC 建连会反查容器主机名/本机 IP；容器 /etc/hosts 与宿主机隔离，不配会固定卡约 10s。
 docker run -d \
   --name "$CONTAINER_NAME" \
   --restart unless-stopped \
-  --network host \
+  -p 8099:8099 \
   --hostname localhost.localdomain \
   --add-host=iflow:127.0.0.1 \
   --add-host=localhost.localdomain:127.0.0.1 \

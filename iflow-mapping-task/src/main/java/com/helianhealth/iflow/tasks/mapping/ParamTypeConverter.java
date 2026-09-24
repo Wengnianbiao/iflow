@@ -4,9 +4,9 @@ import com.helianhealth.iflow.tasks.mapping.enums.ParamType;
 import com.helianhealth.iflow.common.exception.WorkFlowConfigException;
 import com.helianhealth.iflow.common.exception.WorkFlowErrorCode;
 
-/**
- * 标量类型转换。
- */
+import java.util.List;
+import java.util.Map;
+
 final class ParamTypeConverter {
 
     private ParamTypeConverter() {}
@@ -24,8 +24,23 @@ final class ParamTypeConverter {
             case LONG -> toLong(rawValue);
             case BOOLEAN -> toBoolean(rawValue);
             case DOUBLE -> toDouble(rawValue);
-            default -> rawValue;
+            case OBJECT -> toObject(rawValue);
+            case ARRAY -> toArray(rawValue);
         };
+    }
+
+    private static Object toObject(Object rawValue) {
+        if (rawValue instanceof Map<?, ?>) {
+            return rawValue;
+        }
+        throw new IllegalArgumentException("映射结果必须为对象");
+    }
+
+    private static Object toArray(Object rawValue) {
+        if (rawValue instanceof List<?>) {
+            return rawValue;
+        }
+        throw new IllegalArgumentException("映射结果必须为数组");
     }
 
     private static boolean isScalar(ParamType type) {

@@ -23,7 +23,6 @@ public class GraalJSEvaluator implements Evaluator {
         return evaluateWithBindings(expression, input, Map.of());
     }
 
-    /** 局部绑定独立于 $，用于 MAPPING 的命名循环变量。 */
     @SuppressWarnings("unchecked")
     public Object evaluateWithBindings(String expression, Object input, Map<String, Object> bindings) {
         log.debug("GraalJS evaluator -- expression: {}", expression);

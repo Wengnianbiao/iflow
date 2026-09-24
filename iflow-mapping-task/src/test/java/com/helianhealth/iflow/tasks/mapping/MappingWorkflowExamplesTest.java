@@ -65,6 +65,50 @@ class MappingWorkflowExamplesTest {
     }
 
     @Test
+    void queryItemForwardsDocumentRequestThroughOpenApi() throws Exception {
+        JsonNode definition = readExample("query_item_workflow.json");
+        assertEquals("hl-open-api/query-item", definition.path("name").asText());
+        assertEquals(List.of("request"), mapper.convertValue(definition.path("inputParameters"), new TypeReference<List<String>>() {}));
+
+        Map<String, Object> query = new LinkedHashMap<>();
+        query.put("departmentId", "66fca4551d3a1d0001fab02d");
+        query.put("pageSize", 3);
+        query.put("pageIndex", 1);
+        query.put("userId", "671a03c827f2d20001ac5853");
+        query.put("organizationId", "66fca42db0c0ad0001f1a9f4");
+        query.put("accountId", "66fca570063ef80001a5da41");
+        query.put("tenantId", "GHIS");
+        query.put("serviceItemTypeCode", "31");
+        Map<String, Object> request = Map.of("request", query);
+
+        JsonNode wrapDef = definition.path("tasks").get(0);
+        Map<String, Object> wrapInput = new LinkedHashMap<>();
+        wrapInput.put("request", request);
+        wrapInput.put("expression", wrapDef.path("inputParameters").path("expression").asText());
+        @SuppressWarnings("unchecked")
+        Map<String, Object> wrapped = (Map<String, Object>) evaluator.evaluate(
+                (String) wrapInput.get("expression"), wrapInput);
+        assertEquals(List.of(query), wrapped.get("rows"));
+        assertFalse(String.valueOf(wrapped.get("timestamp")).isBlank());
+
+        TaskModel wrap = new TaskModel();
+        wrap.setReferenceTaskName("wrap_request_ref");
+        wrap.setOutputData(wrapped);
+        wrap.setStatus(TaskModel.Status.COMPLETED);
+        TaskModel serialized = new TaskModel();
+        serialized.setReferenceTaskName("serialize_encrypt_data_ref");
+        serialized.setOutputData(mapper.writeValueAsString(List.of(query)));
+        serialized.setStatus(TaskModel.Status.COMPLETED);
+        WorkflowModel workflow = new WorkflowModel();
+        workflow.setTasks(List.of(wrap, serialized));
+        Map<?, ?> body = (Map<?, ?>) resolveInput(definition.path("tasks").get(2), workflow).get("body");
+        assertEquals("exchange.stand.queryCureServiceProvider", body.get("beanName"));
+        assertEquals("queryCureService", body.get("methodName"));
+        assertEquals(serialized.getOutputData(), body.get("encryptData"));
+        assertEquals(wrapped.get("timestamp"), body.get("timestamp"));
+    }
+
+    @Test
     void migratedResponseMappingHandlesSuccessAndFailureFromOriginalPayload() throws Exception {
         JsonNode responseDef = readExample("CreateArchives.json").path("tasks").get(3);
         for (boolean success : List.of(true, false)) {

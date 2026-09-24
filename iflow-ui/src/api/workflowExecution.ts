@@ -51,16 +51,20 @@ export async function startWorkflow(
   version: number,
   input: Record<string, unknown>,
 ): Promise<string> {
-  const { data } = await axios.post<ApiResult<string> | { workflowId?: string }>(
-    `${BASE}/start`,
-    { name, version, input },
-  )
-  if ('code' in data && data.code != null && data.code !== 200) {
-    throw new Error(data.message || '启动工作流失败')
+  try {
+    const { data } = await axios.post<ApiResult<string> | { workflowId?: string }>(
+      `${BASE}/start`,
+      { name, version, input },
+    )
+    if ('code' in data && data.code != null && data.code !== 200) {
+      throw new Error(data.message || '启动工作流失败')
+    }
+    const workflowId = 'data' in data ? data.data : 'workflowId' in data ? data.workflowId : undefined
+    if (!workflowId) throw new Error('工作流已提交，但服务端没有返回实例 ID')
+    return workflowId
+  } catch (error) {
+    throw normalizeError(error, '启动工作流失败')
   }
-  const workflowId = 'data' in data ? data.data : 'workflowId' in data ? data.workflowId : undefined
-  if (!workflowId) throw new Error('工作流已提交，但服务端没有返回实例 ID')
-  return workflowId
 }
 
 export async function getWorkflowExecution(workflowId: string, includeTasks = true): Promise<WorkflowExecution> {

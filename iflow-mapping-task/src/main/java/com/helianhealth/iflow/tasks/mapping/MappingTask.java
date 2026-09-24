@@ -42,37 +42,25 @@ public class MappingTask extends WorkflowSystemTask {
     @Override
     public void execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
         try {
-            task.setOutputData(map(task.getInputData()));
+            Object payload = task.getInputData().get(INPUT_PAYLOAD);
+            List<ParamMappingConfig> fields =
+                    objectMapper.convertValue(task.getInputData().get(INPUT_PARAMS_CONFIG), PARAM_MAPPING_CONFIGS);
+            if (fields == null || fields.isEmpty()) {
+                task.setStatus(TaskModel.Status.COMPLETED);
+                task.setOutputData(new Object());
+                return;
+            }
+            Map<String, Object> output = paramMapTransformer.transform(fields, payload);
+            task.setOutputData(output);
             task.setStatus(TaskModel.Status.COMPLETED);
         } catch (Exception e) {
-            String msg = e.getMessage();
             LOGGER.error(
                     "MAPPING task failed: workflow={}, task={}",
                     workflow.getWorkflowId(),
                     task.getTaskId(),
                     e);
             task.setStatus(TaskModel.Status.FAILED);
-            task.setReasonForInCompletion(msg);
-            addError(task, msg);
+            task.setReasonForInCompletion("Failed to invoke " + getTaskType() + " task due to: " + e);
         }
-    }
-
-    private Map<String, Object> map(Map<String, Object> input) {
-        Object payload = resolvePayload(input);
-        List<ParamMappingConfig> configs =
-                objectMapper.convertValue(input.get(INPUT_PARAMS_CONFIG), PARAM_MAPPING_CONFIGS);
-        if (configs == null || configs.isEmpty()) {
-            throw new IllegalArgumentException("MAPPING inputParameters.paramsConfig must be a non-empty JSON array");
-        }
-        Map<String, Object> target = paramMapTransformer.transform(configs, payload);
-        LOGGER.debug("MAPPING outputKeys={}", target.keySet());
-        return target;
-    }
-
-    private static Object resolvePayload(Map<String, Object> input) {
-        if (input == null || !input.containsKey(INPUT_PAYLOAD)) {
-            throw new IllegalArgumentException("payload is required");
-        }
-        return input.get(INPUT_PAYLOAD);
     }
 }

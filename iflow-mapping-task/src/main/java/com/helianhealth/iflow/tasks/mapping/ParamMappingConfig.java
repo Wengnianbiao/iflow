@@ -27,7 +27,7 @@ public class ParamMappingConfig {
     /** 参数描述 */
     private String paramDesc;
 
-    /** 目标字段名，仅根字段和 OBJECT 子字段填写 */
+    /** 目标参数名*/
     private String targetParamKey;
 
     /** 目标参数类型 */
@@ -46,10 +46,10 @@ public class ParamMappingConfig {
     /** ARRAY_MAP 当前元素的变量名。 */
     private String itemAlias;
 
-    /** ARRAY_MAP 的单个元素模板，不填写 targetParamKey。 */
+    /** ARRAY_MAP 元素模板 */
     private ParamMappingConfig itemTemplate;
 
-    /** ARRAY_FIXED 的有序元素模板，不填写 targetParamKey。 */
+    /** ARRAY_FIXED 的有序元素模板 */
     @Builder.Default
     private List<ParamMappingConfig> items = new ArrayList<>();
 }

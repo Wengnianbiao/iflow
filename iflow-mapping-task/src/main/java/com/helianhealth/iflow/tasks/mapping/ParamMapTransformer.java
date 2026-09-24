@@ -13,9 +13,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** 根据目标节点行为递归构造 JSON；payload 与输出始终独立。 */
 @Component
 public class ParamMapTransformer {
+
+    private static final String ROOT_PATH = "$";
+
     private final GraalJSEvaluator expressionEvaluator;
 
     public ParamMapTransformer(GraalJSEvaluator expressionEvaluator) {
@@ -23,14 +25,14 @@ public class ParamMapTransformer {
     }
 
     public Map<String, Object> transform(List<ParamMappingConfig> configs, Object payload) {
-        validateFields(configs, Set.of(), "$");
-        return renderObject(configs, payload, Map.of(), "$");
+        validateFields(configs, Set.of(), ROOT_PATH);
+        return renderObject(configs, payload, Map.of(), ROOT_PATH);
     }
 
     private Map<String, Object> renderObject(List<ParamMappingConfig> fields, Object payload,
                                               Map<String, Object> aliases, String path) {
         Map<String, Object> result = new LinkedHashMap<>();
-        for (ParamMappingConfig field : safeList(fields)) {
+        for (ParamMappingConfig field : fields) {
             String key = field.getTargetParamKey();
             result.put(key, render(field, payload, aliases, fieldPath(path, key)));
         }
@@ -40,14 +42,14 @@ public class ParamMapTransformer {
     private Object render(ParamMappingConfig config, Object payload, Map<String, Object> aliases, String path) {
         try {
             return switch (config.getMappingType()) {
-                case NAME, CONSTANT, EXPRESSION -> convert(
-                        MappingValueResolver.resolve(config, payload, aliases, expressionEvaluator),
+                case NAME, CONSTANT, EXPRESSION -> ParamTypeConverter.convert(
+                        resolveLeaf(config, payload, aliases),
                         config.getTargetParamType());
                 case OBJECT -> renderObject(config.getChildParams(), payload, aliases, path);
                 case ARRAY_MAP -> renderLoop(config, payload, aliases, path);
                 case ARRAY_FIXED -> {
                     List<Object> result = new ArrayList<>();
-                    List<ParamMappingConfig> items = safeList(config.getItems());
+                    List<ParamMappingConfig> items = config.getItems();
                     for (int i = 0; i < items.size(); i++) {
                         result.add(render(items.get(i), payload, aliases, path + "[" + i + "]"));
                     }
@@ -79,30 +81,21 @@ public class ParamMapTransformer {
         return result;
     }
 
-    private Object convert(Object value, ParamType type) {
-        if (value == null) {
-            return null;
-        }
-        if (type == ParamType.OBJECT) {
-            if (!(value instanceof Map<?, ?>)) {
-                throw new IllegalArgumentException("映射结果必须为对象");
-            }
-            return value;
-        }
-        if (type == ParamType.ARRAY) {
-            if (!(value instanceof List<?>)) {
-                throw new IllegalArgumentException("映射结果必须为数组");
-            }
-            return value;
-        }
-        return ParamTypeConverter.convert(value, type);
+    private Object resolveLeaf(ParamMappingConfig config, Object payload, Map<String, Object> aliases) {
+        return switch (config.getMappingType()) {
+            case NAME -> ScriptEvaluator.deepCopy(
+                    ParamSourceReader.read(payload, aliases, config.getSourceParamKey()));
+            case CONSTANT -> ScriptEvaluator.deepCopy(config.getMappingRule());
+            case EXPRESSION -> expressionEvaluator.evaluateWithBindings(
+                    (String) config.getMappingRule(), payload, aliases);
+            default -> throw new IllegalArgumentException("结构节点不能按字段取值");
+        };
     }
-
-    // 先验证整棵树，空源数组也不能隐藏无效模板或变量冲突。
+    
     private void validateFields(List<ParamMappingConfig> fields, Set<String> aliases, String path) {
         Set<String> keys = new HashSet<>();
         int i = 0;
-        for (ParamMappingConfig field : safeList(fields)) {
+        for (ParamMappingConfig field : fields) {
             if (field == null || field.getTargetParamKey() == null || field.getTargetParamKey().isBlank()) {
                 throw error(path + ".childParams[" + i + "]", "对象字段必须填写 targetParamKey");
             }
