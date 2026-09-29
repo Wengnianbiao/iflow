@@ -28,6 +28,9 @@ import java.util.stream.Collectors;
 @ConditionalOnMySqlRepository
 public class MySqlExecutionDAO extends MySqlBaseDAO implements ExecutionDAO {
 
+    /** 压缩后仍很大的写入。12MB 以上在当前 OceanBase 上大约要 1 分钟，默认 10 秒会失败。 */
+    private static final long LARGE_WRITE_TIMEOUT_MICROS = 180_000_000L;
+
     private static final String WORKFLOW_COLUMNS =
             "id, workflow_id, correlation_id, json_data";
 
@@ -375,23 +378,29 @@ public class MySqlExecutionDAO extends MySqlBaseDAO implements ExecutionDAO {
     }
 
     private void insertWorkflowInstance(Connection tx, WorkflowModel workflow) {
+        String payload = jsonSupport.toWorkflowPayload(workflow);
         executeUpdate(
                 tx,
-                "INSERT INTO workflow (workflow_id, correlation_id, json_data) VALUES (?, ?, ?)",
+                withLargeWriteHint(
+                        "INSERT INTO workflow (workflow_id, correlation_id, json_data) VALUES (?, ?, ?)",
+                        payload),
                 q ->
                         q.addParameter(workflow.getWorkflowId())
                                 .addParameter(workflow.getCorrelationId())
-                                .addParameter(jsonSupport.toWorkflowPayload(workflow)));
+                                .addParameter(payload));
     }
 
     private void updateWorkflowInstance(Connection tx, WorkflowModel workflow) {
+        String payload = jsonSupport.toWorkflowPayload(workflow);
         executeUpdate(
                 tx,
-                "UPDATE workflow SET correlation_id = ?, json_data = ?, modified_on = CURRENT_TIMESTAMP "
-                        + "WHERE workflow_id = ?",
+                withLargeWriteHint(
+                        "UPDATE workflow SET correlation_id = ?, json_data = ?, modified_on = CURRENT_TIMESTAMP "
+                                + "WHERE workflow_id = ?",
+                        payload),
                 q ->
                         q.addParameter(workflow.getCorrelationId())
-                                .addParameter(jsonSupport.toWorkflowPayload(workflow))
+                                .addParameter(payload)
                                 .addParameter(workflow.getWorkflowId()));
     }
 
@@ -416,21 +425,37 @@ public class MySqlExecutionDAO extends MySqlBaseDAO implements ExecutionDAO {
     }
 
     private void insertTaskInstance(Connection tx, TaskModel task) {
+        String payload = jsonSupport.toTaskPayload(task);
         executeUpdate(
                 tx,
-                "INSERT INTO task (task_id, json_data) VALUES (?, ?)",
-                q ->
-                        q.addParameter(task.getTaskId())
-                                .addParameter(jsonSupport.toTaskPayload(task)));
+                withLargeWriteHint("INSERT INTO task (task_id, json_data) VALUES (?, ?)", payload),
+                q -> q.addParameter(task.getTaskId()).addParameter(payload));
     }
 
     private void updateTaskInstance(Connection tx, TaskModel task) {
+        String payload = jsonSupport.toTaskPayload(task);
         executeUpdate(
                 tx,
-                "UPDATE task SET json_data = ?, modified_on = CURRENT_TIMESTAMP WHERE task_id = ?",
-                q ->
-                        q.addParameter(jsonSupport.toTaskPayload(task))
-                                .addParameter(task.getTaskId()));
+                withLargeWriteHint(
+                        "UPDATE task SET json_data = ?, modified_on = CURRENT_TIMESTAMP WHERE task_id = ?",
+                        payload),
+                q -> q.addParameter(payload).addParameter(task.getTaskId()));
+    }
+
+    static String withLargeWriteHint(String sql, String payload) {
+        return withLargeWriteHint(sql, payload, ExecutionPayloadCodec.LARGE_WRITE_BYTES);
+    }
+
+    static String withLargeWriteHint(String sql, String payload, int thresholdBytes) {
+        if (ExecutionPayloadCodec.utf8ByteLength(payload) < thresholdBytes) {
+            return sql;
+        }
+        int splitAt = sql.startsWith("INSERT") ? "INSERT".length() : "UPDATE".length();
+        return sql.substring(0, splitAt)
+                + " /*+ QUERY_TIMEOUT("
+                + LARGE_WRITE_TIMEOUT_MICROS
+                + ") */"
+                + sql.substring(splitAt);
     }
 
     private int deleteTaskInstance(Connection tx, String taskId) {

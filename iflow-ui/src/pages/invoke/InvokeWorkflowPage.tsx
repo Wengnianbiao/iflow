@@ -1,81 +1,84 @@
 import { useMemo, useState } from 'react'
 import { Helmet } from 'react-helmet'
-import { Link as RouterLink } from 'react-router-dom'
-import { Alert, Autocomplete, Box, Button, Paper, TextField, Typography } from '@mui/material'
-import { PlayCircleIcon } from '@phosphor-icons/react'
-import { startWorkflow } from '@/api/workflowExecution'
+import { Alert, Autocomplete, Box, Button, Grid, Paper, TextField, Typography } from '@mui/material'
+import { ArrowCounterClockwiseIcon, PlayCircleIcon } from '@phosphor-icons/react'
+import { getWorkflowExecution, startWorkflow } from '@/api/workflowExecution'
 import { SectionContainer } from '@/components/layout/SectionContainer'
 import { SectionHeader } from '@/components/layout/SectionHeader'
+import { NavLink } from '@/components/ui/NavLink'
+import { InlineScriptEditor } from '@/pages/definition/EditorPanel/TaskFormTab/forms/InlineScriptEditor'
 import type { WorkflowDef } from '@/types/workflow'
+import type { WorkflowExecutionSummary } from '@/types/workflowExecution'
 import { useWorkflowDefs } from '@/utils/query'
+import { bodyFromWorkflowInput, formatEditorJson, parseEditorJson, toGatewayWorkflowInput, workflowPath } from './gatewayInput'
+import { InvokeWorkflowHistory } from './InvokeWorkflowHistory'
 
-type WorkflowOption = {
-  key: string
+const EMPTY_BODY = '{\n}'
+
+type WorkflowChoice = {
   name: string
-  version: number
   displayName: string
-  description?: string
-  inputParameters: string[]
+  versions: number[]
 }
 
-function toOption(definition: WorkflowDef): WorkflowOption {
-  return {
-    key: `${definition.name}@${definition.version}`,
-    name: definition.name,
-    version: definition.version,
-    displayName: definition.displayName?.trim() || definition.name,
-    description: definition.description?.trim() || undefined,
-    inputParameters: definition.inputParameters ?? [],
+function workflowChoices(definitions: WorkflowDef[]): WorkflowChoice[] {
+  const byName = new Map<string, WorkflowDef[]>()
+  for (const definition of definitions) {
+    const versions = byName.get(definition.name) ?? []
+    versions.push(definition)
+    byName.set(definition.name, versions)
   }
-}
-
-function inputTemplate(parameters: string[]) {
-  if (!parameters.length) return '{\n}'
-  return JSON.stringify(Object.fromEntries(parameters.map((name) => [name, ''])), null, 2)
-}
-
-function parseInput(text: string): Record<string, unknown> {
-  const source = text.trim() || '{}'
-  const value: unknown = JSON.parse(source)
-  if (value == null || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error('输入必须是 JSON 对象')
-  }
-  return value as Record<string, unknown>
+  return [...byName.values()]
+    .map((versions) => {
+      const latest = [...versions].sort((left, right) => right.version - left.version)[0]
+      return {
+        name: latest.name,
+        displayName: latest.displayName?.trim() || latest.name,
+        versions: versions.map((definition) => definition.version).sort((left, right) => right - left),
+      }
+    })
+    .sort((left, right) => left.displayName.localeCompare(right.displayName, 'zh-CN') || left.name.localeCompare(right.name))
 }
 
 export function InvokeWorkflowPage() {
   const workflowDefs = useWorkflowDefs()
-  const options = useMemo(
-    () => (workflowDefs.data ?? [])
-      .map(toOption)
-      .sort((left, right) => left.displayName.localeCompare(right.displayName, 'zh-CN') || right.version - left.version),
-    [workflowDefs.data],
-  )
-  const [selectedKey, setSelectedKey] = useState<string | null>(null)
-  const [inputText, setInputText] = useState('{\n}')
-  const [inputError, setInputError] = useState<string | null>(null)
+  const choices = useMemo(() => workflowChoices(workflowDefs.data ?? []), [workflowDefs.data])
+  const [selectedName, setSelectedName] = useState<string | null>(null)
+  const [version, setVersion] = useState<number | null>(null)
+  const [bodyText, setBodyText] = useState(EMPTY_BODY)
+  const [bodyError, setBodyError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [restoringId, setRestoringId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [workflowId, setWorkflowId] = useState<string | null>(null)
+  const [historyReload, setHistoryReload] = useState(0)
 
-  const selected = options.find((option) => option.key === selectedKey) ?? null
+  const selected = choices.find((choice) => choice.name === selectedName) ?? null
+  const selectedDefinition = (workflowDefs.data ?? []).find((definition) =>
+    definition.name === selectedName && definition.version === version)
+  const description = selectedDefinition?.description?.trim() || undefined
 
-  const selectWorkflow = (option: WorkflowOption | null) => {
-    setSelectedKey(option?.key ?? null)
-    setInputText(inputTemplate(option?.inputParameters ?? []))
-    setInputError(null)
+  const selectWorkflow = (choice: WorkflowChoice | null) => {
+    setSelectedName(choice?.name ?? null)
+    setVersion(choice?.versions[0] ?? null)
+    setBodyText(EMPTY_BODY)
+    setBodyError(null)
     setError(null)
     setWorkflowId(null)
   }
 
+  const reset = () => {
+    selectWorkflow(null)
+  }
+
   const submit = async () => {
-    if (!selected) return
-    let input: Record<string, unknown>
+    if (!selected || version == null) return
+    let body: unknown
     try {
-      input = parseInput(inputText)
-      setInputError(null)
-    } catch (cause) {
-      setInputError(cause instanceof SyntaxError ? '输入不是合法 JSON' : cause instanceof Error ? cause.message : '输入不是合法 JSON')
+      body = parseEditorJson(bodyText)
+      setBodyError(null)
+    } catch {
+      setBodyError('入参不是合法 JSON')
       return
     }
 
@@ -83,11 +86,31 @@ export function InvokeWorkflowPage() {
     setError(null)
     setWorkflowId(null)
     try {
-      setWorkflowId(await startWorkflow(selected.name, selected.version, input))
+      const startedId = await startWorkflow(selected.name, version, toGatewayWorkflowInput(selected.name, body))
+      setWorkflowId(startedId)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '启动工作流失败')
     } finally {
+      setHistoryReload((current) => current + 1)
       setBusy(false)
+    }
+  }
+
+  const restore = async (execution: WorkflowExecutionSummary) => {
+    setRestoringId(execution.workflowId)
+    setError(null)
+    try {
+      const detail = await getWorkflowExecution(execution.workflowId, false)
+      setBodyText(formatEditorJson(bodyFromWorkflowInput(detail.input)))
+      setBodyError(null)
+      setWorkflowId(null)
+      if (selected?.versions.includes(execution.workflowVersion)) {
+        setVersion(execution.workflowVersion)
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '读取执行入参失败')
+    } finally {
+      setRestoringId(null)
     }
   }
 
@@ -96,98 +119,142 @@ export function InvokeWorkflowPage() {
       <Helmet>
         <title>调用工作流</title>
       </Helmet>
-      <SectionHeader title="调用工作流" />
+      <SectionHeader
+        title="调用工作流"
+        actions={(
+          <>
+            <Button variant="text" startIcon={<ArrowCounterClockwiseIcon size={18} />} onClick={reset}>
+              重置
+            </Button>
+            <Button
+              id="run-workflow-btn"
+              variant="contained"
+              disabled={!selected || version == null || busy}
+              startIcon={<PlayCircleIcon size={18} />}
+              onClick={() => void submit()}
+            >
+              {busy ? '调用中…' : '调用'}
+            </Button>
+          </>
+        )}
+      />
       <SectionContainer>
-        <Paper variant="outlined" sx={{ maxWidth: 760 }}>
-          <Box component="form" sx={{ p: '24px', display: 'grid', gap: '20px' }} onSubmit={(event) => {
-            event.preventDefault()
-            void submit()
-          }}>
-            <Autocomplete
-              id="invoke-workflow"
-              openOnFocus
-              forcePopupIcon
-              fullWidth
-              size="small"
-              options={options}
-              value={selected}
-              loading={workflowDefs.isFetching}
-              loadingText="加载工作流中…"
-              noOptionsText={workflowDefs.isError ? '工作流列表加载失败' : '没有可调用的工作流'}
-              openText="展开工作流列表"
-              closeText="收起工作流列表"
-              clearText="清空"
-              getOptionLabel={(option) => `${option.displayName}（v${option.version}）`}
-              isOptionEqualToValue={(option, value) => option.key === value.key}
-              onChange={(_, option) => selectWorkflow(option)}
-              renderOption={(props, option) => {
-                const { key, ...rest } = props
-                return (
-                  <li key={key} {...rest}>
-                    <Box sx={{ py: 0.5 }}>
-                      <Typography variant="body2">{option.displayName}（v{option.version}）</Typography>
-                      <Typography variant="caption" color="text.secondary">{option.name}</Typography>
-                    </Box>
-                  </li>
-                )
-              }}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="工作流"
-                  placeholder="选择要调用的工作流"
-                  slotProps={{ inputLabel: { shrink: true } }}
-                  error={workflowDefs.isError}
-                  helperText={workflowDefs.isError ? '工作流列表加载失败，请刷新重试' : selected?.description}
+        {error ? <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>{error}</Alert> : null}
+        {workflowId ? (
+          <Alert severity="success" sx={{ mb: 3 }} onClose={() => setWorkflowId(null)}>
+            已启动，实例 ID：
+            <NavLink path={`/executions/${encodeURIComponent(workflowId)}`} style={{ marginLeft: 4 }}>
+              {workflowId}
+            </NavLink>
+          </Alert>
+        ) : null}
+        <Grid container spacing={3}>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Paper variant="outlined" sx={{ p: '24px' }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'minmax(0, 1fr) 120px' }, gap: '24px', alignItems: 'start' }}>
+                <Autocomplete
+                  id="workflow-name-dropdown"
+                  openOnFocus
+                  forcePopupIcon
+                  fullWidth
+                  size="small"
+                  options={choices}
+                  value={selected}
+                  loading={workflowDefs.isFetching}
+                  loadingText="加载工作流中…"
+                  noOptionsText={workflowDefs.isError ? '工作流列表加载失败' : '没有可调用的工作流'}
+                  openText="展开工作流列表"
+                  closeText="收起工作流列表"
+                  clearText="清空"
+                  getOptionLabel={(option) => option.displayName}
+                  isOptionEqualToValue={(option, value) => option.name === value.name}
+                  onChange={(_, option) => selectWorkflow(option)}
+                  renderOption={(props, option) => {
+                    const { key, ...rest } = props
+                    return (
+                      <li key={key} {...rest}>
+                        <Box sx={{ py: 0.5, minWidth: 0 }}>
+                          <Typography variant="body2">{option.displayName}</Typography>
+                          <Typography variant="caption" color="text.secondary">{option.name}</Typography>
+                        </Box>
+                      </li>
+                    )
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="工作流名称"
+                      placeholder="选择要调用的工作流"
+                      required
+                      slotProps={{ inputLabel: { shrink: true } }}
+                      error={workflowDefs.isError}
+                      helperText={workflowDefs.isError ? '工作流列表加载失败，请刷新重试' : undefined}
+                    />
+                  )}
                 />
-              )}
+                <Autocomplete
+                  id="workflow-version-dropdown"
+                  openOnFocus
+                  forcePopupIcon
+                  fullWidth
+                  size="small"
+                  disabled={!selected}
+                  options={selected?.versions ?? []}
+                  value={version}
+                  noOptionsText="没有版本"
+                  openText="展开版本列表"
+                  closeText="收起版本列表"
+                  clearText="清空"
+                  getOptionLabel={(option) => String(option)}
+                  onChange={(_, nextVersion) => setVersion(nextVersion)}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="版本"
+                      placeholder="版本"
+                      slotProps={{ inputLabel: { shrink: true } }}
+                    />
+                  )}
+                />
+              </Box>
+              {description ? (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                  {description}
+                </Typography>
+              ) : null}
+              <Box sx={bodyError ? { '& .conductor-code-input::before': { borderColor: '#d32f2f' } } : undefined}>
+                <InlineScriptEditor
+                  value={bodyText}
+                  language="json"
+                  languageLabel="JSON"
+                  codeLabel="入参"
+                  modalTitle="入参"
+                  minHeight={440}
+                  autoSize={false}
+                  onChange={(value) => {
+                    setBodyText(value)
+                    setBodyError(null)
+                  }}
+                />
+              </Box>
+              <Typography variant="caption" color={bodyError ? 'error' : 'text.secondary'} sx={{ display: 'block', mt: 1 }}>
+                {bodyError ?? (
+                  selected
+                    ? `只需填写 body。调用时按 REST 网关入参提交 POST ${workflowPath(selected.name)}，并附带空的 query、files 以及 content-type 请求头。`
+                    : '选择工作流后，在这里填写业务报文 body'
+                )}
+              </Typography>
+            </Paper>
+          </Grid>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <InvokeWorkflowHistory
+              workflowName={selectedName}
+              reloadKey={historyReload}
+              restoringId={restoringId}
+              onRestore={(execution) => void restore(execution)}
             />
-            <TextField
-              id="invoke-workflow-input"
-              label="输入"
-              fullWidth
-              multiline
-              minRows={10}
-              value={inputText}
-              spellCheck={false}
-              error={Boolean(inputError)}
-              helperText={inputError ?? (
-                selected?.inputParameters.length
-                  ? `已按声明的入参生成模板：${selected.inputParameters.join('、')}`
-                  : '填写 JSON 对象。未声明入参时可以直接提交 {}'
-              )}
-              slotProps={{
-                inputLabel: { shrink: true },
-                htmlInput: {
-                  style: { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace', fontSize: 13 },
-                },
-              }}
-              onChange={(event) => {
-                setInputText(event.target.value)
-                setInputError(null)
-              }}
-            />
-            {error ? <Alert severity="error">{error}</Alert> : null}
-            {workflowId ? (
-              <Alert
-                severity="success"
-                action={<Button color="inherit" component={RouterLink} to={`/executions/${encodeURIComponent(workflowId)}`}>查看执行</Button>}
-              >
-                已启动，实例 ID：{workflowId}
-              </Alert>
-            ) : null}
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button
-                type="submit"
-                variant="contained"
-                disabled={!selected || busy}
-                startIcon={<PlayCircleIcon size={18} />}
-              >
-                {busy ? '调用中…' : '调用'}
-              </Button>
-            </Box>
-          </Box>
-        </Paper>
+          </Grid>
+        </Grid>
       </SectionContainer>
     </>
   )

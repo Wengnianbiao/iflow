@@ -18,7 +18,6 @@ import java.util.Map;
 @Slf4j
 public class OpenApiServiceImpl implements OpenApiService {
 
-    private static final String REQUEST_KEY = "request";
     private static final String RESPONSE_KEY = "response";
 
     private final WorkflowExecutionService workflowExecutionService;
@@ -28,16 +27,15 @@ public class OpenApiServiceImpl implements OpenApiService {
     }
 
     @Override
-    public String invoke(String requestBody, String routeKey) {
-        String workflowName = normalizeWorkflowName(routeKey);
+    public String invoke(OpenApiRequest request) {
+        String workflowName = normalizeWorkflowName(request.path());
         try {
-            Map<String, Object> input = new LinkedHashMap<>();
-            input.put(REQUEST_KEY, requestBody != null ? requestBody : "");
             WorkflowModel executed =
                     workflowExecutionService.startWorkflow(
                             StartWorkflowRequest.builder()
                                     .name(workflowName)
-                                    .input(input)
+                                    .input(request.toWorkflowInput())
+                                    .fileAccess(request.fileAccess())
                                     .build());
             return toOpenApiResponse(executed);
         } catch (WorkFlowConfigException e) {

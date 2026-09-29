@@ -1,6 +1,8 @@
 package com.helianhealth.iflow.core.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
+import com.helianhealth.iflow.common.domain.run.FileAccess;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -90,6 +92,10 @@ public class WorkflowModel {
      * 工作流入参
      */
     private Map<String, Object> input = new HashMap<>();
+
+    /** 当前同步执行的临时文件访问能力；不参与 JSON 序列化或执行记录持久化。 */
+    @JsonIgnore
+    private transient FileAccess fileAccess;
 
     /**
      * 工作流出参

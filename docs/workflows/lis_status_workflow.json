@@ -5,7 +5,7 @@
   "description": "LIS 按条码号推送申请单状态，转成 Jarvis receiveStateSync 后回写体检系统",
   "correlationExpression": "",
   "inputParameters": [
-    "request"
+    "body"
   ],
   "outputParameters": {
     "code": "${mapping_lis_status_resp_ref.output.code}",
@@ -13,22 +13,12 @@
   },
   "tasks": [
     {
-      "name": "解析LIS状态入参",
-      "taskReferenceName": "function_lis_ref",
-      "type": "FUNCTION",
-      "optional": false,
-      "inputParameters": {
-        "function": "JSON_PARSE",
-        "value": "${workflow.input.request}"
-      }
-    },
-    {
       "name": "映射Jarvis状态推送",
       "taskReferenceName": "mapping_lis_status_ref",
       "type": "MAPPING",
       "optional": false,
       "inputParameters": {
-        "payload": "${function_lis_ref.output}",
+        "payload": "${workflow.input.body}",
         "paramsConfig": [
           {
             "targetParamKey": "items",

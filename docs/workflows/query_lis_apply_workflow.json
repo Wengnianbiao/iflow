@@ -5,7 +5,7 @@
   "description": "LIS 按条码号查询体检系统申请单，返回一行一个申请项目",
   "correlationExpression": "",
   "inputParameters": [
-    "request"
+    "body"
   ],
   "outputParameters": {
     "code": "${mapping_lis_apply_ref.output.code}",
@@ -14,22 +14,12 @@
   },
   "tasks": [
     {
-      "name": "解析LIS申请查询入参",
-      "taskReferenceName": "function_lis_apply_ref",
-      "type": "FUNCTION",
-      "optional": false,
-      "inputParameters": {
-        "function": "JSON_PARSE",
-        "value": "${workflow.input.request}"
-      }
-    },
-    {
       "name": "映射LIS申请查询条件",
       "taskReferenceName": "mapping_lis_apply_query_ref",
       "type": "MAPPING",
       "optional": false,
       "inputParameters": {
-        "payload": "${function_lis_apply_ref.output}",
+        "payload": "${workflow.input.body}",
         "paramsConfig": [
           {
             "targetParamKey": "barCode",

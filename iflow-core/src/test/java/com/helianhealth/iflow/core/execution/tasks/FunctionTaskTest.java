@@ -17,11 +17,14 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FunctionTaskTest {
 
     private final Function functionTask = new Function(new FunctionExecutor(1_000));
+    private final Function defaultLimitFunction =
+            new Function(new FunctionExecutor(FunctionExecutor.DEFAULT_MAX_INPUT_CHARS));
 
     @Test
     void writesParsedMapDirectlyToOutput() {
@@ -222,6 +225,62 @@ class FunctionTaskTest {
     }
 
     @Test
+    void parsesUnpagedCatalogWithinDefaultLimit() {
+        long begin = System.currentTimeMillis();
+        int itemCount = 20_000;
+        String json = unpagedCatalogJson(itemCount);
+        assertTrue(json.length() > 5_000_000);
+        assertTrue(json.length() < FunctionExecutor.DEFAULT_MAX_INPUT_CHARS);
+
+        TaskModel task = executeWithDefaultLimit(Map.of(
+                Function.INPUT_FUNCTION, "JSON_PARSE",
+                Function.INPUT_VALUE, json));
+
+        assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
+        Map<?, ?> payload = assertInstanceOf(Map.class, task.getOutputData());
+        assertEquals(itemCount, payload.get("totalCount"));
+        List<?> data = assertInstanceOf(List.class, payload.get("data"));
+        assertEquals(itemCount, data.size());
+        assertEquals("6006006", assertInstanceOf(Map.class, data.get(0)).get("serviceItemCode"));
+        System.out.println(System.currentTimeMillis() - begin);
+
+    }
+
+    @Test
+    void stringifiesUnpagedCatalogWithinDefaultLimit() {
+        int itemCount = 20_000;
+        String json = unpagedCatalogJson(itemCount);
+        TaskModel parsed = executeWithDefaultLimit(Map.of(
+                Function.INPUT_FUNCTION, "JSON_PARSE",
+                Function.INPUT_VALUE, json));
+        assertEquals(TaskModel.Status.COMPLETED, parsed.getStatus());
+
+        TaskModel stringified = executeWithDefaultLimit(Map.of(
+                Function.INPUT_FUNCTION, "JSON_STRINGIFY",
+                Function.INPUT_VALUE, parsed.getOutputData()));
+
+        assertEquals(TaskModel.Status.COMPLETED, stringified.getStatus());
+        String output = assertInstanceOf(String.class, stringified.getOutputData());
+        assertTrue(output.length() > 5_000_000);
+        assertTrue(output.length() < FunctionExecutor.DEFAULT_MAX_INPUT_CHARS);
+        assertEquals(json, output);
+    }
+
+    private static String unpagedCatalogJson(int itemCount) {
+        String item = "{\"serviceItemCode\":\"6006006\",\"serviceItemName\":\"" + "x".repeat(280) + "\"}";
+        StringBuilder json = new StringBuilder(itemCount * (item.length() + 1) + 64);
+        json.append("{\"totalCount\":").append(itemCount).append(",\"data\":[");
+        for (int i = 0; i < itemCount; i++) {
+            if (i > 0) {
+                json.append(',');
+            }
+            json.append(item);
+        }
+        json.append("]}");
+        return json.toString();
+    }
+
+    @Test
     void parsedFieldsCanBeBoundByDownstreamTasks() {
         TaskModel task = execute(Map.of(
                 Function.INPUT_FUNCTION,
@@ -246,6 +305,14 @@ class FunctionTaskTest {
     }
 
     private TaskModel execute(Map<String, Object> input) {
+        return execute(functionTask, input);
+    }
+
+    private TaskModel executeWithDefaultLimit(Map<String, Object> input) {
+        return execute(defaultLimitFunction, input);
+    }
+
+    private TaskModel execute(Function function, Map<String, Object> input) {
         TaskModel task = new TaskModel();
         task.setTaskId("function-task");
         task.setInputData(input);
@@ -253,7 +320,7 @@ class FunctionTaskTest {
         WorkflowModel workflow = new WorkflowModel();
         workflow.setWorkflowId("workflow-1");
 
-        functionTask.execute(workflow, task, null);
+        function.execute(workflow, task, null);
         return task;
     }
 

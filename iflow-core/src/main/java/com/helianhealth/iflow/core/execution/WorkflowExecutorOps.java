@@ -142,7 +142,6 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
 
             DeciderService.DeciderOutcome outcome = deciderService.decide(workflow);
             if (outcome.isComplete) {
-                executionDAOFacade.updateTasks(outcome.tasksToBeUpdated);
                 endExecution(workflow, outcome.terminateTask);
                 return workflow;
             }
@@ -184,7 +183,6 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
         executionDAOFacade.createTasks(tasks);
 
         taskScheduler.schedule(workflow, tasks, this);
-        executionDAOFacade.updateTasks(tasks);
     }
 
     private void persistTerminatedWorkflow(
@@ -377,6 +375,7 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
         if (input.getWorkflowInput() != null && !input.getWorkflowInput().isEmpty()) {
             workflow.setInput(new HashMap<>(input.getWorkflowInput()));
         }
+        workflow.setFileAccess(input.getFileAccess());
         workflow.setCorrelationId(resolveCorrelationId(workflow, workflowDefinition));
 
         return workflow;

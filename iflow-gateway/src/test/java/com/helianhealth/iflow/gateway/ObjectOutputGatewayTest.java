@@ -7,6 +7,7 @@ import com.helianhealth.iflow.gateway.jarvis.JarvisServiceImpl;
 import com.helianhealth.iflow.gateway.jarvis.model.JarvisRequest;
 import com.helianhealth.iflow.gateway.jarvis.model.JarvisResultData;
 import com.helianhealth.iflow.gateway.rest.OpenApiServiceImpl;
+import com.helianhealth.iflow.gateway.rest.OpenApiRequest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -35,7 +36,8 @@ class ObjectOutputGatewayTest {
     @MethodSource("responses")
     void openApiReturnsRawWorkflowValues(Object output, String expected) {
         OpenApiServiceImpl gateway = new OpenApiServiceImpl(request -> completed(output));
-        assertEquals(expected, gateway.invoke("request", "/test"));
+        assertEquals(expected, gateway.invoke(new OpenApiRequest(
+                "request", Map.of(), Map.of(), "POST", "/test", null)));
     }
 
     static Stream<Object> jarvisResponses() {

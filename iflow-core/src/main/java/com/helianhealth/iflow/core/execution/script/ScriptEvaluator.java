@@ -1,5 +1,6 @@
 package com.helianhealth.iflow.core.execution.script;
 
+import com.helianhealth.iflow.common.domain.run.FileAccess;
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.Engine;
 import org.graalvm.polyglot.EnvironmentAccess;
@@ -64,7 +65,7 @@ public final class ScriptEvaluator {
     private static final ConcurrentMap<String, Source> SOURCE_CACHE = new ConcurrentHashMap<>();
 
     private static final Set<String> RESERVED_BINDINGS = Set.of(
-            "$", "XML", "Crypto", "arguments", "eval", "undefined", "NaN", "Infinity", "globalThis",
+            "$", "XML", "Crypto", "Files", "arguments", "eval", "undefined", "NaN", "Infinity", "globalThis",
             "Object", "Function", "Boolean", "Symbol", "Number", "BigInt", "Math", "Date",
             "String", "RegExp", "Array", "JSON", "Map", "Set", "WeakMap", "WeakSet",
             "Promise", "Reflect", "Proxy", "Intl", "Atomics", "WebAssembly", "console",
@@ -245,6 +246,14 @@ public final class ScriptEvaluator {
     }
 
     public static Object eval(String script, Object input, Map<String, Object> localBindings) {
+        return eval(script, input, localBindings, null);
+    }
+
+    public static Object eval(
+            String script,
+            Object input,
+            Map<String, Object> localBindings,
+            FileAccess fileAccess) {
         localBindings.keySet().forEach(ScriptEvaluator::validateBindingName);
         ensureInitialized();
         final Source source = getSource(script);
@@ -254,7 +263,7 @@ public final class ScriptEvaluator {
             try {
                 scriptContext = contextPool.take();
                 final ScriptExecutionContext finalScriptContext = scriptContext;
-                finalScriptContext.prepareBindings(input, localBindings);
+                finalScriptContext.prepareBindings(input, localBindings, fileAccess);
                 Future<Value> futureResult =
                         executorService.submit(() -> finalScriptContext.getContext().eval(source));
                 Value value =
@@ -289,6 +298,7 @@ public final class ScriptEvaluator {
             jsBindings.putMember("$", toScriptValue(input));
             jsBindings.putMember("XML", XML_BRIDGE);
             jsBindings.putMember("Crypto", CRYPTO_BRIDGE);
+            jsBindings.putMember("Files", new FilesBridge(fileAccess));
             bindLocals(jsBindings, localBindings);
             final Future<Value> futureResult = executorService.submit(() -> context.eval(source));
             Value value = futureResult.get(maxExecutionTimeSeconds.getSeconds(), TimeUnit.SECONDS);
@@ -441,10 +451,11 @@ public final class ScriptEvaluator {
             return context;
         }
 
-        void prepareBindings(Object input, Map<String, Object> locals) {
+        void prepareBindings(Object input, Map<String, Object> locals, FileAccess fileAccess) {
             bindings.putMember("$", toScriptValue(input));
             bindings.putMember("XML", XML_BRIDGE);
             bindings.putMember("Crypto", CRYPTO_BRIDGE);
+            bindings.putMember("Files", new FilesBridge(fileAccess));
             bindLocals(bindings, locals);
             localNames = new HashSet<>(locals.keySet());
         }
@@ -455,6 +466,7 @@ public final class ScriptEvaluator {
             bindings.removeMember("$");
             bindings.removeMember("XML");
             bindings.removeMember("Crypto");
+            bindings.removeMember("Files");
         }
     }
 }

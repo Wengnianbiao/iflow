@@ -5,5 +5,5 @@ package com.helianhealth.iflow.gateway.rest;
  */
 public interface OpenApiService {
 
-    String invoke(String requestBody, String routeKey);
+    String invoke(OpenApiRequest request);
 }

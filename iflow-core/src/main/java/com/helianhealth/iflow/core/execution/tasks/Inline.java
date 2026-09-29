@@ -57,7 +57,9 @@ public class Inline extends WorkflowSystemTask {
             checkEvaluatorType(evaluatorType);
             checkExpression(expression);
             Evaluator evaluator = evaluators.get(evaluatorType);
-            Object result = evaluator.evaluate(expression, input);
+            Object result = evaluator instanceof GraalJSEvaluator graal
+                    ? graal.evaluateWithFileAccess(expression, input, workflow.getFileAccess())
+                    : evaluator.evaluate(expression, input);
             task.setOutputData(result);
             task.setStatus(TaskModel.Status.COMPLETED);
         } catch (Exception e) {

@@ -3,7 +3,10 @@ package com.helianhealth.iflow.core.execution.script;
 import com.helianhealth.iflow.core.execution.evaluators.GraalJSEvaluator;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,7 +31,26 @@ class ScriptEvaluatorBindingsTest {
     void reservedBindingsCannotReplaceExistingScriptGlobals() {
         assertThrows(IllegalArgumentException.class, () -> evaluator.evaluateWithBindings("$", "root", Map.of("$", "other")));
         assertThrows(IllegalArgumentException.class, () -> evaluator.evaluateWithBindings("JSON", Map.of(), Map.of("JSON", "other")));
+        assertThrows(IllegalArgumentException.class, () -> evaluator.evaluateWithBindings("Files", Map.of(), Map.of("Files", "other")));
         assertEquals("{}", evaluator.evaluate("JSON.stringify({})", Map.of()));
+    }
+
+    @Test
+    void filesAreOnlyConvertedWhenTheScriptExplicitlyRequestsIt() {
+        byte[] bytes = "张三".getBytes(StandardCharsets.UTF_8);
+        var access = (com.helianhealth.iflow.common.domain.run.FileAccess) fileRef -> {
+            if (!"upload-1".equals(fileRef)) {
+                throw new java.io.FileNotFoundException(fileRef);
+            }
+            return new ByteArrayInputStream(bytes);
+        };
+
+        assertEquals("张三", evaluator.evaluateWithFileAccess(
+                "Files.readText('upload-1', 'UTF-8')", Map.of(), access));
+        assertEquals(Base64.getEncoder().encodeToString(bytes), evaluator.evaluateWithFileAccess(
+                "Files.toBase64('upload-1')", Map.of(), access));
+        assertThrows(RuntimeException.class, () -> evaluator.evaluate(
+                "Files.toBase64('upload-1')", Map.of()));
     }
 
     @Test

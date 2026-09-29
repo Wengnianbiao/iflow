@@ -1,4 +1,4 @@
-package com.helianhealth.iflow.core.execution.script;
+package com.helianhealth.iflow.common.utils;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -6,6 +6,7 @@ import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.ErrorHandler;
+import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 
@@ -19,11 +20,17 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.ByteArrayInputStream;
 import java.io.StringWriter;
+import java.io.StringReader;
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 将 XML 文档与普通 Java Map/List 结构互相转换。
@@ -35,6 +42,8 @@ public final class XmlMapParser {
 
     static final String TEXT_KEY = "#text";
     static final String ATTRIBUTE_PREFIX = "@";
+    private static final Pattern XML_ENCODING = Pattern.compile(
+            "(?i)<\\?xml[^>]*\\bencoding\\s*=\\s*(['\"])([^'\"]+)\\1");
 
     private XmlMapParser() {}
 
@@ -42,15 +51,89 @@ public final class XmlMapParser {
         if (xml == null || xml.isBlank()) {
             return null;
         }
+        return parseDocument(new InputSource(new StringReader(xml))).value();
+    }
+
+    /** HTTP charset 优先；未指定时由 XML 解析器识别 BOM / XML 声明。 */
+    public static ParsedXml parseBytes(byte[] xml, String encoding) {
+        InputSource source = new InputSource(new ByteArrayInputStream(xml));
+        source.setEncoding(encoding);
+        return parseDocument(source);
+    }
+
+    /**
+     * 不构建 XML 文档，只根据 HTTP charset、BOM/字节签名和 XML 声明解码原文。
+     */
+    public static String decodeBytes(byte[] xml, String httpEncoding) {
+        try {
+            Charset charset = httpEncoding != null
+                    ? Charset.forName(httpEncoding)
+                    : detectCharset(xml);
+            return charset.newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(xml))
+                    .toString();
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Failed to decode XML: invalid character encoding");
+        }
+    }
+
+    private static Charset detectCharset(byte[] value) {
+        if (startsWith(value, 0x00, 0x00, 0xFE, 0xFF)) {
+            return Charset.forName("UTF-32BE");
+        }
+        if (startsWith(value, 0xFF, 0xFE, 0x00, 0x00)) {
+            return Charset.forName("UTF-32LE");
+        }
+        if (startsWith(value, 0xEF, 0xBB, 0xBF)) {
+            return StandardCharsets.UTF_8;
+        }
+        if (startsWith(value, 0xFE, 0xFF) || startsWith(value, 0x00, 0x3C, 0x00, 0x3F)) {
+            return StandardCharsets.UTF_16BE;
+        }
+        if (startsWith(value, 0xFF, 0xFE) || startsWith(value, 0x3C, 0x00, 0x3F, 0x00)) {
+            return StandardCharsets.UTF_16LE;
+        }
+        if (startsWith(value, 0x00, 0x00, 0x00, 0x3C)) {
+            return Charset.forName("UTF-32BE");
+        }
+        if (startsWith(value, 0x3C, 0x00, 0x00, 0x00)) {
+            return Charset.forName("UTF-32LE");
+        }
+        int probeLength = Math.min(value.length, 512);
+        String probe = new String(value, 0, probeLength, StandardCharsets.ISO_8859_1);
+        Matcher matcher = XML_ENCODING.matcher(probe);
+        return matcher.find() ? Charset.forName(matcher.group(2)) : StandardCharsets.UTF_8;
+    }
+
+    private static boolean startsWith(byte[] value, int... prefix) {
+        if (value.length < prefix.length) {
+            return false;
+        }
+        for (int i = 0; i < prefix.length; i++) {
+            if ((value[i] & 0xff) != prefix[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public record ParsedXml(Map<String, Object> value, String encoding) {}
+
+    private static ParsedXml parseDocument(InputSource source) {
         try {
             DocumentBuilder builder = newDocumentBuilder();
-            Document document =
-                    builder.parse(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
+            Document document = builder.parse(source);
             document.getDocumentElement().normalize();
             Element root = document.getDocumentElement();
             Map<String, Object> result = new LinkedHashMap<>();
             result.put(root.getNodeName(), toValue(root));
-            return result;
+            // getInputEncoding() can retain the initial UTF-8 probe even when the XML
+            // declaration switches to e.g. GB18030. HTTP encoding takes precedence.
+            String encoding = source.getEncoding() != null ? source.getEncoding()
+                    : document.getXmlEncoding() != null ? document.getXmlEncoding() : document.getInputEncoding();
+            return new ParsedXml(result, encoding);
         } catch (Exception e) {
             throw new IllegalArgumentException("Failed to parse XML: invalid document");
         }

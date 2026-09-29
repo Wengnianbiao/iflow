@@ -17,6 +17,7 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MySqlExecutionJsonSupportTest {
@@ -65,6 +66,34 @@ class MySqlExecutionJsonSupportTest {
         task.setRetryCount(2);
 
         assertEquals("noop_2", MySqlExecutionJsonSupport.taskKey(task));
+    }
+
+    @Test
+    void largeTaskAndWorkflowPayloadsRoundTripThroughCompression() {
+        ExecutionPayloadCodec codec = new ExecutionPayloadCodec(32, 1024 * 1024);
+        MySqlExecutionJsonSupport compressing = new MySqlExecutionJsonSupport(objectMapper, codec);
+        String body = "fee-service-item-".repeat(40);
+
+        TaskModel task = new TaskModel();
+        task.setTaskId("t-large");
+        task.setReferenceTaskName("call_his_ref");
+        task.setStatus(TaskModel.Status.COMPLETED);
+        task.setOutputData(body);
+        String storedTask = compressing.toTaskPayload(task);
+        assertTrue(storedTask.startsWith(ExecutionPayloadCodec.PREFIX));
+        TaskModel restoredTask = compressing.fromTaskPayload(storedTask);
+        assertEquals("t-large", restoredTask.getTaskId());
+        assertEquals(body, restoredTask.getOutputData());
+
+        WorkflowModel workflow = new WorkflowModel();
+        workflow.setWorkflowId("wf-large");
+        workflow.setStatus(WorkflowModel.Status.COMPLETED);
+        workflow.setOutput(body);
+        String storedWorkflow = compressing.toWorkflowPayload(workflow);
+        assertTrue(storedWorkflow.startsWith(ExecutionPayloadCodec.PREFIX));
+        WorkflowModel restoredWorkflow = compressing.fromWorkflowPayload(storedWorkflow);
+        assertEquals("wf-large", restoredWorkflow.getWorkflowId());
+        assertEquals(body, restoredWorkflow.getOutput());
     }
 
     @Test
@@ -141,5 +170,34 @@ class MySqlExecutionJsonSupportTest {
         assertTrue(objectMapper.readTree(json).has("output"));
         assertEquals(objectMapper.valueToTree(output), objectMapper.readTree(json).get("output"));
         assertEquals(output, restored.getOutput());
+    }
+
+    @ParameterizedTest
+    @MethodSource("oversizedOutputs")
+    void oversizedOutputKeepsItsJsonTypeAndRuntimeValue(Object output) throws Exception {
+        TaskModel task = new TaskModel();
+        task.setOutputData(output);
+        WorkflowModel workflow = new WorkflowModel();
+        workflow.setOutput(output);
+        JsonNode original = objectMapper.valueToTree(output);
+
+        JsonNode storedTaskOutput = objectMapper.readTree(support.toTaskPayload(task)).get("outputData");
+        JsonNode storedWorkflowOutput = objectMapper.readTree(support.toWorkflowPayload(workflow)).get("output");
+
+        assertEquals(original.getNodeType(), storedTaskOutput.getNodeType());
+        assertEquals(original.getNodeType(), storedWorkflowOutput.getNodeType());
+        assertTrue(objectMapper.writeValueAsString(storedTaskOutput).length() <= PayloadTruncator.MAX_CHARS);
+        assertTrue(objectMapper.writeValueAsString(storedWorkflowOutput).length() <= PayloadTruncator.MAX_CHARS);
+        assertSame(output, task.getOutputData());
+        assertSame(output, workflow.getOutput());
+        assertEquals(original, objectMapper.valueToTree(output));
+    }
+
+    private static Stream<Arguments> oversizedOutputs() {
+        String text = "大报文".repeat(PayloadTruncator.MAX_CHARS / 3 + 1);
+        return Stream.of(
+                Arguments.of(text),
+                Arguments.of(List.of(Map.of("body", text))),
+                Arguments.of(Map.of("body", text)));
     }
 }

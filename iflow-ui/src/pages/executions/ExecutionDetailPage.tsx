@@ -227,11 +227,19 @@ export function ExecutionDetailPage() {
   }
 
   const copyText = async (value: string, label: string) => {
+    const notify = (ok: boolean) => {
+      setMessage({ severity: ok ? 'success' : 'error', text: ok ? `${label}已复制` : `无法复制${label}` })
+      return ok
+    }
+    // Clipboard API 只在 HTTPS / localhost 可用。局域网 HTTP 要在这次点击里同步走 execCommand。
+    if (!window.isSecureContext || !navigator.clipboard?.writeText) {
+      return notify(copyWithExecCommand(value))
+    }
     try {
       await navigator.clipboard.writeText(value)
-      setMessage({ severity: 'success', text: `${label}已复制` })
+      return notify(true)
     } catch {
-      setMessage({ severity: 'error', text: `无法复制${label}` })
+      return notify(copyWithExecCommand(value))
     }
   }
 
@@ -640,7 +648,7 @@ function JsonPairView({
   workflowName: string
   input?: Record<string, unknown>
   output?: unknown
-  onCopy: (value: string, label: string) => Promise<void>
+  onCopy: (value: string, label: string) => Promise<boolean>
 }) {
   const [layout, setLayout] = useState<JsonLayout>('grid')
   const [fullScreen, setFullScreen] = useState<'input' | 'output' | null>(null)
@@ -682,7 +690,7 @@ function JsonCard({
 }: {
   title: string
   value: unknown
-  onCopy: (value: string, label: string) => Promise<void>
+  onCopy: (value: string, label: string) => Promise<boolean>
   onToggleFullScreen?: () => void
   fullScreen?: boolean
   compact?: boolean
@@ -690,7 +698,8 @@ function JsonCard({
   const content = serializeJson(value)
   const [copied, setCopied] = useState(false)
   const copy = async () => {
-    await onCopy(content, title)
+    const ok = await onCopy(content, title)
+    if (!ok) return
     setCopied(true)
     window.setTimeout(() => setCopied(false), 1500)
   }
@@ -792,6 +801,25 @@ function taskSummaryRows(runtime: TaskExecution | undefined, definition: Workflo
 
 function StatusBadge({ status }: { status?: string }) {
   return <span className={`${styles.statusBadge} ${styles[statusTone(status)] || ''}`}>{statusText(status)}</span>
+}
+
+function copyWithExecCommand(value: string) {
+  const textarea = document.createElement('textarea')
+  textarea.value = value
+  textarea.setAttribute('readonly', '')
+  textarea.style.position = 'fixed'
+  textarea.style.top = '0'
+  textarea.style.left = '0'
+  textarea.style.opacity = '0'
+  document.body.appendChild(textarea)
+  try {
+    textarea.focus()
+    textarea.select()
+    textarea.setSelectionRange(0, textarea.value.length)
+    return document.execCommand('copy')
+  } finally {
+    textarea.remove()
+  }
 }
 
 function CopyButton({ label, onClick }: { label: string; onClick: (event: React.MouseEvent<HTMLButtonElement>) => void }) {

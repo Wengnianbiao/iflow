@@ -15,8 +15,8 @@ spring:
   servlet:
     multipart:
       enabled: true
-      max-file-size: -1
-      max-request-size: -1
+      max-file-size: ${iflow.open-api.max-body-bytes:10485760}B
+      max-request-size: ${iflow.open-api.max-body-bytes:10485760}B
 
 #日志配置 默认配置 后期切换
 logging:

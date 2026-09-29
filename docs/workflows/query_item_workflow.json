@@ -1,37 +1,27 @@
 {
   "name": "hl-open-api/query-item",
   "version": 1,
-  "displayName": "查询项目信息",
-  "description": "POST /hl-open-api/query-item。请求体为 { request: 诊疗项目字典查询入参 }，取出 request 放入 encryptData 后调用 GHIS queryCureService。",
+  "displayName": "查询费用服务项目列表",
+  "description": "POST /hl-open-api/query-item。请求体为费用服务项目查询入参（对象或数组，也可包在 request 里），同步调用 bd.serviceitem.serviceItemProvider.queryFeeServiceItemList，不加验签、不加解密。返回的是服务参考价格。",
   "timeoutPolicy": "TIME_OUT_WF",
   "inputParameters": [
-    "request"
+    "body"
   ],
   "outputParameters": {},
   "tasks": [
     {
-      "name": "组装网关查询报文",
+      "name": "组装费用服务项目查询入参",
       "taskReferenceName": "wrap_request_ref",
       "type": "INLINE",
       "optional": false,
       "inputParameters": {
-        "request": "${workflow.input.request}",
+        "body": "${workflow.input.body}",
         "evaluatorType": "graaljs",
-        "expression": "(function () { var raw = $.request; var body = raw; if (typeof raw === 'string') { body = raw ? JSON.parse(raw) : {}; } if (body == null) { body = {}; } var query = body.request != null ? body.request : body; return { rows: Array.isArray(query) ? query : [query], timestamp: String(Date.now()) }; })()"
+        "expression": "(function () { var body = $.body; if (body == null) { body = {}; } var query = (body && typeof body === 'object' && !Array.isArray(body) && body.request != null) ? body.request : body; return Array.isArray(query) ? query : [query]; })()"
       }
     },
     {
-      "name": "查询入参序列化",
-      "taskReferenceName": "serialize_encrypt_data_ref",
-      "type": "FUNCTION",
-      "optional": false,
-      "inputParameters": {
-        "function": "JSON_STRINGIFY",
-        "value": "${wrap_request_ref.output.rows}"
-      }
-    },
-    {
-      "name": "调用诊疗项目查询",
+      "name": "查询费用服务项目列表",
       "taskReferenceName": "call_his_ref",
       "type": "HTTP",
       "optional": false,
@@ -42,36 +32,22 @@
         "accept": "application/json",
         "connectionTimeOut": 5000,
         "readTimeOut": 30000,
-        "body": {
-          "appId": "6a4daeb8b4ac040015386004",
-          "encryptData": "${serialize_encrypt_data_ref.output}",
-          "sign": "",
-          "timestamp": "${wrap_request_ref.output.timestamp}",
-          "version": "1.0.0",
-          "beanName": "exchange.stand.queryCureServiceProvider",
-          "methodName": "queryCureService"
-        }
+        "headers": {
+          "X-Service-Id": "bd.serviceitem.serviceItemProvider",
+          "X-Service-Method": "queryFeeServiceItemList"
+        },
+        "body": "${wrap_request_ref.output}"
       }
     },
     {
-      "name": "查询响应反序列化",
-      "taskReferenceName": "parse_encrypt_data_ref",
-      "type": "FUNCTION",
-      "optional": false,
-      "inputParameters": {
-        "function": "JSON_PARSE",
-        "value": "${call_his_ref.output.body.encryptData}"
-      }
-    },
-    {
-      "name": "展开查询响应",
+      "name": "返回查询结果",
       "taskReferenceName": "unwrap_response_ref",
       "type": "INLINE",
       "optional": false,
       "inputParameters": {
-        "parsed": "${parse_encrypt_data_ref.output}",
+        "body": "${call_his_ref.output.body}",
         "evaluatorType": "graaljs",
-        "expression": "(function () { var raw = $.parsed; var body = Array.isArray(raw) ? (raw.length ? raw[0] : {}) : (raw || {}); if (body && body.body && (body.body.data != null || body.body.status != null || body.body.detail != null)) { body = body.body; } return body; })()"
+        "expression": "(function () { return $.body; })()"
       }
     }
   ]

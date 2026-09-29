@@ -3,7 +3,7 @@ package com.helianhealth.iflow.core.execution;
 import com.helianhealth.iflow.core.model.WorkflowModel;
 
 /**
- * 工作流执行引擎入口。
+ * 工作流执行引擎
  */
 public interface WorkflowExecutor {
 

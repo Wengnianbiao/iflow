@@ -65,47 +65,59 @@ class MappingWorkflowExamplesTest {
     }
 
     @Test
-    void queryItemForwardsDocumentRequestThroughOpenApi() throws Exception {
+    void queryItemForwardsObjectArrayAndBusinessRequestThroughOpenApi() throws Exception {
         JsonNode definition = readExample("query_item_workflow.json");
         assertEquals("hl-open-api/query-item", definition.path("name").asText());
-        assertEquals(List.of("request"), mapper.convertValue(definition.path("inputParameters"), new TypeReference<List<String>>() {}));
+        assertEquals(List.of("body"), mapper.convertValue(definition.path("inputParameters"), new TypeReference<List<String>>() {}));
+        Map<String, Object> query = Map.of("departmentId", "demo-department", "pageSize", 3, "pageIndex", 1);
+        for (Object body : List.of(query, List.of(query), Map.of("request", query), Map.of("request", List.of(query)))) {
+            WorkflowModel workflow = new WorkflowModel();
+            workflow.setInput(Map.of("body", body));
+            Map<String, Object> wrapInput = resolveInput(definition.path("tasks").get(0), workflow);
+            Object wrapped = evaluator.evaluate((String) wrapInput.get("expression"), wrapInput);
+            assertEquals(List.of(query), wrapped);
 
-        Map<String, Object> query = new LinkedHashMap<>();
-        query.put("departmentId", "66fca4551d3a1d0001fab02d");
-        query.put("pageSize", 3);
-        query.put("pageIndex", 1);
-        query.put("userId", "671a03c827f2d20001ac5853");
-        query.put("organizationId", "66fca42db0c0ad0001f1a9f4");
-        query.put("accountId", "66fca570063ef80001a5da41");
-        query.put("tenantId", "GHIS");
-        query.put("serviceItemTypeCode", "31");
-        Map<String, Object> request = Map.of("request", query);
+            TaskModel wrap = new TaskModel();
+            wrap.setReferenceTaskName("wrap_request_ref");
+            wrap.setOutputData(wrapped);
+            wrap.setStatus(TaskModel.Status.COMPLETED);
+            workflow.setTasks(List.of(wrap));
+            Map<String, Object> httpInput = resolveInput(definition.path("tasks").get(1), workflow);
+            assertEquals(List.of(query), httpInput.get("body"));
+            assertEquals(Map.of("X-Service-Id", "bd.serviceitem.serviceItemProvider",
+                    "X-Service-Method", "queryFeeServiceItemList"), httpInput.get("headers"));
 
-        JsonNode wrapDef = definition.path("tasks").get(0);
-        Map<String, Object> wrapInput = new LinkedHashMap<>();
-        wrapInput.put("request", request);
-        wrapInput.put("expression", wrapDef.path("inputParameters").path("expression").asText());
-        @SuppressWarnings("unchecked")
-        Map<String, Object> wrapped = (Map<String, Object>) evaluator.evaluate(
-                (String) wrapInput.get("expression"), wrapInput);
-        assertEquals(List.of(query), wrapped.get("rows"));
-        assertFalse(String.valueOf(wrapped.get("timestamp")).isBlank());
+            TaskModel http = new TaskModel();
+            http.setReferenceTaskName("call_his_ref");
+            Object response = Map.of("data", List.of(Map.of("price", 12.5)));
+            http.setOutputData(Map.of("body", response));
+            http.setStatus(TaskModel.Status.COMPLETED);
+            workflow.setTasks(List.of(wrap, http));
+            Map<String, Object> responseInput = resolveInput(definition.path("tasks").get(2), workflow);
+            assertEquals(response, evaluator.evaluate((String) responseInput.get("expression"), responseInput));
+        }
+    }
 
-        TaskModel wrap = new TaskModel();
-        wrap.setReferenceTaskName("wrap_request_ref");
-        wrap.setOutputData(wrapped);
-        wrap.setStatus(TaskModel.Status.COMPLETED);
-        TaskModel serialized = new TaskModel();
-        serialized.setReferenceTaskName("serialize_encrypt_data_ref");
-        serialized.setOutputData(mapper.writeValueAsString(List.of(query)));
-        serialized.setStatus(TaskModel.Status.COMPLETED);
+    @Test
+    void lisExamplesMapParsedOpenApiBodyWithoutEntryParseTasks() throws Exception {
         WorkflowModel workflow = new WorkflowModel();
-        workflow.setTasks(List.of(wrap, serialized));
-        Map<?, ?> body = (Map<?, ?>) resolveInput(definition.path("tasks").get(2), workflow).get("body");
-        assertEquals("exchange.stand.queryCureServiceProvider", body.get("beanName"));
-        assertEquals("queryCureService", body.get("methodName"));
-        assertEquals(serialized.getOutputData(), body.get("encryptData"));
-        assertEquals(wrapped.get("timestamp"), body.get("timestamp"));
+        workflow.setInput(Map.of("body", Map.of("barcode", "00123", "patientCode", "P1", "applyStatus", "1")));
+        JsonNode query = readExample("query_lis_apply_workflow.json");
+        TaskModel queryMapping = runMapping(query.path("tasks").get(0), workflow);
+        assertEquals("00123", queryMapping.outputAsMap().get("barCode"));
+        JsonNode status = readExample("lis_status_workflow.json");
+        TaskModel statusMapping = runMapping(status.path("tasks").get(0), workflow);
+        Map<?, ?> item = (Map<?, ?>) ((List<?>) statusMapping.outputAsMap().get("items")).get(0);
+        assertEquals("00123", item.get("barCode"));
+        assertEquals("P1", item.get("patientCode"));
+        assertEquals(0, ((Number) item.get("state")).intValue());
+        assertEquals("JSON_STRINGIFY", status.path("tasks").get(1).path("inputParameters").path("function").asText());
+        for (JsonNode definition : List.of(query, status, readExample("query_item_workflow.json"))) {
+            String json = definition.toString();
+            assertFalse(json.contains("workflow.input.request"));
+            assertFalse(json.contains("function_lis_ref"));
+            assertFalse(json.contains("function_lis_apply_ref"));
+        }
     }
 
     @Test

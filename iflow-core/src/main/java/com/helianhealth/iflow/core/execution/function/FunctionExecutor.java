@@ -1,30 +1,22 @@
 package com.helianhealth.iflow.core.execution.function;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.helianhealth.iflow.core.execution.script.XmlMapParser;
+import com.helianhealth.iflow.common.utils.JsonValueCodec;
+import com.helianhealth.iflow.common.utils.XmlMapParser;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
-/**
- * 执行 FUNCTION 任务的受控、纯 Java 内置函数。
- */
 @Component
 public class FunctionExecutor {
 
-    public static final int DEFAULT_MAX_INPUT_CHARS = 5_000_000;
+    public static final int DEFAULT_MAX_INPUT_CHARS = 10_000_000;
 
     private final int maxInputChars;
-    private final ObjectMapper objectMapper;
+    private final JsonValueCodec jsonCodec;
 
     @Autowired
     public FunctionExecutor(
@@ -35,7 +27,7 @@ public class FunctionExecutor {
             throw new IllegalArgumentException("iflow.function.max-input-chars must be positive");
         }
         this.maxInputChars = maxInputChars;
-        this.objectMapper = configure(objectMapper);
+        this.jsonCodec = new JsonValueCodec(objectMapper);
     }
 
     public FunctionExecutor(int maxInputChars) {
@@ -44,14 +36,6 @@ public class FunctionExecutor {
 
     private static ObjectMapper defaultObjectMapper() {
         return JsonMapper.builder().build();
-    }
-
-    private static ObjectMapper configure(ObjectMapper objectMapper) {
-        return objectMapper
-                .copy()
-                .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
-                .disable(SerializationFeature.INDENT_OUTPUT)
-                .setSerializationInclusion(JsonInclude.Include.ALWAYS);
     }
 
     public Object execute(FunctionType functionType, Object value) {
@@ -86,13 +70,11 @@ public class FunctionExecutor {
     }
 
     private Object parseJson(String input) {
-        final Object parsed;
         try {
-            parsed = objectMapper.readValue(input, Object.class);
+            return jsonCodec.parse(input);
         } catch (Exception ignored) {
             throw new IllegalArgumentException("FUNCTION JSON_PARSE failed: invalid JSON");
         }
-        return normalize(parsed);
     }
 
     private Map<String, Object> parseXml(String input) {
@@ -110,7 +92,7 @@ public class FunctionExecutor {
     private String stringifyJson(Object value) {
         final String json;
         try {
-            json = objectMapper.writeValueAsString(value);
+            json = jsonCodec.stringify(value);
         } catch (Exception ignored) {
             throw new IllegalArgumentException("FUNCTION JSON_STRINGIFY failed: invalid JSON");
         }
@@ -139,21 +121,4 @@ public class FunctionExecutor {
         }
     }
 
-    private Map<String, Object> normalizeMap(Map<?, ?> source) {
-        Map<String, Object> result = new LinkedHashMap<>(source.size());
-        source.forEach((key, value) -> result.put(String.valueOf(key), normalize(value)));
-        return result;
-    }
-
-    private Object normalize(Object value) {
-        if (value instanceof Map<?, ?> map) {
-            return normalizeMap(map);
-        }
-        if (value instanceof List<?> list) {
-            List<Object> result = new ArrayList<>(list.size());
-            list.forEach(item -> result.add(normalize(item)));
-            return result;
-        }
-        return value;
-    }
 }

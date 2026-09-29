@@ -10,23 +10,39 @@ import com.helianhealth.iflow.core.model.WorkflowExecutionMapper;
 import com.helianhealth.iflow.core.model.WorkflowModel;
 
 import java.io.IOException;
+import java.util.Map;
 
 final class MySqlExecutionJsonSupport {
 
     private final ObjectMapper objectMapper;
+    private final ExecutionPayloadCodec payloadCodec;
+    private final PayloadTruncator payloadTruncator;
 
     MySqlExecutionJsonSupport(ObjectMapper objectMapper) {
+        this(objectMapper, new ExecutionPayloadCodec());
+    }
+
+    MySqlExecutionJsonSupport(ObjectMapper objectMapper, ExecutionPayloadCodec payloadCodec) {
         this.objectMapper = objectMapper;
+        this.payloadCodec = payloadCodec;
+        this.payloadTruncator = new PayloadTruncator(objectMapper);
     }
 
     String toWorkflowPayload(WorkflowModel workflow) {
-        return toJson(WorkflowExecutionMapper.toWorkflowHeader(workflow));
+        Workflow persisted = WorkflowExecutionMapper.toWorkflowHeader(workflow);
+        if (persisted != null) {
+            String label = "工作流 " + persisted.getWorkflowId();
+            persisted.setInput(truncateInput(label + " 输入", persisted.getInput()));
+            persisted.setOutput(payloadTruncator.truncate(label + " 输出", persisted.getOutput()));
+        }
+        return payloadCodec.encode(toJson(persisted));
     }
 
     WorkflowModel fromWorkflowPayload(String json) {
         if (json == null || json.isBlank()) {
             return null;
         }
+        json = payloadCodec.decode(json);
         try {
             ObjectNode root = (ObjectNode) objectMapper.readTree(json);
             normalizeLegacyWorkflowHeader(root);
@@ -44,13 +60,27 @@ final class MySqlExecutionJsonSupport {
     }
 
     String toTaskPayload(TaskModel task) {
-        return toJson(WorkflowExecutionMapper.toTask(task));
+        Task persisted = WorkflowExecutionMapper.toTask(task);
+        if (persisted != null) {
+            String label = "任务 " + persisted.getTaskId();
+            persisted.setInputData(truncateInput(label + " 输入", persisted.getInputData()));
+            persisted.setOutputData(payloadTruncator.truncate(label + " 输出", persisted.getOutputData()));
+        }
+        return payloadCodec.encode(toJson(persisted));
+    }
+
+    /** 只替换持久化 DTO 的字段；截断器不修改与运行时共享的嵌套值。 */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> truncateInput(String label, Map<String, Object> input) {
+        // Map 序列化为 JSON 对象，截断后仍为对象；未超限时原样返回。
+        return (Map<String, Object>) payloadTruncator.truncate(label, input);
     }
 
     TaskModel fromTaskPayload(String json) {
         if (json == null || json.isBlank()) {
             return null;
         }
+        json = payloadCodec.decode(json);
         try {
             return WorkflowExecutionMapper.toTaskModel(objectMapper.readValue(json, Task.class));
         } catch (IOException ex) {
