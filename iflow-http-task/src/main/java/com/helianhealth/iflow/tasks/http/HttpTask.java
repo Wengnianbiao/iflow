@@ -40,8 +40,10 @@ public class HttpTask extends WorkflowSystemTask {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(HttpTask.class);
 
-    private final TypeReference<Map<String, Object>> mapOfObj = new TypeReference<>() {};
-    private final TypeReference<List<Object>> listOfObj = new TypeReference<>() {};
+    private final TypeReference<Map<String, Object>> mapOfObj = new TypeReference<>() {
+    };
+    private final TypeReference<List<Object>> listOfObj = new TypeReference<>() {
+    };
 
     protected ObjectMapper objectMapper;
     protected RestTemplateProvider restTemplateProvider;
@@ -64,14 +66,13 @@ public class HttpTask extends WorkflowSystemTask {
 
         Input input = objectMapper.convertValue(request, Input.class);
         if (input.getUri() == null) {
-            task.setReasonForInCompletion(
-                    "Missing HTTP URI.  See documentation for HttpTask for required input parameters");
+            task.setReasonForInCompletion("缺少请求地址 uri，请在任务输入中填写 uri");
             task.setStatus(TaskModel.Status.FAILED);
             return;
         }
 
         if (input.getMethod() == null) {
-            task.setReasonForInCompletion("No HTTP method specified");
+            task.setReasonForInCompletion("未指定 HTTP 方法，请填写 method（如 GET、POST）");
             task.setStatus(TaskModel.Status.FAILED);
             return;
         }
@@ -87,26 +88,34 @@ public class HttpTask extends WorkflowSystemTask {
                 task.setStatus(TaskModel.Status.COMPLETED);
             } else {
                 if (response.body != null) {
-                    task.setReasonForInCompletion(response.body.toString());
+                    task.setReasonForInCompletion("HTTP服务返回失败：" + response.body);
                 } else {
-                    task.setReasonForInCompletion("No response from the remote service");
+                    task.setReasonForInCompletion(
+                            "HTTP服务无响应, 状态码：" + response.statusCode);
                 }
                 task.setStatus(TaskModel.Status.FAILED);
             }
             task.setOutputData(response.asMap());
         } catch (Exception e) {
             LOGGER.error(
-                    "Failed to invoke {} task: {} - uri: {}, vipAddress: {} in workflow: {}",
+                    "Failed to invoke {} task: {} - uri: {} in workflow: {}",
                     getTaskType(),
                     task.getTaskId(),
                     input.getUri(),
-                    input.getVipAddress(),
                     task.getWorkflowInstanceId(),
                     e);
             task.setStatus(TaskModel.Status.FAILED);
-            task.setReasonForInCompletion("Failed to invoke " + getTaskType() + " task due to: " + e);
+            task.setReasonForInCompletion("HTTP 调用失败：" + failureDetail(e));
             addError(task, e.toString());
         }
+    }
+
+    private static String failureDetail(Exception e) {
+        String message = e.getMessage();
+        if (message == null || message.isBlank()) {
+            return e.getClass().getSimpleName();
+        }
+        return message;
     }
 
     /**
@@ -144,12 +153,8 @@ public class HttpTask extends WorkflowSystemTask {
             response.headers = responseEntity.getHeaders();
             return response;
         } catch (RestClientException ex) {
-            LOGGER.error(
-                    "Got unexpected http response - uri: {}, vipAddress: {}",
-                    input.getUri(),
-                    input.getVipAddress(),
-                    ex);
-            throw new Exception(ex.getLocalizedMessage(), ex);
+            LOGGER.error("Got unexpected http response - uri: {}", input.getUri(), ex);
+            throw new Exception(ex.getLocalizedMessage());
         }
     }
 
@@ -209,8 +214,6 @@ public class HttpTask extends WorkflowSystemTask {
     public static class Input {
 
         private String method;
-        private String vipAddress;
-        private String appName;
         private Map<String, Object> headers = new HashMap<>();
         private String uri;
         private Object body;
@@ -218,10 +221,14 @@ public class HttpTask extends WorkflowSystemTask {
                 new ArrayList<>(Collections.singletonList(MediaType.APPLICATION_JSON_VALUE));
         private String contentType = MediaType.APPLICATION_JSON_VALUE;
 
-        /** 建连超时（毫秒），未指定时使用系统默认 5000ms */
+        /**
+         * 建连超时（毫秒）。未指定时使用 {@code iflow.tasks.http.connect-timeout}，默认 5000ms。
+         */
         private Integer connectionTimeOut;
 
-        /** 读取超时（毫秒），未指定时使用系统默认 30000ms */
+        /**
+         * 读取超时（毫秒）。未指定时使用 {@code iflow.tasks.http.read-timeout}，默认 30000ms。
+         */
         private Integer readTimeOut;
 
         public String getMethod() {
@@ -256,14 +263,6 @@ public class HttpTask extends WorkflowSystemTask {
             this.uri = uri;
         }
 
-        public String getVipAddress() {
-            return vipAddress;
-        }
-
-        public void setVipAddress(String vipAddress) {
-            this.vipAddress = vipAddress;
-        }
-
         public String getAccept() {
             return accept != null && !accept.isEmpty()
                     ? accept.get(0)
@@ -294,14 +293,6 @@ public class HttpTask extends WorkflowSystemTask {
 
         public void setContentType(String contentType) {
             this.contentType = contentType;
-        }
-
-        public String getAppName() {
-            return appName;
-        }
-
-        public void setAppName(String appName) {
-            this.appName = appName;
         }
 
         public Integer getConnectionTimeOut() {

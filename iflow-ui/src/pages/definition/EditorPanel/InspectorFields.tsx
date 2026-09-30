@@ -21,7 +21,7 @@ export function uniqueValues(values: string[]) {
   return [...new Set(values.filter(Boolean))]
 }
 
-function filterVariableOptions(options: string[], value: string, forceAll: boolean) {
+export function filterVariableOptions(options: string[], value: string, forceAll: boolean) {
   if (forceAll || !value) return options
   const currentValue = value.toLowerCase()
   if (currentValue.endsWith('$')) return options.filter((option) => option.toLowerCase().startsWith('$'))
@@ -30,7 +30,7 @@ function filterVariableOptions(options: string[], value: string, forceAll: boole
   return options.filter((option) => option.toLowerCase().startsWith(currentValue))
 }
 
-function replaceVariableExpression(value: string, option: string) {
+export function replaceVariableExpression(value: string, option: string) {
   if (value.endsWith('$')) return `${value.slice(0, -1)}${option}`
   if (VARIABLE_REGEX.test(value)) return value.replace(VARIABLE_REGEX, option)
   return option

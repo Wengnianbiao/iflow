@@ -18,9 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * HttpTask 单元测试。
- *
- * <p>覆盖 Input 反序列化、accept 参数、http_request 键 / 平铺 input 两种形态。
+ * HttpTask 入参测试：accept 反序列化、平铺 input、缺参失败。
  */
 class HttpTaskUnitTest {
 
@@ -133,7 +131,7 @@ class HttpTaskUnitTest {
 
         httpTask.execute(workflow, task, null);
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
-        assertTrue(task.getReasonForInCompletion().contains("Missing HTTP URI"));
+        assertTrue(task.getReasonForInCompletion().contains("缺少请求地址 uri"));
     }
 
     @Test
@@ -143,7 +141,7 @@ class HttpTaskUnitTest {
 
         httpTask.execute(workflow, task, null);
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
-        assertTrue(task.getReasonForInCompletion().contains("No HTTP method specified"));
+        assertTrue(task.getReasonForInCompletion().contains("未指定 HTTP 方法"));
     }
 
     @Test
@@ -163,6 +161,13 @@ class HttpTaskUnitTest {
         TaskModel task = new TaskModel();
         httpTask.execute(workflow, task, null);
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
-        assertTrue(task.getReasonForInCompletion().contains("Missing HTTP URI"));
+        assertTrue(task.getReasonForInCompletion().contains("缺少请求地址 uri"));
+    }
+
+    @Test
+    void cancelMarksTaskCanceled() {
+        TaskModel task = new TaskModel();
+        httpTask.cancel(workflow, task, null);
+        assertEquals(TaskModel.Status.CANCELED, task.getStatus());
     }
 }

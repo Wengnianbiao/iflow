@@ -3,15 +3,36 @@ import { PlusCircleIcon } from '@phosphor-icons/react'
 import type { WorkflowTask } from '@/types/workflow'
 import {
   ParameterRows,
-  VariableExpressionInput,
   WorkflowCollapsibleSection,
   numberOrUndefined,
   prettyJson,
   valueText,
 } from '../../InspectorFields'
 import { InlineScriptEditor } from './InlineScriptEditor'
+import { HttpRequestAutocomplete } from './HttpRequestAutocomplete'
 import { TaskPanelHeader } from './TaskPanelHeader'
 import { isRecord } from './formUtils'
+
+const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS', 'TRACE']
+const CONTENT_TYPES = [
+  'application/json',
+  'application/xml',
+  'text/plain',
+  'text/html',
+  'text/xml',
+  'application/x-www-form-urlencoded',
+  'multipart/form-data',
+  'application/octet-stream',
+  'application/pdf',
+  'application/javascript',
+  'application/ld+json',
+  'application/xhtml+xml',
+  'application/zip',
+  'image/jpeg',
+  'image/png',
+  'image/svg+xml',
+]
+const ACCEPT_TYPES = [...CONTENT_TYPES, '*/*']
 
 export function HTTPTaskForm({ task, variableOptions, onChange }: { task: WorkflowTask; variableOptions: string[]; onChange: (task: WorkflowTask) => void }) {
   const inputParameters = task.inputParameters ?? {}
@@ -96,32 +117,43 @@ export function HTTPTaskForm({ task, variableOptions, onChange }: { task: Workfl
 
       <WorkflowCollapsibleSection title="请求详情">
         <div className="inspector-form-grid http-request-grid">
+          <HttpRequestAutocomplete
+            label="Method"
+            value={String(request.method ?? 'GET')}
+            options={HTTP_METHODS}
+            variableOptions={variableOptions}
+            onChange={(value) => updateHttpRequest({ method: value })}
+          />
+          <HttpRequestAutocomplete
+            label="URL"
+            value={String(request.uri ?? '')}
+            variableOptions={variableOptions}
+            onChange={(value) => updateHttpRequest({ uri: value })}
+          />
+          <div className="inspector-form-grid http-request-media-types">
+            <HttpRequestAutocomplete
+              label="Content-Type"
+              value={String(request.contentType ?? '')}
+              options={CONTENT_TYPES}
+              variableOptions={variableOptions}
+              placeholder="application/json"
+              onChange={(value) => updateHttpRequest({ contentType: value })}
+            />
+            <HttpRequestAutocomplete
+              label="Accept"
+              value={String(request.accept ?? '')}
+              options={ACCEPT_TYPES}
+              variableOptions={variableOptions}
+              placeholder="application/json"
+              onChange={(value) => updateHttpRequest({ accept: value })}
+            />
+          </div>
           <label className="inspector-field">
-            <span>Method</span>
-            <select value={String(request.method ?? 'GET')} onChange={(event) => updateHttpRequest({ method: event.target.value })}>
-              {['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'].map((method) => (
-                <option value={method} key={method}>{method}</option>
-              ))}
-            </select>
-          </label>
-          <label className="inspector-field">
-            <span>URL</span>
-            <VariableExpressionInput value={String(request.uri ?? '')} options={variableOptions} onChange={(value) => updateHttpRequest({ uri: value })} />
-          </label>
-          <label className="inspector-field">
-            <span>Content-Type</span>
-            <input value={String(request.contentType ?? '')} onChange={(event) => updateHttpRequest({ contentType: event.target.value })} placeholder="application/json" />
-          </label>
-          <label className="inspector-field">
-            <span>Accept</span>
-            <input value={String(request.accept ?? '')} onChange={(event) => updateHttpRequest({ accept: event.target.value })} placeholder="application/json" />
-          </label>
-          <label className="inspector-field">
-            <span>connectionTimeout</span>
+            <span>ConnectionTimeout</span>
             <input value={String(request.connectionTimeOut ?? '')} onChange={(event) => updateHttpRequest({ connectionTimeOut: numberOrUndefined(event.target.value) ?? event.target.value })} />
           </label>
           <label className="inspector-field">
-            <span>readTimeout</span>
+            <span>ReadTimeout</span>
             <input value={String(request.readTimeOut ?? '')} onChange={(event) => updateHttpRequest({ readTimeOut: numberOrUndefined(event.target.value) ?? event.target.value })} />
           </label>
         </div>
@@ -200,4 +232,3 @@ export function HTTPTaskForm({ task, variableOptions, onChange }: { task: Workfl
     </div>
   )
 }
-

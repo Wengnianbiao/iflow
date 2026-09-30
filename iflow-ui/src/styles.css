@@ -4373,7 +4373,81 @@ textarea {
 }
 
 .http-request-grid {
-  grid-template-columns: minmax(120px, 0.5fr) minmax(240px, 1.5fr);
+  grid-template-columns: minmax(120px, 0.5fr) minmax(0, 1.5fr);
+}
+
+.http-request-media-types {
+  grid-column: 1 / -1;
+}
+
+.http-request-autocomplete {
+  min-width: 0;
+  padding-top: 6px;
+}
+
+.http-task-inspector .http-request-autocomplete .MuiOutlinedInput-root {
+  height: 42px;
+  padding: 0 10px;
+  color: #1f2937;
+  background: #fff;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 450;
+}
+
+.http-task-inspector .http-request-autocomplete.MuiAutocomplete-hasClearIcon .MuiOutlinedInput-root {
+  padding-right: 36px;
+}
+
+.http-task-inspector .http-request-autocomplete .MuiOutlinedInput-root .MuiAutocomplete-input {
+  min-width: 0;
+  padding: 12px 0 8px;
+}
+
+.http-task-inspector .http-request-autocomplete .MuiOutlinedInput-notchedOutline {
+  border-color: #c6ced8;
+}
+
+.http-request-autocomplete .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+  border-color: #1976d2;
+}
+
+.http-request-autocomplete .MuiOutlinedInput-root.Mui-focused {
+  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+}
+
+.http-request-autocomplete .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-width: 1px;
+  border-color: #1976d2;
+}
+
+.http-task-inspector .http-request-autocomplete .MuiInputLabel-root {
+  color: #596475;
+  font-size: 14.667px;
+  font-weight: 650;
+}
+
+.http-request-autocomplete .MuiAutocomplete-endAdornment {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.http-request-autocomplete .MuiAutocomplete-endAdornment button {
+  width: 24px;
+  height: 24px;
+  padding: 3px;
+  color: #596475;
+}
+
+.http-request-autocomplete-popper .MuiAutocomplete-listbox {
+  max-height: 260px;
+  color: #1f2937;
+  font-size: 13px;
+}
+
+.http-request-autocomplete-popper .MuiAutocomplete-option {
+  overflow-wrap: anywhere;
 }
 
 .jdbc-connection-grid,
