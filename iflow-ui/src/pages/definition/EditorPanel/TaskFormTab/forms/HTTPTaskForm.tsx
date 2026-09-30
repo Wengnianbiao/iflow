@@ -130,7 +130,7 @@ export function HTTPTaskForm({ task, variableOptions, onChange }: { task: Workfl
             variableOptions={variableOptions}
             onChange={(value) => updateHttpRequest({ uri: value })}
           />
-          <div className="inspector-form-grid http-request-media-types">
+          <div className="inspector-form-grid http-request-options-grid">
             <HttpRequestAutocomplete
               label="Content-Type"
               value={String(request.contentType ?? '')}
@@ -147,15 +147,15 @@ export function HTTPTaskForm({ task, variableOptions, onChange }: { task: Workfl
               placeholder="application/json"
               onChange={(value) => updateHttpRequest({ accept: value })}
             />
+            <label className="inspector-field">
+              <span>ConnectionTimeout(ms)</span>
+              <input value={String(request.connectionTimeOut ?? '')} onChange={(event) => updateHttpRequest({ connectionTimeOut: numberOrUndefined(event.target.value) ?? event.target.value })} />
+            </label>
+            <label className="inspector-field">
+              <span>ReadTimeout(ms)</span>
+              <input value={String(request.readTimeOut ?? '')} onChange={(event) => updateHttpRequest({ readTimeOut: numberOrUndefined(event.target.value) ?? event.target.value })} />
+            </label>
           </div>
-          <label className="inspector-field">
-            <span>ConnectionTimeout</span>
-            <input value={String(request.connectionTimeOut ?? '')} onChange={(event) => updateHttpRequest({ connectionTimeOut: numberOrUndefined(event.target.value) ?? event.target.value })} />
-          </label>
-          <label className="inspector-field">
-            <span>ReadTimeout</span>
-            <input value={String(request.readTimeOut ?? '')} onChange={(event) => updateHttpRequest({ readTimeOut: numberOrUndefined(event.target.value) ?? event.target.value })} />
-          </label>
         </div>
       </WorkflowCollapsibleSection>
 

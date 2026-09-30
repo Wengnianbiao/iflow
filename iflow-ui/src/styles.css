@@ -4376,8 +4376,9 @@ textarea {
   grid-template-columns: minmax(120px, 0.5fr) minmax(0, 1.5fr);
 }
 
-.http-request-media-types {
+.http-request-grid .http-request-options-grid {
   grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .http-request-autocomplete {
