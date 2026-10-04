@@ -2,6 +2,8 @@ import type { ComponentType } from 'react'
 import type { IconProps } from '@phosphor-icons/react'
 import type { WorkflowTask } from '@/types/workflow'
 import type { TaskFormProps } from '@/pages/definition/EditorPanel/TaskFormTab/forms/types'
+import type { TaskValidator } from '@/pages/definition/validation/types'
+export type { TaskValidator, TaskValidationProblem } from '@/pages/definition/validation/types'
 
 export type AddableTaskType = string
 
@@ -42,6 +44,7 @@ export type TaskPlugin = {
   sequence?: string[]
   variableOptions?: (task: WorkflowTask) => string[]
   form?: ComponentType<TaskFormProps>
+  validate?: TaskValidator
   card?: ComponentType<TaskCardContentProps> | null
   appearance?: {
     cardVariant?: 'system' | 'operator'

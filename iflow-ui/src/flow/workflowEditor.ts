@@ -46,9 +46,9 @@ function cloneTask(task: WorkflowTask): WorkflowTask {
     decisionCases: task.decisionCases
       ? Object.fromEntries(Object.entries(task.decisionCases).map(([key, tasks]) => [key, tasks.map(cloneTask)]))
       : task.decisionCases,
-    defaultCase: task.defaultCase?.map(cloneTask),
-    forkTasks: task.forkTasks?.map((branch) => branch.map(cloneTask)),
-    loopOver: task.loopOver?.map(cloneTask),
+    defaultCase: task.defaultCase ? task.defaultCase.map(cloneTask) : task.defaultCase,
+    forkTasks: task.forkTasks ? task.forkTasks.map((branch) => branch.map(cloneTask)) : task.forkTasks,
+    loopOver: task.loopOver ? task.loopOver.map(cloneTask) : task.loopOver,
     joinOn: task.joinOn ? [...task.joinOn] : task.joinOn,
   }
 }
@@ -65,17 +65,17 @@ function updateTaskList(
     if (task.decisionCases || task.defaultCase) {
       const nextTask = cloneTask(task)
       let changed = false
-      if (nextTask.decisionCases) {
+      if (task.decisionCases) {
         const nextCases: Record<string, WorkflowTask[]> = {}
-        for (const [key, branch] of Object.entries(nextTask.decisionCases)) {
+        for (const [key, branch] of Object.entries(task.decisionCases)) {
           const nextBranch = updateTaskList(branch, updater)
           nextCases[key] = nextBranch
           if (nextBranch !== branch) changed = true
         }
         nextTask.decisionCases = nextCases
       }
-      if (nextTask.defaultCase) {
-        const nextDefault = updateTaskList(nextTask.defaultCase, updater)
+      if (task.defaultCase) {
+        const nextDefault = updateTaskList(task.defaultCase, updater)
         nextTask.defaultCase = nextDefault
         if (nextDefault !== task.defaultCase) changed = true
       }

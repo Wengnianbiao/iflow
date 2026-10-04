@@ -1,18 +1,42 @@
 import { useEffect, useRef, useState } from 'react'
-import Editor, { type BeforeMount, type OnMount } from '@monaco-editor/react'
+import Editor, { type BeforeMount, type OnMount, type Monaco } from '@monaco-editor/react'
+import type { editor } from 'monaco-editor'
 import { CopyIcon } from '@phosphor-icons/react'
-import type { WorkflowDef } from '@/types/workflow'
-import { prettyJson } from './InspectorFields'
+import type { ProblemFocus, WorkflowProblem } from '../validation/types'
+import { sourceRange } from '../validation/validateWorkflow'
 
 const SOURCE_EDITOR_THEME = 'iflow-source-light'
 
-export function CodeInspector({ workflow, onChange }: { workflow: WorkflowDef; onChange: (workflow: WorkflowDef) => void }) {
-  const [source, setSource] = useState(prettyJson(workflow))
+export function CodeInspector({ source, problems, focus, readOnly, onChange }: { source: string; problems: WorkflowProblem[]; focus: ProblemFocus | null; readOnly: boolean; onChange: (source: string) => void }) {
   const [copied, setCopied] = useState(false)
   const copyTimerRef = useRef<number | undefined>(undefined)
   const editorRefreshFrameRef = useRef<number | undefined>(undefined)
   const editorRefreshTimerRef = useRef<number | undefined>(undefined)
   const editorDecorationCleanupRef = useRef<(() => void) | undefined>(undefined)
+  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
+  const monacoRef = useRef<Monaco | null>(null)
+  const diagnosticsRef = useRef<() => void>(() => {})
+  const focusedSequenceRef = useRef<number | undefined>(undefined)
+  diagnosticsRef.current = () => {
+    const model = editorRef.current?.getModel()
+    const monaco = monacoRef.current
+    if (!model || !monaco) return
+    if (!focus) focusedSequenceRef.current = undefined
+    const rangeFor = (problem: WorkflowProblem) => {
+      const offsets = problem.offset !== undefined ? { start: problem.offset, end: problem.offset + 1 } : sourceRange(source, problem.path)
+      const start = model.getPositionAt(offsets.start); const end = model.getPositionAt(offsets.end)
+      return { startLineNumber: start.lineNumber, startColumn: start.column, endLineNumber: end.lineNumber, endColumn: end.column }
+    }
+    monaco.editor.setModelMarkers(model, 'iflow-validation', problems.map((problem) => ({ ...rangeFor(problem), message: problem.message, severity: problem.severity === 'error' ? monaco.MarkerSeverity.Error : monaco.MarkerSeverity.Warning })))
+    if (focus?.tab === 'code' && focus.sequence !== focusedSequenceRef.current) {
+      focusedSequenceRef.current = focus.sequence
+      const range = rangeFor(focus.problem)
+      editorRef.current?.setSelection(range)
+      editorRef.current?.revealRangeInCenter(range)
+      editorRef.current?.focus()
+    }
+  }
+  useEffect(() => { diagnosticsRef.current() }, [source, problems, focus])
 
   const handleSourceEditorBeforeMount: BeforeMount = (monaco) => {
     // @monaco-editor/react creates the editor before applying its theme prop.
@@ -32,17 +56,6 @@ export function CodeInspector({ workflow, onChange }: { workflow: WorkflowDef; o
       },
     })
     monaco.editor.setTheme(SOURCE_EDITOR_THEME)
-  }
-
-  const updateSource = (nextSource: string) => {
-    setSource(nextSource)
-    try {
-      const parsed = JSON.parse(nextSource) as WorkflowDef
-      if (!parsed.name || !Array.isArray(parsed.tasks)) throw new Error('工作流必须包含 name 和 tasks 数组')
-      onChange(parsed)
-    } catch {
-      // Monaco keeps the invalid draft visible until it becomes valid JSON again.
-    }
   }
 
   const copySource = async () => {
@@ -70,6 +83,8 @@ export function CodeInspector({ workflow, onChange }: { workflow: WorkflowDef; o
   }
 
   const handleSourceEditorMount: OnMount = (editor, monaco) => {
+    editorRef.current = editor
+    monacoRef.current = monaco
     const model = editor.getModel()
     if (model) {
       monaco.editor.setModelLanguage(model, 'json')
@@ -122,6 +137,7 @@ export function CodeInspector({ workflow, onChange }: { workflow: WorkflowDef; o
     refreshEditor()
     editorRefreshFrameRef.current = window.requestAnimationFrame(refreshEditor)
     editorRefreshTimerRef.current = window.setTimeout(refreshEditor, 120)
+    diagnosticsRef.current()
   }
 
   useEffect(() => () => {
@@ -148,9 +164,10 @@ export function CodeInspector({ workflow, onChange }: { workflow: WorkflowDef; o
           path="workflow-definition.json"
           value={source}
           beforeMount={handleSourceEditorBeforeMount}
-          onChange={(nextSource) => updateSource(nextSource ?? '')}
+          onChange={(nextSource) => onChange(nextSource ?? '')}
           onMount={handleSourceEditorMount}
           options={{
+            readOnly,
             automaticLayout: true,
             bracketPairColorization: { enabled: true },
             folding: true,

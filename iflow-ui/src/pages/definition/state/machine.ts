@@ -1,5 +1,4 @@
 import { assign, createMachine, spawn } from 'xstate'
-import { updateTask } from '@/flow/workflowEditor'
 import type { WorkflowDef } from '@/types/workflow'
 import {
   hasWorkflowChanges,
@@ -9,6 +8,9 @@ import {
 } from './types'
 import { workflowFlowMachine } from './flowMachine'
 import { workflowEditorMachine } from './editorMachine'
+import { workflowValidationMachine } from './validationMachine'
+import { blockingProblems, currentProblems, draftProblems, focusProblem, validatedEdit, workflowEdit } from './definitionValidation'
+import { findTaskPath, replaceTaskAtPath } from '../validation/validateWorkflow'
 
 function cloneWorkflow(workflow: WorkflowDef): WorkflowDef {
   return JSON.parse(JSON.stringify(workflow)) as WorkflowDef
@@ -29,8 +31,17 @@ const initialContext: WorkflowDefinitionMachineContext = {
   draftId: undefined,
   workflow: null,
   baseline: null,
+  source: '',
+  sourceBlocked: false,
+  diagramWorkflow: null,
+  problems: [],
+  serverProblems: [],
+  fieldDrafts: {},
+  saveAttempted: false,
+  problemFocus: null,
   versions: [],
   selectedTaskRef: undefined,
+  selectedTaskPath: undefined,
   selectedTaskEditorKey: undefined,
   activeTab: 'workflow',
   inspectorWidth: 50,
@@ -40,6 +51,7 @@ const initialContext: WorkflowDefinitionMachineContext = {
   error: null,
   flowActor: undefined,
   editorActor: undefined,
+  validationActor: undefined,
 }
 
 export const workflowDefinitionMachine = createMachine<
@@ -54,7 +66,7 @@ export const workflowDefinitionMachine = createMachine<
     on: {
       INITIALIZE: {
         target: 'loading',
-        actions: 'assignRouteAttributes',
+        actions: ['assignRouteAttributes', 'resetValidation'],
       },
     },
     states: {
@@ -87,12 +99,23 @@ export const workflowDefinitionMachine = createMachine<
             initial: 'rendering',
             on: {
               WORKFLOW_CHANGED: {
+                cond: 'canEditDefinition',
                 target: '.rendering',
                 actions: ['assignWorkflow', 'syncDerivedActors'],
               },
               TASK_UPDATED: {
+                cond: 'canEditDefinition',
                 target: '.rendering',
                 actions: ['assignUpdatedTask', 'syncDerivedActors'],
+              },
+              SOURCE_CHANGED: {
+                cond: 'canEditSource',
+                target: '.rendering',
+                actions: ['assignSource', 'syncDerivedActors'],
+              },
+              FIELD_DRAFT_CHANGED: {
+                cond: 'canEditDefinition',
+                actions: ['assignFieldDraft', 'syncValidation'],
               },
             },
             states: {
@@ -113,6 +136,11 @@ export const workflowDefinitionMachine = createMachine<
               },
               CHANGE_TAB: {
                 actions: ['assignActiveTab', 'syncDerivedActors'],
+              },
+              REQUEST_SAVE: '.opened',
+              FOCUS_PROBLEM: {
+                target: '.opened',
+                actions: ['assignProblemFocus', 'syncDerivedActors'],
               },
               OPEN_PANEL: '.opened',
               CLOSE_PANEL: '.closed',
@@ -137,8 +165,8 @@ export const workflowDefinitionMachine = createMachine<
                       actions: 'clearErrors',
                     },
                     {
-                      cond: 'hasInvalidMetadata',
-                      actions: 'assignRequiredFieldsError',
+                      cond: 'hasBlockingProblems',
+                      actions: ['rejectInvalidSave', 'syncDerivedActors', 'expandValidation'],
                     },
                   ],
                   REQUEST_RESET: {
@@ -168,7 +196,10 @@ export const workflowDefinitionMachine = createMachine<
               },
               confirmSave: {
                 on: {
-                  CONFIRM_SAVE: 'saving',
+                  CONFIRM_SAVE: [
+                    { cond: 'hasBlockingProblems', target: 'editing', actions: ['rejectInvalidSave', 'syncDerivedActors', 'expandValidation'] },
+                    { target: 'saving', actions: ['clearServerProblems', 'syncValidation'] },
+                  ],
                   CANCEL_DIALOG: 'editing',
                 },
               },
@@ -187,7 +218,7 @@ export const workflowDefinitionMachine = createMachine<
                   },
                   onError: {
                     target: 'confirmSave',
-                    actions: 'assignSaveError',
+                    actions: ['assignSaveError', 'syncValidation', 'expandValidation'],
                   },
                 },
               },
@@ -195,7 +226,7 @@ export const workflowDefinitionMachine = createMachine<
                 on: {
                   CONFIRM_RESET: {
                     target: 'editing',
-                    actions: ['restoreBaseline', 'syncDerivedActors', 'notifyWorkflowReset'],
+                    actions: ['restoreBaseline', 'resetValidation', 'syncDerivedActors', 'notifyWorkflowReset'],
                   },
                   CANCEL_DIALOG: 'editing',
                 },
@@ -261,6 +292,7 @@ export const workflowDefinitionMachine = createMachine<
         ...context,
         flowActor: context.flowActor ?? spawn(workflowFlowMachine, 'flowMachine'),
         editorActor: context.editorActor ?? spawn(workflowEditorMachine, 'editorMachine'),
+        validationActor: context.validationActor ?? spawn(workflowValidationMachine, 'validationMachine'),
       })),
       assignRouteAttributes: assign((context, event) => {
         if (event.type !== 'INITIALIZE') return context
@@ -269,6 +301,7 @@ export const workflowDefinitionMachine = createMachine<
           inspectorWidth: context.inspectorWidth,
           flowActor: context.flowActor,
           editorActor: context.editorActor,
+          validationActor: context.validationActor,
           workflowName: event.workflowName,
           workflowVersion: event.workflowVersion,
           isNewWorkflow: event.isNewWorkflow,
@@ -279,10 +312,11 @@ export const workflowDefinitionMachine = createMachine<
         const loaded = invokeData(event) as LoadedWorkflow
         return {
           ...context,
-          workflow: cloneWorkflow(loaded.workflow),
+          ...workflowEdit({ ...context, diagramWorkflow: null }, cloneWorkflow(loaded.workflow)),
           baseline: cloneWorkflow(loaded.baseline ?? loaded.workflow),
           versions: loaded.versions,
           selectedTaskRef: undefined,
+          selectedTaskPath: undefined,
           selectedTaskEditorKey: undefined,
           activeTab: 'workflow' as const,
           pendingVersion: null,
@@ -298,35 +332,53 @@ export const workflowDefinitionMachine = createMachine<
         if (event.type !== 'WORKFLOW_CHANGED') return context
         return {
           ...context,
-          workflow: event.workflow,
-          error: null,
+          ...workflowEdit(context, event.workflow),
+          fieldDrafts: Object.fromEntries(Object.entries(context.fieldDrafts).filter(([, draft]) => draft.message)),
         }
       }),
       assignUpdatedTask: assign((context, event) => {
-        if (event.type !== 'TASK_UPDATED' || !context.workflow || !context.selectedTaskRef) return context
+        if (event.type !== 'TASK_UPDATED' || !context.workflow || !context.selectedTaskPath) return context
         return {
           ...context,
-          workflow: updateTask(
+          ...workflowEdit(context, replaceTaskAtPath(
             context.workflow,
-            context.selectedTaskRef,
-            () => event.task,
-          ),
+            context.selectedTaskPath,
+            event.task,
+          )),
+          selectedTaskPath: context.selectedTaskPath,
+          fieldDrafts: Object.fromEntries(Object.entries(context.fieldDrafts).filter(([, draft]) => draft.message)),
           selectedTaskRef: event.task.taskReferenceName,
           error: null,
         }
+      }),
+      assignSource: assign((context, event) => event.type === 'SOURCE_CHANGED'
+        ? { ...context, ...validatedEdit(context, event.source), fieldDrafts: {} } : context),
+      assignFieldDraft: assign((context, event) => {
+        if (event.type !== 'FIELD_DRAFT_CHANGED') return context
+        const fieldDrafts = { ...context.fieldDrafts }
+        if (event.draft) fieldDrafts[event.path] = event.draft
+        else delete fieldDrafts[event.path]
+        return { ...context, fieldDrafts }
+      }),
+      assignProblemFocus: assign((context, event) => event.type === 'FOCUS_PROBLEM'
+        ? { ...context, ...focusProblem(context, event.problem, event.tab) } : context),
+      rejectInvalidSave: assign((context) => {
+        const first = blockingProblems(context)[0]
+        return { ...context, saveAttempted: true, ...(first ? focusProblem(context, first) : {}) }
       }),
       assignSelectedTask: assign((context, event) => {
         if (event.type !== 'TASK_SELECTED') return context
         return {
           ...context,
           selectedTaskRef: event.task?.taskReferenceName,
-          selectedTaskEditorKey: event.task?.taskReferenceName,
+          selectedTaskPath: event.task && context.workflow ? findTaskPath(context.workflow, event.task.taskReferenceName) : undefined,
+          selectedTaskEditorKey: event.task && context.workflow ? findTaskPath(context.workflow, event.task.taskReferenceName) : undefined,
           activeTab: event.task ? 'task' : 'workflow',
+          problemFocus: null,
         }
       }),
-      assignActiveTab: assign({
-        activeTab: (context, event) => event.type === 'CHANGE_TAB' ? event.tab : context.activeTab,
-      }),
+      assignActiveTab: assign((context, event) => event.type === 'CHANGE_TAB'
+        ? { ...context, activeTab: event.tab, problemFocus: null } : context),
       assignInspectorWidth: assign({
         inspectorWidth: (context, event) => event.type === 'RESIZE_PANEL' ? event.width : context.inspectorWidth,
       }),
@@ -336,9 +388,6 @@ export const workflowDefinitionMachine = createMachine<
       clearPendingVersion: assign({
         pendingVersion: null,
       }),
-      assignRequiredFieldsError: assign({
-        error: '请先填写工作流名称、路由标识和描述',
-      }),
       clearErrors: assign({
         error: null,
         deleteError: null,
@@ -347,25 +396,37 @@ export const workflowDefinitionMachine = createMachine<
         const saved = invokeData(event) as WorkflowDef
         return {
           ...context,
-          workflow: cloneWorkflow(saved),
+          ...workflowEdit(context, cloneWorkflow(saved)),
           baseline: cloneWorkflow(saved),
           workflowName: saved.name,
           workflowVersion: saved.version,
           isNewWorkflow: false,
           versions: [...new Set([...context.versions, saved.version])].sort((a, b) => a - b),
           error: null,
+          serverProblems: [],
+          fieldDrafts: {},
+          saveAttempted: false,
+          problemFocus: null,
         }
       }),
-      assignSaveError: assign({
-        error: (_context, event) => errorMessage(invokeData(event), '保存失败'),
+      assignSaveError: assign((context, event) => {
+        const message = errorMessage(invokeData(event), '保存失败')
+        return { ...context, error: message, serverProblems: [{ id: 'SERVER_SAVE', code: 'SERVER_SAVE', path: '', message, source: 'server' as const, severity: 'error' as const }] }
       }),
+      clearServerProblems: assign({ serverProblems: [], error: null }),
       restoreBaseline: assign((context) => ({
         ...context,
         workflow: context.baseline ? cloneWorkflow(context.baseline) : context.workflow,
+        ...(context.baseline ? workflowEdit(context, cloneWorkflow(context.baseline)) : {}),
         selectedTaskRef: undefined,
+        selectedTaskPath: undefined,
         selectedTaskEditorKey: undefined,
         activeTab: 'workflow' as const,
         error: null,
+        fieldDrafts: {},
+        serverProblems: [],
+        saveAttempted: false,
+        problemFocus: null,
       })),
       prepareDeleteConfirmation: assign({
         deleteConfirmationValue: '',
@@ -387,11 +448,15 @@ export const workflowDefinitionMachine = createMachine<
       assignDeleteError: assign({
         deleteError: (_context, event) => errorMessage(invokeData(event), '删除失败，请稍后重试'),
       }),
+      resetValidation: (context) => context.validationActor?.send({ type: 'RESET' }),
+      expandValidation: (context) => context.validationActor?.send({ type: 'EXPAND' }),
+      syncValidation: (context) => context.validationActor?.send({ type: 'SYNC', problems: [...currentProblems(context), ...context.serverProblems] }),
       syncDerivedActors: (context) => {
+        context.validationActor?.send({ type: 'SYNC', problems: [...currentProblems(context), ...context.serverProblems] })
         if (!context.workflow) return
-        context.flowActor?.send({
+        if (context.diagramWorkflow) context.flowActor?.send({
           type: 'SYNC',
-          workflow: context.workflow,
+          workflow: context.diagramWorkflow,
           selectedTaskRef: context.selectedTaskRef,
         })
         context.editorActor?.send({
@@ -399,29 +464,29 @@ export const workflowDefinitionMachine = createMachine<
           workflow: context.workflow,
           selectedTaskRef: context.selectedTaskRef,
           selectedTaskEditorKey: context.selectedTaskEditorKey,
+          selectedTaskPath: context.selectedTaskPath,
           activeTab: context.activeTab,
         })
       },
     },
     guards: {
       hasUnsavedChanges: hasWorkflowChanges,
-      hasInvalidMetadata: ({ workflow }) => Boolean(
-        workflow
-          && (
-            !workflow.displayName?.trim()
-            || !workflow.name.trim()
-            || !workflow.description?.trim()
-          ),
-      ),
+      hasBlockingProblems: (context) => blockingProblems(context).length > 0,
+      canEditDefinition: (context, event, meta) => {
+        if (context.sourceBlocked || !meta.state.matches('ready.lifecycle.editing')) return false
+        if (!draftProblems(context).length) return true
+        if (event.type === 'TASK_UPDATED') return draftProblems(context).every((problem) => problem.taskPath === context.selectedTaskPath)
+        if (event.type === 'WORKFLOW_CHANGED') return JSON.stringify(event.workflow.tasks) === JSON.stringify(context.workflow?.tasks)
+        return true
+      },
+      canEditSource: (context, _event, meta) => draftProblems(context).length === 0 && meta.state.matches('ready.lifecycle.editing'),
       canRequestSave: (context) => Boolean(
         hasWorkflowChanges(context)
-          && context.workflow?.displayName?.trim()
-          && context.workflow.name.trim()
-          && context.workflow.description?.trim(),
+          && blockingProblems(context).length === 0,
       ),
-      canDelete: ({ workflow, isNewWorkflow }) => Boolean(workflow && !isNewWorkflow),
-      canConfirmDelete: ({ workflow, deleteConfirmationValue }) => Boolean(
-        workflow && deleteConfirmationValue === workflow.name,
+      canDelete: ({ baseline, isNewWorkflow }) => Boolean(baseline && !isNewWorkflow),
+      canConfirmDelete: ({ baseline, deleteConfirmationValue }) => Boolean(
+        baseline && deleteConfirmationValue === baseline.name,
       ),
       isCurrentVersion: (context, event) => {
         if (event.type !== 'REQUEST_VERSION_CHANGE') return false

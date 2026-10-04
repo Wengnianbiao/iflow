@@ -1,4 +1,5 @@
 import { useSelector } from '@xstate/react'
+import { useEffect, useRef } from 'react'
 import { CaretDoubleRightIcon } from '@phosphor-icons/react'
 import { getTaskPlugin } from '@/tasks'
 import type { ActorRefFrom } from 'xstate'
@@ -9,17 +10,46 @@ import {
   workflowEditorMachine,
   type WorkflowDefinitionActor,
 } from '../state'
+import { ValidationScope } from '../validation/ValidationScope'
+import { ErrorInspector } from '../validation/ErrorInspector'
+import { draftProblems } from '../state/definitionValidation'
 
 function DerivedEditorContent({
   actor,
+  definitionActor,
   onCollapse,
 }: {
   actor: ActorRefFrom<typeof workflowEditorMachine>
+  definitionActor: WorkflowDefinitionActor
   onCollapse: () => void
 }) {
   const state = useSelector(actor, (snapshot) => snapshot)
+  const definitionState = useSelector(definitionActor, (snapshot) => snapshot)
+  const context = definitionState.context
+  const contentRef = useRef<HTMLDivElement>(null)
   const { workflow, selectedTask, selectedTaskEditorKey, variableOptions } = state.context
   const activeTab = state.matches('task') ? 'task' : state.matches('code') ? 'code' : 'workflow'
+  const taskPath = state.context.selectedTaskPath ?? ''
+  const editable = definitionState.matches('ready.lifecycle.editing')
+  const pendingDrafts = draftProblems(context)
+  const ownsDraft = pendingDrafts.some((problem) => problem.taskPath === taskPath)
+  const otherTaskDraft = pendingDrafts.length > 0 && (activeTab !== 'task' || !ownsDraft)
+
+  useEffect(() => {
+    const focus = context.problemFocus
+    if (!focus || focus.tab === 'code' || activeTab !== focus.tab) return
+    const frame = window.requestAnimationFrame(() => {
+      const fields = [...(contentRef.current?.querySelectorAll<HTMLElement>('[data-field-path]') ?? [])]
+      const field = fields.filter((item) => focus.problem.path === item.dataset.fieldPath || focus.problem.path.startsWith(`${item.dataset.fieldPath}/`)).sort((a, b) => (b.dataset.fieldPath?.length ?? 0) - (a.dataset.fieldPath?.length ?? 0))[0]
+      if (field) {
+        field.scrollIntoView({ block: 'center' })
+        field.querySelector<HTMLElement>('input, textarea, select, [tabindex="0"]')?.focus()
+      } else if (focus.problem.source !== 'draft') {
+        definitionActor.send({ type: 'FOCUS_PROBLEM', problem: focus.problem, tab: 'code' })
+      }
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [context.problemFocus, activeTab, definitionActor])
 
   const changeWorkflow = workflow
     ? (nextWorkflow: typeof workflow) => {
@@ -61,7 +91,11 @@ function DerivedEditorContent({
         </button>
       </div>
 
-      <div className="inspector-scroll">
+      {context.sourceBlocked && activeTab !== 'code' ? <div className="workflow-draft-banner">源码尚未通过结构校验，编辑草稿已保留。<button type="button" onClick={() => actor.send({ type: 'CHANGE_TAB', tab: 'code' })}>修复源码</button></div> : null}
+      {otherTaskDraft && activeTab !== 'code' ? <div className="workflow-draft-banner">任务中有未完成的草稿，修复后可编辑其他配置。<button type="button" onClick={() => definitionActor.send({ type: 'FOCUS_PROBLEM', problem: pendingDrafts[0] })}>返回草稿</button></div> : null}
+      <div className="inspector-scroll" ref={contentRef}>
+        <ValidationScope value={{ actor: definitionActor, basePath: activeTab === 'task' ? taskPath : '', taskReferenceName: selectedTask?.taskReferenceName, focus: context.problemFocus, readOnly: !editable || context.sourceBlocked || otherTaskDraft }}>
+        <fieldset className="inspector-edit-region" disabled={!editable || context.sourceBlocked || otherTaskDraft} hidden={activeTab === 'code'}>
         {activeTab === 'workflow' && workflow && changeWorkflow ? (
           <WorkflowInspector workflow={workflow} variableOptions={variableOptions} onChange={changeWorkflow} />
         ) : null}
@@ -95,9 +129,12 @@ function DerivedEditorContent({
           )
         ) : null}
 
-        {activeTab === 'code' && workflow && changeWorkflow ? (
-          <CodeInspector workflow={workflow} onChange={changeWorkflow} />
-        ) : null}
+        </fieldset>
+        </ValidationScope>
+        {activeTab === 'code' ? <>
+          {pendingDrafts.length ? <div className="workflow-draft-banner">任务参数中有未完成的草稿，修复后可编辑源码。<button type="button" onClick={() => definitionActor.send({ type: 'FOCUS_PROBLEM', problem: pendingDrafts[0] })}>返回任务</button></div> : null}
+          <CodeInspector source={context.source} problems={context.problems} focus={context.problemFocus} readOnly={!editable || pendingDrafts.length > 0} onChange={(source) => definitionActor.send({ type: 'SOURCE_CHANGED', source })} />
+        </> : null}
       </div>
     </>
   )
@@ -111,11 +148,14 @@ export function EditorPanel({
   onCollapse: () => void
 }) {
   const state = useSelector(actor, (snapshot) => snapshot)
-  const { editorActor } = state.context
+  const { editorActor, validationActor } = state.context
 
   return (
     <aside className="workflow-inspector">
-      {editorActor ? <DerivedEditorContent actor={editorActor} onCollapse={onCollapse} /> : null}
+      {state.matches('ready') && editorActor ? <>
+        <DerivedEditorContent actor={editorActor} definitionActor={actor} onCollapse={onCollapse} />
+        {validationActor ? <ErrorInspector actor={actor} validationActor={validationActor} /> : null}
+      </> : null}
     </aside>
   )
 }

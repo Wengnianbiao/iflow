@@ -1,6 +1,7 @@
 import type { WorkflowTask } from '@/types/workflow'
 import { WorkflowCollapsibleSection, uniqueValues } from '../../InspectorFields'
 import { TaskPanelHeader } from './TaskPanelHeader'
+import { ValidationField } from '../../../validation/ValidationScope'
 
 export function JoinTaskForm({ task, onChange }: { task: WorkflowTask; onChange: (task: WorkflowTask) => void }) {
   const joinOn = task.joinOn ?? []
@@ -8,7 +9,7 @@ export function JoinTaskForm({ task, onChange }: { task: WorkflowTask; onChange:
     <div className="workflow-form-panel join-task-inspector">
       <TaskPanelHeader task={task} label="汇聚" onChange={onChange} />
       <WorkflowCollapsibleSection title="等待任务">
-        <label className="inspector-field full">
+        <ValidationField path="/joinOn"><label className="inspector-field full">
           <span>Join On</span>
           <textarea
             rows={5}
@@ -20,9 +21,8 @@ export function JoinTaskForm({ task, onChange }: { task: WorkflowTask; onChange:
             })}
           />
           <small>列出的任务全部进入终态后，JOIN 才会继续后续流程。</small>
-        </label>
+        </label></ValidationField>
       </WorkflowCollapsibleSection>
     </div>
   )
 }
-

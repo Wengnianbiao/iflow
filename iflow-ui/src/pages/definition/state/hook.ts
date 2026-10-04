@@ -77,8 +77,8 @@ export function useWorkflowDefinition(attributes: WorkflowRouteAttributes) {
         return saveWorkflowDefinition(context.workflow)
       },
       deleteWorkflowDefinition: (context) => {
-        if (!context.workflow) throw new Error('没有可删除的工作流')
-        return deleteWorkflowDefinition(context.workflow.name, context.workflow.version)
+        if (!context.baseline) throw new Error('没有可删除的工作流')
+        return deleteWorkflowDefinition(context.baseline.name, context.baseline.version)
       },
     },
     actions: {

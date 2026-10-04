@@ -2724,6 +2724,37 @@ textarea {
   box-shadow: 0 0 6px rgba(0, 0, 0, 0.18);
 }
 
+/* Conductor-style persistent validation inspector below the definition tabs. */
+.workflow-inspector { display: flex; flex-direction: column; min-height: 0; }
+.workflow-inspector > .inspector-scroll { flex: 1 1 0; min-height: 0; }
+.inspector-edit-region { border: 0; padding: 0; margin: 0; min-width: 0; }
+.inspector-edit-region[hidden] { display: none; }
+.validation-field { min-width: 0; }
+.validation-field:has(> .inspector-field.full) { grid-column: 1 / -1; }
+.validation-field.invalid input:not([type="radio"]), .validation-field.invalid textarea, .validation-field.invalid .MuiOutlinedInput-notchedOutline { border-color: #b42318; }
+.validation-field > .inline-error { margin: 5px 0 0; font-size: 12px; line-height: 1.5; color: #b42318; }
+.workflow-error-inspector { flex: 0 0 auto; min-height: 50px; background: #9fdcaa; color: #173e25; border-top: 1px solid #b9c6bc; }
+.workflow-error-inspector.has-errors { background: #880000; color: #fff; border-color: #740000; }
+.workflow-error-inspector.has-warnings { background: #c69035; color: #fff; }
+.workflow-error-summary { display: flex; align-items: center; gap: 12px; width: 100%; height: 50px; padding: 0 16px; border: 0; background: transparent; color: inherit; text-align: left; font-size: 14px; cursor: pointer; }
+.workflow-error-summary .error-inspector-caret { margin-left: auto; transition: transform .15s; }
+.workflow-error-inspector.expanded .error-inspector-caret { transform: rotate(180deg); }
+.workflow-problem-list { max-height: 300px; overflow-y: auto; padding: 0 16px 12px; }
+.workflow-problem-list h3 { margin: 12px 0 8px; font-size: 13px; font-weight: 600; }
+.workflow-problem-list h3 span { margin-left: 6px; opacity: .75; }
+.workflow-problem-list ul { list-style: none; padding: 0; margin: 0; }
+.workflow-problem-list li { padding: 10px 0; border-top: 1px solid #ffffff40; font-size: 12px; overflow-wrap: anywhere; }
+.workflow-problem-list li p { margin: 5px 0; line-height: 1.5; }
+.workflow-problem-list li code { opacity: .8; font-size: 11px; }
+.workflow-problem-actions { display: flex; gap: 12px; margin-top: 8px; }
+.workflow-problem-actions button { border: 0; border-bottom: 1px solid currentColor; padding: 0 0 1px; background: transparent; color: inherit; font-size: 12px; cursor: pointer; }
+.workflow-validation-success { font-size: 13px; }
+.workflow-draft-banner { padding: 10px 14px; background: #fff4e5; color: #6d490d; font-size: 12px; line-height: 1.6; }
+.workflow-draft-banner button { border: 0; padding: 0; margin-left: 8px; background: transparent; color: #0d6d95; cursor: pointer; }
+.workflow-canvas-validation-banner { position: absolute; z-index: 5; top: 52px; left: 12px; right: 12px; padding: 10px 14px; border: 1px solid #efce8a; background: #fff4e5; color: #6d490d; font-size: 12px; }
+.workflow-save-error { display: flex; gap: 10px; margin: 0 20px 12px; padding: 12px; border: 1px solid #f1b9b4; background: #fff1f0; color: #b42318; font-size: 13px; overflow-wrap: anywhere; }
+.workflow-save-error p { margin: 4px 0 0; }
+
 .inspector-tabs {
   display: flex;
   flex-basis: 48px;

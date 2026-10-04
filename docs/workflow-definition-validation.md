@@ -1,0 +1,39 @@
+# 工作流编辑校验
+
+画布、配置表单、源码共用 `workflowDefinitionMachine` 中的定义和校验结果。底部错误栏由持续存活的 `workflowValidationMachine` 管理，布局参考本仓库 Conductor 的 ErrorInspector。
+
+可选引用类型字段允许 `null`，按未配置处理，校验和无关字段编辑保留原值。iFlow 后端的任务字段 `defaultCase`、`evaluatorType`、`expression`、`loopCondition`、`items` 默认就是 `null`，并非结构错误；`decisionCases` 默认 `{}`，`forkTasks`、`joinOn`、`defaultExclusiveJoinTask`、`loopOver` 默认 `[]`。任务专属必填配置仍按类型检查，例如 INLINE 使用 `inputParameters.expression`，SWITCH 使用顶层 `expression`。必填标识为空、任务列表中的 `null` 元素或已配置字段的错误类型仍会报错。
+
+## 编辑与保存
+
+- 源码文本由父状态机持有。有效编辑同步到表单和画布；JSON 或任务树结构错误保留原文，暂停表单编辑，画布保留最近可展示的定义。
+- 引用名称必须唯一，不能使用画布的保留名称。空引用或重复引用暂停画布修改；任务表单按任务路径保持身份，修改引用不会误改另一个任务。
+- HTTP body、SPI spiInput、MAPPING paramsConfig、自定义任务 JSON 和 SWITCH 分支名称的未完成草稿留在父状态机中。切换标签或任务后仍可恢复。存在任务草稿时暂缓源码和其他任务的修改，以避免任务路径变更丢失草稿。
+- 保存请求检查最新的定义和所有字段草稿，有错误时展开错误栏并定位首个错误。无错误时进入只读差异确认；确认和请求期间的编辑事件被状态机拒绝，保证提交内容与确认内容一致。
+- 服务端保存失败保留定义，在保存确认和底部错误栏显示原因，允许重试。重置恢复 baseline 并清除原始草稿；切换工作流时重置校验 actor，加载期间不显示旧的编辑面板。
+- 删除确认和删除 API 使用 baseline 中已加载的名称和版本，编辑草稿中的路由标识或版本不会改变删除目标。
+- 未完成源码和参数草稿计入未保存状态，刷新或关闭页面会触发现有的离开提示。普通站内导航的拦截仍需后续统一实现。
+
+## 扩展 task 的校验
+
+保留 iFlow 的 task 插件注册机制，不使用 Conductor task 白名单。未知 task 仍可编辑并保存；定义层只检查公共结构和引用。内置 HTTP、INLINE、SWITCH/DECISION、DO_WHILE、JDBC、WEBSERVICE、SPI、MAPPING 的静态配置规则由各 task 插件提供。
+
+```ts
+registerTaskPlugin({
+  type: 'CUSTOM_HL7',
+  validate: (task, workflow) => task.inputParameters?.channel
+    ? []
+    : [{
+        code: 'CHANNEL_REQUIRED',
+        path: '/inputParameters/channel', // 相对于该任务的 JSON pointer
+        message: '请选择通道',
+        severity: 'error', // warning 只提示，不阻止保存
+      }],
+})
+```
+
+插件校验为同步纯函数，可覆盖同类型内置校验；错误定位采用 JSON pointer，不按引用名称搜索源码，因此嵌套任务和重复引用能准确定位。自定义表单可以使用 `ValidationField` 标注字段，并使用 `useTaskFieldDraft` 保存尚不能应用到定义的文本。
+
+校验只检查编辑时能确定的问题，不执行 Java、JS、SQL 或远程请求，也不判定 `${...}` 的运行时值。后端和 task 执行器仍负责最终的运行时校验。这次改动未加强后端元数据保存接口的验证。
+
+验证命令：`pnpm test:definition`，以及 `node --experimental-strip-types --test tests/*.test.mjs`。

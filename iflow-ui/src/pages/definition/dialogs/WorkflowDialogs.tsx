@@ -46,7 +46,7 @@ function SaveWorkflowDialog({
   open: boolean
   saving: boolean
 }) {
-  const { workflow, baseline, isNewWorkflow } = useSelector(
+  const { workflow, baseline, isNewWorkflow, serverProblems } = useSelector(
     actor,
     (state) => state.context,
   )
@@ -172,6 +172,7 @@ function SaveWorkflowDialog({
           </MonacoDisposeBoundary>
         </div>
 
+        {serverProblems.length ? <div className="workflow-save-error" role="alert"><WarningCircleIcon size={18} /><div><strong>保存失败，草稿已保留</strong>{serverProblems.map((problem) => <p key={problem.id}>{problem.message}</p>)}</div></div> : null}
         <footer>
           <button
             type="button"
@@ -348,7 +349,7 @@ function DeleteWorkflowDialog({
   deleting: boolean
 }) {
   const {
-    workflow,
+    baseline: workflow,
     deleteConfirmationValue,
     deleteError,
   } = useSelector(actor, (state) => state.context)

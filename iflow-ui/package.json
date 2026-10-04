@@ -8,6 +8,7 @@
     "dev": "vite --host 127.0.0.1",
     "test:mapping": "node --experimental-strip-types --test tests/mappingConfig.test.mjs",
     "test:executions": "node --experimental-strip-types --test tests/workflowSearch.test.mjs",
+    "test:definition": "node --test tests/workflowDefinition.test.mjs",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1"
   },

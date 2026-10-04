@@ -1,17 +1,18 @@
 import { useState } from 'react'
 import { PlusCircleIcon } from '@phosphor-icons/react'
 import type { WorkflowTask } from '@/types/workflow'
+import { editableParameterRows, parameterValues, type EditableParameter } from '@/flow/parameterValues'
 import {
   ParameterRows,
   WorkflowCollapsibleSection,
   numberOrUndefined,
-  prettyJson,
-  valueText,
 } from '../../InspectorFields'
 import { InlineScriptEditor } from './InlineScriptEditor'
 import { HttpRequestAutocomplete } from './HttpRequestAutocomplete'
 import { TaskPanelHeader } from './TaskPanelHeader'
 import { isRecord } from './formUtils'
+import { ValidationField, useTaskFieldDraft } from '../../../validation/ValidationScope'
+import { jsonErrorMessage } from '../../../validation/jsonErrorMessage'
 
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS', 'TRACE']
 const CONTENT_TYPES = [
@@ -39,11 +40,11 @@ export function HTTPTaskForm({ task, variableOptions, onChange }: { task: Workfl
   const hasNestedRequest = isRecord(inputParameters.http_request)
   const request = hasNestedRequest ? inputParameters.http_request as Record<string, unknown> : inputParameters
   const headers = isRecord(request.headers) ? request.headers : {}
-  const headerRows = Object.entries(headers).map(([key, value]) => ({ key, value: valueText(value) }))
+  const headerRows = editableParameterRows(headers)
   const bodyParameters = isRecord(request.body) ? request.body : {}
-  const bodyParameterRows = Object.entries(bodyParameters).map(([key, value]) => ({ key, value: valueText(value) }))
-  const [bodyJson, setBodyJson] = useState(prettyJson(request.body ?? {}))
-  const [bodyError, setBodyError] = useState('')
+  const bodyParameterRows = editableParameterRows(bodyParameters)
+  const requestPath = hasNestedRequest ? '/inputParameters/http_request' : '/inputParameters'
+  const bodyDraft = useTaskFieldDraft(`${requestPath}/body`, JSON.stringify(request.body === undefined ? {} : request.body, null, 2))
   const [bodyViewType, setBodyViewType] = useState<'JSON' | 'PARAMETERS'>('JSON')
 
   const updateHttpRequest = (next: Record<string, unknown>) => {
@@ -56,8 +57,8 @@ export function HTTPTaskForm({ task, variableOptions, onChange }: { task: Workfl
 
   const updateHeader = (index: number, next: { key: string; value: string }) => {
     const rows = [...headerRows]
-    rows[index] = next
-    updateHttpRequest({ headers: Object.fromEntries(rows.map((item) => [item.key, item.value])) })
+    rows[index] = { ...rows[index], ...next }
+    updateHttpRequest({ headers: parameterValues(rows) })
   }
 
   const addHeader = () => {
@@ -70,30 +71,28 @@ export function HTTPTaskForm({ task, variableOptions, onChange }: { task: Workfl
   }
 
   const deleteHeader = (index: number) => {
-    updateHttpRequest({ headers: Object.fromEntries(headerRows.filter((_, itemIndex) => itemIndex !== index).map((item) => [item.key, item.value])) })
+    updateHttpRequest({ headers: parameterValues(headerRows.filter((_, itemIndex) => itemIndex !== index)) })
   }
 
   const updateBodyJson = (nextValue: string) => {
-    setBodyJson(nextValue)
     try {
       const parsed = nextValue.trim() ? JSON.parse(nextValue) : {}
       updateHttpRequest({ body: parsed })
-      setBodyError('')
+      bodyDraft.applied(nextValue)
     } catch (error) {
-      setBodyError(error instanceof Error ? error.message : 'JSON 格式不正确')
+      bodyDraft.invalid(nextValue, jsonErrorMessage(error, '请求体'))
     }
   }
 
-  const updateBodyParameters = (rows: Array<{ key: string; value: string }>) => {
-    const nextBody = Object.fromEntries(rows.map((item) => [item.key, item.value]))
-    setBodyJson(prettyJson(nextBody))
-    setBodyError('')
+  const updateBodyParameters = (rows: EditableParameter[]) => {
+    const nextBody = parameterValues(rows)
+    bodyDraft.clear()
     updateHttpRequest({ body: nextBody })
   }
 
   const updateBodyParameter = (index: number, next: { key: string; value: string }) => {
     const rows = [...bodyParameterRows]
-    rows[index] = next
+    rows[index] = { ...rows[index], ...next }
     updateBodyParameters(rows)
   }
 
@@ -117,19 +116,19 @@ export function HTTPTaskForm({ task, variableOptions, onChange }: { task: Workfl
 
       <WorkflowCollapsibleSection title="请求详情">
         <div className="inspector-form-grid http-request-grid">
-          <HttpRequestAutocomplete
+          <ValidationField path={`${requestPath}/method`}><HttpRequestAutocomplete
             label="Method"
             value={String(request.method ?? 'GET')}
             options={HTTP_METHODS}
             variableOptions={variableOptions}
             onChange={(value) => updateHttpRequest({ method: value })}
-          />
-          <HttpRequestAutocomplete
+          /></ValidationField>
+          <ValidationField path={`${requestPath}/uri`}><HttpRequestAutocomplete
             label="URL"
             value={String(request.uri ?? '')}
             variableOptions={variableOptions}
             onChange={(value) => updateHttpRequest({ uri: value })}
-          />
+          /></ValidationField>
           <div className="inspector-form-grid http-request-options-grid">
             <HttpRequestAutocomplete
               label="Content-Type"
@@ -193,15 +192,16 @@ export function HTTPTaskForm({ task, variableOptions, onChange }: { task: Workfl
                 name="http-body-view-type"
                 value="PARAMETERS"
                 checked={bodyViewType === 'PARAMETERS'}
+                disabled={Boolean(bodyDraft.error)}
                 onChange={() => setBodyViewType('PARAMETERS')}
               />
               <span>参数</span>
             </label>
           </div>
           {bodyViewType === 'JSON' ? (
-            <>
+            <ValidationField path={`${requestPath}/body`}>
               <InlineScriptEditor
-                value={bodyJson}
+                value={bodyDraft.value}
                 onChange={updateBodyJson}
                 minHeight={300}
                 language="json"
@@ -209,8 +209,7 @@ export function HTTPTaskForm({ task, variableOptions, onChange }: { task: Workfl
                 codeLabel="Code"
                 modalTitle="请求体 JSON 编辑器"
               />
-              {bodyError ? <p className="inline-error">{bodyError}</p> : null}
-            </>
+            </ValidationField>
           ) : (
             <div className="http-body-parameters">
               <ParameterRows

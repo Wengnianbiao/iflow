@@ -54,15 +54,16 @@ export const workflowFlowMachine = createMachine<WorkflowFlowMachineContext, Wor
       },
       ready: {
         on: {
-          SYNC: {
-            target: 'rendering',
-            actions: 'assignSource',
-          },
+          SYNC: [
+            { cond: 'sameWorkflow', actions: ['assignSource', 'notifyRendered'] },
+            { target: 'rendering', actions: 'assignSource' },
+          ],
         },
       },
     },
   },
   {
+    guards: { sameWorkflow: (context, event) => event.type === 'SYNC' && event.workflow === context.workflow },
     actions: {
       assignSource: assign((context, event) => event.type === 'SYNC'
         ? {

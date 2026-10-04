@@ -7,9 +7,11 @@ import { workflowFlowMachine, type WorkflowDefinitionActor } from './state'
 function DerivedFlowCanvas({
   actor,
   fallbackWorkflow,
+  readOnly,
 }: {
   actor: ActorRefFrom<typeof workflowFlowMachine>
   fallbackWorkflow: WorkflowDef
+  readOnly: boolean
 }) {
   const flowState = useSelector(actor, (snapshot) => snapshot)
   const workflow = flowState.context.workflow ?? fallbackWorkflow
@@ -22,6 +24,7 @@ function DerivedFlowCanvas({
     <ConductorFlowCanvas
       workflow={workflow}
       graph={graph}
+      readOnly={readOnly}
       selectedTaskRef={flowState.context.selectedTaskRef}
       onWorkflowChange={(nextWorkflow) => actor.send({ type: 'WORKFLOW_CHANGED', workflow: nextWorkflow })}
       onSelectTask={(task) => actor.send({ type: 'SELECT_TASK', task })}
@@ -32,6 +35,8 @@ function DerivedFlowCanvas({
 export function GraphPanel({ actor }: { actor: WorkflowDefinitionActor }) {
   const state = useSelector(actor, (snapshot) => snapshot)
   const { workflow, error, flowActor } = state.context
+  const frozen = state.context.sourceBlocked || state.context.diagramWorkflow !== workflow
+  const readOnly = frozen || Object.values(state.context.fieldDrafts).some((draft) => Boolean(draft.message)) || !state.matches('ready.lifecycle.editing')
   const loading = state.matches('loading')
   const loadFailed = state.matches('loadFailed')
 
@@ -48,7 +53,8 @@ export function GraphPanel({ actor }: { actor: WorkflowDefinitionActor }) {
         </div>
       ) : null}
 
-      {workflow && flowActor ? <DerivedFlowCanvas actor={flowActor} fallbackWorkflow={workflow} /> : null}
+      {frozen && state.matches('ready') ? <div className="workflow-canvas-validation-banner">定义存在结构或引用错误，画布保留最近可展示的版本。请在右侧修复。</div> : null}
+      {workflow && flowActor && state.matches('ready') ? <DerivedFlowCanvas actor={flowActor} fallbackWorkflow={state.context.diagramWorkflow ?? workflow} readOnly={readOnly} /> : null}
     </section>
   )
 }

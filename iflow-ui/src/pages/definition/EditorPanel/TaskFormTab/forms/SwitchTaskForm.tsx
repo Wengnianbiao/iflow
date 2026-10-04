@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { PlusCircleIcon, TrashIcon } from '@phosphor-icons/react'
 import type { WorkflowTask } from '@/types/workflow'
+import { editableParameterRows, parameterValues } from '@/flow/parameterValues'
 import {
   ParameterRows,
   VariableExpressionInput,
@@ -9,6 +10,8 @@ import {
 } from '../../InspectorFields'
 import { InlineScriptEditor } from './InlineScriptEditor'
 import { TaskPanelHeader } from './TaskPanelHeader'
+import { ValidationField, useTaskFieldDraft } from '../../../validation/ValidationScope'
+import { pointerKey } from '../../../validation/validateWorkflow'
 
 function SwitchCaseRow({
   name,
@@ -24,32 +27,36 @@ function SwitchCaseRow({
   onDelete: () => void
 }) {
   const [draft, setDraft] = useState(name)
-  const [error, setError] = useState('')
+  const path = `/decisionCases/${pointerKey(name)}`
+  const fieldDraft = useTaskFieldDraft(path, name)
+  const error = fieldDraft.error
+  const value = error ? fieldDraft.value : draft
 
   const commit = () => {
-    const nextName = draft.trim()
+    const nextName = value.trim()
     if (!nextName) {
-      setError('分支名称不能为空')
+      fieldDraft.invalid(value, '分支名称不能为空')
       return
     }
     if (nextName !== name && caseNames.includes(nextName)) {
-      setError('分支名称不能重复')
+      fieldDraft.invalid(value, '分支名称不能重复')
       return
     }
-    setError('')
+    fieldDraft.clear()
     if (nextName !== name) onRename(nextName)
   }
 
   return (
-    <div className={`switch-case-row ${error ? 'has-error' : ''}`}>
+    <ValidationField path={path}><div className={`switch-case-row ${error ? 'has-error' : ''}`}>
       <label>
         <span>匹配值</span>
         <input
-          value={draft}
+          value={value}
           aria-invalid={Boolean(error)}
           onChange={(event) => {
             setDraft(event.target.value)
-            setError('')
+            if (event.target.value !== name) fieldDraft.invalid(event.target.value, '请完成分支名称编辑；离开字段后应用')
+            else fieldDraft.clear()
           }}
           onBlur={commit}
           onKeyDown={(event) => {
@@ -57,23 +64,22 @@ function SwitchCaseRow({
             if (event.key === 'Escape') {
               event.preventDefault()
               setDraft(name)
-              setError('')
+              fieldDraft.clear()
             }
           }}
         />
-        {error ? <small>{error}</small> : null}
       </label>
       <span className="switch-case-count">{taskCount} 个任务</span>
-      <button type="button" title="删除分支" aria-label={`删除分支 ${name}`} onClick={onDelete}>
+      <button type="button" title="删除分支" aria-label={`删除分支 ${name}`} disabled={Boolean(error)} onClick={onDelete}>
         <TrashIcon size={18} />
       </button>
-    </div>
+    </div></ValidationField>
   )
 }
 
 export function SwitchTaskForm({ task, variableOptions, onChange }: { task: WorkflowTask; variableOptions: string[]; onChange: (task: WorkflowTask) => void }) {
   const inputParameters = task.inputParameters ?? {}
-  const parameterRows = Object.entries(inputParameters).map(([key, value]) => ({ key, value: valueText(value) }))
+  const parameterRows = editableParameterRows(inputParameters)
   const evaluatorType = task.evaluatorType ?? 'value-param'
   const expression = task.expression ?? ''
   const decisionCases = task.decisionCases ?? {}
@@ -82,11 +88,11 @@ export function SwitchTaskForm({ task, variableOptions, onChange }: { task: Work
   const updateParameter = (index: number, next: { key: string; value: string }) => {
     const rows = [...parameterRows]
     const previous = rows[index]
-    rows[index] = next
+    rows[index] = { ...rows[index], ...next }
     onChange({
       ...task,
       expression: isScriptEvaluator && expression === `$.${previous.key}` ? `$.${next.key}` : expression,
-      inputParameters: Object.fromEntries(rows.map((item) => [item.key, item.value])),
+      inputParameters: parameterValues(rows),
     })
   }
 
@@ -110,7 +116,7 @@ export function SwitchTaskForm({ task, variableOptions, onChange }: { task: Work
     onChange({
       ...task,
       expression: isScriptEvaluator && expression === `$.${deletedKey}` ? (nextRows[0]?.key ? `$.${nextRows[0].key}` : '') : expression,
-      inputParameters: Object.fromEntries(nextRows.map((item) => [item.key, item.value])),
+      inputParameters: parameterValues(nextRows),
     })
   }
 

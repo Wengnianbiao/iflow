@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { BracketsCurlyIcon, CaretDownIcon, CheckIcon, TrashIcon } from '@phosphor-icons/react'
+import { useValidationFocus } from '../validation/ValidationScope'
 
 const VARIABLE_REGEX = /\$\{[^}]*$/
 
@@ -48,6 +49,10 @@ export function WorkflowCollapsibleSection({
   className?: string
 }) {
   const [expanded, setExpanded] = useState(defaultOpen)
+  const focus = useValidationFocus()
+  useEffect(() => {
+    if (focus && focus.tab !== 'code') setExpanded(true)
+  }, [focus])
 
   return (
     <section className={`inspector-section workflow-collapsible-section ${expanded ? 'expanded' : 'collapsed'} ${className}`.trim()}>

@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import type { WorkflowTask } from '@/types/workflow'
 import { spiJavaTemplate } from '@/tasks/templates'
 import {
@@ -10,6 +9,8 @@ import {
 import { InlineScriptEditor } from './InlineScriptEditor'
 import { TaskPanelHeader } from './TaskPanelHeader'
 import { isRecord } from './formUtils'
+import { ValidationField, useTaskFieldDraft } from '../../../validation/ValidationScope'
+import { jsonErrorMessage } from '../../../validation/jsonErrorMessage'
 
 function spiInputSource(value: unknown) {
   return typeof value === 'string' ? value : prettyJson(isRecord(value) ? value : {})
@@ -22,13 +23,12 @@ export function SPITaskForm({ task, variableOptions, onChange }: { task: Workflo
     : valueText(inputParameters.remoteExtension)
   const extensionMode = inputParameters.extensionMode === 'PROJECT' ? 'PROJECT' : 'ONLINE'
   const className = typeof inputParameters.className === 'string' ? inputParameters.className : ''
-  const [spiInputText, setSpiInputText] = useState(() => spiInputSource(inputParameters.spiInput))
-  const [javaSource, setJavaSource] = useState(() => (
+  const spiDraft = useTaskFieldDraft('/inputParameters/spiInput', spiInputSource(inputParameters.spiInput))
+  const javaSource = (
     typeof inputParameters.sourceCode === 'string'
       ? inputParameters.sourceCode
       : spiJavaTemplate(className || 'com.helianhealth.iflow.extension.CustomSpiTaskExtension')
-  ))
-  const [inputError, setInputError] = useState('')
+  )
 
   const updateParameters = (changes: Record<string, unknown>) => {
     onChange({
@@ -41,26 +41,24 @@ export function SPITaskForm({ task, variableOptions, onChange }: { task: Workflo
   }
 
   const updateSpiInput = (nextSource: string) => {
-    setSpiInputText(nextSource)
     const expression = nextSource.trim()
     if (expression.startsWith('${') && expression.endsWith('}')) {
-      setInputError('')
       updateParameters({ spiInput: expression })
+      spiDraft.applied(nextSource)
       return
     }
 
     try {
       const parsed = JSON.parse(nextSource) as unknown
       if (!isRecord(parsed)) throw new Error('spiInput 必须是 JSON Map 或返回 Map 的 ${...} 表达式')
-      setInputError('')
       updateParameters({ spiInput: parsed })
+      spiDraft.applied(nextSource)
     } catch (error) {
-      setInputError(error instanceof Error ? error.message : 'spiInput 格式不正确')
+      spiDraft.invalid(nextSource, jsonErrorMessage(error, 'spiInput'))
     }
   }
 
   const updateJavaSource = (value: string) => {
-    setJavaSource(value)
     updateParameters({ sourceCode: value })
   }
 
@@ -69,7 +67,7 @@ export function SPITaskForm({ task, variableOptions, onChange }: { task: Workflo
       <TaskPanelHeader task={task} label="SPI 扩展" onChange={onChange} />
 
       <WorkflowCollapsibleSection title="SPI 实现">
-        <label className="inspector-field">
+        <ValidationField path="/inputParameters/remoteExtension"><label className="inspector-field">
           <span>扩展名称（remoteExtension） <strong>*</strong></span>
           <VariableExpressionInput
             value={remoteExtension}
@@ -77,7 +75,7 @@ export function SPITaskForm({ task, variableOptions, onChange }: { task: Workflo
             onChange={(value) => updateParameters({ remoteExtension: value })}
           />
           <small>用于注入和路由 ExtensionLoader；也支持返回扩展名的 ${'{...}'} 表达式。</small>
-        </label>
+        </label></ValidationField>
 
         <div className="switch-evaluator-heading spi-extension-mode-heading">
           <span>扩展方式</span>
@@ -99,7 +97,7 @@ export function SPITaskForm({ task, variableOptions, onChange }: { task: Workflo
           </div>
         </div>
 
-        <label className="inspector-field">
+        <ValidationField path="/inputParameters/className"><label className="inspector-field">
           <span>实现类全名 {extensionMode === 'ONLINE' ? <strong>*</strong> : null}</span>
           <input
             value={className}
@@ -112,10 +110,10 @@ export function SPITaskForm({ task, variableOptions, onChange }: { task: Workflo
               ? '必须与下面 Java 源码中的 package 和 public 类名一致。'
               : '可留空以直接调用项目内已注册的同名扩展；填写后会从 ClassPath 注入。'}
           </small>
-        </label>
+        </label></ValidationField>
 
         {extensionMode === 'ONLINE' ? (
-          <InlineScriptEditor
+          <ValidationField path="/inputParameters/sourceCode"><InlineScriptEditor
             value={javaSource}
             onChange={updateJavaSource}
             minHeight={440}
@@ -123,25 +121,22 @@ export function SPITaskForm({ task, variableOptions, onChange }: { task: Workflo
             languageLabel="JAVA 17"
             codeLabel="Java Source"
             modalTitle="SPI Java Source Editor"
-          />
+          /></ValidationField>
         ) : null}
       </WorkflowCollapsibleSection>
 
       <WorkflowCollapsibleSection title="SPI 入参">
-        <InlineScriptEditor
-          value={spiInputText}
+        <ValidationField path="/inputParameters/spiInput"><InlineScriptEditor
+          value={spiDraft.value}
           onChange={updateSpiInput}
           minHeight={220}
           language="json"
           languageLabel="JSON / EXPRESSION"
           codeLabel="spiInput"
           modalTitle="SPI Input Editor"
-        />
-        {inputError
-          ? <p className="inline-error">{inputError}</p>
-          : <p className="field-help">输入 JSON Map，或直接使用返回 Map 的表达式，例如 <code>${'{workflow.input}'}</code>。</p>}
+        /></ValidationField>
+        {!spiDraft.error ? <p className="field-help">输入 JSON Map，或直接使用返回 Map 的表达式，例如 <code>${'{workflow.input}'}</code>。</p> : null}
       </WorkflowCollapsibleSection>
     </div>
   )
 }
-

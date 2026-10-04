@@ -2,10 +2,12 @@ import { assign, createMachine, sendParent } from 'xstate'
 import { buildVariableOptions, findTask } from '@/flow/workflowEditor'
 import type { WorkflowDef, WorkflowTask } from '@/types/workflow'
 import type { InspectorTab } from './types'
+import { pointerValue } from '../validation/validateWorkflow'
 
 export type WorkflowEditorMachineContext = {
   workflow: WorkflowDef | null
   selectedTaskRef?: string
+  selectedTaskPath?: string
   selectedTask?: WorkflowTask
   selectedTaskEditorKey?: string
   variableOptions: string[]
@@ -16,6 +18,7 @@ export type WorkflowEditorMachineEvent =
       type: 'SYNC'
       workflow: WorkflowDef
       selectedTaskRef?: string
+      selectedTaskPath?: string
       selectedTaskEditorKey?: string
       activeTab: InspectorTab
     }
@@ -61,10 +64,11 @@ export const workflowEditorMachine = createMachine<WorkflowEditorMachineContext,
           ...context,
           workflow: event.workflow,
           selectedTaskRef: event.selectedTaskRef,
-          selectedTask: event.selectedTaskRef
+          selectedTask: event.selectedTaskPath ? pointerValue(event.workflow, event.selectedTaskPath) as WorkflowTask | undefined : event.selectedTaskRef !== undefined
             ? findTask(event.workflow.tasks, event.selectedTaskRef)
             : undefined,
           selectedTaskEditorKey: event.selectedTaskEditorKey,
+          selectedTaskPath: event.selectedTaskPath,
           variableOptions: buildVariableOptions(event.workflow),
         }
       }),

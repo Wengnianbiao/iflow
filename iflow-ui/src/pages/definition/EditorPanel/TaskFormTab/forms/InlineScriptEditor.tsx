@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import Editor, { type BeforeMount, type OnMount } from '@monaco-editor/react'
 import { ArrowsInSimpleIcon, ArrowsOutSimpleIcon, CopyIcon, MinusSquareIcon, PlusSquareIcon, XIcon } from '@phosphor-icons/react'
 import { registerSoapXmlEditor, SOAP_XML_LANGUAGE, SOAP_XML_THEME, soapXmlHighlightTokens } from './soapXmlEditor'
+import { useValidationFieldPath, useValidationFocus, useValidationReadOnly } from '../../../validation/ValidationScope'
 
 export function InlineScriptEditor({
   value,
@@ -29,6 +30,20 @@ export function InlineScriptEditor({
   const copyTimerRef = useRef<number | undefined>(undefined)
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null)
   const isXml = language === 'xml'
+  const focus = useValidationFocus()
+  const fieldPath = useValidationFieldPath()
+  const readOnly = useValidationReadOnly()
+  const focusEditor = () => {
+    const editor = editorRef.current
+    const model = editor?.getModel()
+    if (!editor || !model || readOnly || !fieldPath || !focus || focus.tab === 'code') return
+    if (focus.problem.path !== fieldPath && !focus.problem.path.startsWith(`${fieldPath}/`)) return
+    const end = model.getPositionAt(model.getValueLength())
+    editor.setPosition(end)
+    editor.revealPositionInCenter(end)
+    editor.focus()
+  }
+  useEffect(() => { focusEditor() }, [focus])
 
   const handleBeforeMount: BeforeMount = (monaco) => {
     if (!isXml) return
@@ -95,6 +110,7 @@ export function InlineScriptEditor({
     updateHeight()
     editor.layout()
     editor.render(true)
+    focusEditor()
   }
 
   useEffect(() => {
@@ -130,6 +146,7 @@ export function InlineScriptEditor({
         onMount={handleMount}
         beforeMount={handleBeforeMount}
         options={{
+          readOnly,
           automaticLayout: true,
           contextmenu: true,
           folding: isXml,

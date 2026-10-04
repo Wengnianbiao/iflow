@@ -1,10 +1,10 @@
 import { PlusCircleIcon, TrashIcon, XCircleIcon } from '@phosphor-icons/react'
 import { formatInlineScript } from '@/components/flow/InlineScriptCode'
 import type { WorkflowTask } from '@/types/workflow'
+import { editableParameterRows, parameterValues } from '@/flow/parameterValues'
 import {
   VariableExpressionInput,
   WorkflowCollapsibleSection,
-  valueText,
 } from '../../InspectorFields'
 import { InlineScriptEditor } from './InlineScriptEditor'
 import { TaskPanelHeader } from './TaskPanelHeader'
@@ -13,10 +13,8 @@ export function INLINETaskForm({ task, variableOptions, onChange }: { task: Work
   const inputParameters = task.inputParameters ?? {}
   const rawExpression = String(inputParameters.expression ?? '')
   const expression = formatInlineScript(rawExpression)
-  const evaluatorType = 'graaljs'
-  const scriptParameters = Object.entries(inputParameters)
-    .filter(([key]) => key !== 'expression' && key !== 'evaluatorType')
-    .map(([key, value]) => ({ key, value: valueText(value) }))
+  const evaluatorType = inputParameters.evaluatorType ?? 'graaljs'
+  const scriptParameters = editableParameterRows(inputParameters, ['expression', 'evaluatorType'])
 
   const updateInputParameters = (next: Record<string, unknown>) => {
     onChange({
@@ -24,7 +22,7 @@ export function INLINETaskForm({ task, variableOptions, onChange }: { task: Work
       inputParameters: {
         evaluatorType,
         ...next,
-        expression,
+        expression: rawExpression,
       },
     })
   }
@@ -34,7 +32,7 @@ export function INLINETaskForm({ task, variableOptions, onChange }: { task: Work
       ...task,
       inputParameters: {
         evaluatorType,
-        ...Object.fromEntries(scriptParameters.map((item) => [item.key, item.value])),
+        ...inputParameters,
         expression: nextExpression,
       },
     })
@@ -42,20 +40,20 @@ export function INLINETaskForm({ task, variableOptions, onChange }: { task: Work
 
   const updateScriptParameter = (index: number, next: { key: string; value: string }) => {
     const items = [...scriptParameters]
-    items[index] = next
-    updateInputParameters(Object.fromEntries(items.map((item) => [item.key, item.value])))
+    items[index] = { ...items[index], ...next }
+    updateInputParameters(parameterValues(items))
   }
 
   const addScriptParameter = () => {
     const key = scriptParameters.length ? `parameter_${scriptParameters.length + 1}` : 'payload'
     updateInputParameters({
-      ...Object.fromEntries(scriptParameters.map((item) => [item.key, item.value])),
+      ...parameterValues(scriptParameters),
       [key]: '',
     })
   }
 
   const deleteScriptParameter = (index: number) => {
-    updateInputParameters(Object.fromEntries(scriptParameters.filter((_, itemIndex) => itemIndex !== index).map((item) => [item.key, item.value])))
+    updateInputParameters(parameterValues(scriptParameters.filter((_, itemIndex) => itemIndex !== index)))
   }
 
   return (

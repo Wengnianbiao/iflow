@@ -37,6 +37,7 @@ import {
   WebServiceTaskCard,
 } from './cards'
 import { registerCoreTaskPlugins, type TaskCreationContext } from './taskPluginRegistry'
+import { validateBuiltinTask } from './builtinTaskValidators'
 import { spiJavaTemplate } from './templates'
 
 const DEFAULT_NODE_WIDTH = 350
@@ -93,6 +94,7 @@ function createSwitchTask(context: TaskCreationContext) {
 registerCoreTaskPlugins([
   {
     type: TaskType.HTTP,
+    validate: validateBuiltinTask,
     label: 'HTTP 请求',
     icon: GlobeIcon,
     menu: { label: TaskType.HTTP, description: '调用 API 或微服务。' },
@@ -115,6 +117,7 @@ registerCoreTaskPlugins([
   },
   {
     type: TaskType.INLINE,
+    validate: validateBuiltinTask,
     label: 'JS脚本',
     cardLabel: 'JS脚本',
     icon: FileJsIcon,
@@ -153,6 +156,7 @@ registerCoreTaskPlugins([
   {
     type: TaskType.SWITCH,
     label: '分支路由',
+    validate: validateBuiltinTask,
     icon: GitBranchIcon,
     menu: { label: '分支路由', description: '根据表达式选择后续分支。', icon: DiamondIcon },
     form: SwitchTaskForm,
@@ -189,6 +193,7 @@ registerCoreTaskPlugins([
   },
   {
     type: TaskType.DO_WHILE,
+    validate: validateBuiltinTask,
     label: '循环',
     icon: RepeatIcon,
     menu: { label: 'DO WHILE', description: '按条件重复执行循环体任务。' },
@@ -205,6 +210,7 @@ registerCoreTaskPlugins([
   },
   {
     type: TaskType.MAPPING,
+    validate: validateBuiltinTask,
     label: '参数映射',
     cardLabel: '参数映射',
     icon: LightningIcon,
@@ -220,6 +226,7 @@ registerCoreTaskPlugins([
   },
   {
     type: TaskType.SPI,
+    validate: validateBuiltinTask,
     label: 'SPI 扩展',
     icon: PlugsConnectedIcon,
     menu: { label: TaskType.SPI, description: '通过扩展名路由 Java SPI 实现。', icon: BracketsCurlyIcon },
@@ -243,6 +250,7 @@ registerCoreTaskPlugins([
   },
   {
     type: TaskType.JDBC,
+    validate: validateBuiltinTask,
     label: '数据库',
     cardLabel: '数据库',
     icon: DatabaseIcon,
@@ -267,6 +275,7 @@ registerCoreTaskPlugins([
   },
   {
     type: TaskType.WEBSERVICE,
+    validate: validateBuiltinTask,
     label: 'Web 服务',
     icon: GlobeIcon,
     menu: { label: 'Web Service', description: '调用 Web Service 服务。', icon: GlobeIcon },
@@ -289,6 +298,7 @@ registerCoreTaskPlugins([
   },
   {
     type: TaskType.DECISION,
+    validate: validateBuiltinTask,
     label: '分支路由',
     icon: GitBranchIcon,
     form: SwitchTaskForm,

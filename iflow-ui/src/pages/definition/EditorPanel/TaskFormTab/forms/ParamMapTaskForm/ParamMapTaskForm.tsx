@@ -27,6 +27,8 @@ import {
   type ParamMappingConfig, type ParamType, type MappingType, type ConfigPath, type DisplayConfigRow,
 } from '@/tasks/mappingConfig'
 import type { WorkflowTask } from '@/types/workflow'
+import { ValidationField, useTaskFieldDraft } from '../../../../validation/ValidationScope'
+import { jsonErrorMessage } from '../../../../validation/jsonErrorMessage'
 
 type EditorView = 'JSON' | 'PARAMETERS'
 type PayloadMode = 'expression' | 'parameters'
@@ -64,7 +66,7 @@ function paramTypeLabel(type: ParamType) {
 
 function readParamMappingConfigs(task: WorkflowTask): ParamMappingConfig[] {
   const raw = task.inputParameters?.paramsConfig
-  return Array.isArray(raw) ? raw.map(normalizeConfig) : []
+  try { return parseMappingConfigs(raw ?? []) } catch { return [] }
 }
 
 function countParamMappingConfigs(configs: ParamMappingConfig[]): number {
@@ -97,14 +99,11 @@ export function ParamMapTaskForm({ task, variableOptions, onChange }: TaskFormPr
     catch (error) { return (error as Error).message }
   }, [inputParameters.paramsConfig])
   const [view, setView] = useState<EditorView>('PARAMETERS')
-  const [jsonDraft, setJsonDraft] = useState(() => JSON.stringify(inputParameters.paramsConfig ?? [], null, 2))
-  const [jsonError, setJsonError] = useState('')
-  const visibleJsonError = jsonError || storedConfigError
+  const jsonDraft = useTaskFieldDraft('/inputParameters/paramsConfig', JSON.stringify(inputParameters.paramsConfig ?? [], null, 2))
+  const visibleJsonError = jsonDraft.error || storedConfigError
   const [editSession, setEditSession] = useState<EditSession | null>(null)
 
   useEffect(() => {
-    setJsonDraft(JSON.stringify(task.inputParameters?.paramsConfig ?? [], null, 2))
-    setJsonError('')
     setView('PARAMETERS')
     setEditSession(null)
   }, [task.taskReferenceName])
@@ -120,20 +119,18 @@ export function ParamMapTaskForm({ task, variableOptions, onChange }: TaskFormPr
   }
 
   const commitConfigs = (nextConfigs: ParamMappingConfig[]) => {
-    setJsonDraft(JSON.stringify(nextConfigs, null, 2))
-    setJsonError('')
+    jsonDraft.clear()
     commit(Object.prototype.hasOwnProperty.call(inputParameters, PAYLOAD_KEY) ? payload : DEFAULT_PAYLOAD_EXPRESSION, nextConfigs)
   }
 
   const updateJson = (nextValue: string) => {
-    setJsonDraft(nextValue)
     try {
       const parsed = JSON.parse(nextValue)
       const nextConfigs = parseMappingConfigs(parsed)
-      setJsonError('')
       commit(Object.prototype.hasOwnProperty.call(inputParameters, PAYLOAD_KEY) ? payload : DEFAULT_PAYLOAD_EXPRESSION, nextConfigs)
+      jsonDraft.applied(nextValue)
     } catch (error) {
-      setJsonError(error instanceof Error ? error.message : 'paramsConfig JSON 无效')
+      jsonDraft.invalid(nextValue, jsonErrorMessage(error, 'paramsConfig'))
     }
   }
 
@@ -304,7 +301,7 @@ export function ParamMapTaskForm({ task, variableOptions, onChange }: TaskFormPr
                 type="radio"
                 name={`param-map-view-${task.taskReferenceName}`}
                 value="JSON"
-                checked={view === 'JSON' || Boolean(storedConfigError)}
+                checked={view === 'JSON' || Boolean(visibleJsonError)}
                 onChange={() => { if (closeFieldEditor()) setView('JSON') }}
               />
               <span>JSON</span>
@@ -315,10 +312,10 @@ export function ParamMapTaskForm({ task, variableOptions, onChange }: TaskFormPr
           </div>
         </div>
 
-        {view === 'JSON' || storedConfigError ? (
-          <div className={`param-map-json-view ${visibleJsonError ? 'has-error' : ''}`}>
+        {view === 'JSON' || visibleJsonError ? (
+          <ValidationField path="/inputParameters/paramsConfig"><div className={`param-map-json-view ${visibleJsonError ? 'has-error' : ''}`}>
             <InlineScriptEditor
-              value={jsonDraft}
+              value={jsonDraft.value}
               onChange={updateJson}
               minHeight={360}
               language="json"
@@ -327,8 +324,7 @@ export function ParamMapTaskForm({ task, variableOptions, onChange }: TaskFormPr
               modalTitle="映射配置 JSON 编辑器"
               autoSize={false}
             />
-            {visibleJsonError ? <p className="inline-error" role="alert">{visibleJsonError}</p> : null}
-          </div>
+          </div></ValidationField>
         ) : (
           <ParamMappingTreeEditor
             key={task.taskReferenceName}

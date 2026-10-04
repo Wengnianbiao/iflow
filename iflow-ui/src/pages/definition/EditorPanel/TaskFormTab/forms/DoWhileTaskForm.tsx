@@ -1,10 +1,10 @@
 import { PlusCircleIcon } from '@phosphor-icons/react'
 import type { WorkflowTask } from '@/types/workflow'
+import { editableParameterRows, parameterValues, type EditableParameter } from '@/flow/parameterValues'
 import {
   ParameterRows,
   VariableExpressionInput,
   WorkflowCollapsibleSection,
-  valueText,
 } from '../../InspectorFields'
 import { InlineScriptEditor } from './InlineScriptEditor'
 import { TaskPanelHeader } from './TaskPanelHeader'
@@ -20,15 +20,13 @@ export function DoWhileTaskForm({
 }) {
   const inputParameters = task.inputParameters ?? {}
   const evaluatorType = String(inputParameters.evaluatorType ?? task.evaluatorType ?? 'graaljs')
-  const parameters = Object.entries(inputParameters)
-    .filter(([key]) => key !== 'evaluatorType')
-    .map(([key, value]) => ({ key, value: valueText(value) }))
+  const parameters = editableParameterRows(inputParameters, ['evaluatorType'])
 
-  const updateParameters = (items: Array<{ key: string; value: string }>) => {
+  const updateParameters = (items: EditableParameter[]) => {
     onChange({
       ...task,
       evaluatorType,
-      inputParameters: { evaluatorType, ...Object.fromEntries(items.map((item) => [item.key, item.value])) },
+      inputParameters: { evaluatorType, ...parameterValues(items) },
     })
   }
 
@@ -79,7 +77,7 @@ export function DoWhileTaskForm({
           keyLabel="参数名"
           valueLabel="映射值"
           variableOptions={variableOptions}
-          onChange={(index, item) => updateParameters(parameters.map((current, currentIndex) => currentIndex === index ? item : current))}
+          onChange={(index, item) => updateParameters(parameters.map((current, currentIndex) => currentIndex === index ? { ...current, ...item } : current))}
           onDelete={(index) => updateParameters(parameters.filter((_, currentIndex) => currentIndex !== index))}
         />
         <button
