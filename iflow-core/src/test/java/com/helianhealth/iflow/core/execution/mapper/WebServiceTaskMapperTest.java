@@ -51,4 +51,46 @@ class WebServiceTaskMapperTest {
         assertEquals(Map.of("patient", Map.of("name", "${literal.text}")),
                 task.getInputData().get("templateParameters"));
     }
+
+    @Test
+    void copiesPreparedInputAndPropagatesRetryAndForkContext() {
+        Map<String, Object> resolved = new LinkedHashMap<>();
+        resolved.put("uri", "http://example.test/soap");
+        resolved.put("soapTemplate", null);
+        WorkflowModel workflow = new WorkflowModel();
+        workflow.setWorkflowId("workflow-1");
+        workflow.setCorrelationId("patient-1");
+        WorkflowTask definition = WorkflowTask.builder().name("soap").type("WEBSERVICE")
+                .taskReferenceName("soap_ref").build();
+        WebServiceTaskMapper mapper = new WebServiceTaskMapper(new ParametersUtils());
+
+        TaskModel task = mapper.getMappedTasks(TaskMapperContext.builder()
+                .workflowModel(workflow).workflowTask(definition).taskId("soap-1")
+                .taskInput(resolved).retryCount(3).retryTaskId("soap-previous").forkTaskId("fork-1")
+                .build()).get(0);
+
+        assertEquals("WEBSERVICE", mapper.getTaskType());
+        assertEquals("WEBSERVICE", task.getTaskType());
+        assertEquals("patient-1", task.getCorrelationId());
+        assertEquals("soap-previous", task.getRetriedTaskId());
+        assertEquals("fork-1", task.getForkTaskId());
+        assertEquals(3, task.getRetryCount());
+        assertTrue(task.getInputData().containsKey("soapTemplate"));
+        assertNull(task.getInputData().get("soapTemplate"));
+        task.getInputData().put("uri", "changed");
+        assertEquals("http://example.test/soap", resolved.get("uri"));
+    }
+
+    @Test
+    void usesExplicitEmptyPreparedInputWithoutFallingBackToDefinition() {
+        WorkflowTask definition = WorkflowTask.builder().name("soap").type("WEBSERVICE")
+                .taskReferenceName("soap_ref").inputParameters(Map.of("uri", "ignored")).build();
+        TaskModel task = new WebServiceTaskMapper(new ParametersUtils()).getMappedTasks(TaskMapperContext.builder()
+                .workflowModel(new WorkflowModel()).workflowTask(definition)
+                .taskInput(Map.of()).taskId("soap-1").build()).get(0);
+
+        assertTrue(task.getInputData().isEmpty());
+        task.getInputData().put("uri", "later");
+        assertEquals("ignored", definition.getInputParameters().get("uri"));
+    }
 }

@@ -26,4 +26,44 @@ class JdbcTaskMapperTest {
         assertEquals(TaskModel.Status.SCHEDULED, task.getStatus());
         assertEquals(2, task.getRetryCount());
     }
+
+    @Test
+    void resolvesWorkflowInputOnceAndPreservesTaskLocalSqlPaths() {
+        WorkflowModel workflow = new WorkflowModel();
+        workflow.setWorkflowId("workflow-1");
+        workflow.setInput(Map.of("patient", Map.of("name", "${literal.text}"), "database", "hospital"));
+        WorkflowTask definition = WorkflowTask.builder().name("jdbc").type("JDBC")
+                .taskReferenceName("jdbc_ref").inputParameters(Map.of(
+                        "payload", "${workflow.input.patient}",
+                        "datasource", "${workflow.input.database}",
+                        "sqlTemplate", "SELECT $.name")).build();
+        JdbcTaskMapper mapper = new JdbcTaskMapper(new ParametersUtils());
+
+        TaskModel task = mapper.getMappedTasks(TaskMapperContext.builder()
+                .workflowModel(workflow).workflowTask(definition).taskId("jdbc-1")
+                .retryCount(3).retryTaskId("jdbc-previous").forkTaskId("fork-1").build()).get(0);
+
+        assertEquals("JDBC", mapper.getTaskType());
+        assertEquals("JDBC", task.getTaskType());
+        assertEquals("hospital", task.getInputData().get("datasource"));
+        assertEquals(Map.of("name", "${literal.text}"), task.getInputData().get("payload"));
+        assertEquals("SELECT $.name", task.getInputData().get("sqlTemplate"));
+        assertEquals("workflow-1", task.getWorkflowInstanceId());
+        assertEquals("jdbc-previous", task.getRetriedTaskId());
+        assertEquals("fork-1", task.getForkTaskId());
+        assertEquals(3, task.getRetryCount());
+    }
+
+    @Test
+    void usesExplicitEmptyPreparedInputWithoutFallingBackToDefinition() {
+        WorkflowTask definition = WorkflowTask.builder().name("jdbc").type("JDBC")
+                .taskReferenceName("jdbc_ref").inputParameters(Map.of("datasource", "ignored")).build();
+        TaskModel task = new JdbcTaskMapper(new ParametersUtils()).getMappedTasks(TaskMapperContext.builder()
+                .workflowModel(new WorkflowModel()).workflowTask(definition)
+                .taskInput(Map.of()).taskId("jdbc-1").build()).get(0);
+
+        assertTrue(task.getInputData().isEmpty());
+        task.getInputData().put("datasource", "later");
+        assertEquals("ignored", definition.getInputParameters().get("datasource"));
+    }
 }

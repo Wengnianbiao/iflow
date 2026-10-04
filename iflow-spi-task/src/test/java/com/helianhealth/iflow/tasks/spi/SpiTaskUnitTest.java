@@ -16,6 +16,8 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 class SpiTaskUnitTest {
 
@@ -119,8 +121,11 @@ class SpiTaskUnitTest {
 
     private static final class RecordingSpiExtensionRouter extends SpiExtensionRouter {
         private String remoteExtension;
+        private SpiTaskInput.ExtensionDefinition definition;
         private Map<String, Object> spiInput;
         private Object result = Map.of();
+        private RuntimeException failure;
+        private int invocations;
 
         @Override
         public Object invoke(
@@ -128,9 +133,133 @@ class SpiTaskUnitTest {
                 SpiTaskInput.ExtensionDefinition definition,
                 Map<String, Object> spiInput) {
             this.remoteExtension = remoteExtension;
+            this.definition = definition;
             this.spiInput = spiInput;
+            invocations++;
+            if (failure != null) {
+                throw failure;
+            }
             return result;
         }
+    }
+
+    @Test
+    void trimsExtensionAndPassesOnlyBusinessInputToRouter() {
+        Map<String, Object> businessInput = new HashMap<>(Map.of("patientId", "P001"));
+        TaskModel task = new TaskModel();
+        task.setInputData(Map.of(
+                SpiTaskInput.REMOTE_EXTENSION, "  patient-invoker  ",
+                SpiTaskInput.SPI_INPUT, businessInput));
+
+        spiTask.execute(workflow, task, null);
+
+        assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
+        assertEquals("patient-invoker", extensionRouter.remoteExtension);
+        assertEquals(Map.of("patientId", "P001"), extensionRouter.spiInput);
+        extensionRouter.spiInput.put("newField", true);
+        assertFalse(businessInput.containsKey("newField"));
+        assertNull(extensionRouter.definition);
+    }
+
+    @Test
+    void passesNormalizedEmbeddedProjectDefinitionAtExecutionTime() {
+        TaskModel task = new TaskModel();
+        task.setInputData(Map.of(
+                SpiTaskInput.REMOTE_EXTENSION, "  project-invoker  ",
+                SpiTaskInput.EXTENSION_MODE, "project",
+                SpiTaskInput.CLASS_NAME, "  com.example.PatientInvoker  ",
+                SpiTaskInput.SPI_INPUT, Map.of("patientId", "P001")));
+
+        spiTask.execute(workflow, task, null);
+
+        assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
+        assertEquals(new SpiTaskInput.ExtensionDefinition(
+                "project-invoker", SpiTaskInput.MODE_PROJECT,
+                "com.example.PatientInvoker", null), extensionRouter.definition);
+        assertFalse(extensionRouter.definition.online());
+        assertEquals(1, extensionRouter.invocations);
+    }
+
+    @Test
+    void invalidBusinessInputFailsBeforeInvokingExtension() {
+        TaskModel task = new TaskModel();
+        task.setInputData(Map.of(SpiTaskInput.SPI_INPUT, Map.of(7, "invalid-key")));
+
+        spiTask.execute(workflow, task, null);
+
+        assertEquals(TaskModel.Status.FAILED, task.getStatus());
+        assertEquals("SPI inputParameters.spiInput keys must be strings",
+                task.getReasonForInCompletion());
+        assertEquals(0, extensionRouter.invocations);
+        assertEquals(Map.of(), task.getOutputData());
+    }
+
+    @Test
+    void missingBusinessInputFailsBeforeInvokingExtension() {
+        TaskModel task = new TaskModel();
+        task.setInputData(Map.of(SpiTaskInput.REMOTE_EXTENSION, "patient-invoker"));
+
+        spiTask.execute(workflow, task, null);
+
+        assertEquals(TaskModel.Status.FAILED, task.getStatus());
+        assertEquals("SPI inputParameters.spiInput must resolve to a Map",
+                task.getReasonForInCompletion());
+        assertEquals(0, extensionRouter.invocations);
+    }
+
+    @Test
+    void incompleteOnlineDefinitionFailsBeforeInvokingExtension() {
+        TaskModel task = new TaskModel();
+        task.setInputData(Map.of(
+                SpiTaskInput.REMOTE_EXTENSION, "online-invoker",
+                SpiTaskInput.EXTENSION_MODE, SpiTaskInput.MODE_ONLINE,
+                SpiTaskInput.CLASS_NAME, "com.example.PatientInvoker",
+                SpiTaskInput.SPI_INPUT, Map.of()));
+
+        spiTask.execute(workflow, task, null);
+
+        assertEquals(TaskModel.Status.FAILED, task.getStatus());
+        assertEquals("SPI inputParameters.sourceCode is required in ONLINE mode",
+                task.getReasonForInCompletion());
+        assertEquals(0, extensionRouter.invocations);
+    }
+
+    @ParameterizedTest
+    @MethodSource("invocationFailures")
+    void invocationFailureRecordsDiagnosticWithoutWrappingBusinessOutput(
+            RuntimeException failure, String expectedReason) {
+        extensionRouter.failure = failure;
+        TaskModel task = new TaskModel();
+        task.setInputData(Map.of(SpiTaskInput.SPI_INPUT, Map.of()));
+
+        spiTask.execute(workflow, task, null);
+
+        assertEquals(TaskModel.Status.FAILED, task.getStatus());
+        assertEquals(expectedReason, task.getReasonForInCompletion());
+        assertEquals(Map.of(), task.getOutputData());
+        assertEquals(1, extensionRouter.invocations);
+    }
+
+    private static Stream<Arguments> invocationFailures() {
+        return Stream.of(
+                Arguments.of(new IllegalArgumentException("remote endpoint unavailable"),
+                        "remote endpoint unavailable"),
+                Arguments.of(new IllegalStateException("extension invocation failed",
+                        new IllegalArgumentException("patient rejected")), "patient rejected"));
+    }
+
+    @Test
+    void unknownExtensionFailsTaskWithDiagnostic() {
+        TaskModel task = new TaskModel();
+        task.setInputData(Map.of(
+                SpiTaskInput.REMOTE_EXTENSION, "missing-spi-unit-test-extension",
+                SpiTaskInput.SPI_INPUT, Map.of()));
+
+        new SpiTask(new SpiExtensionRouter()).execute(workflow, task, null);
+
+        assertEquals(TaskModel.Status.FAILED, task.getStatus());
+        assertTrue(task.getReasonForInCompletion().contains("missing-spi-unit-test-extension"));
+        assertEquals(Map.of(), task.getOutputData());
     }
 
     @ParameterizedTest

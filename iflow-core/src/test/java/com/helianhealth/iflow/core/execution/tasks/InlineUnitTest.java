@@ -8,14 +8,17 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 class InlineUnitTest {
 
@@ -68,6 +71,72 @@ class InlineUnitTest {
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
         assertEquals("原始内容", task.getOutputData());
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" "})
+    void missingExpressionFailsWithDiagnosticAndClearsStaleOutput(String expression) {
+        Map<String, Object> input = new HashMap<>();
+        input.put(Inline.INPUT_EXPRESSION, expression);
+        TaskModel task = executeWithInput(input, Map.of(GraalJSEvaluator.NAME, (script, values) -> "unused"));
+
+        assertEquals(TaskModel.Status.FAILED, task.getStatus());
+        assertTrue(task.getReasonForInCompletion().contains("expression"));
+        assertNull(task.getOutputData());
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "unknown"})
+    void missingOrUnknownEvaluatorFailsTask(String evaluatorType) {
+        Map<String, Object> input = new HashMap<>();
+        input.put(Inline.INPUT_EXPRESSION, "42");
+        input.put(Inline.INPUT_EVALUATOR_TYPE, evaluatorType);
+        TaskModel task = executeWithInput(input, Map.of(GraalJSEvaluator.NAME, (script, values) -> 42));
+
+        assertEquals(TaskModel.Status.FAILED, task.getStatus());
+        assertNotNull(task.getReasonForInCompletion());
+        assertNull(task.getOutputData());
+    }
+
+    @Test
+    void customEvaluatorReceivesResolvedInputAndReplacesStaleOutput() {
+        Map<String, Object> input = Map.of(Inline.INPUT_EXPRESSION, "value", Inline.INPUT_EVALUATOR_TYPE,
+                "custom", "value", List.of(1, 2));
+        Evaluator evaluator = (expression, values) -> {
+            assertEquals("value", expression);
+            assertEquals(input, values);
+            return values.get(expression);
+        };
+
+        TaskModel task = executeWithInput(input, Map.of("custom", evaluator));
+
+        assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
+        assertEquals(List.of(1, 2), task.getOutputData());
+    }
+
+    @Test
+    void evaluatorExceptionReportsCauseWithoutWrappingBusinessOutput() {
+        Evaluator failure = (expression, input) -> {
+            throw new IllegalArgumentException("wrapper", new IllegalStateException("script failed"));
+        };
+
+        TaskModel task = executeWithInput(Map.of(Inline.INPUT_EXPRESSION, "ignored"),
+                Map.of(GraalJSEvaluator.NAME, failure));
+
+        assertEquals(TaskModel.Status.FAILED, task.getStatus());
+        assertEquals("script failed", task.getReasonForInCompletion());
+        assertNull(task.getOutputData());
+    }
+
+    private TaskModel executeWithInput(Map<String, Object> input, Map<String, Evaluator> evaluators) {
+        TaskModel task = new TaskModel();
+        task.setTaskId("inline-1");
+        task.setInputData(input);
+        task.setOutputData(Map.of("stale", true));
+        new Inline(evaluators).execute(new WorkflowModel(), task, null);
+        return task;
     }
 
     private static Stream<Arguments> scriptResults() {

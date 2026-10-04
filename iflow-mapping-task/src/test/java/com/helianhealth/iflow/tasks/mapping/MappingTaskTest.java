@@ -1,6 +1,7 @@
 package com.helianhealth.iflow.tasks.mapping;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.helianhealth.iflow.core.execution.evaluators.GraalJSEvaluator;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
@@ -8,14 +9,20 @@ import com.helianhealth.iflow.tasks.mapping.enums.MappingType;
 import com.helianhealth.iflow.tasks.mapping.enums.ParamType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MappingTaskTest {
 
@@ -191,7 +198,7 @@ class MappingTaskTest {
     }
 
     @Test
-    void rejectsMissingPayload() {
+    void explicitNullPayloadMapsMissingSourceToNull() {
         ParamMappingConfig mapping =
                 ParamMappingConfig.builder()
                         .targetParamKey("value")
@@ -199,14 +206,15 @@ class MappingTaskTest {
                         .mappingType(MappingType.NAME)
                         .sourceParamKey("$.value")
                         .build();
-        TaskModel task =
-                execute(
-                        Map.of(
-                                MappingTask.INPUT_PARAMS_CONFIG,
-                                List.of(mapping)));
+        // 声明缺少 payload 由 ParamMappingTaskMapper 校验；已声明的表达式可解析为 null。
+        Map<String, Object> input = new LinkedHashMap<>();
+        input.put(MappingTask.INPUT_PAYLOAD, null);
+        input.put(MappingTask.INPUT_PARAMS_CONFIG, List.of(mapping));
+        TaskModel task = execute(input);
 
-        assertEquals(TaskModel.Status.FAILED, task.getStatus());
-        assertEquals("payload is required", task.getReasonForInCompletion());
+        assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
+        assertTrue(task.outputAsMap().containsKey("value"));
+        assertNull(task.outputAsMap().get("value"));
     }
 
     @Test
@@ -233,6 +241,141 @@ class MappingTaskTest {
         assertFalse(task.outputAsMap().containsKey("result"));
         assertFalse(task.outputAsMap().containsKey("output"));
         assertFalse(task.outputAsMap().containsKey("stale"));
+    }
+
+    @ParameterizedTest
+    @MethodSource("scalarConversions")
+    void convertsScalarValuesToDeclaredTypes(ParamType type, Object source, Object expected) {
+        ParamMappingConfig mapping = ParamMappingConfig.builder()
+                .targetParamKey("value").targetParamType(type)
+                .mappingType(MappingType.NAME).sourceParamKey("$.value").build();
+
+        Map<?, ?> output = executeMapping(Map.of(
+                MappingTask.INPUT_PAYLOAD, Map.of("value", source),
+                MappingTask.INPUT_PARAMS_CONFIG, List.of(mapping)));
+
+        assertEquals(expected, output.get("value"));
+    }
+
+    private static Stream<Arguments> scalarConversions() {
+        return Stream.of(
+                Arguments.of(ParamType.STRING, 123, "123"),
+                Arguments.of(ParamType.INTEGER, " 17 ", 17),
+                Arguments.of(ParamType.LONG, "2147483648", 2147483648L),
+                Arguments.of(ParamType.DOUBLE, " 1.25 ", 1.25d),
+                Arguments.of(ParamType.BOOLEAN, 1, true),
+                Arguments.of(ParamType.BOOLEAN, "false", false));
+    }
+
+    @Test
+    void mapsArrayItemsUsingAliasAndRootPayload() {
+        ParamMappingConfig code = ParamMappingConfig.builder()
+                .targetParamKey("code").targetParamType(ParamType.STRING)
+                .mappingType(MappingType.NAME).sourceParamKey("item.code").build();
+        ParamMappingConfig patient = ParamMappingConfig.builder()
+                .targetParamKey("patientId").targetParamType(ParamType.STRING)
+                .mappingType(MappingType.NAME).sourceParamKey("$.patientId").build();
+        ParamMappingConfig quantity = ParamMappingConfig.builder()
+                .targetParamKey("quantity").targetParamType(ParamType.INTEGER)
+                .mappingType(MappingType.EXPRESSION).mappingRule("item.qty * 2").build();
+        ParamMappingConfig template = ParamMappingConfig.builder()
+                .targetParamType(ParamType.OBJECT).mappingType(MappingType.OBJECT)
+                .childParams(List.of(code, patient, quantity)).build();
+        ParamMappingConfig array = ParamMappingConfig.builder()
+                .targetParamKey("details").targetParamType(ParamType.ARRAY)
+                .mappingType(MappingType.ARRAY_MAP).sourceParamKey("$.items")
+                .itemAlias("item").itemTemplate(template).build();
+        Map<String, Object> payload = Map.of("patientId", "P001", "items",
+                List.of(Map.of("code", "A", "qty", 2), Map.of("code", "B", "qty", 3)));
+
+        Map<?, ?> output = executeMapping(Map.of(
+                MappingTask.INPUT_PAYLOAD, payload,
+                MappingTask.INPUT_PARAMS_CONFIG, List.of(array)));
+
+        assertEquals(List.of(
+                Map.of("code", "A", "patientId", "P001", "quantity", 4),
+                Map.of("code", "B", "patientId", "P001", "quantity", 6)), output.get("details"));
+        assertEquals(2, ((Map<?, ?>) ((List<?>) payload.get("items")).get(0)).get("qty"));
+    }
+
+    @Test
+    void expressionProducesNestedObjectsAndArraysWithoutOutputWrapper() {
+        ParamMappingConfig object = ParamMappingConfig.builder()
+                .targetParamKey("patient").targetParamType(ParamType.OBJECT)
+                .mappingType(MappingType.EXPRESSION)
+                .mappingRule("({id: $.patientId, enabled: true})").build();
+        ParamMappingConfig array = ParamMappingConfig.builder()
+                .targetParamKey("codes").targetParamType(ParamType.ARRAY)
+                .mappingType(MappingType.EXPRESSION)
+                .mappingRule("$.items.map(item => item.code)").build();
+
+        Map<?, ?> output = executeMapping(Map.of(
+                MappingTask.INPUT_PAYLOAD, Map.of("patientId", "P001", "items",
+                        List.of(Map.of("code", "A"), Map.of("code", "B"))),
+                MappingTask.INPUT_PARAMS_CONFIG, List.of(object, array)));
+
+        assertEquals(Map.of("patient", Map.of("id", "P001", "enabled", true),
+                "codes", List.of("A", "B")), output);
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidConfigs")
+    void invalidMappingConfigFailsTaskWithoutPublishingPartialBusinessOutput(
+            Object config, String expectedDiagnostic) {
+        TaskModel task = execute(Map.of(
+                MappingTask.INPUT_PAYLOAD, Map.of("value", "not-a-number"),
+                MappingTask.INPUT_PARAMS_CONFIG, config));
+
+        assertEquals(TaskModel.Status.FAILED, task.getStatus());
+        assertTrue(task.getReasonForInCompletion().contains(expectedDiagnostic),
+                task.getReasonForInCompletion());
+        assertEquals(Map.of(), task.getOutputData());
+    }
+
+    private static Stream<Arguments> invalidConfigs() {
+        Map<String, Object> valid = Map.of(
+                "targetParamKey", "value", "targetParamType", "STRING",
+                "mappingType", "CONSTANT", "mappingRule", "OK");
+        Map<String, Object> unknownField = new LinkedHashMap<>(valid);
+        unknownField.put("unexpected", true);
+        return Stream.of(
+                Arguments.of(List.of(unknownField), "unexpected"),
+                Arguments.of(List.of(Map.of("targetParamKey", "value",
+                        "targetParamType", "BAD_TYPE", "mappingType", "CONSTANT")), "BAD_TYPE"),
+                Arguments.of(List.of(valid, valid), "MAPPING $.value: 目标字段重复"),
+                Arguments.of(List.of(Map.of("targetParamType", "STRING",
+                        "mappingType", "CONSTANT", "mappingRule", "OK")), "targetParamKey"),
+                Arguments.of(List.of(Map.of("targetParamKey", "value",
+                        "targetParamType", "STRING", "mappingType", "NAME",
+                        "sourceParamKey", "unknown.value")), "未知上下文变量"),
+                Arguments.of(List.of(Map.of("targetParamKey", "value",
+                        "targetParamType", "INTEGER", "mappingType", "NAME",
+                        "sourceParamKey", "$.value")), "MAPPING $.value"),
+                Arguments.of(List.of(Map.of("targetParamKey", "value",
+                        "targetParamType", "STRING", "mappingType", "EXPRESSION",
+                        "mappingRule", "(() => { throw new Error('mapping rejected'); })()")),
+                        "mapping rejected"));
+    }
+
+    @Test
+    void strictConfigValidationDoesNotModifyProvidedObjectMapper() {
+        ObjectMapper sharedMapper = new ObjectMapper()
+                .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+        MappingTask strictTask = new MappingTask(
+                new ParamMapTransformer(new GraalJSEvaluator()), sharedMapper);
+        TaskModel task = new TaskModel();
+        task.setInputData(Map.of(
+                MappingTask.INPUT_PAYLOAD, Map.of(),
+                MappingTask.INPUT_PARAMS_CONFIG, List.of(Map.of(
+                        "targetParamKey", "status", "targetParamType", "STRING",
+                        "mappingType", "CONSTANT", "mappingRule", "OK", "unknownField", true))));
+
+        strictTask.execute(newWorkflow(), task, null);
+
+        assertEquals(TaskModel.Status.FAILED, task.getStatus());
+        assertTrue(task.getReasonForInCompletion().contains("unknownField"));
+        assertFalse(sharedMapper.isEnabled(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES));
+        assertEquals(Map.of(), task.getOutputData());
     }
 
     private Map<?, ?> executeMapping(Map<String, Object> input) {
