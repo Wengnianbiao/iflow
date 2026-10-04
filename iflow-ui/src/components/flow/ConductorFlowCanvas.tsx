@@ -10,7 +10,7 @@ import {
 import { conductorTheme } from '@/flow/conductorTheme'
 import {
   compactFlowLayoutOptions,
-  normalizeForkJoinEdgeSections,
+  normalizeJoinEdgeSections,
   type FlowEdgeSections,
 } from '@/flow/layoutOptions'
 import { getTaskFlowKind, isTaskSelectable, type AddableTaskType } from '@/tasks'
@@ -146,8 +146,9 @@ function initialZoomCenter(layout: LayoutSize, viewportWidth: number, zoomValue:
 }
 
 function FlowEdge(props: Partial<EdgeProps>) {
-  const sections = props.properties?.data?.forkJoinMerge
-    ? normalizeForkJoinEdgeSections(props.sections as unknown as FlowEdgeSections) as unknown as EdgeProps['sections']
+  const mergeEdge = props.properties?.data?.forkJoinMerge || props.properties?.data?.switchJoinMerge
+  const sections = mergeEdge
+    ? normalizeJoinEdgeSections(props.sections as unknown as FlowEdgeSections) as unknown as EdgeProps['sections']
     : props.sections
   return <Edge {...props} sections={sections} />
 }

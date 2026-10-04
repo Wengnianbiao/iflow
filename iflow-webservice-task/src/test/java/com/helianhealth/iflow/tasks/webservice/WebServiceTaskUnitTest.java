@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -46,6 +47,7 @@ class WebServiceTaskUnitTest {
         Map<String, Object> inputMap = new HashMap<>();
         inputMap.put("uri", "http://example.com/soap");
         inputMap.put("soapTemplate", "<soap:Envelope><id>42</id></soap:Envelope>");
+        inputMap.put("body", "<request>42</request>");
         inputMap.put("headers", Map.of("SOAPAction", "GetUser"));
         inputMap.put("connectionTimeOut", 1000);
         inputMap.put("readTimeOut", 6000);
@@ -58,6 +60,7 @@ class WebServiceTaskUnitTest {
 
         assertEquals("http://example.com/soap", input.getUri());
         assertEquals("<soap:Envelope><id>42</id></soap:Envelope>", input.getSoapTemplate());
+        assertEquals("<request>42</request>", input.getBody());
         assertEquals("GetUser", input.getHeaders().get("SOAPAction"));
         assertEquals(1000, input.getConnectionTimeOut());
         assertEquals(6000, input.getReadTimeOut());
@@ -94,6 +97,7 @@ class WebServiceTaskUnitTest {
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertTrue(task.getReasonForInCompletion().contains("SOAP"));
         verifyNoInteractions(provider);
+        assertFalse(task.getInputData().containsKey("body"));
         assertFalse(task.outputAsMap().containsKey("error"));
     }
 
@@ -106,6 +110,8 @@ class WebServiceTaskUnitTest {
             WebServiceTask.Input input = invocation.getArgument(0);
             assertEquals(1200, input.getConnectionTimeOut());
             assertEquals(4500, input.getReadTimeOut());
+            assertEquals("<r id=\"A&amp;B\">张三&lt;&amp;</r>", input.getBody());
+            assertEquals("<r id=\"$.requestId\">$.patient.name</r>", input.getSoapTemplate());
             return client;
         });
         when(client.execute(any(ClassicHttpRequest.class), any(HttpClientResponseHandler.class)))
@@ -134,9 +140,40 @@ class WebServiceTaskUnitTest {
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus(), task.getReasonForInCompletion());
         assertEquals(template, task.getInputData().get("soapTemplate"));
+        assertEquals("<r id=\"A&amp;B\">张三&lt;&amp;</r>", task.getInputData().get("body"));
         assertEquals(Map.of("body", "<result>ok</result>", "statusCode", 200, "reasonPhrase", "OK",
                 "headers", Map.of("X-Response", "soap")), task.getOutputData());
         verify(client).close();
+    }
+
+    @Test
+    void retainsRenderedBodyOnCallFailureAndRegeneratesItOnReexecution() {
+        WebServiceTask failingTask =
+                new WebServiceTask(new DefaultSoapClientProvider(), OBJECT_MAPPER) {
+                    @Override
+                    protected WebServiceResponse soapCall(Input input) throws IOException {
+                        throw new IOException("connection refused");
+                    }
+                };
+        TaskModel task = new TaskModel();
+        String template = "<request>$.name</request>";
+        task.setInputData(Map.of("uri", "http://example.com/soap", "soapTemplate", template,
+                "templateParameters", Map.of("name", "张三<&"), "body", "stale body"));
+
+        failingTask.execute(workflow, task, null);
+
+        assertEquals(TaskModel.Status.FAILED, task.getStatus());
+        assertTrue(task.getReasonForInCompletion().contains("connection refused"));
+        assertEquals(template, task.getInputData().get("soapTemplate"));
+        assertEquals("<request>张三&lt;&amp;</request>", task.getInputData().get("body"));
+
+        task.getInputData().put("templateParameters", Map.of("name", "李四"));
+        failingTask.execute(workflow, task, null);
+
+        assertEquals(TaskModel.Status.FAILED, task.getStatus());
+        assertTrue(task.getReasonForInCompletion().contains("connection refused"));
+        assertEquals(template, task.getInputData().get("soapTemplate"));
+        assertEquals("<request>李四</request>", task.getInputData().get("body"));
     }
 
     @Test

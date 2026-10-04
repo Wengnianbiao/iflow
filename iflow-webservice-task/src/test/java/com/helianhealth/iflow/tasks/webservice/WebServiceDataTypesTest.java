@@ -231,6 +231,7 @@ class WebServiceDataTypesTest {
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus(), task.getReasonForInCompletion());
         assertEquals(expectedXml, sentXml.get());
+        assertEquals(expectedXml, task.getInputData().get("body"));
         assertEquals(Map.of("body", "<result>成功</result>", "statusCode", 200,
                 "reasonPhrase", "OK", "headers", Map.of()), task.getOutputData());
         verify(provider).createHttpClient(any());

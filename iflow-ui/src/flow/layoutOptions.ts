@@ -14,7 +14,7 @@ export type FlowEdgeSections = Array<{
   bendPoints?: EdgePoint[]
 }>
 
-export function normalizeForkJoinEdgeSections(
+export function normalizeJoinEdgeSections(
   sections: FlowEdgeSections | undefined,
 ): FlowEdgeSections | undefined {
   if (!sections?.length) return sections
@@ -23,20 +23,23 @@ export function normalizeForkJoinEdgeSections(
   const { startPoint, endPoint, bendPoints } = section
   if (!startPoint || !endPoint || !bendPoints?.length || endPoint.y <= startPoint.y) return sections
 
-  let previousY = startPoint.y
-  const validBendPoints = bendPoints.filter((point) => {
-    const valid = point.y >= previousY && point.y <= endPoint.y
-    if (valid) previousY = point.y
-    return valid
+  // Post-compaction can move a later bend above an earlier one. Pull the
+  // detour up to that bend, keeping the horizontal route and port alignment.
+  let nextY = endPoint.y
+  let changed = false
+  const compactBendPoints = bendPoints.map((point) => ({ ...point }))
+  for (let index = compactBendPoints.length - 1; index >= 0; index -= 1) {
+    const point = compactBendPoints[index]
+    const y = Math.max(startPoint.y, Math.min(point.y, nextY))
+    changed ||= y !== point.y
+    point.y = y
+    nextY = y
+  }
+  if (!changed) return sections
+
+  const distinctBendPoints = compactBendPoints.filter((point, index) => {
+    const previous = index === 0 ? startPoint : compactBendPoints[index - 1]
+    return point.x !== previous.x || point.y !== previous.y
   })
-  if (validBendPoints.length === bendPoints.length) return sections
-
-  const compactBendPoints = validBendPoints.length
-    ? validBendPoints
-    : [
-        { x: startPoint.x, y: (startPoint.y + endPoint.y) / 2 },
-        { x: endPoint.x, y: (startPoint.y + endPoint.y) / 2 },
-      ]
-
-  return [{ ...section, bendPoints: compactBendPoints }, ...rest]
+  return [{ ...section, bendPoints: distinctBendPoints }, ...rest]
 }

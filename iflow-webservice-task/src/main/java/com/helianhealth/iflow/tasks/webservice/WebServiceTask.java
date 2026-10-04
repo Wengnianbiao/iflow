@@ -64,7 +64,10 @@ public class WebServiceTask extends WorkflowSystemTask {
                 return;
             }
 
-            input.setSoapTemplate(SoapTemplate.render(input.getSoapTemplate(), input.getTemplateParameters()));
+            input.setBody(SoapTemplate.render(input.getSoapTemplate(), input.getTemplateParameters()));
+            Map<String, Object> inputData = new LinkedHashMap<>(task.getInputData());
+            inputData.put("body", input.getBody());
+            task.setInputData(inputData);
             WebServiceResponse response = soapCall(input);
             LOGGER.debug(
                     "Response: {}, {}, task:{}",
@@ -97,12 +100,12 @@ public class WebServiceTask extends WorkflowSystemTask {
     }
 
     /**
-     * 发起 SOAP HTTP POST。{@link Input#soapTemplate} 此时为渲染并校验后的 XML。
+     * 发起 SOAP HTTP POST。{@link Input#body} 为渲染并校验后的 XML。
      */
     protected WebServiceResponse soapCall(Input input) throws Exception {
         try (CloseableHttpClient client = soapClientProvider.createHttpClient(input)) {
             HttpPost post = new HttpPost(input.getUri());
-            post.setEntity(new StringEntity(input.getSoapTemplate(), ContentType.parse(input.getContentType())));
+            post.setEntity(new StringEntity(input.getBody(), ContentType.parse(input.getContentType())));
 
             input.getHeaders().forEach((key, value) -> {
                 if (value != null) {
@@ -196,6 +199,8 @@ public class WebServiceTask extends WorkflowSystemTask {
 
         private String uri;
         private String soapTemplate;
+        /** 模板替换后的请求体，在执行时生成并写回任务入参。 */
+        private String body;
         private Map<String, Object> templateParameters = new HashMap<>();
         private Map<String, Object> headers = new HashMap<>();
         private String contentType = "text/xml;charset=UTF-8";
@@ -220,6 +225,14 @@ public class WebServiceTask extends WorkflowSystemTask {
 
         public void setSoapTemplate(String soapTemplate) {
             this.soapTemplate = soapTemplate;
+        }
+
+        public String getBody() {
+            return body;
+        }
+
+        public void setBody(String body) {
+            this.body = body;
         }
 
         public Map<String, Object> getTemplateParameters() {

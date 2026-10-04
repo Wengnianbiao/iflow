@@ -212,7 +212,7 @@ function processSwitch(task: WorkflowTask, crumbs: Crumb[]): WalkResult {
         to: fakeNode.id,
         toPort: switchJoinNorthPortId(fakeNode.id, key),
         text: key,
-        data: { isDefault: key === 'defaultCase' },
+        data: { isDefault: key === 'defaultCase', switchJoinMerge: true },
       })
       return
     }
@@ -240,6 +240,7 @@ function processSwitch(task: WorkflowTask, crumbs: Crumb[]): WalkResult {
         fromPort: sourceSouthPort(tailNode),
         to: fakeNode.id,
         toPort: switchJoinNorthPortId(fakeNode.id, key),
+        data: { switchJoinMerge: true },
       })
     }
   })
