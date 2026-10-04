@@ -1,7 +1,6 @@
 package com.helianhealth.iflow.core.execution.mapper;
 
 import com.helianhealth.iflow.common.domain.metadata.task.TaskType;
-import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.utils.ParametersUtils;
 import org.springframework.stereotype.Component;
@@ -11,15 +10,15 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * WebService 任务 Mapper：对扁平 {@code inputParameters} 做 {@code ${...}} 替换（与 {@link HttpTaskMapper} 相同）。
+ * 消费框架已解析的任务输入，保留模板参数类型和任务阶段的局部路径。
  *
- * <p>定义层示例（与 HTTP 同构，仅 {@code body} → {@code soapTemplate}）：
+ * <p>定义层示例：
  * <pre>{@code
  * "inputParameters": {
  *   "uri": "${workflow.input.uri}",
  *   "headers": { "SOAPAction": "GetUser" },
  *   "templateParameters": { "payload": "${workflow.input}" },
- *   "soapTemplate": "<soap:Envelope>...<id>${$.payload.id}</id>...</soap:Envelope>",
+ *   "soapTemplate": "<request><id>$.payload.id</id></request>",
  *   "contentType": "text/xml;charset=UTF-8",
  *   "connectionTimeOut": 5000,
  *   "readTimeOut": 30000
@@ -41,40 +40,13 @@ public class WebServiceTaskMapper implements TaskMapper {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public List<TaskModel> getMappedTasks(TaskMapperContext context) {
-        WorkflowTask workflowTask = context.getWorkflowTask();
-        Map<String, Object> inputParameters =
-                workflowTask.getInputParameters() == null
-                        ? new HashMap<>()
-                        : new HashMap<>(workflowTask.getInputParameters());
-        Object soapTemplate = inputParameters.remove("soapTemplate");
-        Object rawTemplateParameters = inputParameters.remove("templateParameters");
-
-        Map<String, Object> templateParameters = Map.of();
-        if (rawTemplateParameters != null) {
-            if (!(rawTemplateParameters instanceof Map<?, ?>)) {
-                throw new IllegalArgumentException("templateParameters must be an object");
-            }
-            templateParameters =
-                    parametersUtils.getTaskInput(
-                            (Map<String, Object>) rawTemplateParameters,
-                            context.getWorkflowModel(),
-                            context.getTaskId());
-        }
-
         Map<String, Object> input =
-                parametersUtils.getTaskInput(
-                        inputParameters, context.getWorkflowModel(), context.getTaskId());
-        if (soapTemplate != null) {
-            Map<String, Object> resolvedTemplate =
-                    parametersUtils.getTaskInput(
-                            Map.of("soapTemplate", soapTemplate),
-                            context.getWorkflowModel(),
-                            context.getTaskId(),
-                            templateParameters);
-            input.put("soapTemplate", resolvedTemplate.get("soapTemplate"));
-        }
+                context.getTaskInput() != null
+                        ? new HashMap<>(context.getTaskInput())
+                        : parametersUtils.getTaskInput(
+                                context.getWorkflowTask().getInputParameters(),
+                                context.getWorkflowModel(), context.getTaskId());
 
         TaskModel webServiceTask = context.createTaskModel();
         webServiceTask.setInputData(input);

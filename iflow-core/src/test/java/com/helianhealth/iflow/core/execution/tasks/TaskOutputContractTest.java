@@ -154,20 +154,23 @@ class TaskOutputContractTest {
     }
 
     @Test
-    void webServiceResolvesLocalVariablesAfterPreparingTemplateContext() {
+    void webServicePreparesTypedParametersAndLeavesLocalPathsForTaskExecution() {
         WorkflowModel workflow = workflow();
-        workflow.setInput(Map.of("patient", Map.of("id", 42)));
+        Map<String, Object> patient = Map.of("id", 42, "literal", "${business.text}");
+        workflow.setInput(Map.of("patient", patient));
         WorkflowTask definition = WorkflowTask.builder().type("WEBSERVICE")
                 .taskReferenceName("soap").inputParameters(Map.of(
                         "uri", "http://example.test",
-                        "templateParameters", Map.of("payload", "${workflow.input.patient}"),
-                        "soapTemplate", "<id>${$.payload.id}</id>")).build();
+                        "templateParameters", Map.of("workflow", "${workflow.input.patient}", "soap", true),
+                        "soapTemplate", "<id>$.workflow.id</id>")).build();
         DeciderService webServiceDecider = new DeciderService(new IDGenerator(), parameters,
                 new SystemTaskRegistry(Set.of()), Map.of("WEBSERVICE", new WebServiceTaskMapper(parameters)));
 
         List<TaskModel> tasks = webServiceDecider.getTasksToBeScheduled(workflow, definition, 0);
 
-        assertEquals("<id>42</id>", tasks.get(0).getInputData().get("soapTemplate"));
+        assertEquals("<id>$.workflow.id</id>", tasks.get(0).getInputData().get("soapTemplate"));
+        assertEquals(Map.of("workflow", patient, "soap", true),
+                tasks.get(0).getInputData().get("templateParameters"));
     }
 
     private WorkflowModel workflow(TaskModel... tasks) {

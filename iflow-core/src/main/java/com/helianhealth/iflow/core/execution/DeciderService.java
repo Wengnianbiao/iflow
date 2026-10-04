@@ -113,10 +113,8 @@ public class DeciderService {
             String forkTaskId) {
         String type = taskToSchedule.getType();
         String taskId = idGenerator.generate();
-        // WEBSERVICE 的 Mapper 先准备局部模板变量，再解析 soapTemplate。
-        Map<String, Object> input = TaskType.TASK_TYPE_WEBSERVICE.equals(type)
-                ? new HashMap<>()
-                : parametersUtils.getTaskInput(taskToSchedule.getInputParameters(), workflow, taskId);
+        Map<String, Object> input =
+                parametersUtils.getTaskInput(taskToSchedule.getInputParameters(), workflow, taskId);
         List<String> tasksInWorkflow =
                 workflow.getTasks().stream()
                         .filter(

@@ -48,21 +48,23 @@ public class WebServiceTask extends WorkflowSystemTask {
 
     @Override
     public void execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor) {
-        Input input = objectMapper.convertValue(task.getInputData(), Input.class);
-        if (input.getUri() == null || input.getUri().isBlank()) {
-            task.setReasonForInCompletion(
-                    "Missing WebService URI. See documentation for WebServiceTask for required input parameters");
-            task.setStatus(TaskModel.Status.FAILED);
-            return;
-        }
-
-        if (input.getSoapTemplate() == null || input.getSoapTemplate().isBlank()) {
-            task.setReasonForInCompletion("Missing soapTemplate");
-            task.setStatus(TaskModel.Status.FAILED);
-            return;
-        }
-
+        Input input = null;
         try {
+            input = objectMapper.convertValue(task.getInputData(), Input.class);
+            if (input.getUri() == null || input.getUri().isBlank()) {
+                task.setReasonForInCompletion(
+                        "Missing WebService URI. See documentation for WebServiceTask for required input parameters");
+                task.setStatus(TaskModel.Status.FAILED);
+                return;
+            }
+
+            if (input.getSoapTemplate() == null || input.getSoapTemplate().isBlank()) {
+                task.setReasonForInCompletion("Missing soapTemplate");
+                task.setStatus(TaskModel.Status.FAILED);
+                return;
+            }
+
+            input.setSoapTemplate(SoapTemplate.render(input.getSoapTemplate(), input.getTemplateParameters()));
             WebServiceResponse response = soapCall(input);
             LOGGER.debug(
                     "Response: {}, {}, task:{}",
@@ -85,7 +87,7 @@ public class WebServiceTask extends WorkflowSystemTask {
                     "Failed to invoke {} task: {} - uri: {} in workflow: {}",
                     getTaskType(),
                     task.getTaskId(),
-                    input.getUri(),
+                    input == null ? null : input.getUri(),
                     task.getWorkflowInstanceId(),
                     e);
             task.setStatus(TaskModel.Status.FAILED);
@@ -95,7 +97,7 @@ public class WebServiceTask extends WorkflowSystemTask {
     }
 
     /**
-     * 发起 SOAP HTTP POST。{@link Input#soapTemplate} 此时应为已完成 {@code ${...}} 替换的 XML。
+     * 发起 SOAP HTTP POST。{@link Input#soapTemplate} 此时为渲染并校验后的 XML。
      */
     protected WebServiceResponse soapCall(Input input) throws Exception {
         try (CloseableHttpClient client = soapClientProvider.createHttpClient(input)) {
@@ -114,7 +116,7 @@ public class WebServiceTask extends WorkflowSystemTask {
                 post.setHeader("SOAPAction", "");
             }
 
-            return client.execute(post, response -> readResponse((ClassicHttpResponse) response));
+            return client.execute(post, this::readResponse);
         }
     }
 
@@ -188,13 +190,13 @@ public class WebServiceTask extends WorkflowSystemTask {
     }
 
     /**
-     * WebService 入参：与 {@link com.helianhealth.agent.tasks.http.HttpTask.Input} 同构，
-     * 仅将 {@code body} 换成 {@link #soapTemplate}。
+     * WebService 入参。templateParameters 是 SOAP 局部路径的根上下文。
      */
     public static class Input {
 
         private String uri;
         private String soapTemplate;
+        private Map<String, Object> templateParameters = new HashMap<>();
         private Map<String, Object> headers = new HashMap<>();
         private String contentType = "text/xml;charset=UTF-8";
 
@@ -218,6 +220,14 @@ public class WebServiceTask extends WorkflowSystemTask {
 
         public void setSoapTemplate(String soapTemplate) {
             this.soapTemplate = soapTemplate;
+        }
+
+        public Map<String, Object> getTemplateParameters() {
+            return templateParameters;
+        }
+
+        public void setTemplateParameters(Map<String, Object> templateParameters) {
+            this.templateParameters = templateParameters;
         }
 
         public Map<String, Object> getHeaders() {

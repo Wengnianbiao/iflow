@@ -4008,6 +4008,13 @@ textarea {
   box-shadow: none;
 }
 
+.conductor-code-input .soap-xml-tag { color: #005cc5; }
+.conductor-code-input .soap-xml-attribute { color: #b24c63; }
+.conductor-code-input .soap-xml-value { color: #a31515; }
+.conductor-code-input .soap-xml-comment { color: #6a737d; }
+.conductor-code-input .soap-xml-delimiter { color: #586069; }
+.conductor-code-input .soap-xml-variable { color: #8957e5; }
+
 .conductor-code-actions {
   position: absolute;
   z-index: 5;
@@ -4451,14 +4458,25 @@ textarea {
   overflow-wrap: anywhere;
 }
 
-.jdbc-connection-grid,
-.webservice-request-grid {
+.jdbc-connection-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .jdbc-url-field,
-.jdbc-password-field,
-.webservice-uri-field {
+.jdbc-password-field {
+  grid-column: 1 / -1;
+}
+
+.webservice-request-grid {
+  grid-template-columns: minmax(100px, 0.5fr) minmax(0, 1.5fr);
+}
+
+.webservice-request-options-grid {
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.webservice-content-type-field {
   grid-column: 1 / -1;
 }
 

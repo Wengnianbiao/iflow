@@ -268,10 +268,11 @@ registerCoreTaskPlugins([
   {
     type: TaskType.WEBSERVICE,
     label: 'Web 服务',
-    icon: PlugsConnectedIcon,
+    icon: GlobeIcon,
     menu: { label: 'Web Service', description: '调用 Web Service 服务。', icon: GlobeIcon },
     card: WebServiceTaskCard,
     form: WebServiceTaskForm,
+    flow: { nodeSize: { width: DEFAULT_NODE_WIDTH, height: 130 } },
     variableOptions: responseVariableOptions,
     create: (context) => baseTask(context, {
       name: `webservice_${context.suffix}`,
@@ -279,7 +280,7 @@ registerCoreTaskPlugins([
         uri: 'http://localhost:8080/services/example',
         headers: { SOAPAction: '' },
         templateParameters: { payload: '${workflow.input}' },
-        soapTemplate: '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">\n  <soap:Body>\n    <requestId>${$.payload.requestId}</requestId>\n  </soap:Body>\n</soap:Envelope>',
+        soapTemplate: '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">\n  <soap:Body>\n    <requestId>$.payload.requestId</requestId>\n  </soap:Body>\n</soap:Envelope>',
         contentType: 'text/xml;charset=UTF-8',
         connectionTimeOut: 5000,
         readTimeOut: 30000,

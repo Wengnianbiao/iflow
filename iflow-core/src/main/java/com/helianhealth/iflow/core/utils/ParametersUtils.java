@@ -46,21 +46,6 @@ public class ParametersUtils {
 
     public Map<String, Object> getTaskInput(
             Map<String, Object> input, WorkflowModel workflow, String taskId) {
-        return getTaskInput(input, workflow, taskId, Map.of());
-    }
-
-    /**
-     * 解析任务入参，并把额外值合并到 JsonPath 根上下文。
-     *
-     * <p>额外值用于 WebService 等需要二阶段模板绑定的任务，例如局部参数
-     * {@code payload} 可通过 {@code ${$.payload.id}} 引用。额外值不能覆盖
-     * {@code workflow} 或已存在的任务引用名。
-     */
-    public Map<String, Object> getTaskInput(
-            Map<String, Object> input,
-            WorkflowModel workflow,
-            String taskId,
-            Map<String, Object> additionalContext) {
         Map<String, Object> inputParams = input == null ? new HashMap<>() : clone(input);
 
         Map<String, Object> inputMap = new HashMap<>();
@@ -102,22 +87,6 @@ public class ParametersUtils {
                     taskParams.put("iteration", task.getIteration());
                     inputMap.put(taskRefKey(task), taskParams);
                 });
-
-        if (additionalContext != null) {
-            additionalContext.forEach(
-                    (key, value) -> {
-                        if (key == null || key.isBlank()) {
-                            throw new IllegalArgumentException(
-                                    "template parameter name must not be blank");
-                        }
-                        if (inputMap.containsKey(key)) {
-                            throw new IllegalArgumentException(
-                                    "template parameter name conflicts with reserved context key: "
-                                            + key);
-                        }
-                        inputMap.put(key, value);
-                    });
-        }
 
         return replace(inputParams, parse(inputMap), taskId);
     }

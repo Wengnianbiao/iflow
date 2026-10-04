@@ -7,8 +7,8 @@ export function WebServiceTaskCard({ task }: TaskCardContentProps) {
   return (
     <div className="iflow-card-content iflow-http-content">
       <LinkIcon className="iflow-http-link-icon" size={18} />
-      <span className="iflow-method-badge">SOAP</span>
-      <span className="iflow-uri">{uri || '-'}</span>
+      <span className="iflow-method-badge">POST</span>
+      <span className="iflow-uri" title={uri}>{uri || '-'}</span>
     </div>
   )
 }

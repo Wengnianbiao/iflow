@@ -10,23 +10,24 @@ import {
 import { InlineScriptEditor } from './InlineScriptEditor'
 import { TaskPanelHeader } from './TaskPanelHeader'
 import { isRecord } from './formUtils'
+import { templateParameterText, updateTemplateParameter } from './templateParameters'
 
 export function WebServiceTaskForm({ task, variableOptions, onChange }: { task: WorkflowTask; variableOptions: string[]; onChange: (task: WorkflowTask) => void }) {
   const inputParameters = task.inputParameters ?? {}
   const headers = isRecord(inputParameters.headers) ? inputParameters.headers : {}
   const templateParameters = isRecord(inputParameters.templateParameters) ? inputParameters.templateParameters : {}
   const headerRows = Object.entries(headers).map(([key, value]) => ({ key, value: valueText(value) }))
-  const templateParameterRows = Object.entries(templateParameters).map(([key, value]) => ({ key, value: valueText(value) }))
+  const templateParameterEntries = Object.entries(templateParameters)
+  const templateParameterRows = templateParameterEntries.map(([key, value]) => ({ key, value: templateParameterText(value) }))
 
   const updateInputParameters = (next: Record<string, unknown>) => {
     onChange({ ...task, inputParameters: { ...inputParameters, ...next } })
   }
 
   const updateRows = (
-    field: 'headers' | 'templateParameters',
     rows: Array<{ key: string; value: string }>,
   ) => {
-    updateInputParameters({ [field]: Object.fromEntries(rows.map((item) => [item.key, item.value])) })
+    updateInputParameters({ headers: Object.fromEntries(rows.map((item) => [item.key, item.value])) })
   }
 
   const addRow = (field: 'headers' | 'templateParameters') => {
@@ -39,7 +40,7 @@ export function WebServiceTaskForm({ task, variableOptions, onChange }: { task: 
       index += 1
       key = field === 'headers' ? `header_${index}` : `parameter_${index}`
     }
-    updateRows(field, [...rows, { key, value: '' }])
+    updateInputParameters({ [field]: { ...values, [key]: '' } })
   }
 
   return (
@@ -48,22 +49,28 @@ export function WebServiceTaskForm({ task, variableOptions, onChange }: { task: 
 
       <WorkflowCollapsibleSection title="请求详情">
         <div className="inspector-form-grid webservice-request-grid">
+          <label className="inspector-field">
+            <span>Method</span>
+            <input value="POST" readOnly title="SOAP 请求使用 POST" />
+          </label>
           <label className="inspector-field webservice-uri-field">
-            <span>服务地址 <strong>*</strong></span>
+            <span>URL <strong>*</strong></span>
             <VariableExpressionInput value={String(inputParameters.uri ?? '')} options={variableOptions} onChange={(uri) => updateInputParameters({ uri })} />
           </label>
-          <label className="inspector-field">
-            <span>Content-Type</span>
-            <input value={String(inputParameters.contentType ?? '')} onChange={(event) => updateInputParameters({ contentType: event.target.value })} placeholder="text/xml;charset=UTF-8" />
-          </label>
-          <label className="inspector-field">
-            <span>connectionTimeOut (ms)</span>
-            <input value={String(inputParameters.connectionTimeOut ?? '')} onChange={(event) => updateInputParameters({ connectionTimeOut: numberOrUndefined(event.target.value) ?? event.target.value })} />
-          </label>
-          <label className="inspector-field">
-            <span>readTimeOut (ms)</span>
-            <input value={String(inputParameters.readTimeOut ?? '')} onChange={(event) => updateInputParameters({ readTimeOut: numberOrUndefined(event.target.value) ?? event.target.value })} />
-          </label>
+          <div className="inspector-form-grid webservice-request-options-grid">
+            <label className="inspector-field webservice-content-type-field">
+              <span>Content-Type</span>
+              <input value={String(inputParameters.contentType ?? '')} onChange={(event) => updateInputParameters({ contentType: event.target.value })} placeholder="text/xml;charset=UTF-8" />
+            </label>
+            <label className="inspector-field">
+              <span>ConnectionTimeout(ms)</span>
+              <input value={String(inputParameters.connectionTimeOut ?? '')} onChange={(event) => updateInputParameters({ connectionTimeOut: numberOrUndefined(event.target.value) ?? event.target.value })} />
+            </label>
+            <label className="inspector-field">
+              <span>ReadTimeout(ms)</span>
+              <input value={String(inputParameters.readTimeOut ?? '')} onChange={(event) => updateInputParameters({ readTimeOut: numberOrUndefined(event.target.value) ?? event.target.value })} />
+            </label>
+          </div>
         </div>
       </WorkflowCollapsibleSection>
 
@@ -76,9 +83,9 @@ export function WebServiceTaskForm({ task, variableOptions, onChange }: { task: 
           onChange={(index, next) => {
             const rows = [...headerRows]
             rows[index] = next
-            updateRows('headers', rows)
+            updateRows(rows)
           }}
-          onDelete={(index) => updateRows('headers', headerRows.filter((_, itemIndex) => itemIndex !== index))}
+          onDelete={(index) => updateRows(headerRows.filter((_, itemIndex) => itemIndex !== index))}
         />
         <button type="button" className="add-parameter-button" onClick={() => addRow('headers')}>
           <PlusCircleIcon size={15} />
@@ -92,18 +99,14 @@ export function WebServiceTaskForm({ task, variableOptions, onChange }: { task: 
           keyLabel="参数名"
           valueLabel="映射值"
           variableOptions={variableOptions}
-          onChange={(index, next) => {
-            const rows = [...templateParameterRows]
-            rows[index] = next
-            updateRows('templateParameters', rows)
-          }}
-          onDelete={(index) => updateRows('templateParameters', templateParameterRows.filter((_, itemIndex) => itemIndex !== index))}
+          onChange={(index, next) => updateInputParameters({ templateParameters: updateTemplateParameter(templateParameters, index, next) })}
+          onDelete={(index) => updateInputParameters({ templateParameters: Object.fromEntries(templateParameterEntries.filter((_, itemIndex) => itemIndex !== index)) })}
         />
         <button type="button" className="add-parameter-button" onClick={() => addRow('templateParameters')}>
           <PlusCircleIcon size={15} />
           添加模板参数
         </button>
-        <p className="field-help">映射值先解析工作流表达式；SOAP 模板通过 <code>{'${$.payload.xxx}'}</code> 读取。参数名不能使用 <code>workflow</code> 或任务引用名。</p>
+        <p className="field-help">参数值先由框架解析 <code>{'${...}'}</code>；SOAP 模板通过 <code>$.payload.xxx</code> 读取。支持 JSON 对象、数组、数字、布尔值和 null；改名保留原类型。</p>
       </WorkflowCollapsibleSection>
 
       <WorkflowCollapsibleSection title="SOAP 模板">
@@ -116,9 +119,9 @@ export function WebServiceTaskForm({ task, variableOptions, onChange }: { task: 
           codeLabel="soapTemplate"
           modalTitle="SOAP XML 模板编辑器"
         />
-        <p className="field-help">保留兼容语法 <code>{'${workflow.input.xxx}'}</code>；数组、重复标签或需 XML 转义的数据建议由前置 INLINE 生成完整 XML。</p>
+        <p className="field-help">使用 <code>$.patient.name</code>、<code>{"$.items[0]['display name']"}</code> 读取具体字段；文本和属性自动进行 XML 转义，CDATA 保留文本。缺失路径会使任务失败，null 输出空文本；<code>$$.path</code> 输出字面量 <code>$.path</code>。</p>
+        <p className="field-help">条件、循环或完整 XML 由前置 INLINE / MAPPING 准备；整体模板可使用 <code>{'${prepare.output.xml}'}</code>。不支持旧语法 <code>{'${$.xxx}'}</code>。</p>
       </WorkflowCollapsibleSection>
     </div>
   )
 }
-

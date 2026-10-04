@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import Editor, { type OnMount } from '@monaco-editor/react'
-import { ArrowsInSimpleIcon, ArrowsOutSimpleIcon, CopyIcon, XIcon } from '@phosphor-icons/react'
+import Editor, { type BeforeMount, type OnMount } from '@monaco-editor/react'
+import { ArrowsInSimpleIcon, ArrowsOutSimpleIcon, CopyIcon, MinusSquareIcon, PlusSquareIcon, XIcon } from '@phosphor-icons/react'
+import { registerSoapXmlEditor, SOAP_XML_LANGUAGE, SOAP_XML_THEME, soapXmlHighlightTokens } from './soapXmlEditor'
 
 export function InlineScriptEditor({
   value,
@@ -26,6 +27,14 @@ export function InlineScriptEditor({
   const [copied, setCopied] = useState(false)
   const [editorHeight, setEditorHeight] = useState(minHeight)
   const copyTimerRef = useRef<number | undefined>(undefined)
+  const editorRef = useRef<Parameters<OnMount>[0] | null>(null)
+  const isXml = language === 'xml'
+
+  const handleBeforeMount: BeforeMount = (monaco) => {
+    if (!isXml) return
+    registerSoapXmlEditor(monaco)
+    monaco.editor.setTheme(SOAP_XML_THEME)
+  }
 
   const copyCode = async () => {
     const legacyCopy = () => {
@@ -52,7 +61,23 @@ export function InlineScriptEditor({
     copyTimerRef.current = window.setTimeout(() => setCopied(false), 2200)
   }
 
-  const handleMount: OnMount = (editor) => {
+  const handleMount: OnMount = (editor, monaco) => {
+    editorRef.current = editor
+    const model = editor.getModel()
+    const decorations = isXml ? editor.createDecorationsCollection() : null
+    const highlightXml = () => {
+      if (!model || model.isDisposed() || !decorations) return
+      decorations.set(soapXmlHighlightTokens(model.getValue()).map((token) => {
+        const start = model.getPositionAt(token.start)
+        const end = model.getPositionAt(token.end)
+        return {
+          range: new monaco.Range(start.lineNumber, start.column, end.lineNumber, end.column),
+          options: { inlineClassName: `soap-xml-${token.kind}` },
+        }
+      }))
+    }
+    highlightXml()
+    const highlightListener = isXml ? model?.onDidChangeContent(highlightXml) : undefined
     const updateHeight = () => {
       const minimumHeight = expanded ? 520 : minHeight
       setEditorHeight(autoSize || expanded
@@ -60,8 +85,16 @@ export function InlineScriptEditor({
         : minimumHeight)
     }
 
-    editor.onDidContentSizeChange(updateHeight)
+    const heightListener = editor.onDidContentSizeChange(updateHeight)
+    editor.onDidDispose(() => {
+      heightListener.dispose()
+      highlightListener?.dispose()
+      decorations?.clear()
+      if (editorRef.current === editor) editorRef.current = null
+    })
     updateHeight()
+    editor.layout()
+    editor.render(true)
   }
 
   useEffect(() => {
@@ -90,18 +123,22 @@ export function InlineScriptEditor({
       </div>
       <Editor
         height={editorHeight}
-        language={language}
+        language={isXml ? SOAP_XML_LANGUAGE : language}
+        theme={isXml ? SOAP_XML_THEME : 'light'}
         value={value}
         onChange={(nextValue) => onChange(nextValue ?? '')}
         onMount={handleMount}
+        beforeMount={handleBeforeMount}
         options={{
           automaticLayout: true,
           contextmenu: true,
-          folding: false,
+          folding: isXml,
+          foldingStrategy: 'auto',
+          showFoldingControls: 'always',
           fontFamily: 'SFMono-Regular, Consolas, Liberation Mono, monospace',
           fontSize: 13,
           glyphMargin: false,
-          lineDecorationsWidth: 8,
+          lineDecorationsWidth: isXml ? 20 : 8,
           lineHeight: 22,
           lineNumbers: 'on',
           lineNumbersMinChars: 3,
@@ -123,6 +160,14 @@ export function InlineScriptEditor({
         }}
       />
       <div className="conductor-code-actions">
+        {isXml ? <>
+          <button type="button" title="折叠全部 XML" aria-label="折叠全部 XML" onClick={() => editorRef.current?.trigger('toolbar', 'editor.foldAll', undefined)}>
+            <MinusSquareIcon size={20} />
+          </button>
+          <button type="button" title="展开全部 XML" aria-label="展开全部 XML" onClick={() => editorRef.current?.trigger('toolbar', 'editor.unfoldAll', undefined)}>
+            <PlusSquareIcon size={20} />
+          </button>
+        </> : null}
         <button
           type="button"
           title={expanded ? '收起代码编辑器' : '展开代码编辑器'}
