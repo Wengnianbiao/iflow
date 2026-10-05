@@ -21,54 +21,54 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
- * Agent Extension Loader - AgentSPI Dynamic Loader
+ * Extension Loader - SPI Dynamic Loader
  * <p>
  * Reference implementation based on Dubbo ExtensionLoader, providing a flexible SPI mechanism
  * for dynamic extension loading and management.
  * <p>
  * <b>Core Features:</b>
  * <ul>
- * <li>Static Loading: Read configuration from META-INF/agent/ directory</li>
+ * <li>Static Loading: Read configuration from META-INF/iflow/ directory</li>
  * <li>Dynamic Registration: Add/replace extensions at runtime</li>
  * <li>IOC Injection: Auto-inject SPI dependencies through constructor</li>
- * <li>Adaptive Proxy: Dynamically select extension implementation (supports @AgentAdaptive)</li>
- * <li>Activate Extensions: Auto-activate extensions based on conditions (supports @AgentActivate)</li>
+ * <li>Adaptive Proxy: Dynamically select extension implementation (supports @Adaptive)</li>
+ * <li>Activate Extensions: Auto-activate extensions based on conditions (supports @Activate)</li>
  * </ul>
  * <p>
  * <b>Usage Examples:</b>
  * <pre>{@code
  * // Get specific extension
- * InterfaceRemoteInvoker invoker = AgentExtensionLoader
+ * InterfaceRemoteInvoker invoker = ExtensionLoader
  *     .getExtensionLoader(InterfaceRemoteInvoker.class)
  *     .getExtension("http");
  *
  * // Get adaptive extension
- * InterfaceRemoteInvoker adaptive = AgentExtensionLoader
+ * InterfaceRemoteInvoker adaptive = ExtensionLoader
  *     .getExtensionLoader(InterfaceRemoteInvoker.class)
  *     .getAdaptiveExtension();
  *
  * // Get activate extension list
- * List<Filter> filters = AgentExtensionLoader
+ * List<Filter> filters = ExtensionLoader
  *     .getExtensionLoader(Filter.class)
  *     .getActivateExtensions(params);
  * }</pre>
  *
  * @param <T> the extension interface type
  */
-public class AgentExtensionLoader<T> {
+public class ExtensionLoader<T> {
 
-    private static final Logger log = LoggerFactory.getLogger(AgentExtensionLoader.class);
+    private static final Logger log = LoggerFactory.getLogger(ExtensionLoader.class);
 
     /**
      * 静态配置文件目录
      */
-    private static final String AGENT_DIRECTORY = "META-INF/agent/";
+    private static final String EXTENSION_DIRECTORY = "META-INF/iflow/";
 
     /**
      * Loader缓存
      * key: 接口类, value: loader实例
      */
-    private static final ConcurrentMap<Class<?>, AgentExtensionLoader<?>> EXTENSION_LOADERS =
+    private static final ConcurrentMap<Class<?>, ExtensionLoader<?>> EXTENSION_LOADERS =
         new ConcurrentHashMap<>(64);
 
     // ==============================
@@ -91,7 +91,7 @@ public class AgentExtensionLoader<T> {
     private final Holder<T> cachedAdaptiveInstance = new Holder<>();
 
     /**
-     * 自定义自适应扩展类（标注@AgentAdaptive的类）
+     * 自定义自适应扩展类（标注@Adaptive的类）
      */
     private volatile Class<?> cachedAdaptiveClass;
 
@@ -102,9 +102,9 @@ public class AgentExtensionLoader<T> {
 
     /**
      * Activate注解缓存
-     * key: 扩展名, value: AgentActivate注解
+     * key: 扩展名, value: Activate注解
      */
-    private final Map<String, AgentActivate> cachedActivates = new ConcurrentHashMap<>();
+    private final Map<String, Activate> cachedActivates = new ConcurrentHashMap<>();
 
     /**
      * 扩展接口类型
@@ -124,13 +124,13 @@ public class AgentExtensionLoader<T> {
     /**
      * 扩展工厂（用于依赖注入）
      */
-    private final AgentExtensionFactory extensionFactory;
+    private final ExtensionFactory extensionFactory;
 
-    private AgentExtensionLoader(Class<T> type) {
+    private ExtensionLoader(Class<T> type) {
         this.type = type;
         this.registry = ExtensionRegistry.getInstance();
-        this.extensionFactory = (type == AgentExtensionFactory.class ? null :
-            AgentExtensionLoader.getExtensionLoader(AgentExtensionFactory.class).getAdaptiveExtension());
+        this.extensionFactory = (type == ExtensionFactory.class ? null :
+            ExtensionLoader.getExtensionLoader(ExtensionFactory.class).getAdaptiveExtension());
     }
 
     /**
@@ -138,10 +138,10 @@ public class AgentExtensionLoader<T> {
      * <p>用于动态 SPI 管理场景：调用方仅持有接口字符串（库表字段），
      * 无需自行处理 {@link Class#forName(String)} 与 {@link ClassNotFoundException}。
      *
-     * @param spiInterfaceFqcn SPI 接口的全限定名（必须为接口且标注 {@code @AgentSPI}）
+     * @param spiInterfaceFqcn SPI 接口的全限定名（必须为接口且标注 {@code @SPI}）
      * @throws IllegalArgumentException 若类未找到或不是合法的 SPI 接口
      */
-    public static AgentExtensionLoader<?> getExtensionLoader(String spiInterfaceFqcn) {
+    public static ExtensionLoader<?> getExtensionLoader(String spiInterfaceFqcn) {
         if (spiInterfaceFqcn == null || spiInterfaceFqcn.isEmpty()) {
             throw new IllegalArgumentException("Extension type FQCN is blank");
         }
@@ -157,26 +157,26 @@ public class AgentExtensionLoader<T> {
     /**
      * 获取扩展加载器
      *
-     * @param type 接口类型（必须标注@AgentSPI）
+     * @param type 接口类型（必须标注@SPI）
      */
     @SuppressWarnings("unchecked")
-    public static <T> AgentExtensionLoader<T> getExtensionLoader(Class<T> type) {
+    public static <T> ExtensionLoader<T> getExtensionLoader(Class<T> type) {
         if (type == null) {
             throw new IllegalArgumentException("Extension type == null");
         }
         if (!type.isInterface()) {
             throw new IllegalArgumentException("Extension type (" + type + ") is not interface!");
         }
-        if (!type.isAnnotationPresent(AgentSPI.class)) {
+        if (!type.isAnnotationPresent(SPI.class)) {
             throw new IllegalArgumentException("Extension type (" + type +
-                ") is not extension, because without @AgentSPI Annotation!");
+                ") is not extension, because without @SPI Annotation!");
         }
 
         // 这里有一个jdk8的bug，ConcurrentHashMap的computeIfAbsent会存在deadlock问题
-        AgentExtensionLoader<T> loader = (AgentExtensionLoader<T>) EXTENSION_LOADERS.get(type);
+        ExtensionLoader<T> loader = (ExtensionLoader<T>) EXTENSION_LOADERS.get(type);
         if (loader == null) {
-            EXTENSION_LOADERS.putIfAbsent(type, new AgentExtensionLoader<>(type));
-            loader = (AgentExtensionLoader<T>) EXTENSION_LOADERS.get(type);
+            EXTENSION_LOADERS.putIfAbsent(type, new ExtensionLoader<>(type));
+            loader = (ExtensionLoader<T>) EXTENSION_LOADERS.get(type);
         }
         return loader;
     }
@@ -259,7 +259,7 @@ public class AgentExtensionLoader<T> {
      * 全量加载当前 type 的扩展类配置
      */
     private Map<String, Class<?>> loadExtensionClasses() {
-        AgentSPI spi = type.getAnnotation(AgentSPI.class);
+        SPI spi = type.getAnnotation(SPI.class);
         if (spi != null && !spi.value().isEmpty()) {
             this.defaultExtensionName = spi.value();
         }
@@ -270,7 +270,7 @@ public class AgentExtensionLoader<T> {
     }
 
     private void loadDirectory(Map<String, Class<?>> classes) {
-        String fileName = AgentExtensionLoader.AGENT_DIRECTORY + type.getName();
+        String fileName = ExtensionLoader.EXTENSION_DIRECTORY + type.getName();
         try {
             ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
             Enumeration<URL> urls = classLoader.getResources(fileName);
@@ -331,7 +331,7 @@ public class AgentExtensionLoader<T> {
     /**
      * 获取自适应扩展
      * 自适应扩展会根据运行时参数动态选择具体实现
-     * 如果存在@AgentAdaptive标注的类，则优先使用
+     * 如果存在@Adaptive标注的类，则优先使用
      */
     public T getAdaptiveExtension() {
         T instance = cachedAdaptiveInstance.get();
@@ -350,7 +350,7 @@ public class AgentExtensionLoader<T> {
     /**
      * 获取激活扩展列表
      *
-     * @param params 上下文参数，用于匹配@AgentActivate的value条件
+     * @param params 上下文参数，用于匹配@Activate的value条件
      * @return 按order排序的扩展列表
      */
     public List<T> getActivateExtensions(Map<String, String> params) {
@@ -359,7 +359,7 @@ public class AgentExtensionLoader<T> {
         // 遍历所有已注册的扩展
         for (String name : getSupportedExtensions()) {
             T extension = getExtension(name);
-            AgentActivate activate = cachedActivates.get(name);
+            Activate activate = cachedActivates.get(name);
 
             if (activate == null) {
                 continue;
@@ -407,8 +407,8 @@ public class AgentExtensionLoader<T> {
                 " does not implement " + type.getName());
         }
 
-        // 检查是否是@AgentAdaptive标注的类
-        if (clazz.isAnnotationPresent(AgentAdaptive.class)) {
+        // 检查是否是@Adaptive标注的类
+        if (clazz.isAnnotationPresent(Adaptive.class)) {
             if (cachedAdaptiveClass == null) {
                 cachedAdaptiveClass = clazz;
             } else if (!cachedAdaptiveClass.equals(clazz)) {
@@ -601,7 +601,7 @@ public class AgentExtensionLoader<T> {
     /**
      * 创建自适应扩展实例
      * 触发全量加载（确保cachedAdaptiveClass被扫描到），
-     * 如果存在@AgentAdaptive标注的类则返回，否则返回null走动态代理路径
+     * 如果存在@Adaptive标注的类则返回，否则返回null走动态代理路径
      */
     @SuppressWarnings("unchecked")
     private T createAdaptiveExtension() {
@@ -673,8 +673,8 @@ public class AgentExtensionLoader<T> {
                     "class %s is not subtype of interface.", type, className, className));
         }
 
-        // 检查是否是@AgentAdaptive标注的类
-        if (clazz.isAnnotationPresent(AgentAdaptive.class)) {
+        // 检查是否是@Adaptive标注的类
+        if (clazz.isAnnotationPresent(Adaptive.class)) {
             if (cachedAdaptiveClass == null) {
                 cachedAdaptiveClass = clazz;
                 log.info("Found adaptive extension class: {} for {}", clazz.getName(), type.getName());
@@ -683,7 +683,7 @@ public class AgentExtensionLoader<T> {
                     String.format("More than 1 adaptive class found: %s, %s",
                         cachedAdaptiveClass.getName(), clazz.getName()));
             }
-            // @AgentAdaptive类不注册到registry
+            // @Adaptive类不注册到registry
             return;
         }
 
@@ -712,7 +712,7 @@ public class AgentExtensionLoader<T> {
     }
 
     private void cacheActivateAnnotation(String name, Class<?> clazz) {
-        AgentActivate activate = clazz.getAnnotation(AgentActivate.class);
+        Activate activate = clazz.getAnnotation(Activate.class);
         if (activate != null) {
             cachedActivates.put(name, activate);
         }
@@ -734,7 +734,7 @@ public class AgentExtensionLoader<T> {
     /**
      * 检查value条件是否满足
      */
-    private boolean isActive(AgentActivate activate, Map<String, String> params) {
+    private boolean isActive(Activate activate, Map<String, String> params) {
         String[] keys = activate.value();
         if (keys == null || keys.length == 0) {
             return true;  // value为空，总是激活
@@ -762,9 +762,9 @@ public class AgentExtensionLoader<T> {
     private static class ActivateInfo<T> implements Comparable<ActivateInfo<T>> {
         final String name;
         final T extension;
-        final AgentActivate activate;
+        final Activate activate;
 
-        ActivateInfo(String name, T extension, AgentActivate activate) {
+        ActivateInfo(String name, T extension, Activate activate) {
             this.name = name;
             this.extension = extension;
             this.activate = activate;

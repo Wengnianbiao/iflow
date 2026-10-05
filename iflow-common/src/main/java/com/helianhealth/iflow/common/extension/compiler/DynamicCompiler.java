@@ -17,9 +17,7 @@ import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.AccessController;
 import java.security.MessageDigest;
-import java.security.PrivilegedAction;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -59,6 +57,7 @@ public class DynamicCompiler {
         // iFlow 的编译基线是 Java 17。使用 --release 同时约束语言特性、JDK API 与字节码版本，
         // 即使应用由更高版本 JDK 启动，在线扩展仍保持 Java 17 兼容。
         this(Arrays.asList("--release", "17", "-proc:none", "-parameters"));
+
     }
 
     private DynamicCompiler(List<String> compileOptions) {
@@ -550,9 +549,8 @@ public class DynamicCompiler {
         sourceCode = preprocessLombok(fullClassName, sourceCode);
 
         // 每次编译创建独立的ClassLoader，支持类的热替换
-        DynamicClassLoader classLoader = AccessController.doPrivileged(
-            (PrivilegedAction<DynamicClassLoader>) () -> new DynamicClassLoader(Thread.currentThread().getContextClassLoader())
-        );
+        DynamicClassLoader classLoader = new DynamicClassLoader(
+            Thread.currentThread().getContextClassLoader());
         DynamicFileManager fileManager = new DynamicFileManager(standardFileManager, classLoader);
         DiagnosticCollector<JavaFileObject> diagnosticCollector = new DiagnosticCollector<>();
 

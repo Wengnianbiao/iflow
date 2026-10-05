@@ -7,26 +7,26 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Agent Activate扩展注解
- *
+ * Activate扩展注解
+ * <p>
  * 用于标识扩展的自动激活条件，当调用getActivateExtensions时，
  * 会根据此注解的条件筛选并排序扩展实现。
- *
+ * <p>
  * 使用示例：
  * <pre>
  * // 当存在token参数时生效
- * {@code @AgentActivate(value = "token")}
+ * {@code @Activate(value = "token")}
  * public class TokenFilter implements Filter { }
  *
  * // 指定排序（值越小越靠前）
- * {@code @AgentActivate(order = 100)}
+ * {@code @Activate(order = 100)}
  * public class LogFilter implements Filter { }
  * </pre>
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.TYPE, ElementType.METHOD})
-public @interface AgentActivate {
+public @interface Activate {
 
     /**
      * 参数条件

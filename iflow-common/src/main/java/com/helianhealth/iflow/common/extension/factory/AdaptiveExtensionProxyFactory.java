@@ -1,7 +1,7 @@
 package com.helianhealth.iflow.common.extension.factory;
 
-import com.helianhealth.iflow.common.extension.AgentAdaptive;
-import com.helianhealth.iflow.common.extension.AgentExtensionLoader;
+import com.helianhealth.iflow.common.extension.Adaptive;
+import com.helianhealth.iflow.common.extension.ExtensionLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -11,21 +11,21 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 
 /**
- * Agent Adaptive Extension Proxy
+ * Adaptive Extension Proxy
  * <p>
  * Adaptive extension proxy that extracts attribute values from method parameter objects
- * as extension names based on {@code @AgentAdaptive} annotation configuration.
+ * as extension names based on {@code @Adaptive} annotation configuration.
  * <p>
  * <b>Extension Name Extraction Strategy:</b>
  * <ol>
- * <li>Read the value from {@code @AgentAdaptive} annotation on the method</li>
+ * <li>Read the value from {@code @Adaptive} annotation on the method</li>
  * <li>Convert the value to getter method name (e.g., "nodeType" -> "getNodeType")</li>
  * <li>Invoke the getter on parameter objects to retrieve the extension name</li>
  * </ol>
  * <p>
  * <b>Usage Example:</b>
  * <pre>{@code
- * @AgentAdaptive("nodeType")
+ * @Adaptive("nodeType")
  * Map<String, Object> doInvoke(InterfaceWorkflowNode flowNode, List params);
  *
  * // When invoked, it will call flowNode.getNodeType() to get the extension name
@@ -44,7 +44,7 @@ public class AdaptiveExtensionProxyFactory {
      * @return the adaptive proxy instance
      */
     @SuppressWarnings("unchecked")
-    public static <T> T createProxy(Class<T> interfaceClass, AgentExtensionLoader<T> loader) {
+    public static <T> T createProxy(Class<T> interfaceClass, ExtensionLoader<T> loader) {
         return (T) Proxy.newProxyInstance(
             interfaceClass.getClassLoader(),
             new Class<?>[]{interfaceClass},
@@ -60,9 +60,9 @@ public class AdaptiveExtensionProxyFactory {
     private static class AdaptiveInvocationHandler<T> implements InvocationHandler {
 
         private final Class<T> interfaceClass;
-        private final AgentExtensionLoader<T> loader;
+        private final ExtensionLoader<T> loader;
 
-        AdaptiveInvocationHandler(Class<T> interfaceClass, AgentExtensionLoader<T> loader) {
+        AdaptiveInvocationHandler(Class<T> interfaceClass, ExtensionLoader<T> loader) {
             this.interfaceClass = interfaceClass;
             this.loader = loader;
         }
@@ -81,14 +81,14 @@ public class AdaptiveExtensionProxyFactory {
                 return "AdaptiveProxy@" + interfaceClass.getSimpleName();
             }
 
-            // Get @AgentAdaptive annotation from method
-            AgentAdaptive adaptive = method.getAnnotation(AgentAdaptive.class);
+            // Get @Adaptive annotation from method
+            Adaptive adaptive = method.getAnnotation(Adaptive.class);
 
             // Extract extension name
             String extensionName = null;
 
             if (adaptive != null && adaptive.value().length > 0) {
-                // Extract by @AgentAdaptive configured property name
+                // Extract by @Adaptive configured property name
                 extensionName = extractByAdaptiveConfig(adaptive.value(), args);
             }
             // Fallback: use default extension
@@ -99,7 +99,7 @@ public class AdaptiveExtensionProxyFactory {
             if (extensionName == null || extensionName.isEmpty()) {
                 throw new IllegalStateException(
                     "Cannot determine extension name for " + interfaceClass.getName() +
-                    "." + methodName + "(), please check @AgentAdaptive configuration");
+                    "." + methodName + "(), please check @Adaptive configuration");
             }
 
             // Get extension and invoke
@@ -120,7 +120,7 @@ public class AdaptiveExtensionProxyFactory {
         }
 
         /**
-         * Extract extension name by property names configured in {@code @AgentAdaptive}
+         * Extract extension name by property names configured in {@code @Adaptive}
          *
          * @param keys configured property name array, e.g., {"nodeType", "type"}
          * @param args method arguments

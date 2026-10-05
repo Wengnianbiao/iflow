@@ -1,8 +1,8 @@
 package com.helianhealth.iflow.common.extension.factory;
 
-import com.helianhealth.iflow.common.extension.AgentAdaptive;
-import com.helianhealth.iflow.common.extension.AgentExtensionFactory;
-import com.helianhealth.iflow.common.extension.AgentExtensionLoader;
+import com.helianhealth.iflow.common.extension.Adaptive;
+import com.helianhealth.iflow.common.extension.ExtensionFactory;
+import com.helianhealth.iflow.common.extension.ExtensionLoader;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -17,16 +17,16 @@ import java.util.List;
  * 2. SpringExtensionFactory - 从Spring容器获取
  * </p>
  */
-@AgentAdaptive
-public class AgentAdaptiveExtensionFactory implements AgentExtensionFactory {
+@Adaptive
+public class AdaptiveExtensionFactory implements ExtensionFactory {
 
-    private final List<AgentExtensionFactory> factories;
+    private final List<ExtensionFactory> factories;
 
-    public AgentAdaptiveExtensionFactory() {
-        AgentExtensionLoader<AgentExtensionFactory> loader =
-            AgentExtensionLoader.getExtensionLoader(AgentExtensionFactory.class);
+    public AdaptiveExtensionFactory() {
+        ExtensionLoader<ExtensionFactory> loader =
+            ExtensionLoader.getExtensionLoader(ExtensionFactory.class);
 
-        List<AgentExtensionFactory> list = new ArrayList<>();
+        List<ExtensionFactory> list = new ArrayList<>();
         for (String name : loader.getSupportedExtensions()) {
             list.add(loader.getExtension(name));
         }
@@ -36,7 +36,7 @@ public class AgentAdaptiveExtensionFactory implements AgentExtensionFactory {
     @Override
     public <T> T getExtension(Class<T> type, String name) {
         // 按顺序尝试所有工厂，返回第一个非null结果
-        for (AgentExtensionFactory factory : factories) {
+        for (ExtensionFactory factory : factories) {
             T extension = factory.getExtension(type, name);
             if (extension != null) {
                 return extension;

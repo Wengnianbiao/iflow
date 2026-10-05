@@ -7,7 +7,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Agent Adaptive扩展注解
+ * Adaptive扩展注解
  * <p>
  * 用于标识自适应扩展类或方法：
  * 1. 标注在实现类上：表示该类是自定义的自适应扩展实现
@@ -16,14 +16,14 @@ import java.lang.annotation.Target;
  * 使用示例：
  * <pre>
  * // 方式1：标注在接口方法上，自动生成代理
- * {@code @AgentSPI("default")}
+ * {@code @SPI("default")}
  * public interface MyService {
- *     {@code @AgentAdaptive}
+ *     {@code @Adaptive}
  *     void process(String extensionName, Object data);
  * }
  *
  * // 方式2：标注在实现类上，使用自定义自适应逻辑
- * {@code @AgentAdaptive}
+ * {@code @Adaptive}
  * public class MyServiceAdaptive implements MyService {
  *     public void process(String extensionName, Object data) {
  *         // 自定义选择逻辑
@@ -34,7 +34,7 @@ import java.lang.annotation.Target;
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.TYPE, ElementType.METHOD})
-public @interface AgentAdaptive {
+public @interface Adaptive {
 
     /**
      * 用于从参数中提取扩展名的key

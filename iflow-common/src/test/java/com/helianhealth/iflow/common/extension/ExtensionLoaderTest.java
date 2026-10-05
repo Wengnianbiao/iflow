@@ -13,20 +13,20 @@ import java.util.concurrent.ConcurrentMap;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * AgentExtensionLoader 单元测试
+ * ExtensionLoader 单元测试
  *
  * 测试策略：
  * - 使用真实的测试 SPI 接口和配置文件，验证完整的扩展加载机制
- * - 测试 fixture 定义在 fixture 包下，配置文件在 test/resources/META-INF/agent/
+ * - 测试 fixture 定义在 fixture 包下，配置文件在 test/resources/META-INF/iflow/
  * - 每个测试后清理静态缓存，保证测试隔离
  */
-class AgentExtensionLoaderTest {
+class ExtensionLoaderTest {
 
-    private AgentExtensionLoader<TestExtension> loader;
+    private ExtensionLoader<TestExtension> loader;
 
     @BeforeEach
     void setUp() {
-        loader = AgentExtensionLoader.getExtensionLoader(TestExtension.class);
+        loader = ExtensionLoader.getExtensionLoader(TestExtension.class);
     }
 
     @AfterEach
@@ -34,10 +34,10 @@ class AgentExtensionLoaderTest {
         // 清理实例缓存
         loader.clearCache();
         // 清理静态 EXTENSION_LOADERS 中的 TestExtension loader，保证测试隔离
-        Field field = AgentExtensionLoader.class.getDeclaredField("EXTENSION_LOADERS");
+        Field field = ExtensionLoader.class.getDeclaredField("EXTENSION_LOADERS");
         field.setAccessible(true);
-        ConcurrentMap<Class<?>, AgentExtensionLoader<?>> loaders =
-                (ConcurrentMap<Class<?>, AgentExtensionLoader<?>>) field.get(null);
+        ConcurrentMap<Class<?>, ExtensionLoader<?>> loaders =
+                (ConcurrentMap<Class<?>, ExtensionLoader<?>>) field.get(null);
         loaders.remove(TestExtension.class);
     }
 
@@ -50,18 +50,18 @@ class AgentExtensionLoaderTest {
         @Test
         @DisplayName("正常获取Loader")
         void getExtensionLoader_valid() {
-            AgentExtensionLoader<TestExtension> result =
-                    AgentExtensionLoader.getExtensionLoader(TestExtension.class);
+            ExtensionLoader<TestExtension> result =
+                    ExtensionLoader.getExtensionLoader(TestExtension.class);
             assertNotNull(result);
         }
 
         @Test
         @DisplayName("同一接口返回同一Loader实例（单例）")
         void getExtensionLoader_singleton() {
-            AgentExtensionLoader<TestExtension> loader1 =
-                    AgentExtensionLoader.getExtensionLoader(TestExtension.class);
-            AgentExtensionLoader<TestExtension> loader2 =
-                    AgentExtensionLoader.getExtensionLoader(TestExtension.class);
+            ExtensionLoader<TestExtension> loader1 =
+                    ExtensionLoader.getExtensionLoader(TestExtension.class);
+            ExtensionLoader<TestExtension> loader2 =
+                    ExtensionLoader.getExtensionLoader(TestExtension.class);
             assertSame(loader1, loader2);
         }
 
@@ -69,37 +69,37 @@ class AgentExtensionLoaderTest {
         @DisplayName("null类型抛出IllegalArgumentException")
         void getExtensionLoader_null() {
             assertThrows(IllegalArgumentException.class,
-                    () -> AgentExtensionLoader.getExtensionLoader((Class<?>) null));
+                    () -> ExtensionLoader.getExtensionLoader((Class<?>) null));
         }
 
         @Test
         @DisplayName("空字符串 FQCN 抛出 IllegalArgumentException")
         void getExtensionLoader_blankFqcn() {
             assertThrows(IllegalArgumentException.class,
-                    () -> AgentExtensionLoader.getExtensionLoader((String) null));
+                    () -> ExtensionLoader.getExtensionLoader((String) null));
             assertThrows(IllegalArgumentException.class,
-                    () -> AgentExtensionLoader.getExtensionLoader(""));
+                    () -> ExtensionLoader.getExtensionLoader(""));
         }
 
         @Test
         @DisplayName("FQCN 类不存在抛出 IllegalArgumentException")
         void getExtensionLoader_classNotFound() {
             assertThrows(IllegalArgumentException.class,
-                    () -> AgentExtensionLoader.getExtensionLoader("com.no.such.Class"));
+                    () -> ExtensionLoader.getExtensionLoader("com.no.such.Class"));
         }
 
         @Test
         @DisplayName("非接口类型抛出IllegalArgumentException")
         void getExtensionLoader_notInterface() {
             assertThrows(IllegalArgumentException.class,
-                    () -> AgentExtensionLoader.getExtensionLoader(String.class));
+                    () -> ExtensionLoader.getExtensionLoader(String.class));
         }
 
         @Test
-        @DisplayName("无@AgentSPI注解的接口抛出IllegalArgumentException")
+        @DisplayName("无@SPI注解的接口抛出IllegalArgumentException")
         void getExtensionLoader_noAnnotation() {
             assertThrows(IllegalArgumentException.class,
-                    () -> AgentExtensionLoader.getExtensionLoader(Runnable.class));
+                    () -> ExtensionLoader.getExtensionLoader(Runnable.class));
         }
     }
 
@@ -162,7 +162,7 @@ class AgentExtensionLoaderTest {
     class GetDefaultExtensionTests {
 
         @Test
-        @DisplayName("获取默认扩展（@AgentSPI(\"default\")）")
+        @DisplayName("获取默认扩展（@SPI(\"default\")）")
         void getDefaultExtension_exists() {
             TestExtension ext = loader.getDefaultExtension();
             assertNotNull(ext);
@@ -512,8 +512,8 @@ class AgentExtensionLoaderTest {
         void getActivateExtensions_noParams() {
             List<TestExtension> extensions = loader.getActivateExtensions();
 
-            // high-priority 的 @AgentActivate 没有 value 条件，无条件激活
-            // activated 的 @AgentActivate(value="token") 需要 token 参数才激活
+            // high-priority 的 @Activate 没有 value 条件，无条件激活
+            // activated 的 @Activate(value="token") 需要 token 参数才激活
             assertFalse(extensions.isEmpty());
             // 只有 high-priority 应该返回（无条件激活）
             assertEquals(1, extensions.size());

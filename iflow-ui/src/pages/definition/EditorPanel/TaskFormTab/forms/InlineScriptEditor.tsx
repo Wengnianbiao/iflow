@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import Editor, { type BeforeMount, type OnMount } from '@monaco-editor/react'
 import { ArrowsInSimpleIcon, ArrowsOutSimpleIcon, CopyIcon, MinusSquareIcon, PlusSquareIcon, XIcon } from '@phosphor-icons/react'
 import { registerSoapXmlEditor, SOAP_XML_LANGUAGE, SOAP_XML_THEME, soapXmlHighlightTokens } from './soapXmlEditor'
+import { JAVA_SOURCE_CLASS, JAVA_SOURCE_LANGUAGE, javaSourceDecorations, registerJavaSourceEditor } from './javaSourceEditor'
 import { useValidationFieldPath, useValidationFocus, useValidationReadOnly } from '../../../validation/ValidationScope'
 
 export function InlineScriptEditor({
@@ -14,6 +15,7 @@ export function InlineScriptEditor({
   codeLabel = 'Code',
   modalTitle = 'Code Editor',
   autoSize = true,
+  showToolbar = false,
 }: {
   value: string
   onChange: (value: string) => void
@@ -23,6 +25,7 @@ export function InlineScriptEditor({
   codeLabel?: string
   modalTitle?: string
   autoSize?: boolean
+  showToolbar?: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -30,6 +33,7 @@ export function InlineScriptEditor({
   const copyTimerRef = useRef<number | undefined>(undefined)
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null)
   const isXml = language === 'xml'
+  const isJava = language === 'java'
   const focus = useValidationFocus()
   const fieldPath = useValidationFieldPath()
   const readOnly = useValidationReadOnly()
@@ -46,6 +50,7 @@ export function InlineScriptEditor({
   useEffect(() => { focusEditor() }, [focus])
 
   const handleBeforeMount: BeforeMount = (monaco) => {
+    if (isJava) registerJavaSourceEditor(monaco)
     if (!isXml) return
     registerSoapXmlEditor(monaco)
     monaco.editor.setTheme(SOAP_XML_THEME)
@@ -79,9 +84,13 @@ export function InlineScriptEditor({
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor
     const model = editor.getModel()
-    const decorations = isXml ? editor.createDecorationsCollection() : null
-    const highlightXml = () => {
+    const decorations = isXml || isJava ? editor.createDecorationsCollection() : null
+    const highlightSource = () => {
       if (!model || model.isDisposed() || !decorations) return
+      if (isJava) {
+        decorations.set(javaSourceDecorations(monaco, model.getValue()))
+        return
+      }
       decorations.set(soapXmlHighlightTokens(model.getValue()).map((token) => {
         const start = model.getPositionAt(token.start)
         const end = model.getPositionAt(token.end)
@@ -91,8 +100,8 @@ export function InlineScriptEditor({
         }
       }))
     }
-    highlightXml()
-    const highlightListener = isXml ? model?.onDidChangeContent(highlightXml) : undefined
+    highlightSource()
+    const highlightListener = isXml || isJava ? model?.onDidChangeContent(highlightSource) : undefined
     const updateHeight = () => {
       const minimumHeight = expanded ? 520 : minHeight
       setEditorHeight(autoSize || expanded
@@ -131,31 +140,71 @@ export function InlineScriptEditor({
     }
   }, [expanded])
 
+  const actions = (
+    <div className="conductor-code-actions" role="group" aria-label="代码操作">
+      {isXml || isJava ? <>
+        <button type="button" title={isJava ? '折叠全部 Java 代码' : '折叠全部 XML'} aria-label={isJava ? '折叠全部 Java 代码' : '折叠全部 XML'} onClick={() => editorRef.current?.trigger('toolbar', 'editor.foldAll', undefined)}>
+          <MinusSquareIcon size={showToolbar ? 16 : 20} />
+          {showToolbar ? <span>折叠</span> : null}
+        </button>
+        <button type="button" title={isJava ? '展开全部 Java 代码' : '展开全部 XML'} aria-label={isJava ? '展开全部 Java 代码' : '展开全部 XML'} onClick={() => editorRef.current?.trigger('toolbar', 'editor.unfoldAll', undefined)}>
+          <PlusSquareIcon size={showToolbar ? 16 : 20} />
+          {showToolbar ? <span>展开</span> : null}
+        </button>
+      </> : null}
+      <button
+        type="button"
+        title={expanded ? '收起代码编辑器' : '展开代码编辑器'}
+        aria-label={expanded ? '收起代码编辑器' : '展开代码编辑器'}
+        onClick={() => setExpanded((current) => !current)}
+      >
+        {expanded ? <ArrowsInSimpleIcon size={showToolbar ? 16 : 20} /> : <ArrowsOutSimpleIcon size={showToolbar ? 16 : 20} />}
+        {showToolbar ? <span>{isJava ? expanded ? '还原' : '放大' : expanded ? '收起' : '展开'}</span> : null}
+      </button>
+      <button type="button" title="复制代码" aria-label="复制代码" onClick={() => void copyCode()}>
+        <CopyIcon size={showToolbar ? 16 : 20} />
+        {showToolbar ? <span>{copied ? '已复制' : '复制'}</span> : null}
+      </button>
+    </div>
+  )
+
   const editor = (
-    <div className={`conductor-code-input ${expanded ? 'expanded' : ''}`}>
-      <div className="conductor-code-label" aria-hidden="true">
-        <span>{codeLabel}</span>
-        <strong>{languageLabel}</strong>
-      </div>
+    <div className={`conductor-code-input ${expanded ? 'expanded' : ''} ${showToolbar ? 'with-toolbar' : ''} ${isJava ? JAVA_SOURCE_CLASS : ''}`}>
+      {showToolbar ? (
+        <div className="conductor-code-toolbar">
+          <div className="conductor-code-toolbar-label"><span>{codeLabel}</span><strong>{languageLabel}</strong></div>
+          {actions}
+        </div>
+      ) : (
+        <div className="conductor-code-label" aria-hidden="true">
+          <span>{codeLabel}</span>
+          <strong>{languageLabel}</strong>
+        </div>
+      )}
       <Editor
         height={editorHeight}
-        language={isXml ? SOAP_XML_LANGUAGE : language}
+        language={isXml ? SOAP_XML_LANGUAGE : isJava ? JAVA_SOURCE_LANGUAGE : language}
         theme={isXml ? SOAP_XML_THEME : 'light'}
         value={value}
         onChange={(nextValue) => onChange(nextValue ?? '')}
         onMount={handleMount}
         beforeMount={handleBeforeMount}
         options={{
+          ariaLabel: codeLabel,
           readOnly,
           automaticLayout: true,
           contextmenu: true,
-          folding: isXml,
+          ...(isJava ? {
+            bracketPairColorization: { enabled: true },
+            guides: { bracketPairs: true, highlightActiveIndentation: true },
+          } : {}),
+          folding: isXml || isJava,
           foldingStrategy: 'auto',
           showFoldingControls: 'always',
           fontFamily: 'SFMono-Regular, Consolas, Liberation Mono, monospace',
           fontSize: 13,
           glyphMargin: false,
-          lineDecorationsWidth: isXml ? 20 : 8,
+          lineDecorationsWidth: isXml || isJava ? 20 : 8,
           lineHeight: 22,
           lineNumbers: 'on',
           lineNumbersMinChars: 3,
@@ -163,40 +212,20 @@ export function InlineScriptEditor({
           overviewRulerBorder: false,
           overviewRulerLanes: 0,
           padding: { top: 16, bottom: 16 },
-          renderLineHighlight: 'none',
+          renderLineHighlight: isJava ? 'gutter' : 'none',
           scrollBeyondLastLine: false,
           scrollbar: {
             alwaysConsumeMouseWheel: false,
-            horizontal: 'hidden',
+            horizontal: isJava ? 'auto' : 'hidden',
             vertical: expanded || !autoSize ? 'auto' : 'hidden',
           },
-          tabSize: 2,
-          wordWrap: 'on',
+          tabSize: isJava ? 4 : 2,
+          wordWrap: isJava ? 'off' : 'on',
           wrappingIndent: 'same',
           wrappingStrategy: 'advanced',
         }}
       />
-      <div className="conductor-code-actions">
-        {isXml ? <>
-          <button type="button" title="折叠全部 XML" aria-label="折叠全部 XML" onClick={() => editorRef.current?.trigger('toolbar', 'editor.foldAll', undefined)}>
-            <MinusSquareIcon size={20} />
-          </button>
-          <button type="button" title="展开全部 XML" aria-label="展开全部 XML" onClick={() => editorRef.current?.trigger('toolbar', 'editor.unfoldAll', undefined)}>
-            <PlusSquareIcon size={20} />
-          </button>
-        </> : null}
-        <button
-          type="button"
-          title={expanded ? '收起代码编辑器' : '展开代码编辑器'}
-          aria-label={expanded ? '收起代码编辑器' : '展开代码编辑器'}
-          onClick={() => setExpanded((current) => !current)}
-        >
-          {expanded ? <ArrowsInSimpleIcon size={20} /> : <ArrowsOutSimpleIcon size={20} />}
-        </button>
-        <button type="button" title="复制代码" aria-label="复制代码" onClick={() => void copyCode()}>
-          <CopyIcon size={20} />
-        </button>
-      </div>
+      {!showToolbar ? actions : null}
     </div>
   )
 

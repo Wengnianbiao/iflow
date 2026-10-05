@@ -2,7 +2,7 @@ package com.helianhealth.iflow.tasks.spi;
 
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
-import com.helianhealth.iflow.common.extension.AgentExtensionLoader;
+import com.helianhealth.iflow.common.extension.ExtensionLoader;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,8 +35,8 @@ class SpiTaskUnitTest {
 
     @AfterEach
     void cleanupLoader() {
-        AgentExtensionLoader<InterfaceRemoteInvoker> loader =
-                AgentExtensionLoader.getExtensionLoader(InterfaceRemoteInvoker.class);
+        ExtensionLoader<InterfaceRemoteInvoker> loader =
+                ExtensionLoader.getExtensionLoader(InterfaceRemoteInvoker.class);
         if (loader.hasExtension(ONLINE_EXTENSION_NAME)) {
             loader.removeDynamicExtension(ONLINE_EXTENSION_NAME);
         }

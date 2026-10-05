@@ -1,11 +1,11 @@
 package com.helianhealth.iflow.common.extension.fixture;
 
-import com.helianhealth.iflow.common.extension.AgentSPI;
+import com.helianhealth.iflow.common.extension.SPI;
 
 /**
  * 测试用SPI接口
  */
-@AgentSPI("default")
+@SPI("default")
 public interface TestExtension {
 
     String echo(String input);

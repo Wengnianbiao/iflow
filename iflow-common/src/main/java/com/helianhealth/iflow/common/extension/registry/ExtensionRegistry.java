@@ -1,7 +1,7 @@
 package com.helianhealth.iflow.common.extension.registry;
 
 import com.helianhealth.iflow.common.extension.compiler.DynamicCompiler;
-import com.helianhealth.iflow.common.extension.AgentExtensionFactory;
+import com.helianhealth.iflow.common.extension.ExtensionFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -10,16 +10,16 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Agent Extension Registry
+ * Extension Registry
  * <p>
  * 扩展注册中心，“类加载 + 实例创建”工厂
  * <p>
  * 职责边界：
  * 1. 动态编译：从源码编译加载 Class，管理动态 ClassLoader 生命周期
  * 2. 类加载：从源码编译或类路径加载 Class
- * 3. 实例创建：通过构造器注入创建扩展实例（不缓存，缓存由 AgentExtensionLoader 管理）
+ * 3. 实例创建：通过构造器注入创建扩展实例（不缓存，缓存由 ExtensionLoader 管理）
  * <p>
- * 注意：Class 映射由 AgentExtensionLoader 自行维护，本类不存储扩展名到 Class 的映射。
+ * 注意：Class 映射由 ExtensionLoader 自行维护，本类不存储扩展名到 Class 的映射。
  */
 public class ExtensionRegistry {
 
@@ -121,7 +121,7 @@ public class ExtensionRegistry {
      * @param extensionFactory 扩展工厂（用于依赖注入，无参构造器时可为 null）
      * @throws IllegalStateException 当构造器数量不为 1，或依赖无法注入时抛出
      */
-    public Object createInstanceWithInjection(Class<?> clazz, AgentExtensionFactory extensionFactory) throws Exception {
+    public Object createInstanceWithInjection(Class<?> clazz, ExtensionFactory extensionFactory) throws Exception {
         return createInstanceWithInjection(clazz, extensionFactory, null);
     }
 
@@ -135,7 +135,7 @@ public class ExtensionRegistry {
      * @param extensionFactory 扩展工厂
      * @param presetDependency 预置依赖（当构造器参数类型匹配时优先使用，可为 null）
      */
-    public Object createInstanceWithInjection(Class<?> clazz, AgentExtensionFactory extensionFactory,
+    public Object createInstanceWithInjection(Class<?> clazz, ExtensionFactory extensionFactory,
                                                Object presetDependency) throws Exception {
         Constructor<?>[] constructors = clazz.getConstructors();
 

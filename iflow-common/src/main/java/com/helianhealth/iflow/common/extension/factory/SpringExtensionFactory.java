@@ -1,6 +1,6 @@
 package com.helianhealth.iflow.common.extension.factory;
 
-import com.helianhealth.iflow.common.extension.AgentExtensionFactory;
+import com.helianhealth.iflow.common.extension.ExtensionFactory;
 import com.helianhealth.iflow.common.utils.SpringContextHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,9 +15,9 @@ import java.util.stream.Collectors;
  * Spring Extension Factory
  * 从Spring容器中获取Bean，优先按类型查找
  */
-public class SpringAgentExtensionFactory implements AgentExtensionFactory {
+public class SpringExtensionFactory implements ExtensionFactory {
 
-    private static final Logger log = LoggerFactory.getLogger(SpringAgentExtensionFactory.class);
+    private static final Logger log = LoggerFactory.getLogger(SpringExtensionFactory.class);
 
     @Override
     public <T> T getExtension(Class<T> type, String name) {

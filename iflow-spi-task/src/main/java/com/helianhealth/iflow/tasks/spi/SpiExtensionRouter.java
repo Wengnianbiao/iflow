@@ -1,6 +1,6 @@
 package com.helianhealth.iflow.tasks.spi;
 
-import com.helianhealth.iflow.common.extension.AgentExtensionLoader;
+import com.helianhealth.iflow.common.extension.ExtensionLoader;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -43,7 +43,7 @@ public class SpiExtensionRouter {
     }
 
     private void registerOrRefresh(SpiTaskInput.ExtensionDefinition definition) {
-        AgentExtensionLoader<InterfaceRemoteInvoker> loader = loader();
+        ExtensionLoader<InterfaceRemoteInvoker> loader = loader();
         SpiTaskInput.ExtensionDefinition registered =
                 registeredDefinitions.get(definition.remoteExtension());
         if (definition.equals(registered) && loader.hasExtension(definition.remoteExtension())) {
@@ -75,14 +75,14 @@ public class SpiExtensionRouter {
     }
 
     InterfaceRemoteInvoker resolve(String remoteExtension) {
-        AgentExtensionLoader<InterfaceRemoteInvoker> loader = loader();
+        ExtensionLoader<InterfaceRemoteInvoker> loader = loader();
         if (remoteExtension == null || remoteExtension.isBlank()) {
             return loader.getDefaultExtension();
         }
         return loader.getExtension(remoteExtension.trim());
     }
 
-    private AgentExtensionLoader<InterfaceRemoteInvoker> loader() {
-        return AgentExtensionLoader.getExtensionLoader(InterfaceRemoteInvoker.class);
+    private ExtensionLoader<InterfaceRemoteInvoker> loader() {
+        return ExtensionLoader.getExtensionLoader(InterfaceRemoteInvoker.class);
     }
 }

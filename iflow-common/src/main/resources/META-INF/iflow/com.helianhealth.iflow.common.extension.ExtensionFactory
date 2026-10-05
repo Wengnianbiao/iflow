@@ -1,0 +1,3 @@
+adaptive=com.helianhealth.iflow.common.extension.factory.AdaptiveExtensionFactory
+spi=com.helianhealth.iflow.common.extension.factory.SpiExtensionFactory
+spring=com.helianhealth.iflow.common.extension.factory.SpringExtensionFactory

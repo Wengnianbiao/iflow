@@ -90,7 +90,7 @@ iflow-common (基础层)
 ### 核心特性
 
 - **模块化分层架构**：基础层（common）→ 数据层（repository）→ 核心层（core）→ 服务层（gateway、console、ai）→ 应用层（web）
-- **SPI动态扩展机制**：支持SPI动态注册扩展，可插拔调用客户端，支持 HTTP、WebService、JDBC 等协议
+- **SPI动态扩展机制**：支持SPI动态注册扩展，可插拔调用客户端，支持 HTTP、WebService、JDBC 等协议，详见 [SPI 扩展接入与命名迁移](docs/spi-extensions.md)
 - **配置化驱动**：工作流配置存储在数据库，支持动态修改无需重启，参数映射支持 SpEL 表达式
 - **AI智能协作**：内置MCP接口，支持AI Agent自动理解接口文档并生成配置
 - **可视化管理**：提供Vue.js前端控制台，支持工作流可视化编排和参数配置

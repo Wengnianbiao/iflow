@@ -1,0 +1,15 @@
+.editor :global(.monaco-editor .line-numbers) {
+  color: #98a2b3;
+}
+
+.editor :global(.monaco-editor .line-numbers.active-line-number) {
+  color: #475467;
+}
+
+.editor :global(.monaco-editor) .keyword { color: #8250df; }
+.editor :global(.monaco-editor) .type { color: #0550ae; }
+.editor :global(.monaco-editor) .method { color: #6639ba; }
+.editor :global(.monaco-editor) .annotation { color: #9a6700; }
+.editor :global(.monaco-editor) .string { color: #0a6c3e; }
+.editor :global(.monaco-editor) .comment { color: #6e7781; font-style: italic; }
+.editor :global(.monaco-editor) .number { color: #b54708; }
