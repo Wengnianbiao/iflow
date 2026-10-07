@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react'
 import { Helmet } from 'react-helmet'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { Alert, Autocomplete, Box, Button, Grid, Paper, TextField, Typography } from '@mui/material'
-import { ArrowCounterClockwiseIcon, PlayCircleIcon } from '@phosphor-icons/react'
+import { ArrowCounterClockwiseIcon, PlayCircleIcon, XIcon } from '@phosphor-icons/react'
+import { listWorkflowVersions } from '@/api/workflowDefinition'
 import { getWorkflowExecution, startWorkflow } from '@/api/workflowExecution'
 import { SectionContainer } from '@/components/layout/SectionContainer'
 import { SectionHeader } from '@/components/layout/SectionHeader'
@@ -11,7 +14,7 @@ import type { WorkflowDef } from '@/types/workflow'
 import type { WorkflowExecutionSummary } from '@/types/workflowExecution'
 import { useWorkflowDefs } from '@/utils/query'
 import { bodyFromWorkflowInput, formatEditorJson, parseEditorJson, toGatewayWorkflowInput, workflowPath } from './gatewayInput'
-import { InvokeWorkflowHistory } from './InvokeWorkflowHistory'
+import { RunWorkflowHistoryTable } from './RunWorkflowHistoryTable'
 
 const EMPTY_BODY = '{\n}'
 
@@ -19,6 +22,14 @@ type WorkflowChoice = {
   name: string
   displayName: string
   versions: number[]
+}
+
+type RunWorkflowLocationState = {
+  execution?: {
+    workflowName: string
+    workflowVersion: number
+    input?: Record<string, unknown>
+  }
 }
 
 function workflowChoices(definitions: WorkflowDef[]): WorkflowChoice[] {
@@ -40,12 +51,17 @@ function workflowChoices(definitions: WorkflowDef[]): WorkflowChoice[] {
     .sort((left, right) => left.displayName.localeCompare(right.displayName, 'zh-CN') || left.name.localeCompare(right.name))
 }
 
-export function InvokeWorkflowPage() {
+export function RunWorkflow() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const latestExecution = (location.state as RunWorkflowLocationState | null)?.execution
   const workflowDefs = useWorkflowDefs()
   const choices = useMemo(() => workflowChoices(workflowDefs.data ?? []), [workflowDefs.data])
-  const [selectedName, setSelectedName] = useState<string | null>(null)
-  const [version, setVersion] = useState<number | null>(null)
-  const [bodyText, setBodyText] = useState(EMPTY_BODY)
+  const [selectedName, setSelectedName] = useState<string | null>(latestExecution?.workflowName ?? null)
+  const [version, setVersion] = useState<number | null>(latestExecution?.workflowVersion ?? null)
+  const [bodyText, setBodyText] = useState(() => latestExecution
+    ? formatEditorJson(bodyFromWorkflowInput(latestExecution.input))
+    : EMPTY_BODY)
   const [bodyError, setBodyError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [restoringId, setRestoringId] = useState<string | null>(null)
@@ -53,7 +69,18 @@ export function InvokeWorkflowPage() {
   const [workflowId, setWorkflowId] = useState<string | null>(null)
   const [historyReload, setHistoryReload] = useState(0)
 
+  const workflowVersions = useQuery({
+    queryKey: ['workflowVersions', selectedName],
+    queryFn: () => listWorkflowVersions(selectedName!),
+    enabled: Boolean(selectedName),
+  })
+
   const selected = choices.find((choice) => choice.name === selectedName) ?? null
+  const availableVersions = useMemo(
+    () => [...(workflowVersions.data ?? selected?.versions ?? [])].sort((left, right) => right - left),
+    [selected, workflowVersions.data],
+  )
+  const validVersion = version != null && availableVersions.includes(version)
   const selectedDefinition = (workflowDefs.data ?? []).find((definition) =>
     definition.name === selectedName && definition.version === version)
   const description = selectedDefinition?.description?.trim() || undefined
@@ -72,7 +99,7 @@ export function InvokeWorkflowPage() {
   }
 
   const submit = async () => {
-    if (!selected || version == null) return
+    if (!selected || version == null || !validVersion || workflowVersions.isError) return
     let body: unknown
     try {
       body = parseEditorJson(bodyText)
@@ -104,7 +131,7 @@ export function InvokeWorkflowPage() {
       setBodyText(formatEditorJson(bodyFromWorkflowInput(detail.input)))
       setBodyError(null)
       setWorkflowId(null)
-      if (selected?.versions.includes(execution.workflowVersion)) {
+      if (availableVersions.includes(execution.workflowVersion)) {
         setVersion(execution.workflowVersion)
       }
     } catch (cause) {
@@ -117,23 +144,26 @@ export function InvokeWorkflowPage() {
   return (
     <>
       <Helmet>
-        <title>调用工作流</title>
+        <title>执行工作流</title>
       </Helmet>
       <SectionHeader
-        title="调用工作流"
+        title="执行工作流"
         actions={(
           <>
+            <Button variant="text" startIcon={<XIcon size={18} />} onClick={() => navigate(-1)}>
+              关闭
+            </Button>
             <Button variant="text" startIcon={<ArrowCounterClockwiseIcon size={18} />} onClick={reset}>
               重置
             </Button>
             <Button
               id="run-workflow-btn"
               variant="contained"
-              disabled={!selected || version == null || busy}
+              disabled={!selected || !validVersion || workflowVersions.isError || busy}
               startIcon={<PlayCircleIcon size={18} />}
               onClick={() => void submit()}
             >
-              {busy ? '调用中…' : '调用'}
+              {busy ? '执行中…' : '执行工作流'}
             </Button>
           </>
         )}
@@ -162,7 +192,7 @@ export function InvokeWorkflowPage() {
                   value={selected}
                   loading={workflowDefs.isFetching}
                   loadingText="加载工作流中…"
-                  noOptionsText={workflowDefs.isError ? '工作流列表加载失败' : '没有可调用的工作流'}
+                  noOptionsText={workflowDefs.isError ? '工作流列表加载失败' : '没有可执行的工作流'}
                   openText="展开工作流列表"
                   closeText="收起工作流列表"
                   clearText="清空"
@@ -184,7 +214,7 @@ export function InvokeWorkflowPage() {
                     <TextField
                       {...params}
                       label="工作流名称"
-                      placeholder="选择要调用的工作流"
+                      placeholder="选择要执行的工作流"
                       required
                       slotProps={{ inputLabel: { shrink: true } }}
                       error={workflowDefs.isError}
@@ -199,9 +229,11 @@ export function InvokeWorkflowPage() {
                   fullWidth
                   size="small"
                   disabled={!selected}
-                  options={selected?.versions ?? []}
+                  options={availableVersions}
                   value={version}
-                  noOptionsText="没有版本"
+                  loading={workflowVersions.isFetching}
+                  loadingText="加载版本中…"
+                  noOptionsText={workflowVersions.isError ? '工作流版本加载失败' : '没有版本'}
                   openText="展开版本列表"
                   closeText="收起版本列表"
                   clearText="清空"
@@ -212,6 +244,12 @@ export function InvokeWorkflowPage() {
                       {...params}
                       label="版本"
                       placeholder="版本"
+                      error={workflowVersions.isError || (version != null && !validVersion && !workflowVersions.isFetching)}
+                      helperText={workflowVersions.isError
+                        ? '工作流版本加载失败，请刷新重试'
+                        : version != null && !validVersion && !workflowVersions.isFetching
+                          ? '该版本已不存在，请选择其他版本'
+                          : undefined}
                       slotProps={{ inputLabel: { shrink: true } }}
                     />
                   )}
@@ -240,14 +278,14 @@ export function InvokeWorkflowPage() {
               <Typography variant="caption" color={bodyError ? 'error' : 'text.secondary'} sx={{ display: 'block', mt: 1 }}>
                 {bodyError ?? (
                   selected
-                    ? `只需填写 body。调用时按 REST 网关入参提交 POST ${workflowPath(selected.name)}，并附带空的 query、files 以及 content-type 请求头。`
+                    ? `只需填写 body。执行时按 REST 网关入参提交 POST ${workflowPath(selected.name)}，并附带空的 query、files 以及 content-type 请求头。`
                     : '选择工作流后，在这里填写业务报文 body'
                 )}
               </Typography>
             </Paper>
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
-            <InvokeWorkflowHistory
+            <RunWorkflowHistoryTable
               workflowName={selectedName}
               reloadKey={historyReload}
               restoringId={restoringId}

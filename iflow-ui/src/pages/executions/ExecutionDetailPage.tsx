@@ -16,6 +16,7 @@ import {
   EyeIcon,
   GridFourIcon,
   ListIcon,
+  PlayCircleIcon,
   StopCircleIcon,
   XIcon,
 } from '@phosphor-icons/react'
@@ -300,6 +301,25 @@ export function ExecutionDetailPage() {
         </div>
 
         <div className={styles.headerActions}>
+          <button
+            type="button"
+            className={styles.textAction}
+            disabled={!execution.workflowDefinition}
+            onClick={() => {
+              const definition = execution.workflowDefinition
+              if (definition) navigate('/runWorkflow', {
+                state: {
+                  execution: {
+                    workflowName: definition.name,
+                    workflowVersion: definition.version,
+                    input: execution.input,
+                  },
+                },
+              })
+            }}
+          >
+            <PlayCircleIcon size={16} />执行工作流
+          </button>
           <button
             type="button"
             className={styles.textAction}

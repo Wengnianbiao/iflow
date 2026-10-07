@@ -12,19 +12,19 @@ function executionHref(workflowId: string) {
   return `${window.location.pathname}${window.location.search}#/executions/${encodeURIComponent(workflowId)}`
 }
 
-type InvokeWorkflowHistoryProps = {
+type RunWorkflowHistoryTableProps = {
   workflowName: string | null
   reloadKey: number
   restoringId: string | null
   onRestore: (execution: WorkflowExecutionSummary) => void
 }
 
-export function InvokeWorkflowHistory({
+export function RunWorkflowHistoryTable({
   workflowName,
   reloadKey,
   restoringId,
   onRestore,
-}: InvokeWorkflowHistoryProps) {
+}: RunWorkflowHistoryTableProps) {
   const [pageState, setPageState] = useState({ name: workflowName, page: 1, pageSize: HISTORY_PAGE_SIZE })
   const page = pageState.name === workflowName ? pageState.page : 1
   const pageSize = pageState.name === workflowName ? pageState.pageSize : HISTORY_PAGE_SIZE
@@ -106,7 +106,7 @@ export function InvokeWorkflowHistory({
 
   return (
     <DataTable<WorkflowExecutionSummary>
-      id="invoke-workflow-history"
+      id="run-workflow-history"
       toolbar={(
         <Typography fontSize={14} fontWeight={600}>执行历史</Typography>
       )}

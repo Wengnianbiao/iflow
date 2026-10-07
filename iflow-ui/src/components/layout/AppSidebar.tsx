@@ -14,7 +14,6 @@ type AppSidebarProps = {
 
 export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
   const [openGroups, setOpenGroups] = useState<Record<SidebarNavGroupId, boolean>>({
-    invoke: true,
     scheduling: true,
     configuration: true,
   })

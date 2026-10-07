@@ -1,5 +1,5 @@
 import type { Icon } from '@phosphor-icons/react'
-import { ClockCounterClockwiseIcon, PlayCircleIcon, SlidersHorizontalIcon } from '@phosphor-icons/react'
+import { ClockCounterClockwiseIcon, SlidersHorizontalIcon } from '@phosphor-icons/react'
 
 export type SidebarNavItem = {
   label: string
@@ -7,7 +7,7 @@ export type SidebarNavItem = {
   end?: boolean
 }
 
-export type SidebarNavGroupId = 'invoke' | 'scheduling' | 'configuration'
+export type SidebarNavGroupId = 'scheduling' | 'configuration'
 
 export type SidebarNavGroup = {
   id: SidebarNavGroupId
@@ -17,12 +17,6 @@ export type SidebarNavGroup = {
 }
 
 export const sidebarNavGroups: SidebarNavGroup[] = [
-  {
-    id: 'invoke',
-    label: '工作流调用',
-    icon: PlayCircleIcon,
-    items: [{ label: '调用工作流', to: '/invoke' }],
-  },
   {
     id: 'scheduling',
     label: '调度日志',

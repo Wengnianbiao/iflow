@@ -3,7 +3,7 @@ export function workflowPath(name: string) {
   return trimmed.startsWith('/') ? trimmed : `/${trimmed}`
 }
 
-/** 与 Open API 网关写入工作流的入参一致。页面只编辑 body。 */
+/** 与 Open API 网关写入工作流的入参一致。执行页面只编辑 body。 */
 export function toGatewayWorkflowInput(workflowName: string, body: unknown): Record<string, unknown> {
   return {
     body,
