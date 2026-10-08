@@ -33,7 +33,7 @@ export function DeleteWorkflowDialog({
     if (definition) setConfirmName('')
   }, [definition])
 
-  const nameMatched = Boolean(definition && confirmName === definition.route)
+  const nameMatched = Boolean(definition && confirmName === definition.name)
 
   const handleDelete = async () => {
     if (!definition || !nameMatched) return
@@ -69,13 +69,13 @@ export function DeleteWorkflowDialog({
           （{definition?.route}）的版本 {definition?.version} 吗？此操作无法撤销。
         </Typography>
         <Typography sx={{ mb: 2 }}>
-          请输入工作流名称 <strong>{definition?.route}</strong> 以确认。
+          请输入工作流名称 <strong>{definition?.name}</strong> 以确认。
         </Typography>
         <TextField
           autoFocus
           fullWidth
           label="工作流名称"
-          placeholder={definition?.route}
+          slotProps={{ inputLabel: { shrink: true } }}
           spellCheck={false}
           value={confirmName}
           onChange={(event) => setConfirmName(event.target.value)}

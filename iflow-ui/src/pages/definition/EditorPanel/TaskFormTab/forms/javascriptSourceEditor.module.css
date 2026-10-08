@@ -1,0 +1,6 @@
+.editor :global(.monaco-editor) .keyword { color: #8250df; }
+.editor :global(.monaco-editor) .type { color: #0550ae; }
+.editor :global(.monaco-editor) .string { color: #0a6c3e; }
+.editor :global(.monaco-editor) .regexp { color: #0a6c3e; }
+.editor :global(.monaco-editor) .comment { color: #6e7781; font-style: italic; }
+.editor :global(.monaco-editor) .number { color: #b54708; }

@@ -4,6 +4,7 @@ import Editor, { type BeforeMount, type OnMount } from '@monaco-editor/react'
 import { ArrowsInSimpleIcon, ArrowsOutSimpleIcon, CopyIcon, MinusSquareIcon, PlusSquareIcon, XIcon } from '@phosphor-icons/react'
 import { registerSoapXmlEditor, SOAP_XML_LANGUAGE, SOAP_XML_THEME, soapXmlHighlightTokens } from './soapXmlEditor'
 import { JAVA_SOURCE_CLASS, JAVA_SOURCE_LANGUAGE, javaSourceDecorations, registerJavaSourceEditor } from './javaSourceEditor'
+import { JAVASCRIPT_SOURCE_CLASS, JAVASCRIPT_SOURCE_LANGUAGE, javaScriptSourceDecorations, registerJavaScriptSourceEditor } from './javascriptSourceEditor'
 import { useValidationFieldPath, useValidationFocus, useValidationReadOnly } from '../../../validation/ValidationScope'
 
 export function InlineScriptEditor({
@@ -34,6 +35,9 @@ export function InlineScriptEditor({
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null)
   const isXml = language === 'xml'
   const isJava = language === 'java'
+  const isJavaScript = language === 'javascript'
+  const supportsFolding = isXml || isJava || isJavaScript
+  const foldingLabel = isJava ? 'Java 代码' : isJavaScript ? 'JavaScript 代码' : 'XML'
   const focus = useValidationFocus()
   const fieldPath = useValidationFieldPath()
   const readOnly = useValidationReadOnly()
@@ -51,6 +55,7 @@ export function InlineScriptEditor({
 
   const handleBeforeMount: BeforeMount = (monaco) => {
     if (isJava) registerJavaSourceEditor(monaco)
+    if (isJavaScript) registerJavaScriptSourceEditor(monaco)
     if (!isXml) return
     registerSoapXmlEditor(monaco)
     monaco.editor.setTheme(SOAP_XML_THEME)
@@ -84,11 +89,15 @@ export function InlineScriptEditor({
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor
     const model = editor.getModel()
-    const decorations = isXml || isJava ? editor.createDecorationsCollection() : null
+    const decorations = supportsFolding ? editor.createDecorationsCollection() : null
     const highlightSource = () => {
       if (!model || model.isDisposed() || !decorations) return
       if (isJava) {
         decorations.set(javaSourceDecorations(monaco, model.getValue()))
+        return
+      }
+      if (isJavaScript) {
+        decorations.set(javaScriptSourceDecorations(monaco, model.getValue()))
         return
       }
       decorations.set(soapXmlHighlightTokens(model.getValue()).map((token) => {
@@ -101,7 +110,7 @@ export function InlineScriptEditor({
       }))
     }
     highlightSource()
-    const highlightListener = isXml || isJava ? model?.onDidChangeContent(highlightSource) : undefined
+    const highlightListener = supportsFolding ? model?.onDidChangeContent(highlightSource) : undefined
     const updateHeight = () => {
       const minimumHeight = expanded ? 520 : minHeight
       setEditorHeight(autoSize || expanded
@@ -142,12 +151,12 @@ export function InlineScriptEditor({
 
   const actions = (
     <div className="conductor-code-actions" role="group" aria-label="代码操作">
-      {isXml || isJava ? <>
-        <button type="button" title={isJava ? '折叠全部 Java 代码' : '折叠全部 XML'} aria-label={isJava ? '折叠全部 Java 代码' : '折叠全部 XML'} onClick={() => editorRef.current?.trigger('toolbar', 'editor.foldAll', undefined)}>
+      {supportsFolding ? <>
+        <button type="button" title={`折叠全部 ${foldingLabel}`} aria-label={`折叠全部 ${foldingLabel}`} onClick={() => editorRef.current?.trigger('toolbar', 'editor.foldAll', undefined)}>
           <MinusSquareIcon size={showToolbar ? 16 : 20} />
           {showToolbar ? <span>折叠</span> : null}
         </button>
-        <button type="button" title={isJava ? '展开全部 Java 代码' : '展开全部 XML'} aria-label={isJava ? '展开全部 Java 代码' : '展开全部 XML'} onClick={() => editorRef.current?.trigger('toolbar', 'editor.unfoldAll', undefined)}>
+        <button type="button" title={`展开全部 ${foldingLabel}`} aria-label={`展开全部 ${foldingLabel}`} onClick={() => editorRef.current?.trigger('toolbar', 'editor.unfoldAll', undefined)}>
           <PlusSquareIcon size={showToolbar ? 16 : 20} />
           {showToolbar ? <span>展开</span> : null}
         </button>
@@ -169,7 +178,7 @@ export function InlineScriptEditor({
   )
 
   const editor = (
-    <div className={`conductor-code-input ${expanded ? 'expanded' : ''} ${showToolbar ? 'with-toolbar' : ''} ${isJava ? JAVA_SOURCE_CLASS : ''}`}>
+    <div className={`conductor-code-input ${expanded ? 'expanded' : ''} ${showToolbar ? 'with-toolbar' : ''} ${isJava ? JAVA_SOURCE_CLASS : isJavaScript ? JAVASCRIPT_SOURCE_CLASS : ''}`}>
       {showToolbar ? (
         <div className="conductor-code-toolbar">
           <div className="conductor-code-toolbar-label"><span>{codeLabel}</span><strong>{languageLabel}</strong></div>
@@ -183,7 +192,7 @@ export function InlineScriptEditor({
       )}
       <Editor
         height={editorHeight}
-        language={isXml ? SOAP_XML_LANGUAGE : isJava ? JAVA_SOURCE_LANGUAGE : language}
+        language={isXml ? SOAP_XML_LANGUAGE : isJava ? JAVA_SOURCE_LANGUAGE : isJavaScript ? JAVASCRIPT_SOURCE_LANGUAGE : language}
         theme={isXml ? SOAP_XML_THEME : 'light'}
         value={value}
         onChange={(nextValue) => onChange(nextValue ?? '')}
@@ -198,13 +207,13 @@ export function InlineScriptEditor({
             bracketPairColorization: { enabled: true },
             guides: { bracketPairs: true, highlightActiveIndentation: true },
           } : {}),
-          folding: isXml || isJava,
+          folding: supportsFolding,
           foldingStrategy: 'auto',
           showFoldingControls: 'always',
           fontFamily: 'SFMono-Regular, Consolas, Liberation Mono, monospace',
           fontSize: 13,
           glyphMargin: false,
-          lineDecorationsWidth: isXml || isJava ? 20 : 8,
+          lineDecorationsWidth: supportsFolding ? 20 : 8,
           lineHeight: 22,
           lineNumbers: 'on',
           lineNumbersMinChars: 3,
