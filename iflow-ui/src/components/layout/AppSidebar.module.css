@@ -14,25 +14,21 @@
   height: 96px;
   align-items: center;
   gap: 10px;
-  padding: 0 12px;
+  padding: 0 44px 0 12px;
 }
 
 .brandMark {
-  display: grid;
-  width: 28px;
-  height: 28px;
-  place-items: center;
-  color: #ffffff;
-  background: var(--iflow-color-primary);
+  display: block;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
   border-radius: 8px;
-  font-size: 16px;
-  font-weight: 800;
 }
 
 .brandName {
   min-width: 0;
   color: #1c1c1c;
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 650;
   white-space: nowrap;
 }
@@ -64,21 +60,21 @@
   min-height: 0;
   flex: 1;
   overflow: auto;
-  padding: 0 12px 18px;
+  padding: 0 12px 24px;
 }
 
 .group {
   position: relative;
-  margin-bottom: 10px;
+  margin-bottom: 20px;
 }
 
 .group::before {
   position: absolute;
-  top: 38px;
-  bottom: 0;
-  left: 0;
+  top: 54px;
+  bottom: 6px;
+  left: 22px;
   width: 1px;
-  background: #9a9a9a;
+  background: var(--iflow-color-border);
   content: "";
   opacity: 0;
   transform: scaleY(0);
@@ -94,17 +90,18 @@
 .groupTitle {
   display: grid;
   width: 100%;
-  height: 36px;
-  grid-template-columns: 26px 1fr 16px;
+  min-height: 48px;
+  grid-template-columns: 30px 1fr 16px;
   align-items: center;
-  padding: 0;
+  gap: 10px;
+  padding: 8px;
   color: var(--iflow-color-text-secondary);
   text-align: left;
   background: transparent;
   border: 0;
   border-radius: 8px;
-  font-size: 13px;
-  font-weight: 800;
+  font-size: 14px;
+  font-weight: 650;
   transition: color 0.2s ease, background-color 0.2s ease;
 }
 
@@ -115,10 +112,12 @@
 
 .groupIcon {
   display: grid;
-  width: 22px;
-  height: 22px;
+  width: 30px;
+  height: 30px;
   place-items: center;
-  color: #4d525a;
+  color: var(--iflow-color-primary);
+  background: var(--iflow-color-primary-soft);
+  border-radius: 8px;
 }
 
 .groupCaret {
@@ -155,15 +154,27 @@
 
 .navItem {
   display: flex;
-  min-height: 32px;
+  min-height: 44px;
   align-items: center;
-  padding: 0 8px;
-  margin-left: 12px;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-top: 6px;
+  margin-left: 34px;
   color: #555555;
   text-decoration: none;
-  border-radius: 4px;
-  font-size: 13px;
-  font-weight: 650;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 550;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.navIcon {
+  flex-shrink: 0;
+}
+
+.navItem:hover {
+  color: var(--iflow-color-primary);
+  background: var(--iflow-color-primary-muted);
 }
 
 .navItem.active {
@@ -184,7 +195,10 @@
 }
 
 .sidebar.collapsed .collapseButton {
-  right: -8px;
+  right: 2px;
+  width: 20px;
+  height: 20px;
+  transform: translateY(20px);
 }
 
 .sidebar.collapsed .group::before {
@@ -215,6 +229,18 @@
   .groupTitle {
     grid-template-columns: 1fr;
     justify-items: center;
+  }
+
+  .brandRow {
+    justify-content: center;
+    padding-inline: 8px;
+  }
+
+  .collapseButton {
+    right: 2px;
+    width: 20px;
+    height: 20px;
+    transform: translateY(20px);
   }
 
   .groupCaret,

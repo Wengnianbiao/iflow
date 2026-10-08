@@ -31,8 +31,8 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
   return (
     <aside className={`${styles.sidebar} ${collapsed ? styles.collapsed : ''}`}>
       <div className={styles.brandRow}>
-        <div className={styles.brandMark}>C</div>
-        <div className={styles.brandName}>接口工作流</div>
+        <img className={styles.brandMark} src="/favicon.svg?v=2" alt="" aria-hidden="true" />
+        <div className={styles.brandName}>接口工作流平台</div>
         <button
           type="button"
           className={styles.collapseButton}
@@ -62,23 +62,28 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
                 onClick={() => toggleGroup(group.id)}
               >
                 <span className={styles.groupIcon} aria-hidden="true">
-                  <Icon size={19} weight="regular" />
+                  <Icon size={22} weight="duotone" />
                 </span>
                 <span>{group.label}</span>
                 <CaretDownIcon className={styles.groupCaret} size={14} weight="bold" />
               </button>
               <div className={styles.groupItems}>
                 <div className={styles.groupItemsInner}>
-                  {group.items.map((item) => (
-                    <NavLink
-                      key={item.to}
-                      to={item.to}
-                      end={item.end}
-                      className={({ isActive }) => `${styles.navItem} ${isActive ? styles.active : ''}`}
-                    >
-                      {item.label}
-                    </NavLink>
-                  ))}
+                  {group.items.map((item) => {
+                    const ItemIcon = item.icon
+
+                    return (
+                      <NavLink
+                        key={item.to}
+                        to={item.to}
+                        end={item.end}
+                        className={({ isActive }) => `${styles.navItem} ${isActive ? styles.active : ''}`}
+                      >
+                        <ItemIcon className={styles.navIcon} size={18} weight="duotone" aria-hidden="true" />
+                        <span>{item.label}</span>
+                      </NavLink>
+                    )
+                  })}
                 </div>
               </div>
             </div>
