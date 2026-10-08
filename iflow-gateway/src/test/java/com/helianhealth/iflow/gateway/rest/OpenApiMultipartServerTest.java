@@ -1,7 +1,6 @@
 package com.helianhealth.iflow.gateway.rest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.helianhealth.iflow.common.domain.run.FileAccess;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.SpringBootConfiguration;
@@ -21,6 +20,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -41,9 +41,6 @@ class OpenApiMultipartServerTest {
     private static final AtomicInteger STARTS = new AtomicInteger();
     private static volatile Object capturedBody;
     private static volatile Map<String, Object> capturedFiles;
-    private static volatile byte[] capturedFileBytes;
-    private static volatile FileAccess capturedAccess;
-    private static volatile String capturedRef;
 
     @LocalServerPort
     private int port;
@@ -57,14 +54,11 @@ class OpenApiMultipartServerTest {
         STARTS.set(0);
         capturedBody = null;
         capturedFiles = null;
-        capturedFileBytes = null;
-        capturedAccess = null;
-        capturedRef = null;
     }
 
     @Test
     @SuppressWarnings("unchecked")
-    void realServletParsesBoundaryAndPreservesRawFileBytes() throws Exception {
+    void realServletParsesBoundaryAndPassesFileBytesAsBase64() throws Exception {
         String boundary = "iflow-boundary";
         byte[] fileBytes = new byte[] {0, 1, 2, 3, (byte) 0xff};
         byte[] body = multipartBody(boundary, "张三", fileBytes, true);
@@ -79,8 +73,11 @@ class OpenApiMultipartServerTest {
         List<Map<String, Object>> descriptors = (List<Map<String, Object>>) capturedFiles.get("file");
         assertEquals(1, descriptors.size());
         assertEquals("raw.bin", descriptors.get(0).get("fileName"));
-        assertArrayEquals(fileBytes, capturedFileBytes);
-        assertThrows(IOException.class, () -> capturedAccess.open(capturedRef));
+        assertEquals("application/octet-stream", descriptors.get(0).get("contentType"));
+        assertEquals((long) fileBytes.length, descriptors.get(0).get("size"));
+        assertEquals(4, descriptors.get(0).size());
+        assertEquals(Base64.getEncoder().encodeToString(fileBytes), descriptors.get(0).get("contentBase64"));
+        assertArrayEquals(fileBytes, Base64.getDecoder().decode((String) descriptors.get(0).get("contentBase64")));
     }
 
     @Test
@@ -161,17 +158,6 @@ class OpenApiMultipartServerTest {
                 STARTS.incrementAndGet();
                 capturedBody = request.body();
                 capturedFiles = request.files();
-                capturedAccess = request.fileAccess();
-                @SuppressWarnings("unchecked")
-                List<Map<String, Object>> files = (List<Map<String, Object>>) request.files().get("file");
-                if (files != null && !files.isEmpty()) {
-                    capturedRef = String.valueOf(files.get(0).get("fileRef"));
-                    try (var input = request.fileAccess().open(capturedRef)) {
-                        capturedFileBytes = input.readAllBytes();
-                    } catch (IOException e) {
-                        throw new IllegalStateException(e);
-                    }
-                }
                 return "{}";
             };
         }

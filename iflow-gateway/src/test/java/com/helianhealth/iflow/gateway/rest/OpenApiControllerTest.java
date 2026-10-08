@@ -1,7 +1,6 @@
 package com.helianhealth.iflow.gateway.rest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.helianhealth.iflow.common.domain.run.FileAccess;
 import com.helianhealth.iflow.common.domain.run.StartWorkflowRequest;
 import com.helianhealth.iflow.core.model.WorkflowModel;
 import com.helianhealth.iflow.core.utils.ParametersUtils;
@@ -23,13 +22,11 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -45,16 +42,12 @@ class OpenApiControllerTest {
     private StartWorkflowRequest started;
     private int starts;
     private MockMvc mvc;
-    private final Map<String, byte[]> receivedFileBytes = new HashMap<>();
-    private FileAccess requestFileAccess;
     private RuntimeException executionFailure;
 
     @BeforeEach
     void setup() {
         started = null;
         starts = 0;
-        receivedFileBytes.clear();
-        requestFileAccess = null;
         executionFailure = null;
         mvc = mvc(OpenApiRequestReader.DEFAULT_MAX_BODY_BYTES, false);
     }
@@ -63,8 +56,6 @@ class OpenApiControllerTest {
         OpenApiService service = new OpenApiServiceImpl(request -> {
             started = request;
             starts++;
-            requestFileAccess = request.getFileAccess();
-            captureFileBytes(request);
             if (executionFailure != null) {
                 throw executionFailure;
             }
@@ -76,21 +67,6 @@ class OpenApiControllerTest {
         return MockMvcBuilders.standaloneSetup(new OpenApiController(service,
                 new OpenApiRequestReader(new ObjectMapper(), limit, raw)))
                 .addFilters(filters).build();
-    }
-
-    @SuppressWarnings("unchecked")
-    private void captureFileBytes(StartWorkflowRequest request) {
-        Map<String, Object> groups = (Map<String, Object>) request.getInput().get("files");
-        for (Object group : groups.values()) {
-            for (Map<String, Object> descriptor : (List<Map<String, Object>>) group) {
-                String ref = String.valueOf(descriptor.get("fileRef"));
-                try (var input = request.getFileAccess().open(ref)) {
-                    receivedFileBytes.put(ref, input.readAllBytes());
-                } catch (IOException e) {
-                    throw new UncheckedIOException(e);
-                }
-            }
-        }
     }
 
     static Stream<Arguments> jsonValues() {
@@ -314,7 +290,7 @@ class OpenApiControllerTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void multipartSplitsFieldsAndKeepsUploadedBytesUnchanged() throws Exception {
+    void multipartSplitsFieldsAndPassesUploadedBytesAsBase64() throws Exception {
         mvc = mvc(8192, true);
         MockPart examNo = textPart("examNo", "00123");
         String itemJson = "[{\"examElementId\":\"3837\"}]";
@@ -346,9 +322,6 @@ class OpenApiControllerTest {
         assertDescriptor(descriptors.get(1), "content.txt", "text/plain", base64Text);
         assertDescriptor(descriptors.get(2), "data-uri.txt", "text/plain", dataUri);
         assertDescriptor(descriptors.get(3), "empty.bin", "application/octet-stream", new byte[0]);
-
-        String firstRef = String.valueOf(descriptors.get(0).get("fileRef"));
-        assertThrows(IOException.class, () -> requestFileAccess.open(firstRef));
     }
 
     @Test
@@ -364,7 +337,7 @@ class OpenApiControllerTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void temporaryFilesAreReleasedWhenWorkflowStartFails() throws Exception {
+    void uploadedFileDataCanBeSerializedAfterWorkflowStartFails() throws Exception {
         executionFailure = new IllegalStateException("simulated execution failure");
         mvc.perform(multipart(PATH)
                         .part(filePart("file", "payload.bin", "application/octet-stream",
@@ -372,10 +345,11 @@ class OpenApiControllerTest {
                         .contentType("multipart/form-data; boundary=mock-boundary"))
                 .andExpect(status().isOk());
 
+        ObjectMapper mapper = new ObjectMapper();
+        Map<String, Object> restored = mapper.readValue(mapper.writeValueAsString(started.getInput()), Map.class);
         List<Map<String, Object>> descriptors = (List<Map<String, Object>>)
-                ((Map<String, Object>) started.getInput().get("files")).get("file");
-        String ref = String.valueOf(descriptors.get(0).get("fileRef"));
-        assertThrows(IOException.class, () -> requestFileAccess.open(ref));
+                ((Map<String, Object>) restored.get("files")).get("file");
+        assertDescriptor(descriptors.get(0), "payload.bin", "application/octet-stream", new byte[] {1, 2, 3});
     }
 
     private static MockPart textPart(String name, String value) {
@@ -397,10 +371,10 @@ class OpenApiControllerTest {
             byte[] expectedBytes) {
         assertEquals(fileName, descriptor.get("fileName"));
         assertEquals(contentType, descriptor.get("contentType"));
-        assertEquals((long) expectedBytes.length, descriptor.get("size"));
-        String ref = String.valueOf(descriptor.get("fileRef"));
-        assertTrue(ref.startsWith("upload-"));
-        assertArrayEquals(expectedBytes, receivedFileBytes.get(ref));
+        assertEquals(expectedBytes.length, ((Number) descriptor.get("size")).longValue());
+        assertEquals(4, descriptor.size());
+        assertEquals(Base64.getEncoder().encodeToString(expectedBytes), descriptor.get("contentBase64"));
+        assertArrayEquals(expectedBytes, Base64.getDecoder().decode((String) descriptor.get("contentBase64")));
     }
 
     @Test

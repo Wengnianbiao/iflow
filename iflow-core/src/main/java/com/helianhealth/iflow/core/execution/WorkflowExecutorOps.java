@@ -375,7 +375,6 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
         if (input.getWorkflowInput() != null && !input.getWorkflowInput().isEmpty()) {
             workflow.setInput(new HashMap<>(input.getWorkflowInput()));
         }
-        workflow.setFileAccess(input.getFileAccess());
         workflow.setCorrelationId(resolveCorrelationId(workflow, workflowDefinition));
 
         return workflow;

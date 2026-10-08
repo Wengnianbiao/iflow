@@ -1,6 +1,5 @@
 package com.helianhealth.iflow.common.domain.run;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -36,10 +35,4 @@ public class StartWorkflowRequest {
 
     @Builder.Default
     private Map<String, Object> input = new HashMap<>();
-
-    /**
-     * 仅在当前同步执行期间可用的文件访问能力；不属于 API DTO，也不写入执行记录。
-     */
-    @JsonIgnore
-    private FileAccess fileAccess;
 }

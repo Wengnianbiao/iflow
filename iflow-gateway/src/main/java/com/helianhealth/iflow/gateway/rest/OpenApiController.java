@@ -32,13 +32,7 @@ public class OpenApiController {
     )
     @ResponseBody
     public String invokeOpenApi(HttpServletRequest httpRequest) {
-        try (OpenApiRequest request = requestReader.read(httpRequest)) {
-            return openApiService.invoke(request);
-        } catch (ResponseStatusException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to close Open API request resources", e);
-        }
+        return openApiService.invoke(requestReader.read(httpRequest));
     }
 
     @RequestMapping(
@@ -48,13 +42,7 @@ public class OpenApiController {
     )
     @ResponseBody
     public String invokeOpenApiGet(HttpServletRequest httpRequest) {
-        try (OpenApiRequest request = requestReader.read(httpRequest)) {
-            return openApiService.invoke(request);
-        } catch (ResponseStatusException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to close Open API request resources", e);
-        }
+        return openApiService.invoke(requestReader.read(httpRequest));
     }
 
     @ExceptionHandler(ResponseStatusException.class)

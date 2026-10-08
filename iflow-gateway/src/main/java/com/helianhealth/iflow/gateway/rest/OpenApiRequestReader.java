@@ -1,7 +1,6 @@
 package com.helianhealth.iflow.gateway.rest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.helianhealth.iflow.common.domain.run.TransientFileDescriptor;
 import com.helianhealth.iflow.common.utils.JsonValueCodec;
 import com.helianhealth.iflow.common.utils.XmlMapParser;
 import jakarta.servlet.ServletException;
@@ -23,6 +22,7 @@ import java.nio.charset.Charset;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -30,7 +30,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/** 在启动工作流前完成体积检查、HTTP 拆包及文本报文解析。上传文件内容保持原始字节。 */
+/** 在启动工作流前完成体积检查、HTTP 拆包及文本报文解析。上传文件原始字节以 Base64 作为普通入参传递。 */
 @Component
 public class OpenApiRequestReader {
 
@@ -60,13 +60,12 @@ public class OpenApiRequestReader {
         String mode = bodyMode(request);
         Map<String, Object> query = parseUrlEncoded(request.getQueryString(), StandardCharsets.UTF_8);
         Map<String, Object> headers = headers(request);
-        InMemoryFileScope fileScope = new InMemoryFileScope();
         try {
             if ("GET".equalsIgnoreCase(request.getMethod())) {
                 // GET 不把请求体交给工作流，但仍读取并执行实际字节大小限制。
                 readLimited(request.getInputStream(), request.getContentLengthLong(), 0);
                 return result(request, null, query, headers, Map.of(),
-                        includeRawBody ? "" : null, fileScope);
+                        includeRawBody ? "" : null);
             }
 
             String contentType = request.getContentType();
@@ -80,13 +79,13 @@ public class OpenApiRequestReader {
                     throw new ResponseStatusException(
                             HttpStatus.BAD_REQUEST, "multipart/form-data 缺少 boundary");
                 }
-                return readMultipart(request, query, headers, fileScope);
+                return readMultipart(request, query, headers);
             }
 
             byte[] bytes = readLimited(request.getInputStream(), request.getContentLengthLong(), 0);
             if (bytes.length == 0) {
                 return result(request, null, query, headers, Map.of(),
-                        includeRawBody ? "" : null, fileScope);
+                        includeRawBody ? "" : null);
             }
             if (mediaType == null) {
                 mediaType = optionalContentType(contentType);
@@ -96,27 +95,18 @@ public class OpenApiRequestReader {
             }
             ParsedBody parsed = readTextBody(bytes, mediaType, mode);
             return result(request, parsed.body(), query, headers, Map.of(),
-                    includeRawBody ? parsed.rawText() : null, fileScope);
-        } catch (ResponseStatusException e) {
-            fileScope.close();
-            throw e;
+                    includeRawBody ? parsed.rawText() : null);
         } catch (OpenApiPayloadTooLargeException e) {
-            fileScope.close();
             throw tooLarge();
         } catch (IOException e) {
-            fileScope.close();
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "无法读取请求体", e);
-        } catch (RuntimeException e) {
-            fileScope.close();
-            throw e;
         }
     }
 
     private OpenApiRequest readMultipart(
             HttpServletRequest request,
             Map<String, Object> query,
-            Map<String, Object> headers,
-            InMemoryFileScope fileScope) {
+            Map<String, Object> headers) {
         Map<String, List<String>> fields = new LinkedHashMap<>();
         Map<String, Object> files = new LinkedHashMap<>();
         long total = 0;
@@ -137,19 +127,22 @@ public class OpenApiRequestReader {
                 if (fileName.isBlank() && bytes.length == 0) {
                     continue;
                 }
-                TransientFileDescriptor descriptor = fileScope.add(
-                        fileName, emptyToNull(part.getContentType()), bytes);
+                Map<String, Object> file = new LinkedHashMap<>();
+                file.put("fileName", fileName);
+                file.put("contentType", emptyToNull(part.getContentType()));
+                file.put("size", (long) bytes.length);
+                file.put("contentBase64", Base64.getEncoder().encodeToString(bytes));
                 @SuppressWarnings("unchecked")
                 List<Map<String, Object>> values = (List<Map<String, Object>>) files.computeIfAbsent(
                         part.getName(), ignored -> new ArrayList<Map<String, Object>>());
-                values.add(descriptor.toInputMap());
+                values.add(file);
             }
         } catch (OpenApiPayloadTooLargeException e) {
             throw tooLarge();
         } catch (IOException | ServletException | IllegalArgumentException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "multipart/form-data 请求不合法", e);
         }
-        return result(request, compact(fields), query, headers, files, null, fileScope);
+        return result(request, compact(fields), query, headers, files, null);
     }
 
     private ParsedBody readTextBody(byte[] bytes, MediaType mediaType, String mode) {
@@ -198,10 +191,9 @@ public class OpenApiRequestReader {
             Map<String, Object> query,
             Map<String, Object> headers,
             Map<String, Object> files,
-            String rawBody,
-            InMemoryFileScope fileScope) {
+            String rawBody) {
         return new OpenApiRequest(body, query, headers, files, request.getMethod(),
-                request.getRequestURI(), rawBody, fileScope, fileScope);
+                request.getRequestURI(), rawBody);
     }
 
     private byte[] readLimited(InputStream input, long reportedLength, long alreadyRead) throws IOException {

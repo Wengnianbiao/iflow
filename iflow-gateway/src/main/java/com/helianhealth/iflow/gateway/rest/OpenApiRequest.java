@@ -1,11 +1,9 @@
 package com.helianhealth.iflow.gateway.rest;
 
-import com.helianhealth.iflow.common.domain.run.FileAccess;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/** 已解析的 HTTP 入站上下文。rawBody 为 null 表示未启用原文保存。 */
+/** 已解析的 HTTP 入站数据。files 包含文件元信息及 contentBase64；rawBody 为 null 表示未启用原文保存。 */
 public record OpenApiRequest(
         Object body,
         Map<String, Object> query,
@@ -13,9 +11,7 @@ public record OpenApiRequest(
         Map<String, Object> files,
         String method,
         String path,
-        String rawBody,
-        FileAccess fileAccess,
-        AutoCloseable resourceScope) implements AutoCloseable {
+        String rawBody) {
 
     public OpenApiRequest(
             Object body,
@@ -24,7 +20,7 @@ public record OpenApiRequest(
             String method,
             String path,
             String rawBody) {
-        this(body, query, headers, Map.of(), method, path, rawBody, null, () -> {});
+        this(body, query, headers, Map.of(), method, path, rawBody);
     }
 
     public Map<String, Object> toWorkflowInput() {
@@ -39,12 +35,5 @@ public record OpenApiRequest(
             input.put("rawBody", rawBody);
         }
         return input;
-    }
-
-    @Override
-    public void close() throws Exception {
-        if (resourceScope != null) {
-            resourceScope.close();
-        }
     }
 }

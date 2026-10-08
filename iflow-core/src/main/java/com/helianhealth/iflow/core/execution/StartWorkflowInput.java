@@ -1,7 +1,6 @@
 package com.helianhealth.iflow.core.execution;
 
 import com.helianhealth.iflow.common.domain.run.StartWorkflowRequest;
-import com.helianhealth.iflow.common.domain.run.FileAccess;
 import lombok.Builder;
 import lombok.Getter;
 import org.springframework.util.StringUtils;
@@ -25,9 +24,6 @@ public class StartWorkflowInput {
     @Builder.Default
     private final Map<String, Object> workflowInput = new HashMap<>();
 
-    /** 仅随当前同步调用显式传递，不进入持久化模型。 */
-    private final FileAccess fileAccess;
-
     public static StartWorkflowInput from(StartWorkflowRequest request) {
         if (request == null || !StringUtils.hasText(request.getRoute())) {
             throw new IllegalArgumentException("工作流 route 不能为空");
@@ -39,7 +35,6 @@ public class StartWorkflowInput {
                         request.getInput() != null
                                 ? new HashMap<>(request.getInput())
                                 : new HashMap<>())
-                .fileAccess(request.getFileAccess())
                 .build();
     }
 }

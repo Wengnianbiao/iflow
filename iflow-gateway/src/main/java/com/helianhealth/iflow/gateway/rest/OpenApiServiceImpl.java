@@ -35,7 +35,6 @@ public class OpenApiServiceImpl implements OpenApiService {
                             StartWorkflowRequest.builder()
                                     .route(workflowRoute)
                                     .input(request.toWorkflowInput())
-                                    .fileAccess(request.fileAccess())
                                     .build());
             return toOpenApiResponse(executed);
         } catch (WorkFlowConfigException e) {
