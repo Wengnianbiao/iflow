@@ -114,7 +114,7 @@ class OpenApiControllerTest {
         mvc.perform(post(PATH).contentType("application/json").content(json.getBytes(StandardCharsets.UTF_8)))
                 .andExpect(status().isOk());
         assertEquals(expected, started.getInput().get("body"));
-        assertEquals("hl-open-api/query-lis-apply", started.getName());
+        assertEquals("hl-open-api/query-lis-apply", started.getRoute());
         assertEquals("POST", started.getInput().get("method"));
         assertEquals(PATH, started.getInput().get("path"));
         assertEquals(Map.of(), started.getInput().get("query"));

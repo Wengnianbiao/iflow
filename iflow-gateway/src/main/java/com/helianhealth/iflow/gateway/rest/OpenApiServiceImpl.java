@@ -28,45 +28,45 @@ public class OpenApiServiceImpl implements OpenApiService {
 
     @Override
     public String invoke(OpenApiRequest request) {
-        String workflowName = normalizeWorkflowName(request.path());
+        String workflowRoute = normalizeWorkflowRoute(request.path());
         try {
             WorkflowModel executed =
                     workflowExecutionService.startWorkflow(
                             StartWorkflowRequest.builder()
-                                    .name(workflowName)
+                                    .route(workflowRoute)
                                     .input(request.toWorkflowInput())
                                     .fileAccess(request.fileAccess())
                                     .build());
             return toOpenApiResponse(executed);
         } catch (WorkFlowConfigException e) {
             if (e.getErrorCode() == WorkFlowErrorCode.WORKFLOW_NOT_FOUND.getCode()) {
-                log.error("open api接口未匹配工作流, name={}", workflowName);
+                log.error("open api接口未匹配工作流, route={}", workflowRoute);
                 return buildErrorResponse(
-                        WorkFlowErrorCode.METHOD_NOT_SUPPORT.getCode(), "name=" + workflowName);
+                        WorkFlowErrorCode.METHOD_NOT_SUPPORT.getCode(), "route=" + workflowRoute);
             }
-            log.error("open api调度异常, name={}: {}", workflowName, e.getMessage(), e);
+            log.error("open api调度异常, route={}: {}", workflowRoute, e.getMessage(), e);
             return buildErrorResponse(e.getErrorCode(), e.getErrorMessage());
         } catch (WorkFlowException e) {
-            log.error("open api调度异常, name={}: {}", workflowName, e.getMessage(), e);
+            log.error("open api调度异常, route={}: {}", workflowRoute, e.getMessage(), e);
             return buildErrorResponse(e.getErrorCode(), e.getErrorMessage());
         } catch (Exception e) {
-            log.error("open api调度未知异常, name={}", workflowName, e);
+            log.error("open api调度未知异常, route={}", workflowRoute, e);
             return buildErrorResponse(WorkFlowErrorCode.INTERNAL_ERROR.getCode(), extractRootCauseMessage(e));
         }
     }
 
     /**
-     * Open API 用请求路径作为工作流 name；去掉前导 {@code /}。
+     * Open API 用请求路径作为工作流 route；去掉前导 {@code /}。
      */
-    static String normalizeWorkflowName(String routeKey) {
+    static String normalizeWorkflowRoute(String routeKey) {
         if (!StringUtils.hasText(routeKey)) {
             return routeKey;
         }
-        String name = routeKey.trim();
-        while (name.startsWith("/")) {
-            name = name.substring(1);
+        String route = routeKey.trim();
+        while (route.startsWith("/")) {
+            route = route.substring(1);
         }
-        return name;
+        return route;
     }
 
     private String toOpenApiResponse(WorkflowModel workflow) {

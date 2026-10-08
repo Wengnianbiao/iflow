@@ -1,17 +1,17 @@
-export function workflowPath(name: string) {
-  const trimmed = name.trim()
+export function workflowPath(route: string) {
+  const trimmed = route.trim()
   return trimmed.startsWith('/') ? trimmed : `/${trimmed}`
 }
 
 /** 与 Open API 网关写入工作流的入参一致。执行页面只编辑 body。 */
-export function toGatewayWorkflowInput(workflowName: string, body: unknown): Record<string, unknown> {
+export function toGatewayWorkflowInput(workflowRoute: string, body: unknown): Record<string, unknown> {
   return {
     body,
     query: {},
     headers: { 'content-type': 'application/json' },
     files: {},
     method: 'POST',
-    path: workflowPath(workflowName),
+    path: workflowPath(workflowRoute),
   }
 }
 

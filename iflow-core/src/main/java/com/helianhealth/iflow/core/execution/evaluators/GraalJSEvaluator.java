@@ -24,7 +24,6 @@ public class GraalJSEvaluator implements Evaluator {
         return evaluateWithBindings(expression, input, Map.of());
     }
 
-    @SuppressWarnings("unchecked")
     public Object evaluateWithBindings(String expression, Object input, Map<String, Object> bindings) {
         return evaluateWithBindings(expression, input, bindings, null);
     }

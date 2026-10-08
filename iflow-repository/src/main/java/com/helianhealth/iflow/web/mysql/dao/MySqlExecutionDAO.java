@@ -214,7 +214,7 @@ public class MySqlExecutionDAO extends MySqlBaseDAO implements ExecutionDAO {
                     if (workflow.getStatus() == WorkflowModel.Status.RUNNING) {
                         insertWorkflowPending(
                                 tx,
-                                workflow.getWorkflowName(),
+                                workflow.getWorkflowRoute(),
                                 workflow.getWorkflowVersion(),
                                 workflow.getWorkflowId());
                     }
@@ -236,7 +236,7 @@ public class MySqlExecutionDAO extends MySqlBaseDAO implements ExecutionDAO {
                     } else if (workflow.getStatus() == WorkflowModel.Status.RUNNING) {
                         insertWorkflowPending(
                                 tx,
-                                workflow.getWorkflowName(),
+                                workflow.getWorkflowRoute(),
                                 workflow.getWorkflowVersion(),
                                 workflow.getWorkflowId());
                     }
@@ -286,8 +286,8 @@ public class MySqlExecutionDAO extends MySqlBaseDAO implements ExecutionDAO {
     }
 
     @Override
-    public List<String> getRunningWorkflowIds(String workflowName, int version) {
-        return getPendingWorkflowsByType(workflowName, version).stream()
+    public List<String> getRunningWorkflowIds(String workflowRoute, int version) {
+        return getPendingWorkflowsByType(workflowRoute, version).stream()
                 .map(WorkflowModel::getWorkflowId)
                 .collect(Collectors.toCollection(ArrayList::new));
     }
@@ -300,7 +300,7 @@ public class MySqlExecutionDAO extends MySqlBaseDAO implements ExecutionDAO {
     }
 
     @Override
-    public List<WorkflowModel> getPendingWorkflowsByType(String workflowName, int version) {
+    public List<WorkflowModel> getPendingWorkflowsByType(String workflowRoute, int version) {
         return getWithTransaction(
                 tx -> {
                     List<WorkflowModel> workflows =
@@ -310,10 +310,10 @@ public class MySqlExecutionDAO extends MySqlBaseDAO implements ExecutionDAO {
                                             + "INNER JOIN workflow w ON w.workflow_id = p.workflow_id "
                                             + "WHERE p.workflow_type = ?",
                                     q ->
-                                            q.addParameter(workflowName)
+                                            q.addParameter(workflowRoute)
                                                     .executeAndFetch(this::readWorkflows));
                     workflows = workflows.stream()
-                            .filter(workflow -> matchesWorkflowType(workflow, workflowName, version))
+                            .filter(workflow -> matchesWorkflowType(workflow, workflowRoute, version))
                             .filter(workflow -> workflow.getStatus() == WorkflowModel.Status.RUNNING)
                             .collect(Collectors.toCollection(ArrayList::new));
                     for (WorkflowModel workflow : workflows) {
@@ -325,14 +325,14 @@ public class MySqlExecutionDAO extends MySqlBaseDAO implements ExecutionDAO {
     }
 
     @Override
-    public long getPendingWorkflowCount(String workflowName) {
-        return getPendingWorkflowsByType(workflowName, 0).size();
+    public long getPendingWorkflowCount(String workflowRoute) {
+        return getPendingWorkflowsByType(workflowRoute, 0).size();
     }
 
     @Override
-    public List<WorkflowModel> getWorkflowsByType(String workflowName, long startTime, long endTime) {
+    public List<WorkflowModel> getWorkflowsByType(String workflowRoute, long startTime, long endTime) {
         return selectAllWorkflows().stream()
-                .filter(workflow -> matchesWorkflowName(workflow, workflowName))
+                .filter(workflow -> matchesWorkflowRoute(workflow, workflowRoute))
                 .filter(workflow -> workflow.getStartTime() >= startTime && workflow.getStartTime() <= endTime)
                 .sorted(Comparator.comparingLong(WorkflowModel::getStartTime))
                 .collect(Collectors.toCollection(ArrayList::new));
@@ -340,7 +340,7 @@ public class MySqlExecutionDAO extends MySqlBaseDAO implements ExecutionDAO {
 
     @Override
     public List<WorkflowModel> getWorkflowsByCorrelationId(
-            String workflowName, String correlationId, boolean includeTasks) {
+            String workflowRoute, String correlationId, boolean includeTasks) {
         return getWithTransaction(
                 tx -> {
                     List<WorkflowModel> workflows =
@@ -353,7 +353,7 @@ public class MySqlExecutionDAO extends MySqlBaseDAO implements ExecutionDAO {
                                             q.addParameter(correlationId)
                                                     .executeAndFetch(this::readWorkflows));
                     workflows = workflows.stream()
-                            .filter(workflow -> matchesWorkflowName(workflow, workflowName))
+                            .filter(workflow -> matchesWorkflowRoute(workflow, workflowRoute))
                             .sorted(Comparator.comparingLong(WorkflowModel::getStartTime))
                             .collect(Collectors.toCollection(ArrayList::new));
                     if (includeTasks) {
@@ -368,10 +368,10 @@ public class MySqlExecutionDAO extends MySqlBaseDAO implements ExecutionDAO {
     }
 
     @Override
-    public List<WorkflowModel> listRecentInstances(String workflowName, int version, int limit) {
+    public List<WorkflowModel> listRecentInstances(String workflowRoute, int version, int limit) {
         int safeLimit = Math.max(1, Math.min(limit, 100));
         return selectAllWorkflows().stream()
-                .filter(workflow -> matchesWorkflowType(workflow, workflowName, version))
+                .filter(workflow -> matchesWorkflowType(workflow, workflowRoute, version))
                 .sorted(Comparator.comparingLong(WorkflowModel::getStartTime).reversed())
                 .limit(safeLimit)
                 .collect(Collectors.toCollection(ArrayList::new));
@@ -510,11 +510,11 @@ public class MySqlExecutionDAO extends MySqlBaseDAO implements ExecutionDAO {
     }
 
     private void insertWorkflowPending(
-            Connection tx, String workflowName, int version, String workflowId) {
+            Connection tx, String workflowRoute, int version, String workflowId) {
         executeUpdate(
                 tx,
                 "INSERT IGNORE INTO workflow_pending (workflow_type, workflow_id) VALUES (?, ?)",
-                q -> q.addParameter(workflowName).addParameter(workflowId));
+                q -> q.addParameter(workflowRoute).addParameter(workflowId));
     }
 
     private void deleteWorkflowPending(Connection tx, String workflowId) {
@@ -576,12 +576,12 @@ public class MySqlExecutionDAO extends MySqlBaseDAO implements ExecutionDAO {
                 });
     }
 
-    private boolean matchesWorkflowName(WorkflowModel workflow, String workflowName) {
-        return Objects.equals(workflowName, workflow.getWorkflowName());
+    private boolean matchesWorkflowRoute(WorkflowModel workflow, String workflowRoute) {
+        return Objects.equals(workflowRoute, workflow.getWorkflowRoute());
     }
 
-    private boolean matchesWorkflowType(WorkflowModel workflow, String workflowName, int version) {
-        return matchesWorkflowName(workflow, workflowName)
+    private boolean matchesWorkflowType(WorkflowModel workflow, String workflowRoute, int version) {
+        return matchesWorkflowRoute(workflow, workflowRoute)
                 && (version <= 0 || workflow.getWorkflowVersion() == version);
     }
 

@@ -122,7 +122,7 @@ public interface ExecutionDAO {
     /**
      * 取指定工作流定义当前处于运行中的实例 ID 列表。
      */
-    List<String> getRunningWorkflowIds(String workflowName, int version);
+    List<String> getRunningWorkflowIds(String workflowRoute, int version);
 
     /**
      * 取全部处于 RUNNING 的工作流实例 ID。
@@ -134,12 +134,12 @@ public interface ExecutionDAO {
     /**
      * 取指定工作流定义当前处于运行中的实例（含任务列表）。
      */
-    List<WorkflowModel> getPendingWorkflowsByType(String workflowName, int version);
+    List<WorkflowModel> getPendingWorkflowsByType(String workflowRoute, int version);
 
     /**
      * 统计指定工作流定义的运行中实例数。
      */
-    long getPendingWorkflowCount(String workflowName);
+    long getPendingWorkflowCount(String workflowRoute);
 
     /**
      * 按时间窗口查询某工作流定义的执行实例（不含任务列表）。
@@ -147,7 +147,7 @@ public interface ExecutionDAO {
      * @param startTime 起始时间戳（毫秒，含）
      * @param endTime   结束时间戳（毫秒，含）
      */
-    List<WorkflowModel> getWorkflowsByType(String workflowName, long startTime, long endTime);
+    List<WorkflowModel> getWorkflowsByType(String workflowRoute, long startTime, long endTime);
 
     /**
      * 按 correlationId 查询某工作流定义的执行实例。
@@ -155,10 +155,10 @@ public interface ExecutionDAO {
      * @param includeTasks 是否同时加载任务列表
      */
     List<WorkflowModel> getWorkflowsByCorrelationId(
-            String workflowName, String correlationId, boolean includeTasks);
+            String workflowRoute, String correlationId, boolean includeTasks);
 
     /**
      * 查询某工作流定义最近的执行实例（按 start_time 降序，不含任务列表）。
      */
-    List<WorkflowModel> listRecentInstances(String workflowName, int version, int limit);
+    List<WorkflowModel> listRecentInstances(String workflowRoute, int version, int limit);
 }

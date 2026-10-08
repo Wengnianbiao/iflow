@@ -104,7 +104,9 @@ function SaveWorkflowDialog({
         <header>
           <div>
             <h2 id="workflow-save-diff-title">确认保存工作流</h2>
-            <p>请确认当前版本与待保存版本之间的差异。</p>
+            <p>{!isNewWorkflow && baseline && workflow.route !== baseline.route
+              ? '路由已修改，确认后将创建新工作流，原工作流保留。'
+              : '请确认当前版本与待保存版本之间的差异。'}</p>
           </div>
           <button
             type="button"
@@ -152,8 +154,8 @@ function SaveWorkflowDialog({
             <DiffEditor
               height="100%"
               language="json"
-              originalModelPath={`inmemory://workflow-save/${encodeURIComponent(workflow.name)}-${workflow.version}-original.json`}
-              modifiedModelPath={`inmemory://workflow-save/${encodeURIComponent(workflow.name)}-${workflow.version}-modified.json`}
+              originalModelPath={`inmemory://workflow-save/${encodeURIComponent(workflow.route)}-${workflow.version}-original.json`}
+              modifiedModelPath={`inmemory://workflow-save/${encodeURIComponent(workflow.route)}-${workflow.version}-modified.json`}
               onMount={mountEditor}
               original={isNewWorkflow ? '{}' : baseline ? prettyJson(baseline) : '{}'}
               modified={prettyJson(workflow)}
@@ -396,11 +398,11 @@ function DeleteWorkflowDialog({
           <div className="workflow-delete-target">
             <div>
               <span>工作流名称</span>
-              <strong>{workflow.displayName || workflow.name}</strong>
+              <strong>{workflow.name || workflow.route}</strong>
             </div>
             <div>
-              <span>路由标识</span>
-              <code>{workflow.name}</code>
+              <span>路由</span>
+              <code>{workflow.route}</code>
             </div>
             <div>
               <span>版本</span>
@@ -409,7 +411,7 @@ function DeleteWorkflowDialog({
           </div>
           <label className="workflow-delete-confirm-field">
             <span>
-              请输入路由标识 <code>{workflow.name}</code> 以确认删除
+              请输入路由 <code>{workflow.route}</code> 以确认删除
             </span>
             <input
               autoFocus
@@ -417,7 +419,7 @@ function DeleteWorkflowDialog({
               disabled={deleting}
               spellCheck={false}
               autoComplete="off"
-              placeholder="输入完整路由标识"
+              placeholder="输入完整路由"
               onChange={(event) => {
                 actor.send({
                   type: 'UPDATE_DELETE_CONFIRMATION',
@@ -446,7 +448,7 @@ function DeleteWorkflowDialog({
           <button
             type="button"
             className="delete-confirm-action"
-            disabled={deleting || deleteConfirmationValue !== workflow.name}
+            disabled={deleting || deleteConfirmationValue !== workflow.route}
             onClick={() => actor.send({ type: 'CONFIRM_DELETE' })}
           >
             <TrashIcon size={18} weight="bold" />

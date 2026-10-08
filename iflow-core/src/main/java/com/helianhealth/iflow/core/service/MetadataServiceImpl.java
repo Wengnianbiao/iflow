@@ -68,21 +68,21 @@ public class MetadataServiceImpl implements MetadataService {
 
     @Override
     public WorkflowDef saveWorkflowDef(WorkflowDef def) {
-        if (metadataDAO.getWorkflowDef(def.getName(), def.getVersion()).isPresent()) {
+        if (metadataDAO.getWorkflowDef(def.getRoute(), def.getVersion()).isPresent()) {
             metadataDAO.updateWorkflowDef(def);
         } else {
             metadataDAO.createWorkflowDef(def);
         }
-        return metadataDAO.getWorkflowDef(def.getName(), def.getVersion()).orElse(def);
+        return metadataDAO.getWorkflowDef(def.getRoute(), def.getVersion()).orElse(def);
     }
 
     @Override
-    public WorkflowDef getWorkflowDef(String name, Integer version) {
+    public WorkflowDef getWorkflowDef(String route, Integer version) {
         Optional<WorkflowDef> workflowDef;
         if (version == null) {
-            workflowDef = metadataDAO.getLatestWorkflowDef(name);
+            workflowDef = metadataDAO.getLatestWorkflowDef(route);
         } else {
-            workflowDef = metadataDAO.getWorkflowDef(name, version);
+            workflowDef = metadataDAO.getWorkflowDef(route, version);
         }
 
         return workflowDef.orElseThrow(
@@ -90,13 +90,13 @@ public class MetadataServiceImpl implements MetadataService {
                         new WorkFlowConfigException(
                                 WorkFlowErrorCode.WORKFLOW_NOT_FOUND,
                                 String.format(
-                                        "No such workflow found by name: %s, version: %d",
-                                        name, version)));
+                                        "No such workflow found by route: %s, version: %d",
+                                        route, version)));
     }
 
     @Override
-    public WorkflowDef getLatestWorkflowDef(String name) {
-        return getWorkflowDef(name, null);
+    public WorkflowDef getLatestWorkflowDef(String route) {
+        return getWorkflowDef(route, null);
     }
 
     @Override
@@ -105,19 +105,19 @@ public class MetadataServiceImpl implements MetadataService {
     }
 
     @Override
-    public List<WorkflowDef> getAllVersions(String name) {
-        return metadataDAO.getAllVersions(name);
+    public List<WorkflowDef> getAllVersions(String route) {
+        return metadataDAO.getAllVersions(route);
     }
 
     @Override
-    public void unregisterWorkflowDef(String name, int version) {
-        metadataDAO.removeWorkflowDef(name, version);
+    public void unregisterWorkflowDef(String route, int version) {
+        metadataDAO.removeWorkflowDef(route, version);
     }
 
     @Override
-    public void unregisterAllWorkflowVersions(String name) {
-        for (WorkflowDef def : metadataDAO.getAllVersions(name)) {
-            metadataDAO.removeWorkflowDef(name, def.getVersion());
+    public void unregisterAllWorkflowVersions(String route) {
+        for (WorkflowDef def : metadataDAO.getAllVersions(route)) {
+            metadataDAO.removeWorkflowDef(route, def.getVersion());
         }
     }
 }

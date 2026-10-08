@@ -233,7 +233,7 @@ class ExecutionPersistenceTruncationTest {
     private WorkflowModel workflow() {
         WorkflowModel workflow = new WorkflowModel();
         workflow.setWorkflowId("wf-1");
-        workflow.setWorkflowDefinition(WorkflowDef.builder().name("demo").version(1).build());
+        workflow.setWorkflowDefinition(WorkflowDef.builder().route("demo").version(1).build());
         workflow.setInput(input);
         workflow.setOutput(output);
         workflow.getTasks().add(task("t-1"));

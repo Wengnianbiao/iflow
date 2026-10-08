@@ -63,7 +63,7 @@ class WorkflowExecutorOpsPersistenceTest {
                         .build();
         WorkflowDef workflowDefinition =
                 WorkflowDef.builder()
-                        .name("failed-workflow-persistence")
+                        .route("failed-workflow-persistence")
                         .version(1)
                         .tasks(List.of(taskDefinition))
                         .build();
@@ -122,7 +122,7 @@ class WorkflowExecutorOpsPersistenceTest {
                         () ->
                                 executor.startWorkflow(
                                         StartWorkflowInput.builder()
-                                                .name(workflowDefinition.getName())
+                                                .route(workflowDefinition.getRoute())
                                                 .build()));
 
         assertEquals(WorkflowModel.Status.FAILED, termination.getWorkflowStatus());

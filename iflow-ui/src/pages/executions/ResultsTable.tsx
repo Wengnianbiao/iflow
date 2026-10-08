@@ -10,10 +10,10 @@ import WorkflowStatusBadge from './WorkflowStatusBadge'
 // Keep iFlow's display name, keyword and column order while matching Conductor's ResultsTable boundary.
 const executionFields: DataTableColumn<WorkflowExecutionSummary>[] = [
   {
-    title: '工作流名称', key: 'displayName', dataIndex: 'displayName', width: 150,
+    title: '工作流名称', key: 'workflowName', dataIndex: 'workflowName', width: 150,
     render: (_value, execution) => (
       <Link component={RouterLink} to={`/executions/${encodeURIComponent(execution.workflowId)}`} sx={executionsStyles.link} underline="hover">
-        {execution.displayName || '-'}
+        {execution.workflowName || '-'}
       </Link>
     ),
   },

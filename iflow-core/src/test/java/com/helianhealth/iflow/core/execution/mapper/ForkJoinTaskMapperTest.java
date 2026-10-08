@@ -80,7 +80,7 @@ class ForkJoinTaskMapperTest {
     private TaskMapperContext context(WorkflowTask fork, List<WorkflowTask> tasks) {
         WorkflowModel workflow = new WorkflowModel();
         workflow.setWorkflowId("workflow-1");
-        workflow.setWorkflowDefinition(WorkflowDef.builder().name("fork-test").tasks(tasks).build());
+        workflow.setWorkflowDefinition(WorkflowDef.builder().route("fork-test").tasks(tasks).build());
         return TaskMapperContext.builder().workflowModel(workflow).workflowTask(fork)
                 .taskInput(Map.of("payload", 42)).taskId("fork-1").retryCount(3)
                 .forkTaskId("outer-fork").deciderService(decider).build();

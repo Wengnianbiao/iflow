@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -33,7 +34,7 @@ public class WorkflowDefinitionController {
     @PostMapping("/create")
     public ResultData<WorkflowDef> create(@RequestBody WorkflowDef def) {
         metadataService.registerWorkflowDef(def);
-        return ResultData.ok(metadataService.getWorkflowDef(def.getName(), def.getVersion()));
+        return ResultData.ok(metadataService.getWorkflowDef(def.getRoute(), def.getVersion()));
     }
 
     @GetMapping("/all")
@@ -42,20 +43,20 @@ public class WorkflowDefinitionController {
     }
 
     @GetMapping("/latest")
-    public ResultData<WorkflowDef> getLatestByQuery(@RequestParam("name") String name) {
-        return ResultData.ok(metadataService.getLatestWorkflowDef(name));
+    public ResultData<WorkflowDef> getLatestByQuery(@RequestParam("route") String route) {
+        return ResultData.ok(metadataService.getLatestWorkflowDef(route));
     }
 
     @GetMapping("/detail")
     public ResultData<WorkflowDef> getByVersionByQuery(
-            @RequestParam("name") String name, @RequestParam("version") int version) {
-        return ResultData.ok(metadataService.getWorkflowDef(name, version));
+            @RequestParam("route") String route, @RequestParam("version") int version) {
+        return ResultData.ok(metadataService.getWorkflowDef(route, version));
     }
 
     @GetMapping("/versions")
-    public ResultData<List<Integer>> listVersions(@RequestParam("name") String name) {
+    public ResultData<List<Integer>> listVersions(@RequestParam("route") String route) {
         List<Integer> versions =
-                metadataService.getAllVersions(name).stream()
+                metadataService.getAllVersions(route).stream()
                         .map(WorkflowDef::getVersion)
                         .distinct()
                         .sorted(Comparator.naturalOrder())
@@ -64,19 +65,26 @@ public class WorkflowDefinitionController {
     }
 
     @PutMapping
-    public ResultData<WorkflowDef> update(@RequestBody WorkflowDef def) {
+    public ResultData<WorkflowDef> update(
+            @RequestParam("route") String route,
+            @RequestParam("version") int version,
+            @RequestBody WorkflowDef def) {
+        if (def == null || !Objects.equals(route, def.getRoute()) || version != def.getVersion()) {
+            throw new IllegalArgumentException("更新目标 route/version 必须与工作流定义一致；新路由或版本请创建定义");
+        }
+        metadataService.getWorkflowDef(route, version);
         metadataService.updateWorkflowDef(def);
-        return ResultData.ok(metadataService.getWorkflowDef(def.getName(), def.getVersion()));
+        return ResultData.ok(metadataService.getWorkflowDef(def.getRoute(), def.getVersion()));
     }
 
     @DeleteMapping
     public ResultData<Boolean> deleteByQuery(
-            @RequestParam("name") String name,
+            @RequestParam("route") String route,
             @RequestParam(value = "version", required = false) Integer version) {
         if (version == null) {
-            metadataService.unregisterAllWorkflowVersions(name);
+            metadataService.unregisterAllWorkflowVersions(route);
         } else {
-            metadataService.unregisterWorkflowDef(name, version);
+            metadataService.unregisterWorkflowDef(route, version);
         }
         return ResultData.ok(true);
     }

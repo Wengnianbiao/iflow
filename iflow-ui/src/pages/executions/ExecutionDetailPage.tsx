@@ -188,7 +188,7 @@ export function ExecutionDetailPage() {
     ? taskRows
     : taskRows.filter((task) => task.status === taskStatusFilter)
 
-  const displayName = execution?.workflowDefinition?.displayName?.trim() || '工作流实例'
+  const displayName = execution?.workflowDefinition?.name?.trim() || '工作流实例'
   const duration = execution?.startTime
     ? formatDuration(((execution.endTime && execution.endTime > 0) ? execution.endTime : Date.now()) - execution.startTime)
     : '-'
@@ -310,7 +310,7 @@ export function ExecutionDetailPage() {
               if (definition) navigate('/runWorkflow', {
                 state: {
                   execution: {
-                    workflowName: definition.name,
+                    workflowRoute: definition.route,
                     workflowVersion: definition.version,
                     input: execution.input,
                   },
@@ -326,7 +326,7 @@ export function ExecutionDetailPage() {
             disabled={!execution.workflowDefinition}
             onClick={() => {
               const definition = execution.workflowDefinition
-              if (definition) navigate(`/workflowDef/edit?name=${encodeURIComponent(definition.name)}&version=${definition.version}`)
+              if (definition) navigate(`/workflowDef/edit?route=${encodeURIComponent(definition.route)}&version=${definition.version}`)
             }}
           >
             <EyeIcon size={16} />查看定义

@@ -9,19 +9,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class WorkflowExecutionSummaryTest {
 
     @Test
-    void includesDisplayNameFromWorkflowDefinitionSnapshot() {
+    void includesWorkflowNameFromWorkflowDefinitionSnapshot() {
         WorkflowModel workflow = new WorkflowModel();
         workflow.setWorkflowId("workflow-1");
         workflow.setWorkflowDefinition(
                 WorkflowDef.builder()
-                        .name("create_archive")
-                        .displayName("创建档案")
+                        .route("create_archive")
+                        .name("创建档案")
                         .version(2)
                         .build());
 
         WorkflowExecutionSummary summary = WorkflowExecutionSummary.from(workflow);
 
-        assertEquals("create_archive", summary.getWorkflowName());
-        assertEquals("创建档案", summary.getDisplayName());
+        assertEquals("create_archive", summary.getWorkflowRoute());
+        assertEquals("创建档案", summary.getWorkflowName());
     }
 }

@@ -11,7 +11,7 @@ import java.util.List;
  *
  * <p>对外暴露工作流/任务定义的注册、查询与删除能力；内部通过 {@link MetadataDAO}
  * 访问持久化层。定义管理（Console / Bootstrap）应依赖本接口，而非直接注入 DAO。引擎启动时按
- * name/version 查询定义（version 为 null 取最新）；Gateway 等调用方请走 {@link WorkflowExecutionService}。
+ * route/version 查询定义（version 为 null 取最新）；Gateway 等调用方请走 {@link WorkflowExecutionService}。
  *
  * <p>查询方法在未找到时抛出异常，不返回 {@link java.util.Optional}。
  */
@@ -38,19 +38,19 @@ public interface MetadataService {
     WorkflowDef saveWorkflowDef(WorkflowDef def);
 
     /**
-     * @param name 工作流名称
+     * @param route 工作流名称
      * @param version 版本；为 {@code null} 时取最新版本
      * @return 工作流定义
      */
-    WorkflowDef getWorkflowDef(String name, Integer version);
+    WorkflowDef getWorkflowDef(String route, Integer version);
 
-    WorkflowDef getLatestWorkflowDef(String name);
+    WorkflowDef getLatestWorkflowDef(String route);
 
     List<WorkflowDef> getAllLatest();
 
-    List<WorkflowDef> getAllVersions(String name);
+    List<WorkflowDef> getAllVersions(String route);
 
-    void unregisterWorkflowDef(String name, int version);
+    void unregisterWorkflowDef(String route, int version);
 
-    void unregisterAllWorkflowVersions(String name);
+    void unregisterAllWorkflowVersions(String route);
 }

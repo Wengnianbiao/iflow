@@ -18,7 +18,7 @@ class TransientFileContextTest {
     void fileAccessPropagatesInternallyButIsNotSerializedOrPersisted() throws Exception {
         FileAccess access = ignored -> new ByteArrayInputStream(new byte[] {1, 2, 3});
         StartWorkflowRequest request = StartWorkflowRequest.builder()
-                .name("upload")
+                .route("upload")
                 .input(Map.of("files", Map.of("file", "metadata")))
                 .fileAccess(access)
                 .build();

@@ -35,7 +35,7 @@ class WorkflowExecutionControllerTest {
         answer("getWorkflowsByType", List.of(workflow("a", "first", 10)), "first", 0L, 100L);
         answer("getWorkflowsByType", List.of(workflow("b", "second", 20)), "second", 0L, 100L);
 
-        var page = controller.search(null, null, List.of("first", "second", "first"), null, null,
+        var page = controller.search(null, List.of("first", "second", "first"), null, null,
                 null, null, 0L, 100L, 1, 1).getData();
 
         assertEquals(2, page.getTotal());
@@ -44,34 +44,34 @@ class WorkflowExecutionControllerTest {
     }
 
     @Test
-    void selectedNamesAlsoFilterDirectIdLookup() {
+    void selectedRoutesAlsoFilterDirectIdLookup() {
         answer("getWorkflow", Optional.of(workflow("a", "third", 10)), "a", false);
-        var page = controller.search(null, null, List.of("first", "second"), null, null,
+        var page = controller.search(null, List.of("first", "second"), null, null,
                 "a", null, null, null, 1, 15).getData();
         assertEquals(0, page.getTotal());
     }
 
     @Test
-    void correlationSearchIncludesAllSelectionsAndLegacyNameStillWorks() {
+    void correlationSearchIncludesAllSelectionsAndSingleRouteStillWorks() {
         var first = workflow("a", "first", 10);
         var second = workflow("b", "second", 20);
         first.setCorrelationId("order");
         second.setCorrelationId("order");
         answer("getWorkflowsByCorrelationId", List.of(first), "first", "order", false);
         answer("getWorkflowsByCorrelationId", List.of(second), "second", "order", false);
-        var page = controller.search(null, null, List.of("first", "second"), null, null,
+        var page = controller.search(null, List.of("first", "second"), null, null,
                 null, "order", null, null, 1, 15).getData();
         assertEquals(List.of("b", "a"), page.getRows().stream().map(WorkflowExecutionSummary::getWorkflowId).toList());
-        var legacy = controller.search(null, "first", null, null, null,
+        var single = controller.search("first", null, null, null,
                 null, "order", null, null, 1, 15).getData();
-        assertEquals(1, legacy.getTotal());
+        assertEquals(1, single.getTotal());
     }
 
     private WorkflowModel workflow(String id, String name, long start) {
         var workflow = new WorkflowModel();
         workflow.setWorkflowId(id);
         workflow.setStartTime(start);
-        workflow.setWorkflowDefinition(WorkflowDef.builder().name(name).displayName("展示名称").version(1).build());
+        workflow.setWorkflowDefinition(WorkflowDef.builder().route(name).name("展示名称").version(1).build());
         return workflow;
     }
 }

@@ -12,7 +12,7 @@ export const routes: RouteObject[] = [
       { index: true, element: <Navigate to="/workflowDef" replace /> },
       { path: '/workflowDef', element: <WorkflowDefinitions /> },
       { path: '/workflowDef/edit', element: <Workflow /> },
-      { path: '/workflowDef/:name/:version?', element: <Workflow /> },
+      { path: '/workflowDef/:route/:version?', element: <Workflow /> },
       { path: '/runWorkflow', element: <RunWorkflow /> },
       { path: '/executions', element: <WorkflowSearch /> },
       { path: '/executions/:workflowId', element: <ExecutionDetailPage /> },

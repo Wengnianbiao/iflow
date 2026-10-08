@@ -48,12 +48,12 @@ public class WorkflowExecutionController {
 
     @GetMapping("/instances")
     public ResultData<List<WorkflowExecutionSummary>> listInstances(
-            @RequestParam("name") String name,
+            @RequestParam("route") String route,
             @RequestParam(value = "version", defaultValue = "1") int version,
             @RequestParam(value = "limit", defaultValue = "50") int limit) {
         int safeLimit = clamp(limit, 1, MAX_INSTANCE_LIMIT);
         List<WorkflowExecutionSummary> summaries =
-                executionDAO.listRecentInstances(name, version, safeLimit).stream()
+                executionDAO.listRecentInstances(route, version, safeLimit).stream()
                         .map(WorkflowExecutionSummary::from)
                         .collect(Collectors.toList());
         return ResultData.ok(summaries);
@@ -61,9 +61,8 @@ public class WorkflowExecutionController {
 
     @GetMapping("/search")
     public ResultData<PageList<WorkflowExecutionSummary>> search(
-            @RequestParam(value = "workflowName", required = false) String workflowName,
-            @RequestParam(value = "name", required = false) String legacyWorkflowName,
-            @RequestParam(value = "workflowNames", required = false) List<String> workflowNames,
+            @RequestParam(value = "workflowRoute", required = false) String workflowRoute,
+            @RequestParam(value = "workflowRoutes", required = false) List<String> workflowRoutes,
             @RequestParam(value = "version", required = false) Integer version,
             @RequestParam(value = "status", required = false) String status,
             @RequestParam(value = "workflowId", required = false) String workflowId,
@@ -74,21 +73,20 @@ public class WorkflowExecutionController {
             @RequestParam(value = "pageSize", defaultValue = "20") int pageSize) {
         int safePageNum = Math.max(1, pageNum);
         int safePageSize = clamp(pageSize, 1, MAX_PAGE_SIZE);
-        List<String> names = workflowNames == null ? List.of() : workflowNames.stream()
+        List<String> routes = workflowRoutes == null ? List.of() : workflowRoutes.stream()
                 .filter(StringUtils::hasText).map(String::trim).distinct().toList();
-        String legacyName = firstText(workflowName, legacyWorkflowName);
-        if (names.isEmpty() && StringUtils.hasText(legacyName)) {
-            names = List.of(legacyName);
+        if (routes.isEmpty() && StringUtils.hasText(workflowRoute)) {
+            routes = List.of(workflowRoute.trim());
         }
-        Set<String> selectedNames = new LinkedHashSet<>(names);
+        Set<String> selectedRoutes = new LinkedHashSet<>(routes);
 
         List<WorkflowModel> workflows =
-                loadSearchCandidates(names, workflowId, correlationId, startTime, endTime);
+                loadSearchCandidates(routes, workflowId, correlationId, startTime, endTime);
         Set<String> statuses = parseStatuses(status);
         List<WorkflowExecutionSummary> filtered =
                 workflows.stream()
                         .filter(workflow -> matchesWorkflowId(workflow, workflowId))
-                        .filter(workflow -> selectedNames.isEmpty() || selectedNames.contains(workflow.getWorkflowName()))
+                        .filter(workflow -> selectedRoutes.isEmpty() || selectedRoutes.contains(workflow.getWorkflowRoute()))
                         .filter(workflow -> matchesVersion(workflow, version))
                         .filter(workflow -> matchesStatus(workflow, statuses))
                         .filter(workflow -> matchesCorrelationId(workflow, correlationId))
@@ -125,10 +123,10 @@ public class WorkflowExecutionController {
         return ResultData.ok(WorkflowExecutionDetail.from(workflow));
     }
 
-    @GetMapping("/running/{name}/{version}")
+    @GetMapping("/running/{route}/{version}")
     public ResultData<List<String>> getRunningWorkflowIds(
-            @PathVariable("name") String name, @PathVariable("version") int version) {
-        return ResultData.ok(executionDAO.getRunningWorkflowIds(name, version));
+            @PathVariable("route") String route, @PathVariable("version") int version) {
+        return ResultData.ok(executionDAO.getRunningWorkflowIds(route, version));
     }
 
     @PostMapping("/{workflowId}/terminate")
@@ -149,7 +147,7 @@ public class WorkflowExecutionController {
     }
 
     private List<WorkflowModel> loadSearchCandidates(
-            List<String> workflowNames,
+            List<String> workflowRoutes,
             String workflowId,
             String correlationId,
             Long startTime,
@@ -158,10 +156,10 @@ public class WorkflowExecutionController {
             return executionDAO.getWorkflow(workflowId, false).stream().toList();
         }
 
-        List<String> names = resolveWorkflowNames(workflowNames);
+        List<String> routes = resolveWorkflowRoutes(workflowRoutes);
         if (StringUtils.hasText(correlationId)) {
-            return names.stream()
-                    .flatMap(name -> executionDAO.getWorkflowsByCorrelationId(name, correlationId, false).stream())
+            return routes.stream()
+                    .flatMap(route -> executionDAO.getWorkflowsByCorrelationId(route, correlationId, false).stream())
                     .collect(Collectors.toList());
         }
 
@@ -170,8 +168,8 @@ public class WorkflowExecutionController {
                 startTime != null
                         ? startTime
                         : Math.max(0L, safeEndTime - DEFAULT_SEARCH_WINDOW_MS);
-        return names.stream()
-                .flatMap(name -> executionDAO.getWorkflowsByType(name, safeStartTime, safeEndTime).stream())
+        return routes.stream()
+                .flatMap(route -> executionDAO.getWorkflowsByType(route, safeStartTime, safeEndTime).stream())
                 .collect(Collectors.toMap(
                         WorkflowModel::getWorkflowId,
                         workflow -> workflow,
@@ -182,23 +180,16 @@ public class WorkflowExecutionController {
                 .collect(Collectors.toList());
     }
 
-    private List<String> resolveWorkflowNames(List<String> workflowNames) {
-        if (!workflowNames.isEmpty()) {
-            return workflowNames;
+    private List<String> resolveWorkflowRoutes(List<String> workflowRoutes) {
+        if (!workflowRoutes.isEmpty()) {
+            return workflowRoutes;
         }
         return metadataService.getAllLatest().stream()
-                .map(WorkflowDef::getName)
+                .map(WorkflowDef::getRoute)
                 .filter(StringUtils::hasText)
                 .collect(Collectors.toCollection(LinkedHashSet::new))
                 .stream()
                 .collect(Collectors.toList());
-    }
-
-    private static String firstText(String first, String second) {
-        if (StringUtils.hasText(first)) {
-            return first;
-        }
-        return StringUtils.hasText(second) ? second : null;
     }
 
     private static boolean matchesWorkflowId(WorkflowModel workflow, String workflowId) {

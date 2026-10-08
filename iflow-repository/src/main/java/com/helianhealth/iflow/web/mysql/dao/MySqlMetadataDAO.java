@@ -66,50 +66,65 @@ public class MySqlMetadataDAO extends MySqlBaseDAO implements MetadataDAO {
                                 WorkFlowErrorCode.REPOSITORY_SAVE_ERROR,
                                 "工作流定义已存在: " + def.key());
                     }
-                    insertOrUpdateWorkflowDef(tx, def);
+                    insertWorkflowDef(tx, def);
                 });
     }
 
     @Override
     public void updateWorkflowDef(WorkflowDef def) {
         validate(def);
-        withTransaction(tx -> insertOrUpdateWorkflowDef(tx, def));
+        withTransaction(tx -> {
+            if (!workflowExists(tx, def)) {
+                throw new WorkFlowConfigException(
+                        WorkFlowErrorCode.WORKFLOW_NOT_FOUND, "工作流定义不存在: " + def.key());
+            }
+            final String sql = "UPDATE meta_workflow_def "
+                    + "SET json_data = ?, modified_on = CURRENT_TIMESTAMP "
+                    + "WHERE route = ? AND version = ?";
+            execute(tx, sql, q -> {
+                if (q.addJsonParameter(def).addParameter(def.getRoute())
+                        .addParameter(def.getVersion()).executeUpdate() == 0) {
+                    throw new WorkFlowConfigException(
+                            WorkFlowErrorCode.WORKFLOW_NOT_FOUND, "工作流定义不存在: " + def.key());
+                }
+            });
+        });
     }
 
     @Override
-    public Optional<WorkflowDef> getWorkflowDef(String name, int version) {
+    public Optional<WorkflowDef> getWorkflowDef(String route, int version) {
         final String sql =
-                "SELECT json_data FROM meta_workflow_def WHERE name = ? AND version = ?";
+                "SELECT json_data FROM meta_workflow_def WHERE route = ? AND version = ?";
         return Optional.ofNullable(
                 queryWithTransaction(
                         sql,
-                        q -> q.addParameter(name)
+                        q -> q.addParameter(route)
                                 .addParameter(version)
                                 .executeAndFetchFirst(WorkflowDef.class)));
     }
 
     @Override
-    public Optional<WorkflowDef> getLatestWorkflowDef(String name) {
+    public Optional<WorkflowDef> getLatestWorkflowDef(String route) {
         final String sql =
-                "SELECT json_data FROM meta_workflow_def WHERE name = ? AND version = latest_version";
+                "SELECT json_data FROM meta_workflow_def WHERE route = ? AND version = latest_version";
         return Optional.ofNullable(
                 queryWithTransaction(
-                        sql, q -> q.addParameter(name).executeAndFetchFirst(WorkflowDef.class)));
+                        sql, q -> q.addParameter(route).executeAndFetchFirst(WorkflowDef.class)));
     }
 
     @Override
-    public List<WorkflowDef> getAllVersions(String name) {
+    public List<WorkflowDef> getAllVersions(String route) {
         final String sql =
-                "SELECT json_data FROM meta_workflow_def WHERE name = ? ORDER BY version";
+                "SELECT json_data FROM meta_workflow_def WHERE route = ? ORDER BY version";
         return queryWithTransaction(
-                sql, q -> q.addParameter(name).executeAndFetch(WorkflowDef.class));
+                sql, q -> q.addParameter(route).executeAndFetch(WorkflowDef.class));
     }
 
     @Override
     public List<WorkflowDef> getAllLatest() {
         final String sql =
                 "SELECT json_data, created_on, modified_on "
-                        + "FROM meta_workflow_def WHERE version = latest_version ORDER BY name";
+                        + "FROM meta_workflow_def WHERE version = latest_version ORDER BY route";
         return queryWithTransaction(
                 sql,
                 q ->
@@ -132,44 +147,44 @@ public class MySqlMetadataDAO extends MySqlBaseDAO implements MetadataDAO {
     }
 
     @Override
-    public void removeWorkflowDef(String name, int version) {
+    public void removeWorkflowDef(String route, int version) {
         final String deleteSql =
-                "DELETE FROM meta_workflow_def WHERE name = ? AND version = ?";
+                "DELETE FROM meta_workflow_def WHERE route = ? AND version = ?";
         withTransaction(
                 tx -> {
                     execute(
                             tx,
                             deleteSql,
                             q -> {
-                                if (!q.addParameter(name).addParameter(version).executeDelete()) {
+                                if (!q.addParameter(route).addParameter(version).executeDelete()) {
                                     throw new WorkFlowConfigException(
                                             WorkFlowErrorCode.WORKFLOW_NOT_FOUND,
                                             "工作流定义不存在: "
-                                                    + WorkflowDef.getKey(name, version));
+                                                    + WorkflowDef.getKey(route, version));
                                 }
                             });
-                    getLatestVersion(tx, name)
-                            .ifPresent(maxVersion -> updateLatestVersion(tx, name, maxVersion));
+                    getLatestVersion(tx, route)
+                            .ifPresent(maxVersion -> updateLatestVersion(tx, route, maxVersion));
                 });
     }
 
     private boolean workflowExists(Connection connection, WorkflowDef def) {
         final String sql =
-                "SELECT COUNT(*) FROM meta_workflow_def WHERE name = ? AND version = ?";
+                "SELECT COUNT(*) FROM meta_workflow_def WHERE route = ? AND version = ?";
         return query(
                 connection,
                 sql,
-                q -> q.addParameter(def.getName()).addParameter(def.getVersion()).exists());
+                q -> q.addParameter(def.getRoute()).addParameter(def.getVersion()).exists());
     }
 
-    private Optional<Integer> getLatestVersion(Connection tx, String name) {
-        final String sql = "SELECT MAX(version) AS version FROM meta_workflow_def WHERE name = ?";
+    private Optional<Integer> getLatestVersion(Connection tx, String route) {
+        final String sql = "SELECT MAX(version) AS version FROM meta_workflow_def WHERE route = ?";
         Integer value =
                 query(
                         tx,
                         sql,
                         q -> {
-                            q.addParameter(name);
+                            q.addParameter(route);
                             return q.executeAndFetch(
                                     rs -> {
                                         if (!rs.next()) {
@@ -182,66 +197,44 @@ public class MySqlMetadataDAO extends MySqlBaseDAO implements MetadataDAO {
         return Optional.ofNullable(value);
     }
 
-    private void updateLatestVersion(Connection tx, String name, int version) {
-        final String sql = "UPDATE meta_workflow_def SET latest_version = ? WHERE name = ?";
+    private void updateLatestVersion(Connection tx, String route, int version) {
+        final String sql = "UPDATE meta_workflow_def SET latest_version = ? WHERE route = ?";
         execute(
                 tx,
                 sql,
-                q -> q.addParameter(version).addParameter(name).executeUpdate());
+                q -> q.addParameter(version).addParameter(route).executeUpdate());
     }
 
-    private void insertOrUpdateWorkflowDef(Connection tx, WorkflowDef def) {
-        Optional<Integer> existingMax = getLatestVersion(tx, def.getName());
-
-        if (!workflowExists(tx, def)) {
-            final String insertSql =
-                    "INSERT INTO meta_workflow_def (name, version, json_data) VALUES (?, ?, ?)";
-            execute(
-                    tx,
-                    insertSql,
-                    q ->
-                            q.addParameter(def.getName())
-                                    .addParameter(def.getVersion())
-                                    .addJsonParameter(def)
-                                    .executeUpdate());
-        } else {
-            final String updateSql =
-                    "UPDATE meta_workflow_def "
-                            + "SET json_data = ?, modified_on = CURRENT_TIMESTAMP "
-                            + "WHERE name = ? AND version = ?";
-            execute(
-                    tx,
-                    updateSql,
-                    q ->
-                            q.addJsonParameter(def)
-                                    .addParameter(def.getName())
-                                    .addParameter(def.getVersion())
-                                    .executeUpdate());
-        }
-
-        int maxVersion = def.getVersion();
-        if (existingMax.isPresent() && existingMax.get() > def.getVersion()) {
-            maxVersion = existingMax.get();
-        }
-        updateLatestVersion(tx, def.getName(), maxVersion);
+    private void insertWorkflowDef(Connection tx, WorkflowDef def) {
+        final String sql =
+                "INSERT INTO meta_workflow_def (route, version, json_data) VALUES (?, ?, ?)";
+        execute(tx, sql, q -> q.addParameter(def.getRoute())
+                .addParameter(def.getVersion()).addJsonParameter(def).executeUpdate());
+        int latestVersion = getLatestVersion(tx, def.getRoute()).orElse(def.getVersion());
+        updateLatestVersion(tx, def.getRoute(), Math.max(latestVersion, def.getVersion()));
     }
 
     private void validate(WorkflowDef def) {
-        if (def == null || def.getName() == null || def.getName().trim().isEmpty()) {
+        if (def == null || def.getRoute() == null || def.getRoute().trim().isEmpty()) {
             throw new WorkFlowConfigException(
-                    WorkFlowErrorCode.REPOSITORY_SAVE_ERROR, "工作流定义 name 不能为空");
+                    WorkFlowErrorCode.REPOSITORY_SAVE_ERROR, "工作流定义 route 不能为空");
         }
-        def.setName(def.getName().trim());
-        if (!WorkflowDef.isValidName(def.getName())) {
+        def.setRoute(def.getRoute().trim());
+        if (!WorkflowDef.isValidRoute(def.getRoute())) {
             throw new WorkFlowConfigException(
                     WorkFlowErrorCode.REPOSITORY_SAVE_ERROR,
-                    "工作流定义 name 格式非法（字母或数字开头，仅含 A-Za-z0-9._/-）: "
-                            + def.getName());
+                    "工作流定义 route 格式非法（字母或数字开头，仅含 A-Za-z0-9._/-）: "
+                            + def.getRoute());
         }
+        if (def.getName() == null || def.getName().isBlank()) {
+            throw new WorkFlowConfigException(
+                    WorkFlowErrorCode.REPOSITORY_SAVE_ERROR, "工作流名称 name 不能为空");
+        }
+        def.setName(def.getName().trim());
         if (def.getVersion() <= 0) {
             throw new WorkFlowConfigException(
                     WorkFlowErrorCode.REPOSITORY_SAVE_ERROR,
-                    "工作流定义 version 必须为正整数: " + def.getName());
+                    "工作流定义 version 必须为正整数: " + def.getRoute());
         }
     }
 }

@@ -17,6 +17,12 @@ const built = await esbuild.build({
     export { validateBuiltinTask } from './src/tasks/builtinTaskValidators';
     export * from './src/flow/workflowEditor';
     export * from './src/flow/parameterValues';
+    export * from './src/api/workflowDefinition';
+    export { startWorkflow } from './src/api/workflowExecution';
+    export { default as axios } from 'axios';
+    export * from './src/utils/workflowDraft';
+    export * from './src/pages/definitions/workflowTemplates';
+    export * from './src/pages/runWorkflow/gatewayInput';
   `, resolveDir: root, sourcefile: 'workflow-definition-test.ts' },
   bundle: true, platform: 'node', format: 'cjs', write: false, tsconfig: `${root}/tsconfig.json`, logLevel: 'silent',
   plugins: [{ name: 'headless-task-catalog', setup(build) {
@@ -32,7 +38,7 @@ lib.registerCoreTaskPlugins(['HTTP', 'INLINE', 'SWITCH', 'FORK_JOIN', 'JOIN', 'D
   flow: { kind: ({ SWITCH: 'switch', FORK_JOIN: 'fork', JOIN: 'join', DO_WHILE: 'do_while' })[type] ?? 'task' },
 })))
 const task = ref => ({ name: ref, taskReferenceName: ref, type: 'HTTP', inputParameters: { uri: 'https://example.test', method: 'GET' } })
-const wf = (tasks = [task('a')]) => ({ name: 'review', version: 1, displayName: '测试', description: '测试定义', tasks })
+const wf = (tasks = [task('a')]) => ({ route: 'review', version: 1, name: '测试', description: '测试定义', tasks })
 const backendTaskDefaults = {
   decisionCases: {}, defaultCase: null, forkTasks: [], joinOn: [], defaultExclusiveJoinTask: [],
   evaluatorType: null, expression: null, optional: false, permissive: false,
@@ -53,7 +59,7 @@ async function actorFor(workflow = wf(), services = {}) {
     services: { loadWorkflowDefinition: async () => ({ workflow, versions: [1] }), ...services },
     actions: { notifyWorkflowSaved: () => {}, notifyWorkflowReset: () => {}, navigateToSavedWorkflow: () => {} },
   })).start()
-  actor.send({ type: 'INITIALIZE', workflowName: workflow.name, workflowVersion: 1, isNewWorkflow: false })
+  actor.send({ type: 'INITIALIZE', workflowRoute: workflow.route, workflowVersion: 1, isNewWorkflow: false })
   await tick()
   assert.ok(actor.state.matches('ready'))
   return actor
@@ -93,7 +99,7 @@ test('optional null properties are unset; null task entries and required values 
   assert.deepEqual(lib.validateWorkflow(workflow).problems, [])
   assert.deepEqual(lib.updateTask(workflow, 'custom', t => ({ ...t, name: '改名称' })).tasks[0], { ...custom, name: '改名称' })
   for (const invalid of [
-    { ...wf(), name: null }, wf([{ ...task('a'), type: null }]), wf([{ ...task('a'), taskReferenceName: null }]),
+    { ...wf(), route: null }, wf([{ ...task('a'), type: null }]), wf([{ ...task('a'), taskReferenceName: null }]),
     { ...wf(), tasks: null }, wf([null]), wf([{ ...task('a'), defaultCase: [null] }]),
     wf([{ ...task('a'), forkTasks: [null] }]), wf([{ ...task('a'), decisionCases: { x: null } }]),
     wf([{ ...task('a'), optional: null }]), wf([{ ...task('a'), expression: 42 }]),
@@ -258,7 +264,7 @@ test('reset and new route clear all raw drafts and validation state', async () =
   assert.deepEqual(JSON.parse(actor.state.context.source), wf())
   assert.ok(validation.getSnapshot().matches('collapsed'))
   actor.send({ type: 'SOURCE_CHANGED', source: '{broken' })
-  actor.send({ type: 'INITIALIZE', workflowName: 'another', isNewWorkflow: true })
+  actor.send({ type: 'INITIALIZE', workflowRoute: 'another', isNewWorkflow: true })
   assert.equal(actor.state.context.source, '')
   assert.equal(validation.getSnapshot().context.problems.length, 0)
   await tick()
@@ -343,7 +349,7 @@ test('delete confirmation remains bound to the loaded identity after editing nam
   assert.equal(target, undefined)
   actor.send({ type: 'UPDATE_DELETE_CONFIRMATION', value: 'review' })
   actor.send({ type: 'CONFIRM_DELETE' })
-  assert.equal(target.name, 'review')
+  assert.equal(target.route, 'review')
   assert.equal(target.version, 1)
   actor.stop()
 })
@@ -362,4 +368,182 @@ test('latest raw field errors replace stale definition errors for the same field
   assert.equal(problems.length, 1)
   assert.equal(problems[0].message, '最新 JSON 草稿未完成')
   actor.stop()
+})
+
+test('saved route edits through forms and JSON create a new workflow and replace the saved baseline', async () => {
+  for (const type of ['WORKFLOW_CHANGED', 'SOURCE_CHANGED']) {
+    const original = { ...wf(), version: 3 }
+    const changed = { ...original, route: 'another-route' }
+    let saved
+    const actor = await actorFor(original, {
+      loadWorkflowDefinition: async () => ({ workflow: original, versions: [1, 2, 3] }),
+      saveWorkflowDefinition: async ctx => { saved = structuredClone(ctx.workflow); return saved },
+    })
+    actor.send(type === 'SOURCE_CHANGED' ? { type, source: JSON.stringify(changed) } : { type, workflow: changed })
+    assert.deepEqual(actor.state.context.problems, [])
+    assert.equal(actor.state.context.baseline.route, 'review')
+    actor.send({ type: 'REQUEST_SAVE' })
+    assert.ok(actor.state.matches('ready.lifecycle.confirmSave'))
+    actor.send({ type: 'CONFIRM_SAVE' })
+    await tick()
+    assert.deepEqual(saved, changed)
+    assert.equal(actor.state.context.baseline.route, 'another-route')
+    assert.equal(actor.state.context.baseline.name, original.name)
+    assert.equal(actor.state.context.workflowRoute, 'another-route')
+    assert.equal(actor.state.context.workflowVersion, 3)
+    assert.deepEqual(actor.state.context.versions, [3])
+    assert.equal(lib.hasWorkflowChanges(actor.state.context), false)
+    assert.equal(original.route, 'review')
+    actor.stop()
+  }
+})
+
+test('new drafts and saved definitions can keep changing routes and create versions', async () => {
+  const actor = lib.interpret(lib.workflowDefinitionMachine.withConfig({
+    services: { loadWorkflowDefinition: async () => ({ workflow: wf(), versions: [1] }), saveWorkflowDefinition: async ctx => ctx.workflow },
+    actions: { notifyWorkflowSaved: () => {}, navigateToSavedWorkflow: () => {} },
+  })).start()
+  actor.send({ type: 'INITIALIZE', workflowRoute: 'review', workflowVersion: 1, isNewWorkflow: true })
+  await tick()
+  actor.send({ type: 'WORKFLOW_CHANGED', workflow: { ...wf(), route: 'chosen-route' } })
+  actor.send({ type: 'REQUEST_SAVE' })
+  actor.send({ type: 'CONFIRM_SAVE' })
+  await tick()
+  assert.equal(actor.state.context.isNewWorkflow, false)
+  actor.send({ type: 'WORKFLOW_CHANGED', workflow: { ...actor.state.context.workflow, version: 2 } })
+  actor.send({ type: 'REQUEST_SAVE' })
+  actor.send({ type: 'CONFIRM_SAVE' })
+  await tick()
+  assert.deepEqual(actor.state.context.versions, [1, 2])
+  actor.send({ type: 'WORKFLOW_CHANGED', workflow: { ...actor.state.context.workflow, route: 'another-route' } })
+  assert.deepEqual(actor.state.context.problems, [])
+  actor.stop()
+})
+
+test('route creation failures preserve the original baseline, versions and edited source', async () => {
+  const actor = await actorFor(wf(), { saveWorkflowDefinition: async () => { throw new Error('工作流定义已存在') } })
+  const changed = { ...wf(), route: 'existing-route' }
+  actor.send({ type: 'SOURCE_CHANGED', source: JSON.stringify(changed) })
+  actor.send({ type: 'REQUEST_SAVE' })
+  actor.send({ type: 'CONFIRM_SAVE' })
+  await tick()
+  assert.ok(actor.state.matches('ready.lifecycle.confirmSave'))
+  assert.deepEqual(actor.state.context.baseline, wf())
+  assert.deepEqual(JSON.parse(actor.state.context.source), changed)
+  assert.equal(actor.state.context.workflowRoute, 'review')
+  assert.deepEqual(actor.state.context.versions, [1])
+  assert.match(actor.state.context.serverProblems[0].message, /已存在/)
+  actor.stop()
+})
+
+test('deleting an edited route still confirms the saved route', async () => {
+  const actor = await actorFor()
+  actor.send({ type: 'WORKFLOW_CHANGED', workflow: { ...wf(), route: 'edited-route', version: 9 } })
+  actor.send({ type: 'REQUEST_DELETE' })
+  assert.ok(actor.state.matches('ready.lifecycle.confirmDelete'))
+  assert.equal(actor.state.context.baseline.route, 'review')
+  assert.equal(actor.state.context.baseline.version, 1)
+  actor.send({ type: 'UPDATE_DELETE_CONFIRMATION', value: 'edited-route' })
+  actor.send({ type: 'CONFIRM_DELETE' })
+  assert.ok(actor.state.matches('ready.lifecycle.confirmDelete'))
+  actor.stop()
+})
+
+test('route syntax is validated separately from unrestricted business and task names', () => {
+  assert.deepEqual(lib.validateWorkflow({ ...wf(), name: '检验结果 / 同名工作流', tasks: [{ ...task('a'), name: '中文任务名称' }] }).problems, [])
+  for (const route of ['中文路由', '/leading-slash', 'route with spaces', 'a'.repeat(256)]) {
+    assert.ok(lib.validateWorkflow({ ...wf(), route }).problems.some(p => p.path === '/route'))
+  }
+  assert.ok(lib.validateWorkflow({ ...wf(), name: '' }).problems.some(p => p.path === '/name'))
+})
+
+test('definition and start APIs send route identities; updates use the saved target and never fall back to create', async () => {
+  const requests = []
+  let failUpdate = false
+  lib.axios.defaults.adapter = async config => {
+    requests.push(config)
+    if (failUpdate && config.method === 'put') throw new Error('保存失败')
+    return { data: { code: 200, data: config.url.endsWith('/start') ? 'instance-1' : wf() }, status: 200, statusText: 'OK', headers: {}, config }
+  }
+  await lib.getWorkflowDefinition('review', 1)
+  assert.deepEqual(requests.at(-1).params, { route: 'review', version: 1 })
+  const renamed = { ...wf(), name: '改名后的工作流' }
+  await lib.saveWorkflowDefinition(renamed, wf())
+  const update = requests.find(r => r.method === 'put')
+  assert.deepEqual(update.params, { route: 'review', version: 1 })
+  assert.equal(JSON.parse(update.data).name, renamed.name)
+  failUpdate = true
+  await assert.rejects(lib.saveWorkflowDefinition(renamed, wf()), /保存失败/)
+  assert.equal(requests.filter(r => r.method === 'post').length, 0)
+  failUpdate = false
+  await lib.saveWorkflowDefinition({ ...wf(), version: 2 }, wf())
+  assert.equal(JSON.parse(requests.find(r => r.method === 'post').data).version, 2)
+  const original = wf()
+  await lib.saveWorkflowDefinition({ ...original, route: 'another' }, original)
+  const creation = requests.filter(r => r.method === 'post').at(-1)
+  assert.equal(creation.url, '/api/workflow/metadata/create')
+  assert.deepEqual(JSON.parse(creation.data), { ...original, route: 'another' })
+  assert.equal(requests.filter(r => r.method === 'put').length, 2)
+  assert.equal(original.route, 'review')
+  assert.equal(await lib.startWorkflow('review', 1, { body: {} }), 'instance-1')
+  assert.deepEqual(JSON.parse(requests.at(-1).data), { route: 'review', version: 1, input: { body: {} } })
+  await lib.deleteWorkflowDefinition('review', 1)
+  assert.deepEqual(requests.at(-1).params, { route: 'review', version: 1 })
+})
+
+test('imports and templates preserve route, business names and task names independently', () => {
+  assert.deepEqual(lib.normalizeWorkflowDraft(wf()).tasks, wf().tasks)
+  assert.equal(lib.normalizeWorkflowDraft({ ...wf(), route: 'review-copy', name: '同名工作流' }).route, 'review-copy')
+  assert.throws(() => lib.normalizeWorkflowDraft({ name: 'legacy-route', displayName: '旧名称', version: 1, tasks: [] }), /route/)
+  for (const template of lib.workflowTemplates) {
+    const definition = template.create('chosen-route')
+    assert.equal(definition.route, 'chosen-route')
+    assert.ok(definition.name)
+    assert.equal(Object.hasOwn(definition, 'displayName'), false)
+    assert.ok(definition.tasks.some(task => task.name))
+  }
+  assert.equal(lib.toGatewayWorkflowInput('hl-open-api/GetItemResult', {}).path, '/hl-open-api/GetItemResult')
+})
+
+
+test('export uses route/version for the filename and preserves business and task names', async () => {
+  const originalDocument = globalThis.document
+  const createObjectURL = URL.createObjectURL
+  const revokeObjectURL = URL.revokeObjectURL
+  const workflow = wf([{ ...task('task_ref'), name: '任务名称不改动' }])
+  let exportedBlob
+  let clicked = false
+  let revoked
+  const anchor = { click: () => { clicked = true } }
+  try {
+    globalThis.document = { createElement: tag => { assert.equal(tag, 'a'); return anchor } }
+    URL.createObjectURL = blob => { exportedBlob = blob; return 'blob:export-test' }
+    URL.revokeObjectURL = url => { revoked = url }
+    lib.downloadWorkflowDefinition(workflow)
+    assert.equal(clicked, true)
+    assert.equal(anchor.download, 'review_v1.json')
+    assert.equal(anchor.href, revoked)
+    assert.equal(exportedBlob.type, 'application/json;charset=utf-8')
+    const exported = JSON.parse(await exportedBlob.text())
+    assert.deepEqual(exported, workflow)
+    assert.equal(exported.displayName, undefined)
+    assert.equal(lib.normalizeWorkflowDraft(exported).route, 'review')
+  } finally {
+    globalThis.document = originalDocument
+    URL.createObjectURL = createObjectURL
+    URL.revokeObjectURL = revokeObjectURL
+  }
+})
+
+
+test('creating an edited route reports duplicate keys without updating the destination', async () => {
+  const requests = []
+  lib.axios.defaults.adapter = async config => {
+    requests.push(config)
+    return { data: { code: 409, message: '工作流定义已存在' }, status: 200, statusText: 'OK', headers: {}, config }
+  }
+  await assert.rejects(lib.saveWorkflowDefinition({ ...wf(), route: 'existing-route' }, wf()), /已存在/)
+  assert.equal(requests.length, 1)
+  assert.equal(requests[0].method, 'post')
+  assert.equal(requests[0].url, '/api/workflow/metadata/create')
 })

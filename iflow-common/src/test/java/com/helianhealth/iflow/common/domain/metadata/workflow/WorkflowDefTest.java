@@ -20,6 +20,26 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class WorkflowDefTest {
 
     @Test
+    void routeAndVersionIdentifyDefinitionsIndependentlyOfNames() throws Exception {
+        WorkflowDef first = WorkflowDef.builder().route("GetItemResult").version(1).name("获取检验结果").build();
+        WorkflowDef sameName = WorkflowDef.builder().route("OtherRoute").version(1).name("获取检验结果").build();
+        assertEquals("GetItemResult.1", first.key());
+        assertEquals("OtherRoute.1", sameName.key());
+        first.setName("新的中文名称");
+        assertEquals("GetItemResult.1", first.key());
+        first.setVersion(2);
+        assertEquals("GetItemResult.2", first.key());
+        ObjectMapper mapper = new ObjectMapper();
+        var json = mapper.readTree(mapper.writeValueAsString(first));
+        assertEquals("GetItemResult", json.get("route").asText());
+        assertEquals("新的中文名称", json.get("name").asText());
+        assertFalse(json.has("displayName"));
+        assertEquals(first, mapper.treeToValue(json, WorkflowDef.class));
+        assertTrue(WorkflowDef.isValidRoute("hl-open-api/GetItemResult"));
+        assertFalse(WorkflowDef.isValidRoute("中文名称"));
+    }
+
+    @Test
     void inheritsAuditableFieldsWithoutOwnerApp() throws Exception {
         WorkflowDef def = new WorkflowDef();
         assertEquals(0L, def.getCreateTime());
@@ -55,6 +75,7 @@ class WorkflowDefTest {
                         .taskReferenceName("sw1")
                         .type("SWITCH")
                         .decisionCases(Map.of("caseA", List.of(branch)))
+                        .defaultCase(List.of())
                         .build();
         WorkflowTask after =
                 WorkflowTask.builder()
@@ -64,7 +85,7 @@ class WorkflowDefTest {
                         .build();
 
         WorkflowDef def =
-                WorkflowDef.builder().name("demo").version(1).tasks(List.of(switchTask, after)).build();
+                WorkflowDef.builder().route("demo").version(1).tasks(List.of(switchTask, after)).build();
 
         assertEquals("after", def.getNextTask("sw1").getTaskReferenceName());
         assertEquals("after", def.getNextTask("branchTask").getTaskReferenceName());
@@ -73,7 +94,7 @@ class WorkflowDefTest {
     @Test
     void getNextTaskDecisionBranches() {
         WorkflowDef def = new WorkflowDef();
-        def.setName("test_workflow");
+        def.setRoute("test_workflow");
         def.setVersion(1);
         def.getTasks().add(createWorkflowTask("simple_task_1"));
         def.getTasks().add(createWorkflowTask("simple_task_2"));
@@ -81,6 +102,7 @@ class WorkflowDefTest {
         WorkflowTask task3 = createWorkflowTask("decision_task_1");
         def.getTasks().add(task3);
         task3.setType("SWITCH");
+        task3.setDefaultCase(List.of());
         task3.getDecisionCases()
                 .put(
                         "Case1",
@@ -140,10 +162,11 @@ class WorkflowDefTest {
         }
 
         WorkflowDef workflowDef = new WorkflowDef();
-        workflowDef.setName("COND_TASK_WF");
+        workflowDef.setRoute("COND_TASK_WF");
 
         WorkflowTask subCaseTask = new WorkflowTask();
         subCaseTask.setType("SWITCH");
+        subCaseTask.setDefaultCase(List.of());
         subCaseTask.setName("case2");
         subCaseTask.setTaskReferenceName("case2");
         Map<String, List<WorkflowTask>> dcx = new HashMap<>();
@@ -153,6 +176,7 @@ class WorkflowDefTest {
 
         WorkflowTask caseTask = new WorkflowTask();
         caseTask.setType("SWITCH");
+        caseTask.setDefaultCase(List.of());
         caseTask.setName("case");
         caseTask.setTaskReferenceName("case");
         Map<String, List<WorkflowTask>> dc = new HashMap<>();
@@ -191,7 +215,7 @@ class WorkflowDefTest {
         WorkflowTask after = createWorkflowTask("after");
 
         WorkflowDef def =
-                WorkflowDef.builder().name("demo").version(1).tasks(List.of(doWhile, after)).build();
+                WorkflowDef.builder().route("demo").version(1).tasks(List.of(doWhile, after)).build();
 
         assertEquals("doWhile", def.getNextTask("loop_task").getTaskReferenceName());
         assertEquals("after", def.getNextTask("doWhile").getTaskReferenceName());
@@ -207,7 +231,7 @@ class WorkflowDefTest {
                         .build();
         WorkflowDef def =
                 WorkflowDef.builder()
-                        .name("demo")
+                        .route("demo")
                         .version(1)
                         .tasks(List.of(terminate, createWorkflowTask("after")))
                         .build();
@@ -221,7 +245,8 @@ class WorkflowDefTest {
         String json =
                 """
                 {
-                  "name": "demo",
+                  "route": "demo",
+                  "name": "演示工作流",
                   "version": 1,
                   "tasks": [{
                     "name": "t1",

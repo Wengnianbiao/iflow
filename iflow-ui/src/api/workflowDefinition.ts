@@ -9,10 +9,10 @@ interface ApiResult<T> {
   data?: T
 }
 
-export function normalizeWorkflowDef(raw: WorkflowDef & { nodes?: WorkflowTask[]; uniqueName?: string }): WorkflowDef {
+export function normalizeWorkflowDef(raw: WorkflowDef & { nodes?: WorkflowTask[] }): WorkflowDef {
   const tasks = raw.tasks?.length ? raw.tasks : (raw.nodes ?? [])
-  const name = raw.name ?? raw.uniqueName ?? ''
-  return { ...raw, name, tasks }
+  const route = raw.route ?? ''
+  return { ...raw, route, tasks }
 }
 
 function unwrapResult<T>(payload: ApiResult<T>, fallbackMessage: string): T {
@@ -45,39 +45,36 @@ export async function listWorkflowDefinitions(): Promise<WorkflowDef[]> {
   }
 }
 
-export async function getWorkflowDefinition(name: string, version?: number): Promise<WorkflowDef> {
+export async function getWorkflowDefinition(route: string, version?: number): Promise<WorkflowDef> {
   const url = version != null ? `${BASE}/detail` : `${BASE}/latest`
   const { data } = await axios.get<ApiResult<WorkflowDef & { nodes?: WorkflowTask[] }>>(url, {
-    params: version != null ? { name, version } : { name },
+    params: version != null ? { route, version } : { route },
   })
-  return normalizeWorkflowDef(unwrapResult(data, `工作流配置不存在: ${name}`))
+  return normalizeWorkflowDef(unwrapResult(data, `工作流配置不存在: ${route}`))
 }
 
 export async function registerWorkflowDefinition(def: WorkflowDef): Promise<WorkflowDef> {
   const { data } = await axios.post<ApiResult<unknown>>(`${BASE}/create`, def)
   unwrapVoid(data, '创建工作流失败')
-  return getWorkflowDefinition(def.name, def.version)
+  return getWorkflowDefinition(def.route, def.version)
 }
 
-export async function updateWorkflowDefinition(def: WorkflowDef): Promise<WorkflowDef> {
-  const { data } = await axios.put<ApiResult<unknown>>(BASE, def)
+export async function updateWorkflowDefinition(def: WorkflowDef, baseline: WorkflowDef): Promise<WorkflowDef> {
+  const { data } = await axios.put<ApiResult<unknown>>(BASE, def, { params: { route: baseline.route, version: baseline.version } })
   unwrapVoid(data, '更新工作流失败')
-  return getWorkflowDefinition(def.name, def.version)
+  return getWorkflowDefinition(def.route, def.version)
 }
 
-export async function saveWorkflowDefinition(def: WorkflowDef): Promise<WorkflowDef> {
-  try {
-    await getWorkflowDefinition(def.name, def.version)
-    return updateWorkflowDefinition(def)
-  } catch {
-    return registerWorkflowDefinition(def)
-  }
+export async function saveWorkflowDefinition(def: WorkflowDef, baseline?: WorkflowDef): Promise<WorkflowDef> {
+  return baseline && def.route === baseline.route && def.version === baseline.version
+    ? updateWorkflowDefinition(def, baseline)
+    : registerWorkflowDefinition(def)
 }
 
-export async function deleteWorkflowDefinition(name: string, version?: number): Promise<void> {
+export async function deleteWorkflowDefinition(route: string, version?: number): Promise<void> {
   try {
     const { data } = await axios.delete<ApiResult<unknown>>(BASE, {
-      params: version == null ? { name } : { name, version },
+      params: version == null ? { route } : { route, version },
     })
     unwrapVoid(data, '删除工作流失败')
   } catch (error) {
@@ -85,9 +82,9 @@ export async function deleteWorkflowDefinition(name: string, version?: number): 
   }
 }
 
-export async function listWorkflowVersions(name: string): Promise<number[]> {
+export async function listWorkflowVersions(route: string): Promise<number[]> {
   try {
-    const { data } = await axios.get<ApiResult<number[]>>(`${BASE}/versions`, { params: { name } })
+    const { data } = await axios.get<ApiResult<number[]>>(`${BASE}/versions`, { params: { route } })
     return unwrapResult(data, '加载工作流版本失败')
   } catch (error) {
     throw normalizeApiError(error, '加载工作流版本失败')

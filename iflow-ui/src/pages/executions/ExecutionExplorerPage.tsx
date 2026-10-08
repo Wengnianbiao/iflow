@@ -8,7 +8,7 @@ const STATUS_OPTIONS = ['RUNNING', 'COMPLETED', 'FAILED', 'TIMED_OUT', 'TERMINAT
 
 export function ExecutionExplorerPage() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const [workflowName, setWorkflowName] = useState(searchParams.get('workflowType') ?? searchParams.get('workflowName') ?? '')
+  const [workflowRoute, setWorkflowRoute] = useState(searchParams.get('workflowRoute') ?? '')
   const [keyword, setKeyword] = useState(searchParams.get('correlationId') ?? '')
   const [status, setStatus] = useState(searchParams.get('status') ?? '')
   const [rows, setRows] = useState<WorkflowExecutionSummary[]>([])
@@ -22,7 +22,7 @@ export function ExecutionExplorerPage() {
     setError('')
     try {
       const result = await searchWorkflowExecutions({
-        workflowName: workflowName.trim() || undefined,
+        workflowRoute: workflowRoute.trim() || undefined,
         correlationId: keyword.trim() || undefined,
         status: status ? [status] : undefined,
         pageNum: nextPage,
@@ -38,7 +38,7 @@ export function ExecutionExplorerPage() {
     } finally {
       setLoading(false)
     }
-  }, [keyword, pageNum, status, workflowName])
+  }, [keyword, pageNum, status, workflowRoute])
 
   useEffect(() => {
     void load(1)
@@ -49,7 +49,7 @@ export function ExecutionExplorerPage() {
   function submit(event: FormEvent) {
     event.preventDefault()
     const next = new URLSearchParams()
-    if (workflowName.trim()) next.set('workflowType', workflowName.trim())
+    if (workflowRoute.trim()) next.set('workflowRoute', workflowRoute.trim())
     if (keyword.trim()) next.set('correlationId', keyword.trim())
     if (status) next.set('status', status)
     setSearchParams(next, { replace: true })
@@ -76,7 +76,7 @@ export function ExecutionExplorerPage() {
       <form className="execution-search-panel" onSubmit={submit}>
         <label>
           <span>工作流名称</span>
-          <input value={workflowName} onChange={(event) => setWorkflowName(event.target.value)} placeholder="例如：get_item_result_workflow" />
+          <input value={workflowRoute} onChange={(event) => setWorkflowRoute(event.target.value)} placeholder="例如：get_item_result_workflow" />
         </label>
         <label>
           <span>关键字</span>
@@ -115,7 +115,7 @@ export function ExecutionExplorerPage() {
             <tbody>
               {rows.map((row) => (
                 <tr key={row.workflowId}>
-                  <td><Link className="workflow-name-link" to={`/executions/${encodeURIComponent(row.workflowId)}`}>{row.displayName || '-'}</Link></td>
+                  <td><Link className="workflow-name-link" to={`/executions/${encodeURIComponent(row.workflowId)}`}>{row.workflowName || '-'}</Link></td>
                   <td>{row.workflowVersion}</td>
                   <td><span className={`execution-status status-${row.status.toLowerCase()}`}>{statusText(row.status)}</span></td>
                   <td>{formatTime(row.startTime)}</td>

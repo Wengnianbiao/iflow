@@ -26,22 +26,22 @@ public class JarvisServiceImpl implements JarvisService {
     @Override
     public Object invoke(JarvisRequest request) {
 
-        String workflowName = request.getBusinessMethod();
+        String workflowRoute = request.getBusinessMethod();
         try {
             Map<String, Object> input = JsonUtils.fromBean(request);
             WorkflowModel executedWorkflow =
                     workflowExecutionService.startWorkflow(
                             StartWorkflowRequest.builder()
-                                    .name(workflowName)
+                                    .route(workflowRoute)
                                     .input(input)
                                     .build());
             return toJarvisResponse(executedWorkflow);
         } catch (WorkFlowException e) {
-            log.error("jarvis调度异常, name={}: {}", workflowName, e.getMessage(), e);
-            return JarvisResultData.error(workflowName + " | " + e.getMessage());
+            log.error("jarvis调度异常, route={}: {}", workflowRoute, e.getMessage(), e);
+            return JarvisResultData.error(workflowRoute + " | " + e.getMessage());
         } catch (Exception e) {
-            log.error("jarvis调度未知异常, name={}", workflowName, e);
-            return JarvisResultData.error(workflowName + " | " + extractRootCauseMessage(e));
+            log.error("jarvis调度未知异常, route={}", workflowRoute, e);
+            return JarvisResultData.error(workflowRoute + " | " + extractRootCauseMessage(e));
         }
     }
 

@@ -53,36 +53,36 @@ public class ExecutionDAOFacade {
         executionDAO.removeWorkflow(workflowId);
     }
 
-    public List<String> getRunningWorkflowIds(String workflowName, int version) {
-        return executionDAO.getRunningWorkflowIds(workflowName, version);
+    public List<String> getRunningWorkflowIds(String workflowRoute, int version) {
+        return executionDAO.getRunningWorkflowIds(workflowRoute, version);
     }
 
     public List<String> getRunningWorkflowIds() {
         return executionDAO.getRunningWorkflowIds();
     }
 
-    public List<WorkflowModel> getPendingWorkflowsByType(String workflowName, int version) {
-        return executionDAO.getPendingWorkflowsByType(workflowName, version);
+    public List<WorkflowModel> getPendingWorkflowsByType(String workflowRoute, int version) {
+        return executionDAO.getPendingWorkflowsByType(workflowRoute, version);
     }
 
-    public long getPendingWorkflowCount(String workflowName) {
-        return executionDAO.getPendingWorkflowCount(workflowName);
+    public long getPendingWorkflowCount(String workflowRoute) {
+        return executionDAO.getPendingWorkflowCount(workflowRoute);
     }
 
     public List<WorkflowModel> getWorkflowsByType(
-            String workflowName, long startTime, long endTime) {
-        return executionDAO.getWorkflowsByType(workflowName, startTime, endTime);
+            String workflowRoute, long startTime, long endTime) {
+        return executionDAO.getWorkflowsByType(workflowRoute, startTime, endTime);
     }
 
     public List<WorkflowModel> getWorkflowsByCorrelationId(
-            String workflowName, String correlationId, boolean includeTasks) {
+            String workflowRoute, String correlationId, boolean includeTasks) {
         return executionDAO.getWorkflowsByCorrelationId(
-                workflowName, correlationId, includeTasks);
+                workflowRoute, correlationId, includeTasks);
     }
 
     public List<WorkflowModel> listRecentInstances(
-            String workflowName, int version, int limit) {
-        return executionDAO.listRecentInstances(workflowName, version, limit);
+            String workflowRoute, int version, int limit) {
+        return executionDAO.listRecentInstances(workflowRoute, version, limit);
     }
 
     public List<TaskModel> createTasks(List<TaskModel> tasks) {

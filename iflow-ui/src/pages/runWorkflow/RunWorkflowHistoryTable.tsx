@@ -13,35 +13,35 @@ function executionHref(workflowId: string) {
 }
 
 type RunWorkflowHistoryTableProps = {
-  workflowName: string | null
+  workflowRoute: string | null
   reloadKey: number
   restoringId: string | null
   onRestore: (execution: WorkflowExecutionSummary) => void
 }
 
 export function RunWorkflowHistoryTable({
-  workflowName,
+  workflowRoute,
   reloadKey,
   restoringId,
   onRestore,
 }: RunWorkflowHistoryTableProps) {
-  const [pageState, setPageState] = useState({ name: workflowName, page: 1, pageSize: HISTORY_PAGE_SIZE })
-  const page = pageState.name === workflowName ? pageState.page : 1
-  const pageSize = pageState.name === workflowName ? pageState.pageSize : HISTORY_PAGE_SIZE
+  const [pageState, setPageState] = useState({ route: workflowRoute, page: 1, pageSize: HISTORY_PAGE_SIZE })
+  const page = pageState.route === workflowRoute ? pageState.page : 1
+  const pageSize = pageState.route === workflowRoute ? pageState.pageSize : HISTORY_PAGE_SIZE
   const params = useMemo(() => ({
-    workflowName: workflowName ?? undefined,
+    workflowRoute: workflowRoute ?? undefined,
     // 搜索接口不传开始时间时只查近 7 天，这里要列出该工作流的全部执行记录。
     startTime: 0,
     pageNum: page,
     pageSize,
-  }), [page, pageSize, workflowName])
-  const history = useSearchWorkflowExecutions(params, { enabled: Boolean(workflowName) })
+  }), [page, pageSize, workflowRoute])
+  const history = useSearchWorkflowExecutions(params, { enabled: Boolean(workflowRoute) })
   const { refetch } = history
 
   useEffect(() => {
-    if (!workflowName || reloadKey === 0) return
+    if (!workflowRoute || reloadKey === 0) return
     void refetch()
-  }, [refetch, reloadKey, workflowName])
+  }, [refetch, reloadKey, workflowRoute])
 
   const rows = history.data?.rows ?? []
   const total = history.data?.total ?? 0
@@ -51,7 +51,7 @@ export function RunWorkflowHistoryTable({
     {
       title: '执行名称',
       key: 'name',
-      dataIndex: 'displayName',
+      dataIndex: 'workflowName',
       ellipsis: true,
       render: (_value, execution) => (
         <a
@@ -60,7 +60,7 @@ export function RunWorkflowHistoryTable({
           rel="noreferrer"
           style={{ fontWeight: 600, color: 'inherit' }}
         >
-          {execution.displayName || execution.workflowName}
+          {execution.workflowName || execution.workflowRoute}
         </a>
       ),
     },
@@ -92,7 +92,7 @@ export function RunWorkflowHistoryTable({
           <span>
             <IconButton
               size="small"
-              aria-label={`恢复 ${execution.displayName || execution.workflowName} 的入参`}
+              aria-label={`恢复 ${execution.workflowName || execution.workflowRoute} 的入参`}
               disabled={restoringId === execution.workflowId}
               onClick={() => onRestore(execution)}
             >
@@ -114,13 +114,13 @@ export function RunWorkflowHistoryTable({
         <Button
           size="small"
           startIcon={<ArrowClockwiseIcon size={18} />}
-          disabled={!workflowName || history.isFetching}
+          disabled={!workflowRoute || history.isFetching}
           onClick={() => void history.refetch()}
         >
           刷新
         </Button>
       )}
-      header={!workflowName || !history.error ? undefined : (
+      header={!workflowRoute || !history.error ? undefined : (
         <Alert
           severity="error"
           action={<Button color="inherit" disabled={history.isFetching} onClick={() => void history.refetch()}>重试</Button>}
@@ -129,27 +129,27 @@ export function RunWorkflowHistoryTable({
         </Alert>
       )}
       columns={columns}
-      dataSource={workflowName ? rows : []}
-      loading={Boolean(workflowName) && history.isFetching}
+      dataSource={workflowRoute ? rows : []}
+      loading={Boolean(workflowRoute) && history.isFetching}
       rowKey="workflowId"
       scroll={{ x: 560, y: 'max(320px, calc(100vh - 280px))' }}
       locale={{
         emptyText: (
           <Box sx={{ py: 2 }}>
             <Typography color="text.secondary">
-              {workflowName ? '暂无执行记录' : '选择工作流后显示执行历史'}
+              {workflowRoute ? '暂无执行记录' : '选择工作流后显示执行历史'}
             </Typography>
           </Box>
         ),
       }}
-      pagination={workflowName && history.data ? {
+      pagination={workflowRoute && history.data ? {
         current: visiblePage,
         pageSize,
         total,
         pageSizeOptions: DEFAULT_PAGE_SIZE_OPTIONS,
         showSizeChanger: true,
         showTotal: (count, range) => count ? `${range[0]}-${range[1]} / ${count}` : '0-0 / 0',
-        onChange: (nextPage, nextPageSize) => setPageState({ name: workflowName, page: nextPage, pageSize: nextPageSize }),
+        onChange: (nextPage, nextPageSize) => setPageState({ route: workflowRoute, page: nextPage, pageSize: nextPageSize }),
       } : false}
     />
   )

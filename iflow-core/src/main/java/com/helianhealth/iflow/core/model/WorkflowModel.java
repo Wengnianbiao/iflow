@@ -158,8 +158,12 @@ public class WorkflowModel {
     }
 
     /**
-     * 工作流定义标识（对应 {@link WorkflowDef#getName()}）
+     * 工作流路由（对应 {@link WorkflowDef#getRoute()}）
      */
+    public String getWorkflowRoute() {
+        return workflowDefinition == null ? null : workflowDefinition.getRoute();
+    }
+
     public String getWorkflowName() {
         return workflowDefinition == null ? null : workflowDefinition.getName();
     }
@@ -223,18 +227,18 @@ public class WorkflowModel {
     }
 
     /**
-     * 简短表示（日志友好）：{@code name.version/workflowId}
+     * 简短表示（日志友好）：{@code route.version/workflowId}
      */
     public String toShortString() {
-        String name = workflowDefinition != null ? workflowDefinition.getName() : null;
+        String route = workflowDefinition != null ? workflowDefinition.getRoute() : null;
         Integer version = workflowDefinition != null ? workflowDefinition.getVersion() : null;
-        return String.format("%s.%s/%s", name, version, workflowId);
+        return String.format("%s.%s/%s", route, version, workflowId);
     }
 
     @Override
     public String toString() {
-        String name = workflowDefinition != null ? workflowDefinition.getName() : null;
+        String route = workflowDefinition != null ? workflowDefinition.getRoute() : null;
         Integer version = workflowDefinition != null ? workflowDefinition.getVersion() : null;
-        return String.format("%s.%s/%s.%s", name, version, workflowId, status);
+        return String.format("%s.%s/%s.%s", route, version, workflowId, status);
     }
 }

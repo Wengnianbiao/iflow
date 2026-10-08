@@ -105,7 +105,7 @@ test('SWITCH empty cases and shorter branches merge without turning back after c
   // GetItemResult topology, with no workflow inputs or HTTP configuration.
   const task = (ref, type = 'HTTP') => ({ name: ref, taskReferenceName: ref, type })
   const workflow = {
-    name: 'switch-layout', version: 1,
+    route: 'switch-layout', name: '条件布局测试', version: 1,
     tasks: [{
       ...task('switch_report_ref', 'SWITCH'),
       decisionCases: {

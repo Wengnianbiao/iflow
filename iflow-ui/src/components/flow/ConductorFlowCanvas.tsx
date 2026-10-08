@@ -233,7 +233,7 @@ export function ConductorFlowCanvas({
 
   useEffect(() => {
     hasCenteredRef.current = false
-  }, [workflow.name, workflow.version])
+  }, [workflow.route, workflow.version])
 
   useEffect(() => {
     if (hasCenteredRef.current || !viewportRef.current || layout.width <= 0 || !layout.children?.length) return

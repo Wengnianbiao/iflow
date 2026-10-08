@@ -131,7 +131,8 @@ JOIN apply_join_ref 配置错误：等待任务 mapping_m5c7s_ref 不存在
 
 ```json
 {
-  "name": "SyncPacsLisNewApply",
+  "route": "SyncPacsLisNewApply",
+  "name": "同步 PACS/LIS 新申请",
   "version": 1,
   "timeoutSeconds": 300,
   "timeoutPolicy": "TIME_OUT_WF"

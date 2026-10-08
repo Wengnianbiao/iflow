@@ -41,17 +41,17 @@ import { WorkflowTemplateDialog } from './dialog/WorkflowTemplateDialog'
 import type { WorkflowTemplate } from './workflowTemplates'
 import styles from './Workflow.module.css'
 
-function nextAvailableWorkflowName(name: string, definitions: WorkflowDef[]) {
-  const existingNames = new Set(definitions.map((definition) => definition.name))
-  if (!existingNames.has(name)) return name
+function nextAvailableWorkflowRoute(route: string, definitions: WorkflowDef[]) {
+  const existingRoutes = new Set(definitions.map((definition) => definition.route))
+  if (!existingRoutes.has(route)) return route
 
   let index = 2
-  while (existingNames.has(`${name}_${index}`)) index += 1
-  return `${name}_${index}`
+  while (existingRoutes.has(`${route}_${index}`)) index += 1
+  return `${route}_${index}`
 }
 
-function newWorkflowUrl(name: string, draftId?: string) {
-  const search = new URLSearchParams({ name, version: '1', new: 'true' })
+function newWorkflowUrl(route: string, draftId?: string) {
+  const search = new URLSearchParams({ route, version: '1', new: 'true' })
   if (draftId) search.set('draft', draftId)
   return `/workflowDef/edit?${search.toString()}`
 }
@@ -92,7 +92,7 @@ export default function WorkflowDefinitions() {
     if (!keyword) return data ?? []
 
     return (data ?? []).filter((definition) =>
-      [definition.name, definition.displayName, definition.description]
+      [definition.route, definition.name, definition.description]
         .filter((value): value is string => Boolean(value))
         .some((value) => value.toLocaleLowerCase().includes(keyword)),
     )
@@ -101,7 +101,7 @@ export default function WorkflowDefinitions() {
   const openWorkflowDraft = (workflow: WorkflowDef) => {
     try {
       const draftId = stageWorkflowDraft(workflow)
-      navigate(newWorkflowUrl(workflow.name, draftId))
+      navigate(newWorkflowUrl(workflow.route, draftId))
     } catch {
       setMessage({
         severity: 'error',
@@ -122,14 +122,14 @@ export default function WorkflowDefinitions() {
 
     try {
       const imported = normalizeWorkflowDraft(JSON.parse(await file.text()))
-      const name = nextAvailableWorkflowName(imported.name, data ?? [])
+      const route = nextAvailableWorkflowRoute(imported.route, data ?? [])
       openWorkflowDraft({
         ...imported,
-        name,
+        route,
         version: 1,
-        displayName: name === imported.name
-          ? imported.displayName
-          : `${imported.displayName?.trim() || imported.name}（导入）`,
+        name: route === imported.route
+          ? imported.name
+          : `${imported.name?.trim() || imported.route}（导入）`,
       })
     } catch (reason) {
       setMessage({
@@ -140,34 +140,34 @@ export default function WorkflowDefinitions() {
   }
 
   const handleTemplateSelect = (template: WorkflowTemplate) => {
-    const name = nextAvailableWorkflowName(template.name, data ?? [])
+    const route = nextAvailableWorkflowRoute(template.route, data ?? [])
     setTemplateDialogOpen(false)
-    openWorkflowDraft(template.create(name))
+    openWorkflowDraft(template.create(route))
   }
 
   const columns = useMemo<DataTableColumn<WorkflowDef>[]>(
     () => [
       {
         title: '工作流名称',
-        dataIndex: 'displayName',
-        key: 'workflowName',
+        dataIndex: 'name',
+        key: 'workflowRoute',
         width: 200,
         render: (_value, definition) => (
           <NavLink
             className={styles.workflowLink}
-            path={`/workflowDef/${encodeURIComponent(definition.name)}/${definition.version}`}
-            id={`${definition.name}-link-btn`}
+            path={`/workflowDef/${encodeURIComponent(definition.route)}/${definition.version}`}
+            id={`${definition.route}-link-btn`}
           >
-            {definition.displayName}
+            {definition.name}
           </NavLink>
         ),
       },
       {
         title: '路由',
-        dataIndex: 'name',
+        dataIndex: 'route',
         key: 'route',
         width: 210,
-        render: (name) => <code className={styles.route}>{String(name)}</code>,
+        render: (route) => <code className={styles.route}>{String(route)}</code>,
       },
       {
         title: '描述',
@@ -211,7 +211,7 @@ export default function WorkflowDefinitions() {
             <Tooltip title="复制工作流定义">
               <IconButton
                 size="small"
-                aria-label={`复制 ${definition.name}`}
+                aria-label={`复制 ${definition.route}`}
                 onClick={() =>
                   setSelectedWorkflowWithAction({
                     selectedWorkflow: definition,
@@ -225,10 +225,10 @@ export default function WorkflowDefinitions() {
             <Tooltip title="编辑工作流">
               <IconButton
                 size="small"
-                aria-label={`编辑 ${definition.name}`}
+                aria-label={`编辑 ${definition.route}`}
                 onClick={() =>
                   navigate(
-                    `/workflowDef/${encodeURIComponent(definition.name)}/${definition.version}`,
+                    `/workflowDef/${encodeURIComponent(definition.route)}/${definition.version}`,
                   )
                 }
               >
@@ -239,7 +239,7 @@ export default function WorkflowDefinitions() {
               <IconButton
                 size="small"
                 color="error"
-                aria-label={`删除 ${definition.name}`}
+                aria-label={`删除 ${definition.route}`}
                 onClick={() =>
                   setSelectedWorkflowWithAction({
                     selectedWorkflow: definition,
@@ -336,7 +336,7 @@ export default function WorkflowDefinitions() {
               startIcon={<PlusIcon size={17} />}
               className={styles.createWorkflowButton}
               onClick={() => navigate(newWorkflowUrl(
-                nextAvailableWorkflowName('new_workflow', data ?? []),
+                nextAvailableWorkflowRoute('new_workflow', data ?? []),
               ))}
             >
               新建工作流
@@ -411,7 +411,7 @@ export default function WorkflowDefinitions() {
           columns={columns}
           dataSource={filteredDefinitions}
           loading={isFetching}
-          rowKey={(definition) => `${definition.name}-${definition.version}`}
+          rowKey={(definition) => `${definition.route}-${definition.version}`}
           scroll={{ x: 970 }}
           locale={{
             emptyText: <Typography color="text.secondary">没有匹配的工作流配置</Typography>,

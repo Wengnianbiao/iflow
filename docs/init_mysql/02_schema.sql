@@ -1,12 +1,12 @@
 CREATE TABLE IF NOT EXISTS `meta_workflow_def` (
-    `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+    `route` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
     `version`        INT           NOT NULL DEFAULT 1,
     `latest_version` INT           NOT NULL DEFAULT 1,
     `json_data` mediumtext COLLATE utf8mb4_unicode_ci NOT NULL,
     `created_on`     TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_on`    TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (`name`, `version`),
-    KEY `idx_name` (`name`)
+    PRIMARY KEY (`route`, `version`),
+    KEY `idx_route` (`route`)
 );
 
 CREATE TABLE IF NOT EXISTS `workflow` (

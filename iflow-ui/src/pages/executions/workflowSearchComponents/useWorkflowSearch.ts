@@ -21,12 +21,12 @@ export function useWorkflowSearch() {
     [searchKey],
   )
   const [filters, setFilters] = useState(applied.filters)
-  const { workflowNames, keyword, status, startFrom, startTo } = applied.filters
+  const { workflowRoutes, keyword, status, startFrom, startTo } = applied.filters
 
   // Restore searches on back/forward navigation, without submitting drafts on pagination.
   useEffect(() => {
-    setFilters({ workflowNames, keyword, status, startFrom, startTo })
-  }, [workflowNames, keyword, status, startFrom, startTo])
+    setFilters({ workflowRoutes, keyword, status, startFrom, startTo })
+  }, [workflowRoutes, keyword, status, startFrom, startTo])
 
   const params = useMemo(() => buildSearchParams(applied), [applied])
   const query = useSearchWorkflowExecutions(params)

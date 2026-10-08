@@ -8,26 +8,26 @@ import type { WorkflowDef } from '@/types/workflow'
 
 export type WorkflowTemplate = {
   id: string
-  name: string
+  route: string
   title: string
   description: string
   taskTypes: string[]
   icon: Icon
-  create: (workflowName: string) => WorkflowDef
+  create: (workflowRoute: string) => WorkflowDef
 }
 
 export const workflowTemplates: WorkflowTemplate[] = [
   {
     id: 'api-orchestration',
-    name: 'api_orchestration',
+    route: 'api_orchestration',
     title: 'API 数据编排',
     description: '请求外部 API，并通过内联脚本整理响应数据。',
     taskTypes: ['HTTP', 'INLINE'],
     icon: GlobeHemisphereWestIcon,
-    create: (workflowName) => ({
-      name: workflowName,
+    create: (workflowRoute) => ({
+      route: workflowRoute,
       version: 1,
-      displayName: 'API 数据编排',
+      name: 'API 数据编排',
       description: '请求外部 API，并整理响应数据。',
       inputParameters: ['apiBaseUrl', 'resourceId'],
       outputParameters: {
@@ -65,15 +65,15 @@ export const workflowTemplates: WorkflowTemplate[] = [
   },
   {
     id: 'conditional-routing',
-    name: 'conditional_routing',
+    route: 'conditional_routing',
     title: '条件分支处理',
     description: '根据工作流输入值进入不同处理分支，并保留默认路径。',
     taskTypes: ['SWITCH', 'INLINE'],
     icon: ArrowsSplitIcon,
-    create: (workflowName) => ({
-      name: workflowName,
+    create: (workflowRoute) => ({
+      route: workflowRoute,
       version: 1,
-      displayName: '条件分支处理',
+      name: '条件分支处理',
       description: '根据输入状态执行不同的业务处理分支。',
       inputParameters: ['status'],
       outputParameters: {},
@@ -129,15 +129,15 @@ export const workflowTemplates: WorkflowTemplate[] = [
   },
   {
     id: 'parallel-processing',
-    name: 'parallel_processing',
+    route: 'parallel_processing',
     title: '并行任务处理',
     description: '同时执行两条独立分支，并在完成后汇聚结果。',
     taskTypes: ['FORK_JOIN', 'HTTP', 'JOIN'],
     icon: GitForkIcon,
-    create: (workflowName) => ({
-      name: workflowName,
+    create: (workflowRoute) => ({
+      route: workflowRoute,
       version: 1,
-      displayName: '并行任务处理',
+      name: '并行任务处理',
       description: '并行调用多个服务，并在全部完成后继续处理。',
       inputParameters: ['serviceAUrl', 'serviceBUrl'],
       outputParameters: {},

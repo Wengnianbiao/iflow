@@ -153,7 +153,7 @@ class BasicTaskMappersTest {
     private TaskMapperContext context(String type, Map<String, Object> input) {
         WorkflowModel workflow = new WorkflowModel();
         workflow.setWorkflowId("workflow-1");
-        workflow.setWorkflowDefinition(WorkflowDef.builder().name("test-workflow").build());
+        workflow.setWorkflowDefinition(WorkflowDef.builder().route("test-workflow").build());
         WorkflowTask definition = WorkflowTask.builder().name("task").type(type)
                 .taskReferenceName("ref").inputParameters(input).build();
         return TaskMapperContext.builder().workflowModel(workflow).workflowTask(definition)

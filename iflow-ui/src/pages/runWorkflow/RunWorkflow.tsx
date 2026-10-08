@@ -19,36 +19,36 @@ import { RunWorkflowHistoryTable } from './RunWorkflowHistoryTable'
 const EMPTY_BODY = '{\n}'
 
 type WorkflowChoice = {
+  route: string
   name: string
-  displayName: string
   versions: number[]
 }
 
 type RunWorkflowLocationState = {
   execution?: {
-    workflowName: string
+    workflowRoute: string
     workflowVersion: number
     input?: Record<string, unknown>
   }
 }
 
 function workflowChoices(definitions: WorkflowDef[]): WorkflowChoice[] {
-  const byName = new Map<string, WorkflowDef[]>()
+  const byRoute = new Map<string, WorkflowDef[]>()
   for (const definition of definitions) {
-    const versions = byName.get(definition.name) ?? []
+    const versions = byRoute.get(definition.route) ?? []
     versions.push(definition)
-    byName.set(definition.name, versions)
+    byRoute.set(definition.route, versions)
   }
-  return [...byName.values()]
+  return [...byRoute.values()]
     .map((versions) => {
       const latest = [...versions].sort((left, right) => right.version - left.version)[0]
       return {
-        name: latest.name,
-        displayName: latest.displayName?.trim() || latest.name,
+        route: latest.route,
+        name: latest.name?.trim() || latest.route,
         versions: versions.map((definition) => definition.version).sort((left, right) => right - left),
       }
     })
-    .sort((left, right) => left.displayName.localeCompare(right.displayName, 'zh-CN') || left.name.localeCompare(right.name))
+    .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN') || left.route.localeCompare(right.route))
 }
 
 export function RunWorkflow() {
@@ -57,7 +57,7 @@ export function RunWorkflow() {
   const latestExecution = (location.state as RunWorkflowLocationState | null)?.execution
   const workflowDefs = useWorkflowDefs()
   const choices = useMemo(() => workflowChoices(workflowDefs.data ?? []), [workflowDefs.data])
-  const [selectedName, setSelectedName] = useState<string | null>(latestExecution?.workflowName ?? null)
+  const [selectedRoute, setSelectedRoute] = useState<string | null>(latestExecution?.workflowRoute ?? null)
   const [version, setVersion] = useState<number | null>(latestExecution?.workflowVersion ?? null)
   const [bodyText, setBodyText] = useState(() => latestExecution
     ? formatEditorJson(bodyFromWorkflowInput(latestExecution.input))
@@ -70,23 +70,23 @@ export function RunWorkflow() {
   const [historyReload, setHistoryReload] = useState(0)
 
   const workflowVersions = useQuery({
-    queryKey: ['workflowVersions', selectedName],
-    queryFn: () => listWorkflowVersions(selectedName!),
-    enabled: Boolean(selectedName),
+    queryKey: ['workflowVersions', selectedRoute],
+    queryFn: () => listWorkflowVersions(selectedRoute!),
+    enabled: Boolean(selectedRoute),
   })
 
-  const selected = choices.find((choice) => choice.name === selectedName) ?? null
+  const selected = choices.find((choice) => choice.route === selectedRoute) ?? null
   const availableVersions = useMemo(
     () => [...(workflowVersions.data ?? selected?.versions ?? [])].sort((left, right) => right - left),
     [selected, workflowVersions.data],
   )
   const validVersion = version != null && availableVersions.includes(version)
   const selectedDefinition = (workflowDefs.data ?? []).find((definition) =>
-    definition.name === selectedName && definition.version === version)
+    definition.route === selectedRoute && definition.version === version)
   const description = selectedDefinition?.description?.trim() || undefined
 
   const selectWorkflow = (choice: WorkflowChoice | null) => {
-    setSelectedName(choice?.name ?? null)
+    setSelectedRoute(choice?.route ?? null)
     setVersion(choice?.versions[0] ?? null)
     setBodyText(EMPTY_BODY)
     setBodyError(null)
@@ -113,7 +113,7 @@ export function RunWorkflow() {
     setError(null)
     setWorkflowId(null)
     try {
-      const startedId = await startWorkflow(selected.name, version, toGatewayWorkflowInput(selected.name, body))
+      const startedId = await startWorkflow(selected.route, version, toGatewayWorkflowInput(selected.route, body))
       setWorkflowId(startedId)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '启动工作流失败')
@@ -183,7 +183,7 @@ export function RunWorkflow() {
             <Paper variant="outlined" sx={{ p: '24px' }}>
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'minmax(0, 1fr) 120px' }, gap: '24px', alignItems: 'start' }}>
                 <Autocomplete
-                  id="workflow-name-dropdown"
+                  id="workflow-route-dropdown"
                   openOnFocus
                   forcePopupIcon
                   fullWidth
@@ -196,16 +196,17 @@ export function RunWorkflow() {
                   openText="展开工作流列表"
                   closeText="收起工作流列表"
                   clearText="清空"
-                  getOptionLabel={(option) => option.displayName}
-                  isOptionEqualToValue={(option, value) => option.name === value.name}
+                  getOptionLabel={(option) => option.name}
+                  getOptionKey={(option) => option.route}
+                  isOptionEqualToValue={(option, value) => option.route === value.route}
                   onChange={(_, option) => selectWorkflow(option)}
                   renderOption={(props, option) => {
                     const { key, ...rest } = props
                     return (
                       <li key={key} {...rest}>
                         <Box sx={{ py: 0.5, minWidth: 0 }}>
-                          <Typography variant="body2">{option.displayName}</Typography>
-                          <Typography variant="caption" color="text.secondary">{option.name}</Typography>
+                          <Typography variant="body2">{option.name}</Typography>
+                          <Typography variant="caption" color="text.secondary">{option.route}</Typography>
                         </Box>
                       </li>
                     )
@@ -278,7 +279,7 @@ export function RunWorkflow() {
               <Typography variant="caption" color={bodyError ? 'error' : 'text.secondary'} sx={{ display: 'block', mt: 1 }}>
                 {bodyError ?? (
                   selected
-                    ? `只需填写 body。执行时按 REST 网关入参提交 POST ${workflowPath(selected.name)}，并附带空的 query、files 以及 content-type 请求头。`
+                    ? `只需填写 body。执行时按 REST 网关入参提交 POST ${workflowPath(selected.route)}，并附带空的 query、files 以及 content-type 请求头。`
                     : '选择工作流后，在这里填写业务报文 body'
                 )}
               </Typography>
@@ -286,7 +287,7 @@ export function RunWorkflow() {
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
             <RunWorkflowHistoryTable
-              workflowName={selectedName}
+              workflowRoute={selectedRoute}
               reloadKey={historyReload}
               restoringId={restoringId}
               onRestore={(execution) => void restore(execution)}

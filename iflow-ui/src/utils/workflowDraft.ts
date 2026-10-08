@@ -22,11 +22,9 @@ export function normalizeWorkflowDraft(value: unknown): WorkflowDef {
   const raw = unwrapDefinition(value)
   if (!isRecord(raw)) throw new Error('文件内容不是有效的工作流 JSON 对象')
 
-  const name = typeof raw.name === 'string'
-    ? raw.name.trim()
-    : typeof raw.uniqueName === 'string'
-      ? raw.uniqueName.trim()
-      : ''
+  const route = typeof raw.route === 'string' ? raw.route.trim() : ''
+  const name = typeof raw.name === 'string' ? raw.name.trim() : ''
+  if (!route) throw new Error('工作流定义缺少 route 字段')
   if (!name) throw new Error('工作流定义缺少 name 字段')
 
   const rawTasks = Array.isArray(raw.tasks)
@@ -49,6 +47,7 @@ export function normalizeWorkflowDraft(value: unknown): WorkflowDef {
 
   return {
     ...definition,
+    route,
     name,
     version,
     tasks: rawTasks as WorkflowTask[],
@@ -85,4 +84,14 @@ export function readWorkflowDraft(draftId?: string): WorkflowDef | null {
   } catch {
     return null
   }
+}
+
+export function downloadWorkflowDefinition(workflow: WorkflowDef) {
+  const blob = new Blob([JSON.stringify(workflow, null, 2)], { type: 'application/json;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = `${workflow.route}_v${workflow.version}.json`
+  anchor.click()
+  URL.revokeObjectURL(url)
 }

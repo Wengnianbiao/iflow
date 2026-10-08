@@ -54,7 +54,7 @@ public class ParametersUtils {
         workflowParams.put("output", workflow.getOutput());
         workflowParams.put("status", workflow.getStatus());
         workflowParams.put("workflowId", workflow.getWorkflowId());
-        workflowParams.put("workflowType", workflow.getWorkflowName());
+        workflowParams.put("workflowType", workflow.getWorkflowRoute());
         workflowParams.put("version", workflow.getWorkflowVersion());
         workflowParams.put("correlationId", workflow.getCorrelationId());
         workflowParams.put("reasonForInCompletion", workflow.getReasonForInCompletion());

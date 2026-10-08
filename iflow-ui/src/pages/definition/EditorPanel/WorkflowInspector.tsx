@@ -23,13 +23,14 @@ export function WorkflowInspector({
     <div className="workflow-form-panel">
       <WorkflowCollapsibleSection title="工作流信息">
         <div className="inspector-form-grid">
-          <ValidationField path="/displayName"><label className="inspector-field">
-            <span>工作流名称 <strong>*</strong></span>
-            <input required value={workflow.displayName ?? ''} onChange={(event) => onChange({ ...workflow, displayName: event.target.value })} placeholder="用于界面展示，例如：创建档案" />
-          </label></ValidationField>
           <ValidationField path="/name"><label className="inspector-field">
-            <span>路由标识 <strong>*</strong></span>
-            <input required value={workflow.name} onChange={(event) => onChange({ ...workflow, name: event.target.value })} placeholder="外部系统调用工作流唯一标识" />
+            <span>工作流名称 <strong>*</strong></span>
+            <input required value={workflow.name ?? ''} onChange={(event) => onChange({ ...workflow, name: event.target.value })} placeholder="用于界面展示，例如：创建档案" />
+          </label></ValidationField>
+          <ValidationField path="/route"><label className="inspector-field">
+            <span>路由 <strong>*</strong></span>
+            <input required value={workflow.route} onChange={(event) => onChange({ ...workflow, route: event.target.value })} placeholder="外部系统调用工作流唯一标识" />
+            <small>修改路由后保存，将创建新工作流。</small>
           </label></ValidationField>
           <label className="inspector-field full">
             <span>关键字表达式</span>

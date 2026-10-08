@@ -9,8 +9,8 @@ import lombok.Data;
 public class WorkflowExecutionSummary {
 
     private String workflowId;
+    private String workflowRoute;
     private String workflowName;
-    private String displayName;
     private int workflowVersion;
     private String status;
     private String correlationId;
@@ -30,11 +30,8 @@ public class WorkflowExecutionSummary {
         }
         return WorkflowExecutionSummary.builder()
                 .workflowId(workflow.getWorkflowId())
+                .workflowRoute(workflow.getWorkflowRoute())
                 .workflowName(workflow.getWorkflowName())
-                .displayName(
-                        workflow.getWorkflowDefinition() == null
-                                ? null
-                                : workflow.getWorkflowDefinition().getDisplayName())
                 .workflowVersion(workflow.getWorkflowVersion())
                 .status(workflow.getStatus() == null ? null : workflow.getStatus().name())
                 .correlationId(workflow.getCorrelationId())

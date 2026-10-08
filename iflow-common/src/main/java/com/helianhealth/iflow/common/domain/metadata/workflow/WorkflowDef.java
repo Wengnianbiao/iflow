@@ -19,7 +19,7 @@ import java.util.Map;
  * 工作流定义。
  *
  * <p>整份定义序列化为 JSON 后存入 {@code meta_workflow_def.json_data}，
- * 以 {@code (name, version)} 唯一标识并版本化；{@code displayName} 为控制台展示名(通常中文名)，
+ * 以 {@code (route, version)} 唯一标识并版本化；{@code name} 为控制台展示名(通常中文名)，
  * {@code description} 描述业务用途。
  */
 @Data
@@ -30,10 +30,10 @@ import java.util.Map;
 public class WorkflowDef extends Auditable {
 
     /**
-     * 工作流标识，作为 Gateway 路由键，上游调用工作流只能通过name去路由调用
+     * 工作流标识，作为 Gateway 路由键，上游调用工作流只能通过 route 路由调用
      * （Jarvis {@code BusinessMethod} / Open API 去掉前导 {@code /} 的路径）。
      */
-    private String name;
+    private String route;
 
     /**
      * 版本号，从 1 起递增
@@ -42,9 +42,9 @@ public class WorkflowDef extends Auditable {
     private int version = 1;
 
     /**
-     * 工作流展示名
+     * 工作流名称；允许中文和重复名称，不参与调度定位
      */
-    private String displayName;
+    private String name;
 
     /**
      * 工作流描述
@@ -89,21 +89,21 @@ public class WorkflowDef extends Auditable {
     private List<WorkflowTask> tasks = new ArrayList<>();
 
     /**
-     * {@code name.version} 形式的复合键
+     * {@code route.version} 形式的复合键
      */
     public String key() {
-        return getKey(name, version);
+        return getKey(route, version);
     }
 
-    public static String getKey(String name, int version) {
-        return name + "." + version;
+    public static String getKey(String route, int version) {
+        return route + "." + version;
     }
 
     /**
      * 标识符格式：字母或数字开头，可含 {@code . _ / -}（对齐 Gateway 入口名）。
      */
-    public static boolean isValidName(String name) {
-        return name != null && name.matches("^[A-Za-z0-9][A-Za-z0-9._/-]{0,254}$");
+    public static boolean isValidRoute(String route) {
+        return route != null && route.matches("^[A-Za-z0-9][A-Za-z0-9._/-]{0,254}$");
     }
 
     /**

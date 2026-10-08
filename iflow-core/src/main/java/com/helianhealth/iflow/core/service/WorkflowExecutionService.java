@@ -6,7 +6,7 @@ import com.helianhealth.iflow.core.model.WorkflowModel;
 /**
  * 工作流执行应用服务：将 {@link StartWorkflowRequest} 交给引擎同步执行。
  *
- * <p>Gateway / Console 只需传入请求；定义由引擎按 name/version 解析。
+ * <p>Gateway / Console 只需传入请求；定义由引擎按 route/version 解析。
  */
 public interface WorkflowExecutionService {
 

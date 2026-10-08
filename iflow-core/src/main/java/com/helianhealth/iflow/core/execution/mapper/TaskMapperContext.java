@@ -30,7 +30,7 @@ public class TaskMapperContext {
         TaskModel taskModel = new TaskModel();
         taskModel.setReferenceTaskName(workflowTask.getTaskReferenceName());
         taskModel.setWorkflowInstanceId(workflowModel.getWorkflowId());
-        taskModel.setWorkflowType(workflowModel.getWorkflowName());
+        taskModel.setWorkflowType(workflowModel.getWorkflowRoute());
         taskModel.setCorrelationId(workflowModel.getCorrelationId());
         taskModel.setScheduledTime(System.currentTimeMillis());
         taskModel.setTaskId(taskId);

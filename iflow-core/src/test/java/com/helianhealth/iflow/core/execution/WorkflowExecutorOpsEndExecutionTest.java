@@ -86,7 +86,7 @@ class WorkflowExecutorOpsEndExecutionTest {
         WorkflowModel workflow = new WorkflowModel();
         workflow.setWorkflowId("workflow-id");
         workflow.setWorkflowDefinition(
-                WorkflowDef.builder().name("terminate-with-pending-task").build());
+                WorkflowDef.builder().route("terminate-with-pending-task").build());
 
         TaskModel terminateTask = new TaskModel();
         terminateTask.setTaskId("terminate-task-id");
@@ -140,14 +140,14 @@ class WorkflowExecutorOpsEndExecutionTest {
                         .build();
         WorkflowDef definition =
                 WorkflowDef.builder()
-                        .name("terminate-workflow")
+                        .route("terminate-workflow")
                         .tasks(List.of(terminateDefinition))
                         .build();
 
         WorkflowExecutorOps executor = newExecutor(registry, mappers, definition);
         WorkflowModel result =
                 executor.startWorkflow(
-                        StartWorkflowInput.builder().name(definition.getName()).build());
+                        StartWorkflowInput.builder().route(definition.getRoute()).build());
 
         assertNotNull(result.getTaskByRefName("terminate_ref"));
         return result;

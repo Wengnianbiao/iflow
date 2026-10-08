@@ -47,14 +47,14 @@ export async function searchWorkflowExecutions(
 }
 
 export async function startWorkflow(
-  name: string,
+  route: string,
   version: number,
   input: Record<string, unknown>,
 ): Promise<string> {
   try {
     const { data } = await axios.post<ApiResult<string> | { workflowId?: string }>(
       `${BASE}/start`,
-      { name, version, input },
+      { route, version, input },
     )
     if ('code' in data && data.code != null && data.code !== 200) {
       throw new Error(data.message || '启动工作流失败')

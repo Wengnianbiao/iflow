@@ -18,9 +18,9 @@ export interface WorkflowTask {
 }
 
 export interface WorkflowDef {
+  route: string
   name: string
   version: number
-  displayName?: string | null
   description?: string | null
   createTime?: number | string
   updateTime?: number | string

@@ -9,7 +9,7 @@ export type InspectorTab = 'workflow' | 'task' | 'code'
 export type VersionChoice = number | 'latest'
 
 export type WorkflowRouteAttributes = {
-  workflowName: string
+  workflowRoute: string
   workflowVersion?: number
   isNewWorkflow: boolean
   draftId?: string

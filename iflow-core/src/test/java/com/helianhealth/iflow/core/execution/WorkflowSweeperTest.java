@@ -184,7 +184,7 @@ class WorkflowSweeperTest {
                         .build();
         WorkflowDef workflowDefinition =
                 WorkflowDef.builder()
-                        .name("sweep-timeout")
+                        .route("sweep-timeout")
                         .version(1)
                         .timeoutSeconds(1)
                         .tasks(List.of(blockingTask, nextTask))
@@ -223,7 +223,7 @@ class WorkflowSweeperTest {
 
         WorkflowModel result =
                 executor.startWorkflow(
-                        StartWorkflowInput.builder().name(workflowDefinition.getName()).build());
+                        StartWorkflowInput.builder().route(workflowDefinition.getRoute()).build());
 
         assertEquals(1, executions.get());
         assertEquals(WorkflowModel.Status.TIMED_OUT, result.getStatus());
@@ -274,7 +274,7 @@ class WorkflowSweeperTest {
         workflow.setWorkflowId("wf-1");
         workflow.setStatus(WorkflowModel.Status.RUNNING);
         workflow.setWorkflowDefinition(
-                WorkflowDef.builder().name("demo").version(1).timeoutSeconds(timeoutSeconds).build());
+                WorkflowDef.builder().route("demo").version(1).timeoutSeconds(timeoutSeconds).build());
         return workflow;
     }
 

@@ -50,8 +50,8 @@ export function validateWorkflow(value: unknown): { workflow?: WorkflowDef; prob
     if (!required && object[key] == null) return
     if (object[key] != null && typeof object[key] !== 'string') add(`${path}/${key}`, 'STRING', `${key} 必须是字符串`, true, taskPath)
     else if (required && (typeof object[key] !== 'string' || !object[key].trim())) {
-      const label = ({ name: taskPath ? '任务名称' : '路由标识', displayName: '工作流名称', description: '工作流描述', taskReferenceName: '任务引用名称', type: '任务类型' } as Record<string, string>)[key] ?? key
-      add(`${path}/${key}`, 'REQUIRED', `请填写${label}`, object[key] == null && !['displayName', 'description'].includes(key), taskPath)
+      const label = ({ route: '路由', name: taskPath ? '任务名称' : '工作流名称', description: '工作流描述', taskReferenceName: '任务引用名称', type: '任务类型' } as Record<string, string>)[key] ?? key
+      add(`${path}/${key}`, 'REQUIRED', `请填写${label}`, object[key] == null && !['name', 'description'].includes(key), taskPath)
     }
   }
   const objectField = (object: Record<string, unknown>, key: string, path: string, taskPath?: string) => {
@@ -88,8 +88,9 @@ export function validateWorkflow(value: unknown): { workflow?: WorkflowDef; prob
     })
   }
   if (!record(value)) { add('', 'WORKFLOW_OBJECT', '工作流定义必须是 JSON 对象', true); return { problems, diagramSafe: false } }
+  string(value, 'route', '', true)
+  if (typeof value.route === 'string' && value.route.trim() && !/^[A-Za-z0-9][A-Za-z0-9._/-]{0,254}$/.test(value.route)) add('/route', 'ROUTE_FORMAT', '路由须以字母或数字开头，仅含 A-Za-z0-9._/-，最多 255 个字符')
   string(value, 'name', '', true)
-  string(value, 'displayName', '', true)
   string(value, 'description', '', true)
   string(value, 'correlationExpression', '')
   string(value, 'timeoutPolicy', '')

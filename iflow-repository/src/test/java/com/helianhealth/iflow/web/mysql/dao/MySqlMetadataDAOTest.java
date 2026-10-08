@@ -14,12 +14,18 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.Optional;
 
+import com.helianhealth.iflow.common.exception.WorkFlowConfigException;
+import com.helianhealth.iflow.common.exception.WorkFlowErrorCode;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -110,16 +116,85 @@ class MySqlMetadataDAOTest {
         Optional<WorkflowDef> latest = dao.getLatestWorkflowDef("demo");
 
         assertTrue(latest.isPresent());
-        assertEquals("demo", latest.get().getName());
+        assertEquals("demo", latest.get().getRoute());
         assertEquals(1, latest.get().getVersion());
         assertEquals("演示工作流", latest.get().getDescription());
         verify(selectStatement).setString(eq(1), eq("demo"));
         verify(connection).commit();
     }
 
+    @Test
+    void duplicateRouteAndVersionIsRejectedWithoutInserting() throws Exception {
+        when(connection.prepareStatement(contains("SELECT COUNT"))).thenReturn(countStatement);
+        when(countStatement.executeQuery()).thenReturn(countResultSet);
+        when(countResultSet.next()).thenReturn(true);
+        when(countResultSet.getObject(1)).thenReturn(1);
+        assertThrows(WorkFlowConfigException.class, () -> dao.createWorkflowDef(workflowDef()));
+        verify(connection, never()).prepareStatement(startsWith("INSERT"));
+        verify(connection).rollback();
+    }
+
+    @Test
+    void updatingMissingRouteAndVersionDoesNotInsert() throws Exception {
+        when(connection.prepareStatement(contains("SELECT COUNT"))).thenReturn(countStatement);
+        when(countStatement.executeQuery()).thenReturn(countResultSet);
+        when(countResultSet.next()).thenReturn(true);
+        when(countResultSet.getObject(1)).thenReturn(0);
+        var error = assertThrows(WorkFlowConfigException.class, () -> dao.updateWorkflowDef(workflowDef()));
+        assertEquals(WorkFlowErrorCode.WORKFLOW_NOT_FOUND.getCode(), error.getErrorCode());
+        verify(connection, never()).prepareStatement(startsWith("INSERT"));
+        verify(connection).rollback();
+    }
+
+    @Test
+    void renamingExistingDefinitionOnlyUpdatesItsRouteAndVersion() throws Exception {
+        when(connection.prepareStatement(contains("SELECT COUNT"))).thenReturn(countStatement);
+        when(countStatement.executeQuery()).thenReturn(countResultSet);
+        when(countResultSet.next()).thenReturn(true);
+        when(countResultSet.getObject(1)).thenReturn(1);
+        when(connection.prepareStatement(startsWith("UPDATE meta_workflow_def SET json_data")))
+                .thenReturn(insertStatement);
+        when(insertStatement.executeUpdate()).thenReturn(1);
+        WorkflowDef definition = workflowDef();
+        definition.setName("修改后的业务名称");
+
+        dao.updateWorkflowDef(definition);
+
+        verify(insertStatement).setString(1, OBJECT_MAPPER.writeValueAsString(definition));
+        verify(insertStatement).setString(2, "demo");
+        verify(insertStatement).setInt(3, 1);
+        verify(connection, never()).prepareStatement(startsWith("INSERT"));
+        verify(connection).commit();
+    }
+
+    @Test
+    void sameBusinessNameCanBeInsertedUnderDifferentRoutesAndVersions() throws Exception {
+        when(connection.prepareStatement(contains("SELECT COUNT"))).thenReturn(countStatement);
+        when(connection.prepareStatement(startsWith("INSERT INTO meta_workflow_def"))).thenReturn(insertStatement);
+        when(connection.prepareStatement(contains("SELECT MAX(version)"))).thenReturn(maxStatement);
+        when(connection.prepareStatement(startsWith("UPDATE meta_workflow_def SET latest_version"))).thenReturn(latestVersionStatement);
+        when(countStatement.executeQuery()).thenReturn(countResultSet);
+        when(countResultSet.next()).thenReturn(true);
+        when(countResultSet.getObject(1)).thenReturn(0);
+        when(maxStatement.executeQuery()).thenReturn(maxResultSet);
+        when(maxResultSet.next()).thenReturn(true);
+        when(maxResultSet.getInt(1)).thenReturn(0);
+        when(maxResultSet.wasNull()).thenReturn(true);
+        when(insertStatement.executeUpdate()).thenReturn(1);
+        when(latestVersionStatement.executeUpdate()).thenReturn(1);
+        dao.createWorkflowDef(WorkflowDef.builder().route("first").version(1).name("相同中文名称").build());
+        dao.createWorkflowDef(WorkflowDef.builder().route("second").version(1).name("相同中文名称").build());
+        dao.createWorkflowDef(WorkflowDef.builder().route("first").version(2).name("相同中文名称").build());
+        verify(insertStatement, times(2)).setString(1, "first");
+        verify(insertStatement).setString(1, "second");
+        verify(insertStatement).setInt(2, 2);
+        verify(connection, times(3)).commit();
+    }
+
     private static WorkflowDef workflowDef() {
         return WorkflowDef.builder()
-                .name("demo")
+                .route("demo")
+                .name("演示工作流")
                 .version(1)
                 .description("演示工作流")
                 .build();

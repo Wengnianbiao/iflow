@@ -34,6 +34,7 @@ export function QuickSearch({
             fullWidth
             label={quickSearchLabel}
             placeholder={quickSearchPlaceholder}
+            slotProps={{ inputLabel: { shrink: true } }}
             size="small"
             value={searchTerm}
             onChange={(event) => onChange(event.target.value)}

@@ -20,7 +20,7 @@ export const blockingProblems = (context: WorkflowDefinitionMachineContext) => c
 /** The raw source is authoritative. Only structurally safe candidates reach forms. */
 export function validatedEdit(context: WorkflowDefinitionMachineContext, source: string) {
   const result = validateSource(source)
-  const empty: WorkflowDef = { name: context.workflowName, version: context.workflowVersion ?? 1, tasks: [] }
+  const empty: WorkflowDef = { route: context.workflowRoute, name: '', version: context.workflowVersion ?? 1, tasks: [] }
   return {
     source,
     sourceBlocked: !result.workflow,

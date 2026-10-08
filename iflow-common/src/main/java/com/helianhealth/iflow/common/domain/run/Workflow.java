@@ -99,6 +99,10 @@ public class Workflow {
         this.createTime = startTime;
     }
 
+    public String getWorkflowRoute() {
+        return workflowDefinition == null ? null : workflowDefinition.getRoute();
+    }
+
     public String getWorkflowName() {
         return workflowDefinition == null ? null : workflowDefinition.getName();
     }
@@ -121,6 +125,6 @@ public class Workflow {
     }
 
     public String toShortString() {
-        return getWorkflowName() + "." + getWorkflowVersion() + "/" + workflowId;
+        return getWorkflowRoute() + "." + getWorkflowVersion() + "/" + workflowId;
     }
 }

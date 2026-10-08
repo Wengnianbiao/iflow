@@ -24,20 +24,20 @@ export function Workflow() {
   const attributes = useMemo<WorkflowRouteAttributes>(() => {
     const search = new URLSearchParams(location.search)
     return {
-      workflowName: search.get('name') ?? params.name ?? '',
+      workflowRoute: search.get('route') ?? params.route ?? '',
       workflowVersion: numberOrUndefined(search.get('version') ?? params.version),
       isNewWorkflow: search.get('new') === 'true',
       draftId: search.get('draft') ?? undefined,
     }
-  }, [location.search, params.name, params.version])
+  }, [location.search, params.route, params.version])
   const actor = useWorkflowDefinition(attributes)
   const title = useSelector(
     actor,
-    (state) => state.context.workflow?.displayName
+    (state) => state.context.workflow?.name
   )
   const isReady = useSelector(actor, (state) => state.matches('ready'))
 
-  if (!attributes.workflowName) return <Navigate to="/workflowDef" replace />
+  if (!attributes.workflowRoute) return <Navigate to="/workflowDef" replace />
 
   return (
     <WorkflowEditProvider actor={actor}>

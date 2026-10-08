@@ -68,7 +68,7 @@ class WorkflowExecutorOpsThreadPoolTest {
 
         WorkflowDef definition =
                 WorkflowDef.builder()
-                        .name("thread-pool-workflow")
+                        .route("thread-pool-workflow")
                         .tasks(
                                 java.util.List.of(
                                         WorkflowTask.builder()
@@ -98,7 +98,7 @@ class WorkflowExecutorOpsThreadPoolTest {
             String callerThread = Thread.currentThread().getName();
             WorkflowModel result =
                     executor.startWorkflow(
-                            StartWorkflowInput.builder().name("thread-pool-workflow").build());
+                            StartWorkflowInput.builder().route("thread-pool-workflow").build());
 
             assertEquals(WorkflowModel.Status.COMPLETED, result.getStatus());
             assertEquals(1, result.getTasks().size());
@@ -176,7 +176,7 @@ class WorkflowExecutorOpsThreadPoolTest {
         WorkflowTask afterJoin = task("after_join", TaskType.TASK_TYPE_NOOP);
         WorkflowDef definition =
                 WorkflowDef.builder()
-                        .name("fork-workflow")
+                        .route("fork-workflow")
                         .tasks(List.of(fork, join, afterJoin))
                         .build();
 
@@ -203,7 +203,7 @@ class WorkflowExecutorOpsThreadPoolTest {
                             () ->
                                     executor.startWorkflow(
                                             StartWorkflowInput.builder()
-                                                    .name("fork-workflow")
+                                                    .route("fork-workflow")
                                                     .build()));
             assertTrue(branchesStarted.await(2, TimeUnit.SECONDS));
             releaseBranches.countDown();
@@ -315,7 +315,7 @@ class WorkflowExecutorOpsThreadPoolTest {
         WorkflowTask afterOuter = task("after_outer", TaskType.TASK_TYPE_NOOP);
         WorkflowDef definition =
                 WorkflowDef.builder()
-                        .name("nested-fork-workflow")
+                        .route("nested-fork-workflow")
                         .tasks(List.of(outerFork, outerJoin, afterOuter))
                         .build();
 
@@ -342,7 +342,7 @@ class WorkflowExecutorOpsThreadPoolTest {
                             () ->
                                     executor.startWorkflow(
                                             StartWorkflowInput.builder()
-                                                    .name("nested-fork-workflow")
+                                                    .route("nested-fork-workflow")
                                                     .build()));
             assertTrue(innerBranchesStarted.await(2, TimeUnit.SECONDS));
             Thread.sleep(150);
@@ -411,7 +411,7 @@ class WorkflowExecutorOpsThreadPoolTest {
         join.setJoinOn(List.of("branch"));
         WorkflowDef definition =
                 WorkflowDef.builder()
-                        .name("rejected-fork-workflow")
+                        .route("rejected-fork-workflow")
                         .tasks(List.of(fork, join))
                         .build();
 
@@ -433,7 +433,7 @@ class WorkflowExecutorOpsThreadPoolTest {
 
         WorkflowModel result =
                 executor.startWorkflow(
-                        StartWorkflowInput.builder().name("rejected-fork-workflow").build());
+                        StartWorkflowInput.builder().route("rejected-fork-workflow").build());
 
         assertEquals(WorkflowModel.Status.FAILED, result.getStatus());
         assertEquals(
@@ -480,7 +480,7 @@ class WorkflowExecutorOpsThreadPoolTest {
         loop.setInputParameters(Map.of("continue", false));
         WorkflowDef definition =
                 WorkflowDef.builder()
-                        .name("do-while-workflow")
+                        .route("do-while-workflow")
                         .tasks(List.of(loop))
                         .build();
 
@@ -497,7 +497,7 @@ class WorkflowExecutorOpsThreadPoolTest {
 
         WorkflowModel result =
                 executor.startWorkflow(
-                        StartWorkflowInput.builder().name("do-while-workflow").build());
+                        StartWorkflowInput.builder().route("do-while-workflow").build());
 
         assertEquals(WorkflowModel.Status.COMPLETED, result.getStatus());
         assertEquals(TaskModel.Status.COMPLETED, result.getTaskByRefName("loop").getStatus());

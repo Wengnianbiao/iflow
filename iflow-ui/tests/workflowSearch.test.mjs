@@ -6,16 +6,16 @@ import { presetTimeRange, relativeTimeRange } from '../src/pages/executions/time
 
 const PAGE_SIZES = [15, 25, 50]
 
-test('existing workflowName links map to the iFlow search API', () => {
-  const state = readSearchState(new URLSearchParams('workflowName=hl-open-api%2Flis-status&correlationId=order-1&status=FAILED'), PAGE_SIZES)
+test('workflowRoute links map to the iFlow search API', () => {
+  const state = readSearchState(new URLSearchParams('workflowRoute=hl-open-api%2Flis-status&correlationId=order-1&status=FAILED'), PAGE_SIZES)
   assert.deepEqual(buildSearchParams(state), {
-    workflowNames: ['hl-open-api/lis-status'], correlationId: 'order-1', status: ['FAILED'], pageNum: 1, pageSize: 15,
+    workflowRoutes: ['hl-open-api/lis-status'], correlationId: 'order-1', status: ['FAILED'], pageNum: 1, pageSize: 15,
   })
 })
 
 test('a shared URL restores submitted filters, page and page size', () => {
   const expected = {
-    filters: { ...emptySearchFilters(), workflowNames: ['hl-open-api/申请单', 'GetItemResult'], keyword: 'A&B=1', status: 'COMPLETED' },
+    filters: { ...emptySearchFilters(), workflowRoutes: ['hl-open-api/申请单', 'GetItemResult'], keyword: 'A&B=1', status: 'COMPLETED' },
     page: 3, rowsPerPage: 25,
   }
   const url = writeSearchState(new URLSearchParams(), expected)
@@ -31,21 +31,21 @@ test('malformed URL pagination and unknown status cannot reach the API', () => {
   }
 })
 
-test('reset clears both workflow-name aliases and preserves page size and unrelated URL state', () => {
-  const url = writeSearchState(new URLSearchParams('workflowType=first&workflowName=old&correlationId=x&status=FAILED&startFrom=1000&startTo=2000&page=3&rowsPerPage=25&view=compact'), {
+test('reset clears workflow routes and preserves page size and unrelated URL state', () => {
+  const url = writeSearchState(new URLSearchParams('workflowRoute=first&workflowRoute=old&correlationId=x&status=FAILED&startFrom=1000&startTo=2000&page=3&rowsPerPage=25&view=compact'), {
     filters: emptySearchFilters(), page: 1, rowsPerPage: 25,
   })
   assert.equal(url.get('view'), 'compact')
   assert.deepEqual(readSearchState(url, PAGE_SIZES), {
     filters: emptySearchFilters(), page: 1, rowsPerPage: 25,
   })
-  for (const key of ['workflowType', 'workflowName', 'correlationId', 'status', 'startFrom', 'startTo']) assert.equal(url.has(key), false)
+  for (const key of ['workflowRoute', 'correlationId', 'status', 'startFrom', 'startTo']) assert.equal(url.has(key), false)
 })
 
 test('whitespace-only filters are not sent to the API', () => {
-  const state = readSearchState(new URLSearchParams('workflowType=%20%20&correlationId=%20'), PAGE_SIZES)
+  const state = readSearchState(new URLSearchParams('workflowRoute=%20%20&correlationId=%20'), PAGE_SIZES)
   const params = buildSearchParams(state)
-  assert.equal(params.workflowNames, undefined)
+  assert.equal(params.workflowRoutes, undefined)
   assert.equal(params.correlationId, undefined)
   assert.equal(params.status, undefined)
 })
@@ -63,10 +63,10 @@ test('invalid execution timestamps display a fallback instead of throwing', () =
 
 
 test('multiple workflow selections are deduplicated and kept separate in URL and API', () => {
-  const state = readSearchState(new URLSearchParams('workflowType=first&workflowType=second&workflowType=first&workflowType=%20'), PAGE_SIZES)
-  assert.deepEqual(state.filters.workflowNames, ['first', 'second'])
-  assert.deepEqual(buildSearchParams(state).workflowNames, ['first', 'second'])
-  assert.deepEqual(writeSearchState(new URLSearchParams(), state).getAll('workflowType'), ['first', 'second'])
+  const state = readSearchState(new URLSearchParams('workflowRoute=first&workflowRoute=second&workflowRoute=first&workflowRoute=%20'), PAGE_SIZES)
+  assert.deepEqual(state.filters.workflowRoutes, ['first', 'second'])
+  assert.deepEqual(buildSearchParams(state).workflowRoutes, ['first', 'second'])
+  assert.deepEqual(writeSearchState(new URLSearchParams(), state).getAll('workflowRoute'), ['first', 'second'])
 })
 
 test('time bounds survive sharing and pagination and reach the start-time API', () => {

@@ -98,7 +98,7 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
             persistTerminatedWorkflow(workflow, e);
             throw e;
         } catch (Exception e) {
-            LOGGER.error("Unable to start workflow: {}", workflowDefinition.getName(), e);
+            LOGGER.error("Unable to start workflow: {}", workflowDefinition.getRoute(), e);
             try {
                 executionDAOFacade.removeWorkflow(workflowId);
             } catch (Exception rwe) {
@@ -109,12 +109,12 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
     }
 
     private WorkflowDef resolveWorkflowDefinition(StartWorkflowInput input) {
-        if (!StringUtils.hasText(input.getName())) {
+        if (!StringUtils.hasText(input.getRoute())) {
             throw new WorkFlowException(
-                    WorkFlowErrorCode.REPOSITORY_SAVE_ERROR, "工作流 name 不能为空");
+                    WorkFlowErrorCode.REPOSITORY_SAVE_ERROR, "工作流 route 不能为空");
         }
 
-        return metadataService.getWorkflowDef(input.getName(), input.getVersion());
+        return metadataService.getWorkflowDef(input.getRoute(), input.getVersion());
     }
 
     private WorkflowModel createAndDriveWithLock(WorkflowModel workflow) {
@@ -126,7 +126,7 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
             executionDAOFacade.createWorkflow(workflow);
             LOGGER.debug(
                     "A new instance of workflow: {} created with id: {}",
-                    workflow.getWorkflowName(),
+                    workflow.getWorkflowRoute(),
                     workflow.getWorkflowId());
             return driveWorkflow(workflow);
         } finally {

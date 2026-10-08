@@ -14,7 +14,7 @@ class TaskMapperContextTest {
     void carriesWorkflowIdentityRetryLineageAndForkScopeIntoTask() {
         WorkflowModel workflow = new WorkflowModel();
         workflow.setWorkflowId("workflow-1");
-        workflow.setWorkflowDefinition(WorkflowDef.builder().name("patient-sync").version(2).build());
+        workflow.setWorkflowDefinition(WorkflowDef.builder().route("patient-sync").version(2).build());
         workflow.setCorrelationId("patient-1");
         WorkflowTask definition = WorkflowTask.builder().name("request").type("HTTP")
                 .taskReferenceName("request_ref").build();

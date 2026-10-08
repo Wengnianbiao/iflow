@@ -10,14 +10,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 启动工作流实例的引擎入参：按 {@code name}（+ 可选 {@code version}）与入参启动；
- * 定义由引擎按 name/version 查询（version 为 null 取最新）。
+ * 启动工作流实例的引擎入参：按 {@code route}（+ 可选 {@code version}）与入参启动；
+ * 定义由引擎按 route/version 查询（version 为 null 取最新）。
  */
 @Getter
 @Builder
 public class StartWorkflowInput {
 
-    private final String name;
+    private final String route;
 
     /** 版本；为 {@code null} 时取最新版本 */
     private final Integer version;
@@ -29,11 +29,11 @@ public class StartWorkflowInput {
     private final FileAccess fileAccess;
 
     public static StartWorkflowInput from(StartWorkflowRequest request) {
-        if (request == null || !StringUtils.hasText(request.getName())) {
-            throw new IllegalArgumentException("工作流 name 不能为空");
+        if (request == null || !StringUtils.hasText(request.getRoute())) {
+            throw new IllegalArgumentException("工作流 route 不能为空");
         }
         return StartWorkflowInput.builder()
-                .name(request.getName())
+                .route(request.getRoute())
                 .version(request.getVersion())
                 .workflowInput(
                         request.getInput() != null

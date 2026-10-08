@@ -9,26 +9,12 @@ import {
   TagIcon,
   TrashIcon,
 } from '@phosphor-icons/react'
-import type { WorkflowDef } from '@/types/workflow'
+import { downloadWorkflowDefinition } from '@/utils/workflowDraft'
 import {
   hasWorkflowChanges,
   type VersionChoice,
   type WorkflowDefinitionActor,
 } from './state'
-
-function prettyJson(value: unknown) {
-  return JSON.stringify(value ?? {}, null, 2)
-}
-
-function downloadDefinition(workflow: WorkflowDef) {
-  const blob = new Blob([prettyJson(workflow)], { type: 'application/json;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = `${workflow.name}_v${workflow.version}.json`
-  anchor.click()
-  URL.revokeObjectURL(url)
-}
 
 function VersionHeadBarSelect({
   versions,
@@ -135,7 +121,7 @@ export function WorkflowMetaBar({ actor }: { actor: WorkflowDefinitionActor }) {
   const state = useSelector(actor, (snapshot) => snapshot)
   const {
     workflow,
-    workflowName,
+    workflowRoute,
     workflowVersion,
     versions,
     isNewWorkflow,
@@ -151,10 +137,10 @@ export function WorkflowMetaBar({ actor }: { actor: WorkflowDefinitionActor }) {
         <div className="workflow-breadcrumbs">
           <Link to="/workflowDef">工作流配置</Link>
           <span>/</span>
-          <span>{workflow?.displayName || workflow?.name || workflowName}</span>
+          <span>{workflow?.name || workflow?.route || workflowRoute}</span>
         </div>
         <div className="workflow-title-row">
-          <h1>{workflow?.displayName || workflow?.name || workflowName}</h1>
+          <h1>{workflow?.name || workflow?.route || workflowRoute}</h1>
           {dirty ? <span className="unsaved-badge">未保存</span> : null}
         </div>
       </div>
@@ -190,7 +176,7 @@ export function WorkflowMetaBar({ actor }: { actor: WorkflowDefinitionActor }) {
           type="button"
           className="ghost-action"
           disabled={!workflow}
-          onClick={() => workflow && downloadDefinition(workflow)}
+          onClick={() => workflow && downloadWorkflowDefinition(workflow)}
         >
           <DownloadSimpleIcon size={20} />
           下载

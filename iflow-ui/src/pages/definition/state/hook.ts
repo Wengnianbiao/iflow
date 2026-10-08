@@ -17,15 +17,16 @@ import type {
   WorkflowRouteAttributes,
 } from './types'
 
-function editorUrl(name: string, version?: number) {
-  const query = new URLSearchParams({ name })
+function editorUrl(route: string, version?: number) {
+  const query = new URLSearchParams({ route })
   if (version != null) query.set('version', String(version))
   return `/workflowDef/edit?${query.toString()}`
 }
 
 function createWorkflow(attributes: WorkflowRouteAttributes): WorkflowDef {
   return {
-    name: attributes.workflowName,
+    route: attributes.workflowRoute,
+    name: '',
     version: attributes.workflowVersion ?? 1,
     description: '',
     inputParameters: [],
@@ -49,8 +50,8 @@ async function loadWorkflow(attributes: WorkflowRouteAttributes): Promise<Loaded
   }
 
   const [workflow, versions] = await Promise.all([
-    getWorkflowDefinition(attributes.workflowName, attributes.workflowVersion),
-    listWorkflowVersions(attributes.workflowName).catch(() => (
+    getWorkflowDefinition(attributes.workflowRoute, attributes.workflowVersion),
+    listWorkflowVersions(attributes.workflowRoute).catch(() => (
       attributes.workflowVersion == null ? [] : [attributes.workflowVersion]
     )),
   ])
@@ -67,18 +68,18 @@ export function useWorkflowDefinition(attributes: WorkflowRouteAttributes) {
   const actor = useInterpret(workflowDefinitionMachine, {
     services: {
       loadWorkflowDefinition: (context) => loadWorkflow({
-        workflowName: context.workflowName,
+        workflowRoute: context.workflowRoute,
         workflowVersion: context.workflowVersion,
         isNewWorkflow: context.isNewWorkflow,
         draftId: context.draftId,
       }),
       saveWorkflowDefinition: (context) => {
         if (!context.workflow) throw new Error('没有可保存的工作流')
-        return saveWorkflowDefinition(context.workflow)
+        return saveWorkflowDefinition(context.workflow, context.isNewWorkflow ? undefined : context.baseline ?? undefined)
       },
       deleteWorkflowDefinition: (context) => {
         if (!context.baseline) throw new Error('没有可删除的工作流')
-        return deleteWorkflowDefinition(context.baseline.name, context.baseline.version)
+        return deleteWorkflowDefinition(context.baseline.route, context.baseline.version)
       },
     },
     actions: {
@@ -95,13 +96,13 @@ export function useWorkflowDefinition(attributes: WorkflowRouteAttributes) {
         if (context.pendingVersion == null) return
         navigate(
           context.pendingVersion === 'latest'
-            ? editorUrl(context.workflowName)
-            : editorUrl(context.workflowName, context.pendingVersion),
+            ? editorUrl(context.workflowRoute)
+            : editorUrl(context.workflowRoute, context.pendingVersion),
         )
       },
       navigateToSavedWorkflow: (context: WorkflowDefinitionMachineContext) => {
         if (!context.workflow) return
-        navigate(editorUrl(context.workflow.name, context.workflow.version), { replace: true })
+        navigate(editorUrl(context.workflow.route, context.workflow.version), { replace: true })
       },
       navigateToDefinitionList: () => {
         navigate('/workflowDef')
@@ -118,7 +119,7 @@ export function useWorkflowDefinition(attributes: WorkflowRouteAttributes) {
     actor,
     attributes.isNewWorkflow,
     attributes.draftId,
-    attributes.workflowName,
+    attributes.workflowRoute,
     attributes.workflowVersion,
   ])
 

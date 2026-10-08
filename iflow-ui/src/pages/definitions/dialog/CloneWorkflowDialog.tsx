@@ -20,14 +20,14 @@ type CloneWorkflowDialogProps = {
   onSuccess: () => void
 }
 
-function nextCopyName(name: string, definitions: WorkflowDef[]) {
-  const existingNames = new Set(definitions.map((definition) => definition.name))
-  const baseName = `${name}_copy`
-  if (!existingNames.has(baseName)) return baseName
+function nextCopyRoute(route: string, definitions: WorkflowDef[]) {
+  const existingRoutes = new Set(definitions.map((definition) => definition.route))
+  const baseRoute = `${route}_copy`
+  if (!existingRoutes.has(baseRoute)) return baseRoute
 
   let index = 2
-  while (existingNames.has(`${baseName}_${index}`)) index += 1
-  return `${baseName}_${index}`
+  while (existingRoutes.has(`${baseRoute}_${index}`)) index += 1
+  return `${baseRoute}_${index}`
 }
 
 export function CloneWorkflowDialog({
@@ -37,27 +37,27 @@ export function CloneWorkflowDialog({
   onSuccess,
 }: CloneWorkflowDialogProps) {
   const { setMessage } = useMessageContext()
-  const [name, setName] = useState('')
-  const [nameError, setNameError] = useState('')
+  const [route, setRoute] = useState('')
+  const [routeError, setRouteError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     if (!definition) return
-    setName(nextCopyName(definition.name, definitions))
-    setNameError('')
+    setRoute(nextCopyRoute(definition.route, definitions))
+    setRouteError('')
   }, [definition, definitions])
 
   const handleSubmit = async (event?: FormEvent) => {
     event?.preventDefault()
     if (!definition) return
 
-    const normalizedName = name.trim()
-    if (!normalizedName) {
-      setNameError('请输入工作流名称')
+    const normalizedRoute = route.trim()
+    if (!normalizedRoute) {
+      setRouteError('请输入路由')
       return
     }
-    if (definitions.some((item) => item.name === normalizedName)) {
-      setNameError(`工作流名称已存在：${normalizedName}`)
+    if (definitions.some((item) => item.route === normalizedRoute)) {
+      setRouteError(`路由已存在：${normalizedRoute}`)
       return
     }
 
@@ -65,11 +65,11 @@ export function CloneWorkflowDialog({
       setSubmitting(true)
       await registerWorkflowDefinition({
         ...definition,
-        name: normalizedName,
+        route: normalizedRoute,
         version: 1,
-        displayName: definition.displayName
-          ? `${definition.displayName} 副本`
-          : normalizedName,
+        name: definition.name
+          ? `${definition.name} 副本`
+          : normalizedRoute,
       })
       onSuccess()
     } catch (reason) {
@@ -87,21 +87,21 @@ export function CloneWorkflowDialog({
       <DialogTitle>复制工作流</DialogTitle>
       <DialogContent>
         <Typography sx={{ mb: 2 }}>
-          复制 <strong>{definition?.displayName?.trim() || definition?.name}</strong>{' '}
+          复制 <strong>{definition?.name?.trim() || definition?.route}</strong>{' '}
           的最新定义，副本版本将从 1 开始。
         </Typography>
         <form id="clone-workflow-form" onSubmit={(event) => void handleSubmit(event)}>
           <TextField
             autoFocus
             fullWidth
-            label="工作流名称"
-            error={Boolean(nameError)}
-            helperText={nameError}
+            label="路由"
+            error={Boolean(routeError)}
+            helperText={routeError}
             spellCheck={false}
-            value={name}
+            value={route}
             onChange={(event) => {
-              setName(event.target.value)
-              if (nameError) setNameError('')
+              setRoute(event.target.value)
+              if (routeError) setRouteError('')
             }}
           />
         </form>

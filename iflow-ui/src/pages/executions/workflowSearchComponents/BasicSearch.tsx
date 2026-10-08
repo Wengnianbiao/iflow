@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Autocomplete, Box, Button, MenuItem, Paper, TextField } from '@mui/material'
+import { Autocomplete, Box, Button, MenuItem, Paper, TextField, Typography } from '@mui/material'
 import { ArrowCounterClockwiseIcon, MagnifyingGlassIcon } from '@phosphor-icons/react'
 import { useWorkflowDefs } from '@/utils/query'
 import DateControl from './DateControl'
@@ -18,22 +18,22 @@ export default function BasicSearch() {
   const workflowLabels = useMemo(() => {
     const definitions = new Map<string, { version: number; label: string }>()
     for (const definition of workflowDefs.data ?? []) {
-      const previous = definitions.get(definition.name)
+      const previous = definitions.get(definition.route)
       if (!previous || definition.version > previous.version) {
-        definitions.set(definition.name, {
+        definitions.set(definition.route, {
           version: definition.version,
-          label: definition.displayName?.trim() || '未命名工作流',
+          label: definition.name?.trim() || '未命名工作流',
         })
       }
     }
     return new Map([...definitions].map(([name, definition]) => [name, definition.label]))
   }, [workflowDefs.data])
-  const workflowNames = useMemo(
+  const workflowRoutes = useMemo(
     () => [...workflowLabels.keys()].sort((a, b) => workflowLabels.get(a)!.localeCompare(workflowLabels.get(b)!, 'zh-CN')),
     [workflowLabels],
   )
 
-  useEffect(() => { setNameInput('') }, [filters.workflowNames])
+  useEffect(() => { setNameInput('') }, [filters.workflowRoutes])
 
   return (
     <>
@@ -56,19 +56,30 @@ export default function BasicSearch() {
               forcePopupIcon
               fullWidth
               size="small"
-              options={workflowNames}
+              options={workflowRoutes}
               getOptionLabel={(name) => workflowLabels.get(name) ?? '未命名工作流'}
               getOptionKey={(name) => name}
+              renderOption={(props, route) => {
+                const { key, ...rest } = props
+                return (
+                  <li key={key} {...rest}>
+                    <Box sx={{ py: 0.5, minWidth: 0 }}>
+                      <Typography variant="body2">{workflowLabels.get(route) ?? '未命名工作流'}</Typography>
+                      <Typography variant="caption" color="text.secondary">{route}</Typography>
+                    </Box>
+                  </li>
+                )
+              }}
               noOptionsText="没有匹配的工作流"
               loading={workflowDefs.isFetching}
               loadingText="加载工作流名称中…"
               openText="展开工作流列表"
               closeText="收起工作流列表"
               clearText="清空工作流名称"
-              value={filters.workflowNames}
+              value={filters.workflowRoutes}
               inputValue={nameInput}
               onInputChange={(_, value) => setNameInput(value)}
-              onChange={(_, value) => setFilters((current) => ({ ...current, workflowNames: value }))}
+              onChange={(_, value) => setFilters((current) => ({ ...current, workflowRoutes: value }))}
               renderInput={(params) => (
                 <TextField
                   {...params}
@@ -94,7 +105,6 @@ export default function BasicSearch() {
               fullWidth
               label="状态"
               size="small"
-              sx={{ '& .MuiSelect-select': { py: '3px', minHeight: '32px', display: 'flex', alignItems: 'center' } }}
               slotProps={{
                 inputLabel: { shrink: true },
                 select: {

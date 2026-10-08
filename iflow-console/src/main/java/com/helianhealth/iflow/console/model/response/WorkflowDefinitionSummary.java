@@ -7,11 +7,11 @@ import lombok.Data;
 @Builder
 public class WorkflowDefinitionSummary {
 
-    private String name;
+    private String route;
 
     private int version;
 
-    private String displayName;
+    private String name;
 
     private String description;
 

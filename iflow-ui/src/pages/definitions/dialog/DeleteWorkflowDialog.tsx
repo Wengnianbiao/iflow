@@ -33,14 +33,14 @@ export function DeleteWorkflowDialog({
     if (definition) setConfirmName('')
   }, [definition])
 
-  const nameMatched = Boolean(definition && confirmName === definition.name)
+  const nameMatched = Boolean(definition && confirmName === definition.route)
 
   const handleDelete = async () => {
     if (!definition || !nameMatched) return
 
     try {
       setSubmitting(true)
-      await deleteWorkflowDefinition(definition.name, definition.version)
+      await deleteWorkflowDefinition(definition.route, definition.version)
       onSuccess()
     } catch (reason) {
       setMessage({
@@ -64,18 +64,18 @@ export function DeleteWorkflowDialog({
         <Typography sx={{ mb: 2 }}>
           确定删除工作流{' '}
           <strong style={{ color: 'var(--iflow-color-danger)' }}>
-            {definition?.displayName}
+            {definition?.name}
           </strong>{' '}
-          （{definition?.name}）的版本 {definition?.version} 吗？此操作无法撤销。
+          （{definition?.route}）的版本 {definition?.version} 吗？此操作无法撤销。
         </Typography>
         <Typography sx={{ mb: 2 }}>
-          请输入工作流名称 <strong>{definition?.name}</strong> 以确认。
+          请输入工作流名称 <strong>{definition?.route}</strong> 以确认。
         </Typography>
         <TextField
           autoFocus
           fullWidth
           label="工作流名称"
-          placeholder={definition?.name}
+          placeholder={definition?.route}
           spellCheck={false}
           value={confirmName}
           onChange={(event) => setConfirmName(event.target.value)}

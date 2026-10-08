@@ -25,7 +25,7 @@ function invokeData(event: unknown) {
 }
 
 const initialContext: WorkflowDefinitionMachineContext = {
-  workflowName: '',
+  workflowRoute: '',
   workflowVersion: undefined,
   isNewWorkflow: false,
   draftId: undefined,
@@ -302,7 +302,7 @@ export const workflowDefinitionMachine = createMachine<
           flowActor: context.flowActor,
           editorActor: context.editorActor,
           validationActor: context.validationActor,
-          workflowName: event.workflowName,
+          workflowRoute: event.workflowRoute,
           workflowVersion: event.workflowVersion,
           isNewWorkflow: event.isNewWorkflow,
           draftId: event.draftId,
@@ -312,7 +312,7 @@ export const workflowDefinitionMachine = createMachine<
         const loaded = invokeData(event) as LoadedWorkflow
         return {
           ...context,
-          ...workflowEdit({ ...context, diagramWorkflow: null }, cloneWorkflow(loaded.workflow)),
+          ...workflowEdit({ ...context, baseline: null, diagramWorkflow: null }, cloneWorkflow(loaded.workflow)),
           baseline: cloneWorkflow(loaded.baseline ?? loaded.workflow),
           versions: loaded.versions,
           selectedTaskRef: undefined,
@@ -398,10 +398,12 @@ export const workflowDefinitionMachine = createMachine<
           ...context,
           ...workflowEdit(context, cloneWorkflow(saved)),
           baseline: cloneWorkflow(saved),
-          workflowName: saved.name,
+          workflowRoute: saved.route,
           workflowVersion: saved.version,
           isNewWorkflow: false,
-          versions: [...new Set([...context.versions, saved.version])].sort((a, b) => a - b),
+          versions: context.baseline?.route === saved.route
+            ? [...new Set([...context.versions, saved.version])].sort((a, b) => a - b)
+            : [saved.version],
           error: null,
           serverProblems: [],
           fieldDrafts: {},
@@ -486,7 +488,7 @@ export const workflowDefinitionMachine = createMachine<
       ),
       canDelete: ({ baseline, isNewWorkflow }) => Boolean(baseline && !isNewWorkflow),
       canConfirmDelete: ({ baseline, deleteConfirmationValue }) => Boolean(
-        baseline && deleteConfirmationValue === baseline.name,
+        baseline && deleteConfirmationValue === baseline.route,
       ),
       isCurrentVersion: (context, event) => {
         if (event.type !== 'REQUEST_VERSION_CHANGE') return false

@@ -13,8 +13,8 @@ import java.util.Map;
 /**
  * 启动工作流请求。
  *
- * <p>API / Console / Gateway 入参：通过 {@code name + version} 定位定义（{@code name} 即 {@link
- * WorkflowDef#getName()}；{@code version}
+ * <p>API / Console / Gateway 入参：通过 {@code route + version} 定位定义（{@code route} 即 {@link
+ * WorkflowDef#getRoute()}；{@code version}
  * 为 {@code null} 时取最新版本），{@code input} 写入运行时工作流实例。定义解析由
  * {@code WorkflowExecutionService} 完成，调用方无需自行查询 {@code WorkflowDef}。
  *
@@ -27,7 +27,7 @@ import java.util.Map;
 @AllArgsConstructor
 public class StartWorkflowRequest {
 
-    private String name;
+    private String route;
 
     /**
      * 版本；为 {@code null} 时取最新版本

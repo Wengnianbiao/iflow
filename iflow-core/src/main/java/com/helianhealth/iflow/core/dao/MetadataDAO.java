@@ -13,7 +13,7 @@ import java.util.Optional;
  * 接口定义在 {@code iflow-core}，具体实现由各数据库厂商 DAO 分别提供，引擎只依赖接口。
  *
  * <p>{@code latest_version} 维护是实现内部职责，不在接口上暴露。
- * Gateway 按 {@link #getLatestWorkflowDef(String) name} 取最新版本调度。
+ * Gateway 按 {@link #getLatestWorkflowDef(String) route} 取最新版本调度。
  */
 public interface MetadataDAO {
 
@@ -62,32 +62,32 @@ public interface MetadataDAO {
     void createWorkflowDef(WorkflowDef def);
 
     /**
-     * 更新工作流定义（同 name、version 的整份配置替换）。
+     * 更新工作流定义（同 route、version 的整份配置替换）。
      */
     void updateWorkflowDef(WorkflowDef def);
 
     /**
      * 取指定版本的工作流定义。
      */
-    Optional<WorkflowDef> getWorkflowDef(String name, int version);
+    Optional<WorkflowDef> getWorkflowDef(String route, int version);
 
     /**
-     * 取指定 name 的最新版本。
+     * 取指定 route 的最新版本。
      */
-    Optional<WorkflowDef> getLatestWorkflowDef(String name);
+    Optional<WorkflowDef> getLatestWorkflowDef(String route);
 
     /**
-     * 取指定 name 下的全部版本（按版本号升序）。
+     * 取指定 route 下的全部版本（按版本号升序）。
      */
-    List<WorkflowDef> getAllVersions(String name);
+    List<WorkflowDef> getAllVersions(String route);
 
     /**
-     * 取全部工作流定义的最新版本（每个 name 一行）。
+     * 取全部工作流定义的最新版本（每个 route 一行）。
      */
     List<WorkflowDef> getAllLatest();
 
     /**
      * 删除指定版本的工作流定义。
      */
-    void removeWorkflowDef(String name, int version);
+    void removeWorkflowDef(String route, int version);
 }

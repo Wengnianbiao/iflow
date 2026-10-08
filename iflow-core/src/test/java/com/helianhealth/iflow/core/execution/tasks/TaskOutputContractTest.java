@@ -176,7 +176,7 @@ class TaskOutputContractTest {
     private WorkflowModel workflow(TaskModel... tasks) {
         WorkflowModel workflow = new WorkflowModel();
         workflow.setTasks(List.of(tasks));
-        workflow.setWorkflowDefinition(WorkflowDef.builder().name("output-test").build());
+        workflow.setWorkflowDefinition(WorkflowDef.builder().route("output-test").build());
         return workflow;
     }
 }
