@@ -17,6 +17,8 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 import { createPortal } from 'react-dom'
 import { WorkflowCollapsibleSection, ParameterRows, VariableExpressionInput, valueText } from '../../../InspectorFields'
 import { InlineScriptEditor } from '../InlineScriptEditor'
+import { InlineHighlightedCode } from '@/components/flow/InlineScriptCode'
+import { MappingExpressionInput } from './MappingExpressionInput'
 import { TaskPanelHeader } from '../TaskPanelHeader'
 import type { TaskFormProps } from '../types'
 import {
@@ -24,6 +26,7 @@ import {
   configNodeLabel, loopElementLabel, scopeAliases, normalizeConfig, normalizeForSave, emptyConfig, objectTemplate,
   updateAtPath, removeAtPath, insertAfterPath, flattenDisplayConfigs, countMappingTargetFields,
   parseMappingConfigs, validateNode, sourcePathAfterTargetRename, aliasPathCorrection, mappingTypesForTargetType,
+  constantInputText, parseConstantInput,
   type ParamMappingConfig, type ParamType, type MappingType, type ConfigPath, type DisplayConfigRow,
 } from '@/tasks/mappingConfig'
 import type { WorkflowTask } from '@/types/workflow'
@@ -77,7 +80,7 @@ function pathKey(path: ConfigPath) { return path.join('.') }
 
 function mappingLabel(type: MappingType) {
   switch (type) {
-    case 'NAME': return '值映射'
+    case 'NAME': return '字段映射'
     case 'CONSTANT': return '固定值'
     case 'EXPRESSION': return 'JS 表达式'
     case 'OBJECT': return '对象构建'
@@ -542,7 +545,7 @@ function ParamMappingTreeEditor({
             }}
           >
             <header>
-              <div><h2>参数映射编辑器</h2><span>{countParamMappingConfigs(configs)} 个字段</span></div>
+              <div><h2>参数映射编辑器</h2></div>
               <button type="button" title="关闭" aria-label="关闭参数映射编辑器" onClick={closeEditor}><XIcon size={22} /></button>
             </header>
             <div className="param-map-tree-modal-content">{surface}</div>
@@ -588,13 +591,37 @@ function ParamMappingTreeSurface({
   selectedPath?: ConfigPath
   fieldEditor: ReactNode
 } & ConfigActions) {
+  const [detailWidth, setDetailWidth] = useState(340)
+  const [workspaceWidth, setWorkspaceWidth] = useState(0)
+  const [resizing, setResizing] = useState(false)
+  const workspaceRef = useRef<HTMLDivElement>(null)
+  const dragRef = useRef<{ x: number; width: number } | null>(null)
+  const hasFieldEditor = Boolean(fieldEditor)
+
+  useEffect(() => {
+    const workspace = workspaceRef.current
+    if (!workspace || !expanded || !hasFieldEditor) return
+    const observer = new ResizeObserver(() => {
+      const width = workspace.getBoundingClientRect().width
+      setWorkspaceWidth(width)
+      if (width > 1000) setDetailWidth((current) => Math.min(Math.max(280, width - 360), current))
+    })
+    observer.observe(workspace)
+    return () => observer.disconnect()
+  }, [expanded, hasFieldEditor])
+
+  const resizeDetail = (width: number) => {
+    const total = workspaceRef.current?.getBoundingClientRect().width ?? workspaceWidth
+    setDetailWidth(Math.min(Math.max(280, total - 360), Math.max(280, width)))
+  }
+
   const containerPathKeys = new Set(allRows
     .filter((row, index) => allRows[index + 1]?.depth > row.depth)
     .map(({ path }) => pathKey(path)))
   return (
     <div className={`param-map-tree-editor ${expanded ? 'expanded' : 'embedded'}`}>
       <div className="param-map-tree-toolbar">
-        <span>目标参数树 · {countParamMappingConfigs(configs)} 个字段</span>
+        <span>参数树 · {countParamMappingConfigs(configs)} 个字段</span>
         <div>
           {rows.length ? (
             <>
@@ -605,10 +632,12 @@ function ParamMappingTreeSurface({
           <button type="button" className="primary" onClick={onAddRoot}><PlusIcon size={14} weight="bold" />新增根字段</button>
         </div>
       </div>
-      <div className={`param-map-tree-workspace ${fieldEditor ? 'with-detail' : ''}`}>
+      <div ref={workspaceRef}
+        className={`param-map-tree-workspace ${fieldEditor ? 'with-detail' : ''} ${resizing ? 'resizing' : ''}`}
+        style={{ '--param-map-detail-width': `${detailWidth}px` } as CSSProperties}>
       <div className="param-map-tree-list">
         <div className="param-map-tree-columns" aria-hidden="true">
-          <span>目标字段</span><span>类型</span><span>取值</span><span>操作</span>
+          <span>字段名称</span><span>字段类型</span><span>取值方式</span><span>操作</span>
         </div>
       <div className="param-map-tree-scroll" role="group" aria-label="目标参数树">
         {rows.map(({ config, path, depth }) => {
@@ -669,6 +698,31 @@ function ParamMappingTreeSurface({
       </div>
       </div>
       {fieldEditor}
+      {expanded && fieldEditor ? <div className="param-map-detail-resizer" role="separator"
+        aria-label="调整单字段编辑区宽度" aria-orientation="vertical"
+        aria-valuemin={280} aria-valuemax={Math.max(detailWidth, workspaceWidth - 360)} aria-valuenow={Math.round(detailWidth)}
+        aria-valuetext={`${Math.round(detailWidth)} 像素`} tabIndex={0}
+        onPointerDown={(event) => {
+          if (event.button !== 0) return
+          event.preventDefault()
+          dragRef.current = { x: event.clientX, width: detailWidth }
+          setResizing(true)
+          event.currentTarget.setPointerCapture(event.pointerId)
+        }}
+        onPointerMove={(event) => {
+          if (dragRef.current) resizeDetail(dragRef.current.width + dragRef.current.x - event.clientX)
+        }}
+        onPointerUp={(event) => {
+          dragRef.current = null
+          setResizing(false)
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+        }}
+        onLostPointerCapture={() => { dragRef.current = null; setResizing(false) }}
+        onKeyDown={(event) => {
+          if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+          event.preventDefault()
+          resizeDetail(detailWidth + (event.key === 'ArrowLeft' ? 20 : -20))
+        }} /> : null}
       </div>
       <div className="param-map-tree-editor-actions">
         <span>{selectedPath ? configPathLabel(configs, selectedPath) : '选择字段查看配置'}</span>
@@ -690,7 +744,8 @@ function ParamMappingTreeSurface({
 
 function MappingSummary({ config, onEdit }: { config: ParamMappingConfig; onEdit: () => void }) {
   const mode = config.mappingType
-  const detail = mode === 'CONSTANT' ? JSON.stringify(config.mappingRule ?? null)
+  const detail = mode === 'CONSTANT' ? typeof config.mappingRule === 'string' && config.mappingRule !== ''
+    ? config.mappingRule : JSON.stringify(config.mappingRule ?? null)
     : mode === 'EXPRESSION' ? String(config.mappingRule ?? '')
       : mode === 'ARRAY_MAP' ? `${config.sourceParamKey || '未配置循环源'} → ${config.itemAlias || '未命名变量'}`
         : mode === 'ARRAY_FIXED' ? `${config.items.length} 个元素`
@@ -699,8 +754,9 @@ function MappingSummary({ config, onEdit }: { config: ParamMappingConfig; onEdit
     : mode === 'NAME' || mode === 'ARRAY_MAP' ? 'source' : 'structure'
   return (
     <button type="button" className={`param-map-tree-binding ${style}`} title={detail} onClick={onEdit}>
-      <span className="param-map-tree-binding-label">{mode === 'NAME' ? '取值' : mappingLabel(mode)}</span>
-      {mode === 'NAME' ? <ArrowLeftIcon size={14} /> : null}<code>{detail}</code>
+      <span className="param-map-tree-binding-label">{mode === 'NAME' ? '字段映射' : mappingLabel(mode)}</span>
+      {mode === 'NAME' ? <ArrowLeftIcon size={14} /> : null}
+      <code>{mode === 'EXPRESSION' ? <InlineHighlightedCode code={detail} format={false} /> : detail}</code>
     </button>
   )
 }
@@ -844,7 +900,9 @@ function ParamConfigPanel({ session, parentPath, parentConfig, aliases, onChange
   const value = session.value
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
-  const [constantDraft, setConstantDraft] = useState(() => JSON.stringify(value.mappingRule ?? null, null, 2))
+  const [constantDraft, setConstantDraft] = useState(() => constantInputText(value.mappingRule, value.targetParamType))
+  const [constantNull, setConstantNull] = useState(value.mappingRule == null)
+  const [constantEdited, setConstantEdited] = useState(false)
   const panelRef = useRef<HTMLElement>(null)
   const dirty = JSON.stringify(value) !== session.initialValue
   const loopElement = parentConfig?.mappingType === 'ARRAY_MAP'
@@ -873,18 +931,39 @@ function ParamConfigPanel({ session, parentPath, parentConfig, aliases, onChange
     onChange(next)
   }
 
+  const updateConstant = (text: string, isNull = constantNull) => {
+    setConstantDraft(text)
+    setConstantNull(isNull)
+    setConstantEdited(true)
+    try {
+      setValue({ ...value, mappingRule: isNull ? null : parseConstantInput(text, value.targetParamType) })
+    } catch (error) {
+      // Keep invalid numeric drafts in the edit session so closing it still warns about unsaved changes.
+      setValue({ ...value, mappingRule: text })
+      setError((error as Error).message)
+    }
+  }
+
   const changeMode = (mode: MappingType, type = value.targetParamType) => {
     let aliasIndex = 1
     let alias = 'item'
     while (aliases.includes(alias)) alias = `item${++aliasIndex}`
-    const mappingRule = mode === 'CONSTANT' ? (value.mappingType === 'CONSTANT' ? value.mappingRule : type === 'STRING' ? '' : null)
+    const mappingRule = mode === 'CONSTANT' ? (value.mappingType === 'CONSTANT' ? value.mappingRule
+      : type === 'STRING' ? '' : type === 'BOOLEAN' ? false : 0)
       : mode === 'EXPRESSION' ? (value.mappingType === 'EXPRESSION' ? value.mappingRule : sourceRoot) : undefined
-    setConstantDraft(JSON.stringify(mappingRule ?? null, null, 2))
+    const nextDraft = constantInputText(mappingRule, type)
+    setConstantDraft(nextDraft)
+    setConstantNull(mappingRule == null)
+    setConstantEdited(mode === 'CONSTANT' && (constantEdited || value.mappingType !== 'CONSTANT' || type !== value.targetParamType))
     setValue({ ...value, mappingType: mode, targetParamType: type, mappingRule,
       sourceParamKey: (mode === 'NAME' || mode === 'ARRAY_MAP') && !value.sourceParamKey ? sourceRoot : value.sourceParamKey,
       itemAlias: mode === 'ARRAY_MAP' ? value.itemAlias || alias : value.itemAlias,
       itemTemplate: mode === 'ARRAY_MAP' ? value.itemTemplate ?? objectTemplate() : value.itemTemplate,
     })
+    if (mode === 'CONSTANT' && mappingRule != null) {
+      try { parseConstantInput(nextDraft, type) }
+      catch (error) { setError((error as Error).message) }
+    }
   }
 
   const changeTargetParamKey = (targetParamKey: string) => {
@@ -899,14 +978,19 @@ function ParamConfigPanel({ session, parentPath, parentConfig, aliases, onChange
 
   const submit = () => {
     try {
+      const constantValue = value.mappingType === 'CONSTANT' && !constantNull
+        ? parseConstantInput(constantDraft, value.targetParamType) : null
       const next = normalizeForSave({ ...value, targetParamKey: element ? '' : value.targetParamKey,
-        mappingRule: value.mappingType === 'CONSTANT' ? JSON.parse(constantDraft) : value.mappingRule })
+        mappingRule: value.mappingType === 'CONSTANT'
+          ? constantNull ? null : constantEdited ? constantValue : value.mappingRule : value.mappingRule })
       validateNode(next, aliases, element)
       setError('')
       onSave(next)
       setSaved(true)
+      setConstantEdited(false)
+      if (next.mappingType === 'CONSTANT') setConstantDraft(constantInputText(next.mappingRule, next.targetParamType))
     } catch (error) {
-      setError(error instanceof SyntaxError ? '固定值必须是有效 JSON，字符串需要双引号' : (error as Error).message)
+      setError((error as Error).message)
     }
   }
 
@@ -918,12 +1002,12 @@ function ParamConfigPanel({ session, parentPath, parentConfig, aliases, onChange
       </header>
       <div className="param-map-dialog-body">
         <div className="param-map-dialog-grid">
-          {!element ? <label><span>目标参数名 <strong>*</strong></span><input aria-required="true" value={value.targetParamKey} onChange={(event) => changeTargetParamKey(event.target.value)} /></label> : null}
+          {!element ? <label><span>参数名称 <strong>*</strong></span><input aria-required="true" value={value.targetParamKey} onChange={(event) => changeTargetParamKey(event.target.value)} /></label> : null}
           <div className="param-map-dialog-field">
-            <span>{element ? '元素类型' : '目标参数类型'}</span>
+            <span>{element ? '元素类型' : '参数类型'}</span>
             <MappingSelect value={value.targetParamType}
               options={PARAM_TYPES.map((type) => ({ value: type, label: paramTypeLabel(type) }))}
-              ariaLabel={element ? '元素类型' : '目标参数类型'}
+              ariaLabel={element ? '元素类型' : '参数类型'}
               onChange={(type) => changeMode(type === 'OBJECT' ? 'OBJECT' : type === 'ARRAY' ? 'ARRAY_MAP'
                 : ['OBJECT', 'ARRAY_MAP', 'ARRAY_FIXED'].includes(value.mappingType) ? 'NAME' : value.mappingType, type)} />
           </div>
@@ -938,9 +1022,6 @@ function ParamConfigPanel({ session, parentPath, parentConfig, aliases, onChange
             <span className="param-map-context-roots"><span><small>根</small><code>$</code></span>
               {aliases.map((alias, index) => <span key={alias}><small>{index === aliases.length - 1 ? '当前元素' : '外层元素'}</small><code>{alias}</code></span>)}
             </span>
-            {value.mappingType === 'OBJECT' ? <p>通过树中的“添加子字段”构建对象，不改变取值上下文。</p>
-              : value.mappingType === 'ARRAY_FIXED' ? <p>通过树中的“添加元素”配置固定长度数组，每个模板生成一项。</p>
-                : value.mappingType === 'ARRAY_MAP' ? <p>循环源为空时生成 []；通过树中的元素节点设置对象、标量或嵌套数组。</p> : null}
           </div>
           {value.mappingType === 'NAME' || value.mappingType === 'ARRAY_MAP' ? (
             <label className="full"><span>{value.mappingType === 'ARRAY_MAP' ? '循环源路径' : '取值路径'}</span>
@@ -953,25 +1034,43 @@ function ParamConfigPanel({ session, parentPath, parentConfig, aliases, onChange
           ) : null}
           {value.mappingType === 'ARRAY_MAP' ? (
             <label className="full"><span>循环变量名</span><input value={value.itemAlias ?? ''} placeholder="item" onChange={(event) => setValue({ ...value, itemAlias: event.target.value })} />
-              <small className="param-map-rule-help">在树中打开对应的元素节点选择元素类型；对象元素可继续添加子字段。</small>
             </label>
           ) : null}
           {value.mappingType === 'CONSTANT' ? (
-            <label className="full"><span>固定值（JSON）</span>
-              <textarea rows={4} value={constantDraft} placeholder={'例如："H001"、true、123、null、[]'} onChange={(event) => {
-                setConstantDraft(event.target.value)
-                setSaved(false)
-                try { setValue({ ...value, mappingRule: JSON.parse(event.target.value) }) }
-                catch { setError('固定值必须是有效 JSON，字符串需要双引号') }
-              }} />
-            </label>
+            <div className="param-map-dialog-field full">
+              <div className="param-map-constant-heading">
+                <span>固定值</span>
+                <label className="param-map-null-toggle">
+                  <input type="checkbox" checked={constantNull}
+                    onChange={(event) => updateConstant(constantDraft, event.target.checked)} />
+                  <span>设为 null</span>
+                </label>
+              </div>
+              {constantNull ? <small className="param-map-rule-help">此字段输出 null。</small>
+                : value.targetParamType === 'BOOLEAN' ? (
+                  <MappingSelect value={constantDraft} ariaLabel="固定值"
+                    options={[{ value: 'true', label: 'true' }, { value: 'false', label: 'false' }]}
+                    onChange={(text) => updateConstant(text)} />
+                ) : value.targetParamType === 'STRING' ? (
+                  <>
+                    <textarea rows={4} aria-label="固定值" value={constantDraft} placeholder="例如：LIS"
+                      onChange={(event) => updateConstant(event.target.value)} />
+                  </>
+                ) : (
+                  <input aria-label="固定值" value={constantDraft}
+                    inputMode={value.targetParamType === 'DOUBLE' ? 'decimal' : 'numeric'}
+                    placeholder={value.targetParamType === 'DOUBLE' ? '例如：123.45' : '例如：123'}
+                    onChange={(event) => updateConstant(event.target.value)} />
+                )}
+            </div>
           ) : null}
           {value.mappingType === 'EXPRESSION' ? (
-            <label className="full"><span>JS 表达式</span>
-              <textarea rows={6} value={typeof value.mappingRule === 'string' ? value.mappingRule : ''}
-                placeholder={value.targetParamType === 'OBJECT' ? '例如：$.patient 或 ({ id: $.patientId })' : '例如：$.patientId + ":" + item.code'}
-                onChange={(event) => setValue({ ...value, mappingRule: event.target.value })} />
-            </label>
+            <div className="param-map-dialog-field full">
+              <MappingExpressionInput
+                value={typeof value.mappingRule === 'string' ? value.mappingRule : ''}
+                onChange={(mappingRule) => setValue({ ...value, mappingRule })}
+              />
+            </div>
           ) : null}
           <label className="full"><span>参数描述</span><textarea rows={2} value={value.paramDesc ?? ''} onChange={(event) => setValue({ ...value, paramDesc: event.target.value })} /></label>
         </div>

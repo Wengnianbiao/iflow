@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  aliasPathCorrection, configAtPath, configChildren, configNodeLabel, countMappingTargetFields,
+  aliasPathCorrection, configAtPath, configChildren, configNodeLabel, countMappingTargetFields, constantInputText, parseConstantInput,
   flattenConfigs, flattenDisplayConfigs,
   insertAfterPath, loopElementLabel, mappingTypesForTargetType, normalizeConfig, normalizeForSave, objectTemplate, parseMappingConfigs, removeAtPath,
   scopeAliases, sourcePathAfterTargetRename, sourcePathForKey, updateAtPath, validateNode, withConfigChildren,
@@ -118,6 +118,62 @@ test('constant JSON values and string whitespace are preserved', () => {
   for (const value of ['  literal  ', '', false, 0, null, { a: [1, true] }, [1, 2]]) {
     const config = parseMappingConfigs([{ targetParamKey: 'value', targetParamType: 'STRING', mappingType: 'CONSTANT', mappingRule: value }])[0]
     assert.deepEqual(normalizeForSave(config).mappingRule, value)
+  }
+})
+
+test('plain text constants preserve quotes, whitespace, empty strings and JSON-looking text through save and reopen', () => {
+  for (const text of ['LIS', '"LIS"', '  literal  ', '', 'null', 'true', '123', '{"id":1}', '第一行\n第二行', 'C:\\files\\report']) {
+    const value = parseConstantInput(text, 'STRING')
+    const saved = normalizeForSave(normalizeConfig({
+      targetParamKey: 'value', targetParamType: 'STRING', mappingType: 'CONSTANT', mappingRule: value,
+    }))
+    const reopened = parseMappingConfigs(JSON.parse(JSON.stringify([saved])))[0]
+    assert.equal(reopened.mappingRule, text)
+    assert.equal(constantInputText(reopened.mappingRule, 'STRING'), text)
+  }
+  assert.equal(parseConstantInput('false', 'BOOLEAN'), false)
+  assert.equal(parseConstantInput('true', 'BOOLEAN'), true)
+  assert.throws(() => parseConstantInput('1', 'BOOLEAN'), /请选择/)
+})
+
+test('numeric constants validate Java ranges and preserve full Long precision in serialized configs', () => {
+  assert.equal(parseConstantInput('0', 'INTEGER'), 0)
+  assert.equal(parseConstantInput(' -2147483648 ', 'INTEGER'), -2147483648)
+  assert.equal(parseConstantInput('+2147483647', 'INTEGER'), 2147483647)
+  assert.equal(parseConstantInput('9007199254740991', 'LONG'), 9007199254740991)
+  for (const text of ['9007199254740993', '9223372036854775807', '-9223372036854775808']) {
+    const rule = parseConstantInput(text, 'LONG')
+    const reopened = JSON.parse(JSON.stringify({ mappingRule: rule }))
+    assert.equal(BigInt(reopened.mappingRule), BigInt(text))
+    assert.equal(constantInputText(reopened.mappingRule, 'LONG'), text)
+  }
+  assert.equal(parseConstantInput('123.45', 'DOUBLE'), 123.45)
+  assert.equal(parseConstantInput('-1.25e3', 'DOUBLE'), -1250)
+  for (const text of ['', ' ', '1.5', '1e3', 'NaN', '0xff', 'abc']) {
+    assert.throws(() => parseConstantInput(text, 'INTEGER'), /整数/)
+    assert.throws(() => parseConstantInput(text, 'LONG'), /整数/)
+  }
+  assert.throws(() => parseConstantInput('2147483648', 'INTEGER'), /范围/)
+  assert.throws(() => parseConstantInput('-2147483649', 'INTEGER'), /范围/)
+  assert.throws(() => parseConstantInput('9223372036854775808', 'LONG'), /范围/)
+  assert.throws(() => parseConstantInput('-9223372036854775809', 'LONG'), /范围/)
+  for (const text of ['', ' ', 'Infinity', 'NaN', '1e309', '0xff', '123abc']) {
+    assert.throws(() => parseConstantInput(text, 'DOUBLE'), /有效数字/)
+  }
+})
+
+test('legacy constants display without JSON quoting and null stays distinct from empty or literal null strings', () => {
+  assert.equal(constantInputText('LIS', 'STRING'), 'LIS')
+  assert.equal(constantInputText('00123', 'STRING'), '00123')
+  assert.equal(constantInputText(false, 'BOOLEAN'), 'false')
+  assert.equal(constantInputText('TRUE', 'BOOLEAN'), 'true')
+  assert.equal(constantInputText('1', 'BOOLEAN'), 'true')
+  assert.equal(constantInputText(0, 'INTEGER'), '0')
+  for (const value of [null, '', 'null']) {
+    const saved = normalizeForSave(normalizeConfig({
+      targetParamKey: 'value', targetParamType: 'STRING', mappingType: 'CONSTANT', mappingRule: value,
+    }))
+    assert.equal(JSON.parse(JSON.stringify(saved)).mappingRule, value)
   }
 })
 

@@ -5962,6 +5962,7 @@ textarea {
 }
 
 .param-map-tree-workspace {
+  position: relative;
   display: grid;
   min-width: 0;
   min-height: 0;
@@ -5969,7 +5970,34 @@ textarea {
 }
 
 .param-map-tree-editor.expanded .param-map-tree-workspace.with-detail {
-  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-columns: minmax(0, 1fr) var(--param-map-detail-width, 340px);
+}
+
+.param-map-detail-resizer {
+  position: absolute;
+  z-index: 10;
+  top: 0;
+  bottom: 0;
+  right: calc(var(--param-map-detail-width, 340px) - 4px);
+  width: 8px;
+  background: #1976d2;
+  cursor: col-resize;
+  touch-action: none;
+  opacity: 0;
+  outline: 0;
+  transition: opacity 0.1s ease-in-out;
+}
+
+.param-map-detail-resizer:hover,
+.param-map-detail-resizer:focus-visible,
+.param-map-tree-workspace.resizing .param-map-detail-resizer {
+  opacity: 1;
+}
+
+.param-map-tree-workspace.resizing,
+.param-map-tree-workspace.resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
 }
 
 .param-map-tree-list {
@@ -6180,6 +6208,10 @@ textarea {
 .param-map-tree-binding.expression > .param-map-tree-binding-label {
   color: #7952a8;
   background: #f3edfb;
+}
+
+.param-map-tree-binding.expression .inline-highlighted-code {
+  display: inline;
 }
 
 .param-map-tree-binding > strong,
@@ -6464,6 +6496,101 @@ textarea {
   line-height: 1.6;
 }
 
+.param-map-expression-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.param-map-expression-heading button {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: #68778a;
+  background: transparent;
+  border: 0;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.param-map-expression-heading button:hover {
+  color: #1976d2;
+  background: #eff5fb;
+}
+
+.param-map-expression-scroll {
+  max-height: 320px;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid #c6ced8;
+  border-radius: 5px;
+}
+
+.param-map-expression-scroll:focus-within {
+  border-color: #1976d2;
+  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+}
+
+.param-map-expression-code {
+  position: relative;
+}
+
+.param-map-expression-code pre,
+.param-map-field-panel .param-map-dialog-grid .param-map-expression-code textarea {
+  width: 100%;
+  min-height: 144px;
+  margin: 0;
+  padding: 10px 12px;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 22px;
+  letter-spacing: normal;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  tab-size: 2;
+}
+
+.param-map-field-panel .param-map-dialog-grid .param-map-expression-code textarea {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  overflow: hidden;
+  color: transparent;
+  caret-color: #27313d;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  resize: none;
+}
+
+.param-map-constant-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.param-map-field-panel .param-map-dialog-grid .param-map-null-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.param-map-field-panel .param-map-dialog-grid .param-map-null-toggle input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: #1976d2;
+}
+
 .param-map-field-context,
 .param-map-field-notice {
   padding: 9px 10px;
@@ -6667,6 +6794,10 @@ textarea {
 }
 
 @container param-map-editor (max-width: 1000px) {
+  .param-map-detail-resizer {
+    display: none;
+  }
+
   .param-map-tree-editor.expanded .param-map-tree-workspace.with-detail {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(180px, 0.9fr) minmax(220px, 1.1fr);

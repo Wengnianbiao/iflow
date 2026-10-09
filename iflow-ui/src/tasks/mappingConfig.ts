@@ -10,6 +10,41 @@ export function mappingTypesForTargetType(targetType: ParamType): MappingType[] 
   return ['NAME', 'CONSTANT', 'EXPRESSION']
 }
 
+export function constantInputText(value: unknown, targetType: ParamType): string {
+  if (targetType === 'BOOLEAN') {
+    const bool = typeof value === 'number' ? Math.trunc(value) !== 0
+      : value === true || typeof value === 'string' && (value.toLowerCase() === 'true' || value === '1')
+    return String(bool)
+  }
+  if (value == null) return targetType === 'STRING' ? '' : '0'
+  return typeof value === 'object' ? JSON.stringify(value) : String(value)
+}
+
+export function parseConstantInput(text: string, targetType: ParamType): string | number | boolean {
+  if (targetType === 'STRING') return text
+  if (targetType === 'BOOLEAN') {
+    if (text === 'true' || text === 'false') return text === 'true'
+    throw new Error('固定值请选择 true 或 false')
+  }
+  const numericText = text.trim()
+  if (targetType === 'INTEGER' || targetType === 'LONG') {
+    if (!/^[+-]?\d+$/.test(numericText)) throw new Error('固定值请输入整数')
+    const integer = BigInt(numericText)
+    const min = targetType === 'INTEGER' ? -2147483648n : -9223372036854775808n
+    const max = targetType === 'INTEGER' ? 2147483647n : 9223372036854775807n
+    if (integer < min || integer > max) throw new Error(`固定值超出 ${targetType === 'INTEGER' ? 'Integer' : 'Long'} 范围`)
+    // The backend also accepts decimal strings; use them for Long values that JS cannot represent exactly.
+    return integer < BigInt(Number.MIN_SAFE_INTEGER) || integer > BigInt(Number.MAX_SAFE_INTEGER)
+      ? integer.toString() : Number(integer)
+  }
+  if (targetType === 'DOUBLE') {
+    if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(numericText)
+      || !Number.isFinite(Number(numericText))) throw new Error('固定值请输入有效数字')
+    return Number(numericText)
+  }
+  throw new Error('当前目标类型不支持固定值')
+}
+
 export type DisplayConfigRow = {
   config: ParamMappingConfig
   path: ConfigPath
