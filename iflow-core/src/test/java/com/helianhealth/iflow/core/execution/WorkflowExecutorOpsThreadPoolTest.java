@@ -6,6 +6,7 @@ import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 import com.helianhealth.iflow.core.dal.ExecutionDAOFacade;
 import com.helianhealth.iflow.core.dao.ExecutionDAO;
+import com.helianhealth.iflow.core.exception.TerminateWorkflowException;
 import com.helianhealth.iflow.core.execution.evaluators.ValueParamEvaluator;
 import com.helianhealth.iflow.core.execution.mapper.DoWhileTaskMapper;
 import com.helianhealth.iflow.core.execution.mapper.ForkJoinTaskMapper;
@@ -43,6 +44,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WorkflowExecutorOpsThreadPoolTest {
@@ -64,7 +66,7 @@ class WorkflowExecutorOpsThreadPoolTest {
         SystemTaskRegistry registry = new SystemTaskRegistry(Set.of(noop));
         Map<String, TaskMapper> mappers = Map.of(TaskType.TASK_TYPE_NOOP, new NoopTaskMapper());
         DeciderService decider =
-                new DeciderService(new IDGenerator(), new ParametersUtils(), registry, mappers);
+                boundedDecider(new ParametersUtils(), registry, mappers);
 
         WorkflowDef definition =
                 WorkflowDef.builder()
@@ -164,7 +166,7 @@ class WorkflowExecutorOpsThreadPoolTest {
                         TaskType.TASK_TYPE_FORK_JOIN, new ForkJoinTaskMapper(),
                         TaskType.TASK_TYPE_JOIN, new JoinTaskMapper());
         DeciderService decider =
-                new DeciderService(new IDGenerator(), new ParametersUtils(), registry, mappers);
+                boundedDecider(new ParametersUtils(), registry, mappers);
 
         WorkflowTask branchA1 = task("branch_a_1", TaskType.TASK_TYPE_NOOP);
         WorkflowTask branchA2 = task("branch_a_2", TaskType.TASK_TYPE_NOOP);
@@ -296,7 +298,7 @@ class WorkflowExecutorOpsThreadPoolTest {
                         TaskType.TASK_TYPE_FORK_JOIN, new ForkJoinTaskMapper(),
                         TaskType.TASK_TYPE_JOIN, new JoinTaskMapper());
         DeciderService decider =
-                new DeciderService(new IDGenerator(), new ParametersUtils(), registry, mappers);
+                boundedDecider(new ParametersUtils(), registry, mappers);
 
         WorkflowTask innerA = task("inner_a", TaskType.TASK_TYPE_NOOP);
         WorkflowTask innerB = task("inner_b", TaskType.TASK_TYPE_NOOP);
@@ -402,7 +404,7 @@ class WorkflowExecutorOpsThreadPoolTest {
                         TaskType.TASK_TYPE_FORK_JOIN, new ForkJoinTaskMapper(),
                         TaskType.TASK_TYPE_JOIN, new JoinTaskMapper());
         DeciderService decider =
-                new DeciderService(new IDGenerator(), new ParametersUtils(), registry, mappers);
+                boundedDecider(new ParametersUtils(), registry, mappers);
 
         WorkflowTask branch = task("branch", TaskType.TASK_TYPE_NOOP);
         WorkflowTask fork = task("fork", TaskType.TASK_TYPE_FORK_JOIN);
@@ -415,11 +417,12 @@ class WorkflowExecutorOpsThreadPoolTest {
                         .tasks(List.of(fork, join))
                         .build();
 
+        AtomicReference<WorkflowModel> persistedWorkflow = new AtomicReference<>();
         WorkflowExecutorOps executor =
                 new WorkflowExecutorOps(
                         decider,
                         registry,
-                        executionDAOFacade(new AtomicReference<>()),
+                        executionDAOFacade(new AtomicReference<>(), persistedWorkflow),
                         metadataService(definition),
                         new IDGenerator(),
                         new ParametersUtils(),
@@ -431,10 +434,14 @@ class WorkflowExecutorOpsThreadPoolTest {
                         },
                         registry));
 
-        WorkflowModel result =
-                executor.startWorkflow(
-                        StartWorkflowInput.builder().route("rejected-fork-workflow").build());
+        TerminateWorkflowException failure = assertThrows(
+                TerminateWorkflowException.class,
+                () -> executor.startWorkflow(
+                        StartWorkflowInput.builder().route("rejected-fork-workflow").build()));
+        WorkflowModel result = persistedWorkflow.get();
 
+        assertEquals(WorkflowModel.Status.FAILED, failure.getWorkflowStatus());
+        assertNotNull(result);
         assertEquals(WorkflowModel.Status.FAILED, result.getStatus());
         assertEquals(
                 TaskModel.Status.FAILED_WITH_TERMINAL_ERROR,
@@ -470,7 +477,7 @@ class WorkflowExecutorOpsThreadPoolTest {
                         TaskType.TASK_TYPE_NOOP, new NoopTaskMapper(),
                         TaskType.TASK_TYPE_DO_WHILE, new DoWhileTaskMapper(parametersUtils));
         DeciderService decider =
-                new DeciderService(new IDGenerator(), parametersUtils, registry, mappers);
+                boundedDecider(parametersUtils, registry, mappers);
 
         WorkflowTask loopBody = task("loop_body", TaskType.TASK_TYPE_NOOP);
         WorkflowTask loop = task("loop", TaskType.TASK_TYPE_DO_WHILE);
@@ -507,6 +514,19 @@ class WorkflowExecutorOpsThreadPoolTest {
         assertEquals(callerThread, loopThread.get());
     }
 
+    private DeciderService boundedDecider(
+            ParametersUtils parameters, SystemTaskRegistry registry, Map<String, TaskMapper> mappers) {
+        return new DeciderService(new IDGenerator(), parameters, registry, mappers) {
+            private int rounds;
+
+            @Override
+            public DeciderOutcome decide(WorkflowModel workflow) {
+                assertTrue(++rounds <= 100, "workflow did not finish within 100 decision rounds");
+                return super.decide(workflow);
+            }
+        };
+    }
+
     private WorkflowTask task(String referenceName, String type) {
         return WorkflowTask.builder()
                 .name(referenceName)
@@ -528,8 +548,12 @@ class WorkflowExecutorOpsThreadPoolTest {
                         });
     }
 
-    @SuppressWarnings("unchecked")
     private ExecutionDAOFacade executionDAOFacade(AtomicReference<TaskModel> updatedTask) {
+        return executionDAOFacade(updatedTask, new AtomicReference<>());
+    }
+
+    private ExecutionDAOFacade executionDAOFacade(
+            AtomicReference<TaskModel> updatedTask, AtomicReference<WorkflowModel> updatedWorkflow) {
         ExecutionDAO executionDAO =
                 (ExecutionDAO)
                         Proxy.newProxyInstance(
@@ -542,8 +566,11 @@ class WorkflowExecutorOpsThreadPoolTest {
                                             updatedTask.set((TaskModel) args[0]);
                                             yield null;
                                         }
-                                        case "updateWorkflow" ->
-                                                ((WorkflowModel) args[0]).getWorkflowId();
+                                        case "updateWorkflow" -> {
+                                            WorkflowModel workflow = (WorkflowModel) args[0];
+                                            updatedWorkflow.set(workflow);
+                                            yield workflow.getWorkflowId();
+                                        }
                                         default -> defaultValue(method.getReturnType());
                                     };
                                 });

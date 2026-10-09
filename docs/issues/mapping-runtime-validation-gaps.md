@@ -1,6 +1,7 @@
-# MAPPING 后端测试发现的现有问题与回归限制
+# MAPPING 后端测试发现的问题与回归记录
 
-补齐 MAPPING 后端测试时发现以下现有行为。本次只补充测试与测试资源，未调整运行时语义。
+补齐 MAPPING 后端测试时发现以下现有行为。初次补齐只修改测试与测试资源；
+后续修复了阻塞完整回归的 DO_WHILE 调度、任务持久化及 JOIN 等待问题，结果见下文。
 
 ## NAME 路径允许末尾函数
 
@@ -26,25 +27,34 @@
 本次隔离测试用 `$.profile.tags[0] = 'changed'` 与循环变量的嵌套数组下标赋值，
 验证脚本修改不会传播到原 payload、其他字段或后续调用。数组扩容能力留待脚本代理单独处理。
 
-## 依赖模块完整回归未通过
+## 依赖模块完整回归已恢复
 
 运行 `mvn -o -pl iflow-mapping-task -am test` 时，当前受限环境下 Mockito 动态附加 JVM 失败。
 通过 Surefire 的 `argLine` 以 `-javaagent:/path/to/mockito-core-5.14.2.jar` 启动 Mockito 后，
-该环境问题得到解决，但已有的 `WorkflowExecutorOpsThreadPoolTest` 仍有以下问题：
+该环境问题得到解决。此前 `WorkflowExecutorOpsThreadPoolTest` 的五条异常用例现已全部通过：
 
-| 用例 | 观察到的结果 |
+| 用例 | 原因与修复 |
 |---|---|
-| `schedulesDoWhileIterationOnWorkflowCallerThread` | 运行超过 180 秒；超时线程栈停在 `WorkflowExecutorOps.driveWorkflow` / `dedupAndAddTasks`，完整回归因 fork 超时失败。 |
-| `executesLinearTaskOnCallerThread` | 持久化任务断言失败，测试记录的更新任务为 null。 |
-| `executesForkBranchesConcurrentlyAndJoinsThem` | JOIN 报 `branch_a_2` 不存在并抛出 `TerminateWorkflowException`。 |
-| `restoresOuterExecutionScopeAfterNestedJoin` | JOIN 报 `after_nested` 不存在并抛出 `TerminateWorkflowException`。 |
-| `failsWorkflowWhenForkBranchExecutorRejectsTask` | 分支线程池拒绝任务时抛出 `TerminateWorkflowException`，用例未处理该异常。 |
+| `schedulesDoWhileIterationOnWorkflowCallerThread` | Decider 未调用迭代创建逻辑，执行器又把已有 DO_WHILE 从派发列表中去重掉。接通循环体创建，只对任务登记去重，已有控制任务继续派发。 |
+| `executesLinearTaskOnCallerThread` | 最终完成分支遗漏任务更新。现在持久化每批执行结果，并在工作流完成前写入最终 `executed` 状态。 |
+| `executesForkBranchesConcurrentlyAndJoinsThem` | JOIN 将尚未调度的 `branch_a_2` 误报为不存在。现在等待当前 FORK 中仍可由待处理任务推进调度的分支尾任务。 |
+| `restoresOuterExecutionScopeAfterNestedJoin` | `after_nested` 同样尚未调度。JOIN 等待判断限制在对应 FORK 的执行域及迭代，不跨域等待。 |
+| `failsWorkflowWhenForkBranchExecutorRejectsTask` | 旧断言期待直接返回失败工作流，与当前异常传播契约不一致。测试改为断言抛出 `TerminateWorkflowException`，同时检查已持久化的 FAILED 工作流及失败任务；公共接口保持不变。 |
 
-排除其中卡住的一条用例后，其余四条失败仍可复现；这些用例和引擎生产代码均未被本次修改。
-线程池测试的夹具与运行时契约需要单独检查。测试执行参数中的排除项仅用于继续验证其他用例，
-没有在项目配置或源代码中禁用这些测试。
+新增 13 条回归用例：
 
-本次 MAPPING 专项共 245 条用例全部通过，其中新增 188 条，原有 8 条业务示例也恢复通过。
-临时使用 `-Dtest=*,!WorkflowExecutorOpsThreadPoolTest` 并预加载 Mockito agent 后，
-common / core / mapping 的其余 664 条用例全部通过（194 / 250 / 220），没有跳过用例。
-完整回归的上述五条线程池用例仍未通过，不能将隔离验证结果视为完整回归通过。
+- 7 条执行器用例覆盖多轮顺序循环、列表对象/标量/null、空列表、未完成循环体、循环位于 FORK 分支、循环体内 FORK/JOIN 以及迭代失败中止。任务创建与更新使用独立快照，验证只创建一次且最终状态确实持久化。
+- 6 条 JOIN 用例覆盖尚未调度的分支尾任务（普通及循环迭代）、错误的后续任务引用、不同执行域、不同迭代及未选中的 SWITCH 分支。不存在或已无法调度的引用仍然失败，避免转成无限等待。
+- 执行器回归用例限制 Decider 轮数；调度退化时快速失败，不再让 Surefire 陷入空转。
+
+2026-10-09 完整运行 `mvn -o -pl iflow-mapping-task -am test`，并通过 `argLine` 预加载 Mockito agent：
+
+| 模块 | 通过用例数 |
+|---|---:|
+| iflow-common | 194 |
+| iflow-core | 268 |
+| iflow-mapping-task | 220 |
+| 合计 | 682 |
+
+结果为 BUILD SUCCESS，零失败、零错误、零跳过，没有排除任何用例。
+此前 MAPPING 专项的 245 条用例（包含新增 188 条及恢复的 8 条业务示例）保持通过。

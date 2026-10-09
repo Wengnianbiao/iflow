@@ -296,6 +296,12 @@ public class DeciderService {
                     && !pendingTask.getStatus().isTerminal()) {
                 tasksToBeScheduled.putIfAbsent(pendingTask.getReferenceTaskName(), pendingTask);
                 executedTaskRefNames.remove(pendingTask.getReferenceTaskName());
+                if (shouldScheduleDoWhileIteration(workflow, pendingTask)) {
+                    createDoWhileIterationTasks(workflow, pendingTask)
+                            .forEach(
+                                    task -> tasksToBeScheduled.putIfAbsent(
+                                            task.getReferenceTaskName(), task));
+                }
             }
 
             // todo task的超时&重试处理

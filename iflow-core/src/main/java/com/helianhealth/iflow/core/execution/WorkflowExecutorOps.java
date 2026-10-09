@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -142,19 +143,21 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
 
             DeciderService.DeciderOutcome outcome = deciderService.decide(workflow);
             if (outcome.isComplete) {
+                executionDAOFacade.updateTasks(outcome.tasksToBeUpdated);
                 endExecution(workflow, outcome.terminateTask);
                 return workflow;
             }
 
             List<TaskModel> tasksToBeScheduled = outcome.tasksToBeScheduled;
-            List<TaskModel> tasksToBeUpdated = outcome.tasksToBeUpdated;
-
-            tasksToBeScheduled = dedupAndAddTasks(workflow, tasksToBeScheduled);
+            registerTasks(workflow, tasksToBeScheduled);
 
             scheduleTask(workflow, tasksToBeScheduled);
 
             if (!outcome.tasksToBeUpdated.isEmpty() || !tasksToBeScheduled.isEmpty()) {
-                executionDAOFacade.updateTasks(tasksToBeUpdated);
+                Map<String, TaskModel> tasksToBeUpdated = new LinkedHashMap<>();
+                outcome.tasksToBeUpdated.forEach(task -> tasksToBeUpdated.put(task.getTaskId(), task));
+                tasksToBeScheduled.forEach(task -> tasksToBeUpdated.put(task.getTaskId(), task));
+                executionDAOFacade.updateTasks(List.copyOf(tasksToBeUpdated.values()));
                 executionDAOFacade.updateWorkflow(workflow);
             }
         }
@@ -165,22 +168,6 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
         if (tasks == null || tasks.isEmpty()) {
             return;
         }
-
-        // Get the highest seq number
-        int count = workflow.getTasks().stream().mapToInt(TaskModel::getSeq).max().orElse(0);
-
-        for (TaskModel task : tasks) {
-            if (task.getSeq() == 0) { // Set only if the seq was not set
-                task.setSeq(++count);
-            }
-            // Stamp the very first time this task enters the queue. Retried tasks carry
-            // this value forward (via TaskModel.copy()), so it is never overwritten here.
-            if (task.getFirstScheduledTime() == 0) {
-                task.setFirstScheduledTime(System.currentTimeMillis());
-            }
-        }
-
-        executionDAOFacade.createTasks(tasks);
 
         taskScheduler.schedule(workflow, tasks, this);
     }
