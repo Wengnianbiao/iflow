@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.LinkedHashMap;
@@ -255,16 +256,91 @@ class MappingTaskTest {
                 MappingTask.INPUT_PARAMS_CONFIG, List.of(mapping)));
 
         assertEquals(expected, output.get("value"));
+        assertEquals(expected.getClass(), output.get("value").getClass());
     }
 
     private static Stream<Arguments> scalarConversions() {
         return Stream.of(
+                Arguments.of(ParamType.STRING, "  原值  ", "  原值  "),
+                Arguments.of(ParamType.STRING, "", ""),
                 Arguments.of(ParamType.STRING, 123, "123"),
+                Arguments.of(ParamType.STRING, -1.25d, "-1.25"),
+                Arguments.of(ParamType.STRING, false, "false"),
+                Arguments.of(ParamType.INTEGER, 0, 0),
+                Arguments.of(ParamType.INTEGER, -17, -17),
+                Arguments.of(ParamType.INTEGER, 17L, 17),
+                Arguments.of(ParamType.INTEGER, -1.75d, -1),
                 Arguments.of(ParamType.INTEGER, " 17 ", 17),
+                Arguments.of(ParamType.INTEGER, "-2147483648", Integer.MIN_VALUE),
+                Arguments.of(ParamType.INTEGER, "2147483647", Integer.MAX_VALUE),
+                Arguments.of(ParamType.LONG, 0L, 0L),
+                Arguments.of(ParamType.LONG, -17L, -17L),
+                Arguments.of(ParamType.LONG, 17, 17L),
+                Arguments.of(ParamType.LONG, -1.75d, -1L),
+                Arguments.of(ParamType.LONG, " -17 ", -17L),
                 Arguments.of(ParamType.LONG, "2147483648", 2147483648L),
+                Arguments.of(ParamType.LONG, "-9223372036854775808", Long.MIN_VALUE),
+                Arguments.of(ParamType.LONG, "9223372036854775807", Long.MAX_VALUE),
+                Arguments.of(ParamType.DOUBLE, 0d, 0d),
+                Arguments.of(ParamType.DOUBLE, -1.25d, -1.25d),
+                Arguments.of(ParamType.DOUBLE, -17, -17d),
+                Arguments.of(ParamType.DOUBLE, 17L, 17d),
                 Arguments.of(ParamType.DOUBLE, " 1.25 ", 1.25d),
+                Arguments.of(ParamType.DOUBLE, "-1.25e2", -125d),
+                Arguments.of(ParamType.BOOLEAN, true, true),
+                Arguments.of(ParamType.BOOLEAN, false, false),
+                Arguments.of(ParamType.BOOLEAN, 0, false),
                 Arguments.of(ParamType.BOOLEAN, 1, true),
-                Arguments.of(ParamType.BOOLEAN, "false", false));
+                Arguments.of(ParamType.BOOLEAN, -1, true),
+                Arguments.of(ParamType.BOOLEAN, "true", true),
+                Arguments.of(ParamType.BOOLEAN, "TRUE", true),
+                Arguments.of(ParamType.BOOLEAN, "1", true),
+                Arguments.of(ParamType.BOOLEAN, "false", false),
+                Arguments.of(ParamType.BOOLEAN, "0", false),
+                // Boolean strings intentionally keep the existing untrimmed, permissive conversion.
+                Arguments.of(ParamType.BOOLEAN, " true ", false),
+                Arguments.of(ParamType.BOOLEAN, " 1 ", false),
+                Arguments.of(ParamType.BOOLEAN, "", false),
+                Arguments.of(ParamType.BOOLEAN, " ", false),
+                Arguments.of(ParamType.BOOLEAN, "other", false));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ParamType.class, names = {"STRING", "INTEGER", "LONG", "DOUBLE", "BOOLEAN"})
+    void retainsExplicitNullFieldsForEveryScalarType(ParamType type) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("value", null);
+        var mapping = ParamMappingConfig.builder().targetParamKey("value").targetParamType(type)
+                .mappingType(MappingType.NAME).sourceParamKey("$.value").build();
+
+        Map<?, ?> output = executeMapping(Map.of("payload", payload, "paramsConfig", List.of(mapping)));
+
+        assertTrue(output.containsKey("value"));
+        assertNull(output.get("value"));
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidScalarConversions")
+    void invalidScalarConversionsFailWithTargetPath(ParamType type, Object source) {
+        var mapping = ParamMappingConfig.builder().targetParamKey("value").targetParamType(type)
+                .mappingType(MappingType.NAME).sourceParamKey("$.value").build();
+
+        TaskModel task = execute(Map.of("payload", Map.of("value", source), "paramsConfig", List.of(mapping)));
+
+        assertFailedWithoutOutput(task, "MAPPING $.value");
+    }
+
+    private static Stream<Arguments> invalidScalarConversions() {
+        Stream<Arguments> invalidNumbers = Stream.of(ParamType.INTEGER, ParamType.LONG, ParamType.DOUBLE)
+                .flatMap(type -> Stream.of("", "  ", "not-a-number").map(value -> Arguments.of(type, value)));
+        Stream<Arguments> unsupportedValues = Stream.of(ParamType.INTEGER, ParamType.LONG, ParamType.DOUBLE, ParamType.BOOLEAN)
+                .flatMap(type -> Stream.of(Map.of("value", 1), List.of(1)).map(value -> Arguments.of(type, value)));
+        return Stream.concat(Stream.concat(invalidNumbers, unsupportedValues), Stream.of(
+                Arguments.of(ParamType.INTEGER, "1.5"), Arguments.of(ParamType.LONG, "1.5"),
+                Arguments.of(ParamType.INTEGER, "2147483648"), Arguments.of(ParamType.INTEGER, "-2147483649"),
+                Arguments.of(ParamType.LONG, "9223372036854775808"), Arguments.of(ParamType.LONG, "-9223372036854775809"),
+                Arguments.of(ParamType.INTEGER, true), Arguments.of(ParamType.LONG, true),
+                Arguments.of(ParamType.DOUBLE, true)));
     }
 
     @Test
@@ -357,6 +433,122 @@ class MappingTaskTest {
                         "mapping rejected"));
     }
 
+    @ParameterizedTest
+    @MethodSource("nestedConfigFailures")
+    void validatesJsonNodesRecursively(Object config, String diagnostic) {
+        TaskModel task = execute(Map.of("payload", Map.of(), "paramsConfig", config));
+
+        assertFailedWithoutOutput(task, diagnostic);
+    }
+
+    private static Stream<Arguments> nestedConfigFailures() {
+        var leaf = Map.<String, Object>of("targetParamType", "STRING", "mappingType", "CONSTANT", "mappingRule", "OK");
+        var invalidLeaves = List.of(
+                Arguments.of(withProperty(leaf, "unexpected", true), "unexpected"),
+                Arguments.of(withProperty(leaf, "sourceParamType", "STRING"), "sourceParamType"),
+                Arguments.of(withProperty(leaf, "targetParamType", "INVALID_TYPE"), "INVALID_TYPE"),
+                Arguments.of(withProperty(leaf, "mappingType", "INVALID_MODE"), "INVALID_MODE"),
+                Arguments.of(withProperty(leaf, "childParams", List.of(withProperty(leaf, "targetParamKey", "child"))),
+                        "不适用于当前 mappingType"),
+                Arguments.of(withProperty(leaf, "items", List.of(leaf)), "不适用于当前 mappingType"),
+                Arguments.of(withProperty(leaf, "itemAlias", "item"), "不适用于当前 mappingType"),
+                Arguments.of(withProperty(leaf, "itemTemplate", leaf), "不适用于当前 mappingType"));
+        return invalidLeaves.stream().flatMap(args -> {
+            @SuppressWarnings("unchecked")
+            var invalidLeaf = (Map<String, Object>) args.get()[0];
+            String diagnostic = (String) args.get()[1];
+            return Stream.of(
+                    Arguments.of(List.of(withProperty(invalidLeaf, "targetParamKey", "value")), diagnostic),
+                    Arguments.of(List.of(Map.of("targetParamKey", "parent", "targetParamType", "OBJECT",
+                            "mappingType", "OBJECT", "childParams", List.of(withProperty(invalidLeaf, "targetParamKey", "value")))),
+                            diagnostic),
+                    Arguments.of(List.of(Map.of("targetParamKey", "rows", "targetParamType", "ARRAY",
+                            "mappingType", "ARRAY_MAP", "sourceParamKey", "$.missing", "itemAlias", "item",
+                            "itemTemplate", invalidLeaf)), diagnostic),
+                    Arguments.of(List.of(Map.of("targetParamKey", "values", "targetParamType", "ARRAY",
+                            "mappingType", "ARRAY_FIXED", "items", List.of(invalidLeaf))), diagnostic));
+        });
+    }
+
+    @Test
+    void parsesMixedNestedJsonTemplatesAndDefaultsEmptyContainers() {
+        var config = List.of(
+                Map.of("targetParamKey", "emptyObject", "targetParamType", "OBJECT", "mappingType", "OBJECT"),
+                Map.of("targetParamKey", "emptyArray", "targetParamType", "ARRAY", "mappingType", "ARRAY_FIXED"),
+                Map.of("targetParamKey", "rows", "targetParamType", "ARRAY", "mappingType", "ARRAY_MAP",
+                        "sourceParamKey", "$.items", "itemAlias", "item", "itemTemplate", Map.of(
+                                "targetParamType", "ARRAY", "mappingType", "ARRAY_FIXED", "items", List.of(
+                                        Map.of("targetParamType", "OBJECT", "mappingType", "OBJECT", "childParams", List.of(
+                                                Map.of("targetParamKey", "code", "targetParamType", "STRING",
+                                                        "mappingType", "NAME", "sourceParamKey", "item.code"))),
+                                        Map.of("targetParamType", "INTEGER", "mappingType", "CONSTANT", "mappingRule", 7)))));
+
+        Map<?, ?> output = executeMapping(Map.of("payload", Map.of("items", List.of(Map.of("code", "A"))),
+                "paramsConfig", config));
+
+        assertEquals(Map.of("emptyObject", Map.of(), "emptyArray", List.of(),
+                "rows", List.of(List.of(Map.of("code", "A"), 7))), output);
+    }
+
+    @ParameterizedTest
+    @MethodSource("renderFailuresAfterSuccessfulFields")
+    void failuresAfterSuccessfulFieldsDoNotPublishPartialOutput(
+            Object failingNode, Object payload, String targetPath, String diagnostic) {
+        var first = Map.of("targetParamKey", "completed", "targetParamType", "STRING",
+                "mappingType", "CONSTANT", "mappingRule", "OK");
+
+        TaskModel task = execute(Map.of("payload", payload, "paramsConfig", List.of(first, failingNode)));
+
+        assertFailedWithoutOutput(task, "MAPPING " + targetPath);
+        assertTrue(task.getReasonForInCompletion().contains(diagnostic), task.getReasonForInCompletion());
+    }
+
+    private static Stream<Arguments> renderFailuresAfterSuccessfulFields() {
+        var quantity = Map.of("targetParamKey", "quantity", "targetParamType", "INTEGER",
+                "mappingType", "NAME", "sourceParamKey", "$.quantity");
+        var row = Map.of("targetParamType", "OBJECT", "mappingType", "OBJECT", "childParams", List.of(
+                Map.of("targetParamKey", "quantity", "targetParamType", "INTEGER", "mappingType", "NAME",
+                        "sourceParamKey", "item.qty")));
+        var loop = Map.of("targetParamKey", "rows", "targetParamType", "ARRAY", "mappingType", "ARRAY_MAP",
+                "sourceParamKey", "$.items", "itemAlias", "item", "itemTemplate", row);
+        var fixed = Map.of("targetParamKey", "values", "targetParamType", "ARRAY", "mappingType", "ARRAY_FIXED",
+                "items", List.of(Map.of("targetParamType", "INTEGER", "mappingType", "CONSTANT", "mappingRule", 1),
+                        Map.of("targetParamType", "OBJECT", "mappingType", "OBJECT", "childParams", List.of(quantity))));
+        return Stream.of(
+                Arguments.of(quantity, Map.of("quantity", "bad"), "$.quantity", "bad"),
+                Arguments.of(loop, Map.of("items", List.of(Map.of("qty", "1"), Map.of("qty", "bad"))),
+                        "$.rows[1].quantity", "bad"),
+                Arguments.of(loop, Map.of("items", Map.of()), "$.rows", "循环源必须为数组"),
+                Arguments.of(fixed, Map.of("quantity", "bad"), "$.values[1].quantity", "bad"),
+                Arguments.of(expressionNode("STRING", "const = ;"), Map.of(), "$.value", "evaluating script"),
+                Arguments.of(expressionNode("STRING", "(() => { throw new Error('rejected'); })()"),
+                        Map.of(), "$.value", "rejected"),
+                Arguments.of(expressionNode("OBJECT", "'wrong'"), Map.of(), "$.value", "映射结果必须为对象"),
+                Arguments.of(expressionNode("ARRAY", "({code: 'wrong'})"), Map.of(), "$.value", "映射结果必须为数组"));
+    }
+
+    @Test
+    void validatesEntireTreeBeforeEvaluatingEarlierFields() {
+        var first = expressionNode("STRING", "(() => { throw new Error('must not execute'); })()");
+        var invalid = Map.of("targetParamKey", "parent", "targetParamType", "OBJECT", "mappingType", "OBJECT",
+                "childParams", List.of(Map.of("targetParamKey", "child", "mappingType", "CONSTANT")));
+
+        TaskModel task = execute(Map.of("payload", Map.of(), "paramsConfig", List.of(first, invalid)));
+
+        assertFailedWithoutOutput(task, "MAPPING $.parent.child");
+        assertFalse(task.getReasonForInCompletion().contains("must not execute"));
+    }
+
+    private static Map<String, Object> expressionNode(String type, String script) {
+        return Map.of("targetParamKey", "value", "targetParamType", type, "mappingType", "EXPRESSION", "mappingRule", script);
+    }
+
+    private static Map<String, Object> withProperty(Map<String, Object> node, String key, Object value) {
+        var result = new LinkedHashMap<>(node);
+        result.put(key, value);
+        return result;
+    }
+
     @Test
     void strictConfigValidationDoesNotModifyProvidedObjectMapper() {
         ObjectMapper sharedMapper = new ObjectMapper()
@@ -396,5 +588,11 @@ class MappingTaskTest {
         WorkflowModel workflow = new WorkflowModel();
         workflow.setWorkflowId("workflow-1");
         return workflow;
+    }
+
+    private static void assertFailedWithoutOutput(TaskModel task, String diagnostic) {
+        assertEquals(TaskModel.Status.FAILED, task.getStatus());
+        assertTrue(task.getReasonForInCompletion().contains(diagnostic), task.getReasonForInCompletion());
+        assertEquals(Map.of(), task.getOutputData());
     }
 }

@@ -9,8 +9,8 @@ import com.helianhealth.iflow.core.model.WorkflowModel;
 import com.helianhealth.iflow.core.utils.ParametersUtils;
 import org.junit.jupiter.api.Test;
 
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -318,7 +318,10 @@ class MappingWorkflowExamplesTest {
     }
 
     private JsonNode readExample(String file) throws Exception {
-        return mapper.readTree(Path.of("..", "docs", "workflows", file).toFile());
+        try (InputStream resource = getClass().getResourceAsStream("/workflows/" + file)) {
+            assertNotNull(resource, "Missing workflow test resource: " + file);
+            return mapper.readTree(resource);
+        }
     }
 
     private Map<String, Object> resolveInput(JsonNode task, WorkflowModel workflow) {

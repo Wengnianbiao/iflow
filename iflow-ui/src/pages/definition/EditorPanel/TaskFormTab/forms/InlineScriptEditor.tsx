@@ -4,7 +4,7 @@ import Editor, { type BeforeMount, type OnMount } from '@monaco-editor/react'
 import { ArrowsInSimpleIcon, ArrowsOutSimpleIcon, CopyIcon, MinusSquareIcon, PlusSquareIcon, XIcon } from '@phosphor-icons/react'
 import { registerSoapXmlEditor, SOAP_XML_LANGUAGE, SOAP_XML_THEME, soapXmlHighlightTokens } from './soapXmlEditor'
 import { JAVA_SOURCE_CLASS, JAVA_SOURCE_LANGUAGE, javaSourceDecorations, registerJavaSourceEditor } from './javaSourceEditor'
-import { JAVASCRIPT_SOURCE_CLASS, JAVASCRIPT_SOURCE_LANGUAGE, javaScriptSourceDecorations, registerJavaScriptSourceEditor } from './javascriptSourceEditor'
+import { JAVASCRIPT_SOURCE_CLASS, JAVASCRIPT_SOURCE_LANGUAGE, attachJavaScriptSyntaxDiagnostics, javaScriptSourceDecorations, registerJavaScriptSourceEditor } from './javascriptSourceEditor'
 import { useValidationFieldPath, useValidationFocus, useValidationReadOnly } from '../../../validation/ValidationScope'
 
 export function InlineScriptEditor({
@@ -89,6 +89,7 @@ export function InlineScriptEditor({
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor
     const model = editor.getModel()
+    const syntaxDiagnostics = isJavaScript && model ? attachJavaScriptSyntaxDiagnostics(monaco, model) : undefined
     const decorations = supportsFolding ? editor.createDecorationsCollection() : null
     const highlightSource = () => {
       if (!model || model.isDisposed() || !decorations) return
@@ -122,6 +123,7 @@ export function InlineScriptEditor({
     editor.onDidDispose(() => {
       heightListener.dispose()
       highlightListener?.dispose()
+      syntaxDiagnostics?.dispose()
       decorations?.clear()
       if (editorRef.current === editor) editorRef.current = null
     })
@@ -222,6 +224,7 @@ export function InlineScriptEditor({
           overviewRulerLanes: 0,
           padding: { top: 16, bottom: 16 },
           renderLineHighlight: isJava ? 'gutter' : 'none',
+          renderValidationDecorations: 'on',
           scrollBeyondLastLine: false,
           scrollbar: {
             alwaysConsumeMouseWheel: false,

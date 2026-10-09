@@ -4,11 +4,19 @@ import com.helianhealth.iflow.core.execution.evaluators.GraalJSEvaluator;
 import com.helianhealth.iflow.tasks.mapping.enums.MappingType;
 import com.helianhealth.iflow.tasks.mapping.enums.ParamType;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -199,6 +207,259 @@ class ParamMapTransformerTest {
         assertThrows(IllegalArgumentException.class, () -> map(invalid, Map.of()));
     }
 
+    @ParameterizedTest
+    @MethodSource("definitePaths")
+    void readsQuotedUnicodeAndIndexedPaths(String path, Object expected) {
+        var payload = Map.of("field.name", "dotted", "患者", Map.of("姓名", "张三"),
+                "groups", List.of(List.of(Map.of("code", "A")), List.of(Map.of("code", "B"))));
+
+        assertEquals(expected, map(name("value", ParamType.STRING, path), payload));
+    }
+
+    private static Stream<Arguments> definitePaths() {
+        return Stream.of(
+                Arguments.of("$['field.name']", "dotted"),
+                Arguments.of("$[\"field.name\"]", "dotted"),
+                Arguments.of("$.患者.姓名", "张三"),
+                Arguments.of("$['患者'][\"姓名\"]", "张三"),
+                Arguments.of("$.groups[1][0].code", "B"),
+                Arguments.of("$.groups[0][0]['code']", "A"),
+                Arguments.of("$.missing", null),
+                Arguments.of("$.missing.nested", null),
+                Arguments.of("$.groups[2][0].code", null),
+                Arguments.of("$.groups[0][1].code", null));
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "code", "$.groups[", "$.groups[-1]", "$.groups[0:1]",
+            "$.groups[*]", "$.groups[?(@.code == 'A')]", "$..code", "$.groups[0,1]", "$.groups[code]"})
+    void rejectsInvalidAndIndefinitePaths(String path) {
+        var failure = assertThrows(IllegalArgumentException.class,
+                () -> map(name("value", ParamType.STRING, path), Map.of()));
+
+        assertTrue(failure.getMessage().contains("MAPPING $.value"), failure.getMessage());
+    }
+
+    @Test
+    void quotedAliasPathsReadCurrentElement() {
+        var config = loop("rows", "$.items", "item", object(null,
+                name("code", ParamType.STRING, "item['field.name']"),
+                name("name", ParamType.STRING, "item[\"患者\"].姓名")));
+
+        assertEquals(List.of(Map.of("code", "A", "name", "张三")), map(config,
+                Map.of("items", List.of(Map.of("field.name", "A", "患者", Map.of("姓名", "张三"))))));
+    }
+
+    @Test
+    void nestedObjectsPreserveFieldOrderAndAllowSameKeysInDifferentObjects() {
+        var config = object("patient", constant("id", ParamType.STRING, "P1"),
+                object("address", constant("id", ParamType.STRING, "A1"),
+                        constant("city", ParamType.STRING, "杭州")), object("empty"));
+
+        var result = transformer.transform(List.of(config, constant("id", ParamType.STRING, "root")), Map.of());
+
+        assertEquals(List.of("patient", "id"), new ArrayList<>(result.keySet()));
+        var patient = (Map<?, ?>) result.get("patient");
+        assertEquals(List.of("id", "address", "empty"), new ArrayList<>(patient.keySet()));
+        assertEquals(List.of("id", "city"), new ArrayList<>(((Map<?, ?>) patient.get("address")).keySet()));
+        assertEquals(Map.of("id", "P1", "address", Map.of("id", "A1", "city", "杭州"), "empty", Map.of()), patient);
+    }
+
+    @Test
+    void duplicateNestedFieldsReportTheirObjectPath() {
+        var config = object("patient", object("address",
+                constant("id", ParamType.STRING, "A1"), constant("id", ParamType.STRING, "A2")));
+
+        var failure = assertThrows(IllegalArgumentException.class, () -> map(config, Map.of()));
+
+        assertEquals("MAPPING $.patient.address.id: 目标字段重复", failure.getMessage());
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidNodes")
+    void rejectsIncompleteAndIncompatibleNodes(ParamMappingConfig config, String diagnostic) {
+        var failure = assertThrows(IllegalArgumentException.class, () -> map(config, Map.of()));
+
+        assertTrue(failure.getMessage().contains(diagnostic), failure.getMessage());
+    }
+
+    private static Stream<Arguments> invalidNodes() {
+        var leafWithChildren = name("value", ParamType.STRING, "$");
+        leafWithChildren.setChildParams(List.of(constant("child", ParamType.STRING, "x")));
+        var leafWithItems = constant("value", ParamType.STRING, "x");
+        leafWithItems.setItems(List.of(constant(null, ParamType.STRING, "x")));
+        var leafWithAlias = expression("value", ParamType.STRING, "'x'");
+        leafWithAlias.setItemAlias("item");
+        var objectWithTemplate = object("value");
+        objectWithTemplate.setItemTemplate(constant(null, ParamType.STRING, "x"));
+        var fixedWithChildren = fixed("value");
+        fixedWithChildren.setChildParams(List.of(constant("child", ParamType.STRING, "x")));
+        var wrongLoopType = loop("value", "$", "item", constant(null, ParamType.STRING, "x"));
+        wrongLoopType.setTargetParamType(ParamType.STRING);
+        var wrongFixedType = fixed("value");
+        wrongFixedType.setTargetParamType(ParamType.INTEGER);
+        return Stream.of(
+                Arguments.of(constant(null, ParamType.STRING, "x"), "targetParamKey"),
+                Arguments.of(constant(" ", ParamType.STRING, "x"), "targetParamKey"),
+                Arguments.of(object("parent", constant("", ParamType.STRING, "x")), "$.parent.childParams[0]"),
+                Arguments.of(ParamMappingConfig.builder().targetParamKey("value").targetParamType(ParamType.STRING).build(),
+                        "必须指定 mappingType"),
+                Arguments.of(constant("value", null, "x"), "有效的 targetParamType"),
+                Arguments.of(leafWithChildren, "不适用于当前 mappingType"),
+                Arguments.of(leafWithItems, "不适用于当前 mappingType"),
+                Arguments.of(leafWithAlias, "不适用于当前 mappingType"),
+                Arguments.of(objectWithTemplate, "不适用于当前 mappingType"),
+                Arguments.of(fixedWithChildren, "不适用于当前 mappingType"),
+                Arguments.of(wrongLoopType, "targetParamType 必须为 ARRAY"),
+                Arguments.of(wrongFixedType, "targetParamType 必须为 ARRAY"),
+                Arguments.of(fixed("value", constant("named", ParamType.STRING, "x")), "$.value[0]"),
+                Arguments.of(fixed("value", (ParamMappingConfig) null), "$.value[0]: 元素模板不能为空"));
+    }
+
+    @Test
+    void nullObjectFieldsAreRejectedWithTheirConfigurationPath() {
+        var config = object("parent");
+        config.setChildParams(Arrays.asList((ParamMappingConfig) null));
+
+        var failure = assertThrows(IllegalArgumentException.class, () -> map(config, Map.of()));
+
+        assertTrue(failure.getMessage().contains("$.parent.childParams[0]"), failure.getMessage());
+    }
+
+    @Test
+    void siblingLoopsReuseAliasesAndRenderArrayElementsWithoutFlattening() {
+        var config = List.of(
+                loop("first", "$.groups", "item", loop(null, "item", "value",
+                        name(null, ParamType.INTEGER, "value"))),
+                loop("second", "$.codes", "item", name(null, ParamType.STRING, "item")));
+
+        assertEquals(Map.of("first", List.of(List.of(1, 2), List.of(), List.of(3)), "second", List.of("A", "B")),
+                transformer.transform(config, Map.of("groups", List.of(List.of(1, 2), List.of(), List.of(3)),
+                        "codes", List.of("A", "B"))));
+    }
+
+    @Test
+    void loopAliasesCannotBeReadFromSiblingFields() {
+        var config = List.of(loop("rows", "$", "item", name(null, ParamType.STRING, "item")),
+                name("outside", ParamType.STRING, "item"));
+
+        var failure = assertThrows(IllegalArgumentException.class,
+                () -> transformer.transform(config, List.of("A")));
+
+        assertTrue(failure.getMessage().contains("$.outside: 未知上下文变量: item"), failure.getMessage());
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "1item"})
+    void missingAndInvalidLoopAliasesAreRejectedBeforeReadingSource(String alias) {
+        var failure = assertThrows(IllegalArgumentException.class, () -> map(
+                loop("rows", "$", alias, constant(null, ParamType.STRING, "x")), List.of()));
+
+        assertTrue(failure.getMessage().contains("$.rows: 无效或保留的循环变量名"), failure.getMessage());
+    }
+
+    @ParameterizedTest
+    @MethodSource("nonArraySources")
+    void nonArrayLoopSourcesReportTargetPath(Object source) {
+        var failure = assertThrows(IllegalArgumentException.class, () -> map(
+                loop("rows", "$.items", "item", name(null, ParamType.STRING, "item")), Map.of("items", source)));
+
+        assertEquals("MAPPING $.rows: 循环源必须为数组: $.items", failure.getMessage());
+    }
+
+    private static Stream<Object> nonArraySources() {
+        return Stream.of("[]", 1, false, Map.of("code", "A"));
+    }
+
+    @Test
+    void fixedAndLoopArraysNestWithoutChangingElementCountOrOrder() {
+        var config = fixed("groups", loop(null, "$.items", "item", fixed(null,
+                        name(null, ParamType.STRING, "item.code"), constant(null, ParamType.INTEGER, 7))),
+                object(null), constant(null, ParamType.STRING, null), fixed(null));
+
+        assertEquals(Arrays.asList(List.of(List.of("A", 7), List.of("B", 7)), Map.of(), null, List.of()),
+                map(config, Map.of("items", List.of(Map.of("code", "A"), Map.of("code", "B")))));
+    }
+
+    @ParameterizedTest
+    @EnumSource(ParamType.class)
+    void nullAndMissingExpressionResultsKeepFieldsForAllTypes(ParamType type) {
+        for (String script : List.of("null", "$.missing")) {
+            var result = transformer.transform(List.of(expression("value", type, script)), Map.of());
+
+            assertTrue(result.containsKey("value"));
+            assertNull(result.get("value"), script + " -> " + type);
+        }
+    }
+
+    @Test
+    void expressionResultsKeepNestedNullsAndJsonTypes() {
+        var result = map(expression("value", ParamType.OBJECT,
+                "({nested: {enabled: true, count: 2, ratio: 1.5, text: '中文', absent: null}, "
+                        + "items: [null, {code: 'A'}, [1, false]]})"), Map.of());
+        var nested = new LinkedHashMap<String, Object>();
+        nested.put("enabled", true);
+        nested.put("count", 2);
+        nested.put("ratio", 1.5d);
+        nested.put("text", "中文");
+        nested.put("absent", null);
+
+        assertEquals(Map.of("nested", nested, "items", Arrays.asList(null, Map.of("code", "A"), List.of(1, false))), result);
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidExpressionRules")
+    void expressionRulesMustBeNonBlankStrings(Object rule) {
+        var config = expression("value", ParamType.STRING, null);
+        config.setMappingRule(rule);
+
+        var failure = assertThrows(IllegalArgumentException.class, () -> map(config, Map.of()));
+
+        assertEquals("MAPPING $.value: EXPRESSION 的 mappingRule 必须为非空 JS 字符串", failure.getMessage());
+    }
+
+    private static Stream<Object> invalidExpressionRules() {
+        return Stream.of(null, "", " \n\t", 1, true, List.of("'x'"), Map.of("script", "'x'"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void nestedExpressionMutationsAndReturnedObjectsAreIsolatedAcrossFieldsAndCalls() {
+        var profile = new LinkedHashMap<String, Object>();
+        profile.put("tags", new ArrayList<>(List.of("root")));
+        var meta = new LinkedHashMap<String, Object>();
+        meta.put("tags", new ArrayList<>(List.of("item")));
+        var payload = Map.of("profile", profile, "items", List.of(Map.of("meta", meta)));
+        var config = List.of(
+                expression("changed", ParamType.OBJECT, "$.profile.tags[0] = 'changed'; $.profile"),
+                expression("original", ParamType.OBJECT, "$.profile"),
+                loop("rows", "$.items", "item", object(null,
+                        expression("changed", ParamType.OBJECT, "item.meta.tags[0] = 'changed'; item.meta"),
+                        expression("original", ParamType.OBJECT, "item.meta"),
+                        name("tag", ParamType.STRING, "item.meta.tags[0]"))),
+                expression("outside", ParamType.STRING, "typeof item"));
+        var expected = Map.of("changed", Map.of("tags", List.of("changed")),
+                "original", Map.of("tags", List.of("root")), "outside", "undefined",
+                "rows", List.of(Map.of("changed", Map.of("tags", List.of("changed")),
+                        "original", Map.of("tags", List.of("item")), "tag", "item")));
+
+        var first = transformer.transform(config, payload);
+        assertEquals(expected, first);
+        var outputTags = (List<String>) ((Map<?, ?>) first.get("original")).get("tags");
+        assertNotSame(profile.get("tags"), outputTags);
+        outputTags.add("output-only");
+
+        assertEquals(Map.of("tags", List.of("root")), profile);
+        assertEquals(Map.of("tags", List.of("item")), meta);
+        assertEquals(expected, transformer.transform(config, payload));
+        assertEquals(Map.of("original", Map.of("tags", List.of("next")), "outside", "undefined"),
+                transformer.transform(List.of(expression("original", ParamType.OBJECT, "$.profile"),
+                        expression("outside", ParamType.STRING, "typeof item")),
+                        Map.of("profile", Map.of("tags", List.of("next")))));
+    }
+
     private Object map(ParamMappingConfig config, Object payload) {
         return transformer.transform(List.of(config), payload).get(config.getTargetParamKey());
     }
@@ -230,6 +491,6 @@ class ParamMapTransformerTest {
 
     private static ParamMappingConfig fixed(String key, ParamMappingConfig... items) {
         return ParamMappingConfig.builder().targetParamKey(key).targetParamType(ParamType.ARRAY)
-                .mappingType(MappingType.ARRAY_FIXED).items(List.of(items)).build();
+                .mappingType(MappingType.ARRAY_FIXED).items(Arrays.asList(items)).build();
     }
 }

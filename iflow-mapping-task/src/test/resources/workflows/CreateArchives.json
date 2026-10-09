@@ -1,0 +1,268 @@
+{
+  "name": "CreateArchives",
+  "displayName": "杭州903患者建档",
+  "version": 1,
+  "description": "将 Jarvis CreateArchives 入参映射为 GHIS setPatientInfo，经测试网关 /gateway/api 调用建档，回写出参 code / message / rsp.outPatientCode / rsp.visitNo。",
+  "correlationExpression": "${workflow.input.data.patientCode}",
+  "inputParameters": [
+    "data",
+    "BusinessMethod",
+    "BusinessCode",
+    "DepartType"
+  ],
+  "outputParameters": {
+    "code": "${map_output_ref.output.code}",
+    "message": "${map_output_ref.output.message}",
+    "rsp": "${map_output_ref.output.rsp}"
+  },
+  "tasks": [
+    {
+      "name": "映射HIS建档业务数据",
+      "taskReferenceName": "map_his_patient_ref",
+      "type": "MAPPING",
+      "optional": false,
+      "inputParameters": {
+        "payload": "${workflow.input.data}",
+        "paramsConfig": [
+          {
+            "targetParamKey": "patient",
+            "targetParamType": "OBJECT",
+            "paramDesc": "GHIS setPatientInfo 业务对象",
+            "childParams": [
+              {
+                "targetParamKey": "visitBdmd",
+                "targetParamType": "STRING",
+                "mappingType": "CONSTANT",
+                "mappingRule": "66fca570063ef80001a5da41",
+                "paramDesc": "基础数据账户 accountId"
+              },
+              {
+                "targetParamKey": "visitOrganization",
+                "targetParamType": "STRING",
+                "mappingType": "CONSTANT",
+                "mappingRule": "66fca42db0c0ad0001f1a9f4",
+                "paramDesc": "医疗机构组织机构代码"
+              },
+              {
+                "targetParamKey": "visitTenant",
+                "targetParamType": "STRING",
+                "mappingType": "CONSTANT",
+                "mappingRule": "GHIS",
+                "paramDesc": "租户"
+              },
+              {
+                "targetParamKey": "visitDept",
+                "targetParamType": "STRING",
+                "mappingType": "CONSTANT",
+                "mappingRule": "66fca4551d3a1d0001fab02d",
+                "paramDesc": "科室 departmentId"
+              },
+              {
+                "targetParamKey": "visitUser",
+                "targetParamType": "STRING",
+                "mappingType": "CONSTANT",
+                "mappingRule": "6a4db0dc4da7fc0001a9609a",
+                "paramDesc": "用户 userId"
+              },
+              {
+                "sourceParamKey": "$.patientName",
+                "targetParamKey": "name",
+                "targetParamType": "STRING",
+                "mappingType": "NAME",
+                "paramDesc": "患者姓名"
+              },
+              {
+                "sourceParamKey": "$.birthday",
+                "targetParamKey": "birthDate",
+                "targetParamType": "STRING",
+                "mappingType": "NAME",
+                "paramDesc": "出生日期"
+              },
+              {
+                "sourceParamKey": "$.sex",
+                "targetParamKey": "sex",
+                "targetParamType": "INTEGER",
+                "mappingType": "NAME",
+                "paramDesc": "性别代码"
+              },
+              {
+                "sourceParamKey": "$.identitycard",
+                "targetParamKey": "idCard",
+                "targetParamType": "STRING",
+                "mappingType": "NAME",
+                "paramDesc": "身份证件号码"
+              },
+              {
+                "targetParamKey": "idCardCode",
+                "targetParamType": "STRING",
+                "mappingType": "EXPRESSION",
+                "mappingRule": "String($.cardType) === '1' ? '01' : $.cardType",
+                "paramDesc": "身份证件类型，1→01"
+              },
+              {
+                "sourceParamKey": "$.phone",
+                "targetParamKey": "patientPhone",
+                "targetParamType": "STRING",
+                "mappingType": "NAME",
+                "paramDesc": "患者电话号码"
+              },
+              {
+                "targetParamKey": "maritalStatus",
+                "targetParamType": "STRING",
+                "mappingType": "EXPRESSION",
+                "mappingRule": "({ '1': '10', '2': '20', '3': '40', '4': '30' })[String($.marriage)] ?? '90'",
+                "paramDesc": "婚姻：1未婚→10，2已婚→20，3离婚→40，4丧偶→30"
+              },
+              {
+                "sourceParamKey": "$.nation",
+                "targetParamKey": "ethnicGroup",
+                "targetParamType": "STRING",
+                "mappingType": "NAME",
+                "paramDesc": "民族代码"
+              },
+              {
+                "sourceParamKey": "$.orgName",
+                "targetParamKey": "workUnit",
+                "targetParamType": "STRING",
+                "mappingType": "NAME",
+                "paramDesc": "工作单位名称"
+              },
+              {
+                "sourceParamKey": "$.hisPatientId",
+                "targetParamKey": "mpi",
+                "targetParamType": "STRING",
+                "mappingType": "NAME",
+                "paramDesc": "业务系统患者档案ID"
+              },
+              {
+                "sourceParamKey": "$.visitNo",
+                "targetParamKey": "medicalCardId",
+                "targetParamType": "STRING",
+                "mappingType": "NAME",
+                "paramDesc": "就诊卡号"
+              },
+              {
+                "sourceParamKey": "$.doctorInfo.userName",
+                "targetParamKey": "author",
+                "targetParamType": "STRING",
+                "mappingType": "NAME",
+                "paramDesc": "建卡者姓名"
+              },
+              {
+                "sourceParamKey": "$.doctorInfo.number",
+                "targetParamKey": "authorId",
+                "targetParamType": "STRING",
+                "mappingType": "NAME",
+                "paramDesc": "建卡者代码"
+              },
+              {
+                "targetParamKey": "addressDTO",
+                "targetParamType": "OBJECT",
+                "paramDesc": "地址",
+                "childParams": [
+                  {
+                    "sourceParamKey": "$.address",
+                    "targetParamKey": "addressDetail",
+                    "targetParamType": "STRING",
+                    "mappingType": "NAME",
+                    "paramDesc": "地址全称"
+                  }
+                ],
+                "mappingType": "OBJECT"
+              }
+            ],
+            "mappingType": "OBJECT"
+          },
+          {
+            "targetParamKey": "timestamp",
+            "targetParamType": "STRING",
+            "mappingType": "EXPRESSION",
+            "mappingRule": "String(Date.now())",
+            "paramDesc": "当前时间戳"
+          }
+        ]
+      }
+    },
+    {
+      "name": "序列化HIS建档业务数据",
+      "taskReferenceName": "serialize_his_patient_ref",
+      "type": "INLINE",
+      "optional": false,
+      "inputParameters": {
+        "patient": "${map_his_patient_ref.output.patient}",
+        "evaluatorType": "graaljs",
+        "expression": "JSON.stringify([$.patient])"
+      }
+    },
+    {
+      "name": "调用HIS建档",
+      "taskReferenceName": "call_his_ref",
+      "type": "HTTP",
+      "optional": false,
+      "inputParameters": {
+        "uri": "https://example.invalid/iflow-test",
+        "method": "POST",
+        "contentType": "application/json",
+        "accept": "application/json",
+        "connectionTimeOut": 5000,
+        "readTimeOut": 30000,
+        "body": {
+          "appId": "test-app",
+          "encryptData": "${serialize_his_patient_ref.output}",
+          "sign": "",
+          "timestamp": "${map_his_patient_ref.output.timestamp}",
+          "version": "1.0.0",
+          "beanName": "exchange.stand.setPatientInfoProvider",
+          "methodName": "setPatientInfo"
+        }
+      }
+    },
+    {
+      "name": "映射建档出参",
+      "taskReferenceName": "map_output_ref",
+      "type": "MAPPING",
+      "optional": false,
+      "inputParameters": {
+        "payload": "${call_his_ref.output.body}",
+        "paramsConfig": [
+          {
+            "targetParamKey": "code",
+            "targetParamType": "STRING",
+            "mappingType": "EXPRESSION",
+            "mappingRule": "(['200', '0'].includes(String($.code)) && ($.body == null || $.body.status == null || $.body.status === true)) ? '200' : '-1'",
+            "paramDesc": "200成功 / -1失败"
+          },
+          {
+            "targetParamKey": "message",
+            "targetParamType": "STRING",
+            "mappingType": "EXPRESSION",
+            "mappingRule": "(['200', '0'].includes(String($.code)) && ($.body == null || $.body.status == null || $.body.status === true)) ? '成功' : ($.body?.detail ?? $.message ?? '失败')",
+            "paramDesc": "响应描述"
+          },
+          {
+            "targetParamKey": "rsp",
+            "targetParamType": "OBJECT",
+            "paramDesc": "建档回写",
+            "childParams": [
+              {
+                "targetParamKey": "outPatientCode",
+                "targetParamType": "STRING",
+                "mappingType": "EXPRESSION",
+                "mappingRule": "$.body?.data != null ? ($.body.data.mpi ?? $.body.data.idPi) : ($.data != null ? ($.data.mpi ?? $.data.idPi) : null)",
+                "paramDesc": "PATIENT_ID"
+              },
+              {
+                "targetParamKey": "visitNo",
+                "targetParamType": "STRING",
+                "mappingType": "EXPRESSION",
+                "mappingRule": "$.body?.data != null ? $.body.data.medicalCardId : ($.data != null ? $.data.medicalCardId : null)",
+                "paramDesc": "就诊卡号 VISIT_NO"
+              }
+            ],
+            "mappingType": "OBJECT"
+          }
+        ]
+      }
+    }
+  ]
+}

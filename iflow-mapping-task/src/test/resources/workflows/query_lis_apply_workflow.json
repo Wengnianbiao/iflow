@@ -1,0 +1,232 @@
+{
+  "name": "hl-open-api/query-lis-apply",
+  "version": 1,
+  "displayName": "LIS申请单查询",
+  "description": "LIS 按条码号查询体检系统申请单，返回一行一个申请项目",
+  "correlationExpression": "",
+  "inputParameters": [
+    "body"
+  ],
+  "outputParameters": {
+    "code": "${mapping_lis_apply_ref.output.code}",
+    "message": "${mapping_lis_apply_ref.output.message}",
+    "data": "${mapping_lis_apply_ref.output.data}"
+  },
+  "tasks": [
+    {
+      "name": "映射LIS申请查询条件",
+      "taskReferenceName": "mapping_lis_apply_query_ref",
+      "type": "MAPPING",
+      "optional": false,
+      "inputParameters": {
+        "payload": "${workflow.input.body}",
+        "paramsConfig": [
+          {
+            "targetParamKey": "barCode",
+            "targetParamType": "STRING",
+            "mappingType": "EXPRESSION",
+            "mappingRule": "$.barCode || $.barcode || ''",
+            "paramDesc": "兼容 barCode / barcode"
+          }
+        ]
+      }
+    },
+    {
+      "name": "查询LIS申请单视图",
+      "taskReferenceName": "jdbc_lis_apply_ref",
+      "type": "JDBC",
+      "optional": false,
+      "inputParameters": {
+        "url": "jdbc:mysql://localhost:3306/iflow_test",
+        "vendor": "MYSQL",
+        "username": "test-only",
+        "password": "test-only",
+        "operation": "QUERY",
+        "payload": {
+          "barCode": "${mapping_lis_apply_query_ref.output.barCode}"
+        },
+        "sqlTemplate": "SELECT patientCode, name, age, sex, phone, identityCard, applyId, itemId, itemName, price, factPrice, sampleName, barCode, applyDeptId, applyDeptName, executeDeptId, executeDeptName, applyUserId, applyUserName, applyDate FROM V_LIS_APPLY WHERE barCode = $.barCode",
+        "connectionTimeOut": 5000,
+        "queryTimeOut": 30000
+      }
+    },
+    {
+      "name": "映射LIS申请单响应",
+      "taskReferenceName": "mapping_lis_apply_ref",
+      "type": "MAPPING",
+      "optional": false,
+      "inputParameters": {
+        "payload": "${jdbc_lis_apply_ref.output}",
+        "paramsConfig": [
+          {
+            "targetParamKey": "code",
+            "targetParamType": "STRING",
+            "mappingType": "CONSTANT",
+            "mappingRule": "200",
+            "paramDesc": "200=成功"
+          },
+          {
+            "targetParamKey": "message",
+            "targetParamType": "STRING",
+            "mappingType": "CONSTANT",
+            "mappingRule": "成功"
+          },
+          {
+            "targetParamKey": "data",
+            "targetParamType": "ARRAY",
+            "mappingType": "ARRAY_MAP",
+            "sourceParamKey": "$.rows",
+            "itemAlias": "item",
+            "itemTemplate": {
+              "targetParamType": "OBJECT",
+              "mappingType": "OBJECT",
+              "childParams": [
+                {
+                  "targetParamKey": "patientCode",
+                  "targetParamType": "STRING",
+                  "mappingType": "NAME",
+                  "sourceParamKey": "item.patientCode",
+                  "paramDesc": "体检编号"
+                },
+                {
+                  "targetParamKey": "name",
+                  "targetParamType": "STRING",
+                  "mappingType": "NAME",
+                  "sourceParamKey": "item.name",
+                  "paramDesc": "姓名"
+                },
+                {
+                  "targetParamKey": "age",
+                  "targetParamType": "STRING",
+                  "mappingType": "NAME",
+                  "sourceParamKey": "item.age",
+                  "paramDesc": "年龄"
+                },
+                {
+                  "targetParamKey": "sex",
+                  "targetParamType": "STRING",
+                  "mappingType": "NAME",
+                  "sourceParamKey": "item.sex",
+                  "paramDesc": "性别"
+                },
+                {
+                  "targetParamKey": "phone",
+                  "targetParamType": "STRING",
+                  "mappingType": "NAME",
+                  "sourceParamKey": "item.phone",
+                  "paramDesc": "手机号"
+                },
+                {
+                  "targetParamKey": "identityCard",
+                  "targetParamType": "STRING",
+                  "mappingType": "NAME",
+                  "sourceParamKey": "item.identityCard",
+                  "paramDesc": "身份证号"
+                },
+                {
+                  "targetParamKey": "applyId",
+                  "targetParamType": "STRING",
+                  "mappingType": "NAME",
+                  "sourceParamKey": "item.applyId",
+                  "paramDesc": "申请单ID"
+                },
+                {
+                  "targetParamKey": "itemId",
+                  "targetParamType": "STRING",
+                  "mappingType": "NAME",
+                  "sourceParamKey": "item.itemId",
+                  "paramDesc": "检验项目ID"
+                },
+                {
+                  "targetParamKey": "itemName",
+                  "targetParamType": "STRING",
+                  "mappingType": "NAME",
+                  "sourceParamKey": "item.itemName",
+                  "paramDesc": "检验项目名称"
+                },
+                {
+                  "targetParamKey": "price",
+                  "targetParamType": "STRING",
+                  "mappingType": "NAME",
+                  "sourceParamKey": "item.price",
+                  "paramDesc": "原价"
+                },
+                {
+                  "targetParamKey": "factPrice",
+                  "targetParamType": "STRING",
+                  "mappingType": "NAME",
+                  "sourceParamKey": "item.factPrice",
+                  "paramDesc": "收费价格"
+                },
+                {
+                  "targetParamKey": "sampleName",
+                  "targetParamType": "STRING",
+                  "mappingType": "NAME",
+                  "sourceParamKey": "item.sampleName",
+                  "paramDesc": "标本名称"
+                },
+                {
+                  "targetParamKey": "barCode",
+                  "targetParamType": "STRING",
+                  "mappingType": "NAME",
+                  "sourceParamKey": "item.barCode",
+                  "paramDesc": "条码号"
+                },
+                {
+                  "targetParamKey": "applyDeptId",
+                  "targetParamType": "STRING",
+                  "mappingType": "NAME",
+                  "sourceParamKey": "item.applyDeptId",
+                  "paramDesc": "申请科室ID"
+                },
+                {
+                  "targetParamKey": "applyDeptName",
+                  "targetParamType": "STRING",
+                  "mappingType": "NAME",
+                  "sourceParamKey": "item.applyDeptName",
+                  "paramDesc": "申请科室名称"
+                },
+                {
+                  "targetParamKey": "executeDeptId",
+                  "targetParamType": "STRING",
+                  "mappingType": "NAME",
+                  "sourceParamKey": "item.executeDeptId",
+                  "paramDesc": "执行科室ID"
+                },
+                {
+                  "targetParamKey": "executeDeptName",
+                  "targetParamType": "STRING",
+                  "mappingType": "NAME",
+                  "sourceParamKey": "item.executeDeptName",
+                  "paramDesc": "执行科室名称"
+                },
+                {
+                  "targetParamKey": "applyUserId",
+                  "targetParamType": "STRING",
+                  "mappingType": "NAME",
+                  "sourceParamKey": "item.applyUserId",
+                  "paramDesc": "申请人员ID"
+                },
+                {
+                  "targetParamKey": "applyUserName",
+                  "targetParamType": "STRING",
+                  "mappingType": "NAME",
+                  "sourceParamKey": "item.applyUserName",
+                  "paramDesc": "申请人员姓名"
+                },
+                {
+                  "targetParamKey": "applyDate",
+                  "targetParamType": "STRING",
+                  "mappingType": "NAME",
+                  "sourceParamKey": "item.applyDate",
+                  "paramDesc": "申请时间"
+                }
+              ]
+            },
+            "paramDesc": "一行一个申请项目"
+          }
+        ]
+      }
+    }
+  ]
+}

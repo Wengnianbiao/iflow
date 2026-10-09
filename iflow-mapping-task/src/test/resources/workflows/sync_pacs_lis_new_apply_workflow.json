@@ -1,0 +1,342 @@
+{
+  "name": "SyncPacsLisNewApply",
+  "displayName": "发送申请单",
+  "version": 1,
+  "description": "按 data.items 拆出 PACS / ECG 后 Fork 并行发送；PACS 走莱达 examineregister SOAP，ECG 走标准检查申请 JSON",
+  "correlationExpression": "${workflow.input.data.patientInfo.patientCode}",
+  "inputParameters": [
+    "data",
+    "BusinessMethod",
+    "BusinessCode",
+    "DepartType",
+    "apiBaseUrl",
+    "pacsAppId",
+    "pacsServiceUri",
+    "ecgServiceUri"
+  ],
+  "outputParameters": {},
+  "tasks": [
+    {
+      "name": "拆分申请单列表",
+      "taskReferenceName": "split_apply_ref",
+      "type": "MAPPING",
+      "optional": false,
+      "inputParameters": {
+        "payload": "${workflow.input}",
+        "paramsConfig": [
+          {
+            "targetParamKey": "pacsItems",
+            "targetParamType": "ARRAY",
+            "mappingType": "EXPRESSION",
+            "paramDesc": "影像 PACS 申请单（不含心电图）",
+            "mappingRule": "($.data?.items || []).filter(function (item) { var t = String(item?.serviceProviderType ?? item?.departType ?? ''); var name = String(item?.feeItemName ?? ''); return t === 'PACS' && !/心电|ECG/i.test(name); })"
+          },
+          {
+            "targetParamKey": "ecgItems",
+            "targetParamType": "ARRAY",
+            "mappingType": "EXPRESSION",
+            "paramDesc": "ECG 申请单（departType=ECG 或项目名含心电）",
+            "mappingRule": "($.data?.items || []).filter(function (item) { var t = String(item?.serviceProviderType ?? item?.departType ?? ''); var name = String(item?.feeItemName ?? ''); return t === 'ECG' || /心电|ECG/i.test(name); })"
+          },
+          {
+            "targetParamKey": "skippedItemCount",
+            "targetParamType": "INTEGER",
+            "mappingType": "EXPRESSION",
+            "paramDesc": "未路由到 PACS/ECG 的项目数",
+            "mappingRule": "(function () { var items = $.data?.items || []; return items.filter(function (item) { var t = String(item?.serviceProviderType ?? item?.departType ?? ''); var name = String(item?.feeItemName ?? ''); var isEcg = t === 'ECG' || /心电|ECG/i.test(name); var isPacs = t === 'PACS' && !/心电|ECG/i.test(name); return !isEcg && !isPacs; }).length; })()"
+          }
+        ]
+      }
+    },
+    {
+      "name": "并行发送申请单",
+      "taskReferenceName": "apply_fork_ref",
+      "type": "FORK_JOIN",
+      "inputParameters": {},
+      "forkTasks": [
+        [
+          {
+            "name": "循环发送PACS申请单",
+            "taskReferenceName": "pacs_loop_ref",
+            "type": "DO_WHILE",
+            "optional": true,
+            "evaluatorType": "graaljs",
+            "items": "${split_apply_ref.output.pacsItems}",
+            "inputParameters": {
+              "evaluatorType": "graaljs",
+              "_items": "${split_apply_ref.output.pacsItems}"
+            },
+            "loopOver": [
+              {
+                "name": "组装莱达PACS报文",
+                "taskReferenceName": "build_pacs_soap_ref",
+                "type": "INLINE",
+                "optional": false,
+                "inputParameters": {
+                  "evaluatorType": "graaljs",
+                  "appID": "${workflow.input.pacsAppId}",
+                  "serviceUri": "${workflow.input.pacsServiceUri}",
+                  "item": "${pacs_loop_ref.output.loopItem}",
+                  "patientInfo": "${workflow.input.data.patientInfo}",
+                  "doctorInfo": "${workflow.input.data.doctorInfo}",
+                  "expression": "(function () {\n  function text(v) { return v == null ? '' : String(v); }\n  function pick() {\n    for (var i = 0; i < arguments.length; i++) {\n      var v = arguments[i];\n      if (v != null && v !== '') return v;\n    }\n    return '';\n  }\n  function pad(n) { return n < 10 ? '0' + n : String(n); }\n  function nowParts(d) {\n    return {\n      time: d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()),\n      ymd: '' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate())\n    };\n  }\n  function mapSex(sex) {\n    var s = text(sex);\n    if (s === '1' || s === 'M' || s === '男') return 'M';\n    if (s === '2' || s === 'F' || s === '女') return 'F';\n    return 'O';\n  }\n  function examType(item) {\n    var explicit = pick(item.YLXMLX, item.examType, item.ylxmlx, item.dfiInterfaceCode2);\n    if (explicit) return text(explicit);\n    var name = text(item.feeItemName);\n    if (/CT/i.test(name)) return 'CT';\n    if (/MR|核磁/i.test(name)) return 'MR';\n    if (/超声|彩超|US/i.test(name)) return 'US';\n    if (/DR|X线|胸片|后前位/i.test(name)) return 'DR';\n    if (/心电|ECG/i.test(name)) return 'ECG';\n    return 'CT';\n  }\n  function escapeXml(s) {\n    return text(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\n  }\n\n  var item = $.item || {};\n  var patient = $.patientInfo || {};\n  var doctor = $.doctorInfo || {};\n  var now = nowParts(new Date());\n  var method = 'examineregister';\n  var appID = text($.appID);\n  var serviceUri = text($.serviceUri) || 'http://ip:port/Service.asmx';\n  if (!appID) throw new Error('请配置莱达 appID（工作流入参 pacsAppId，或改组装报文任务的 appID）');\n  var pwd = Crypto.md5(appID + method + now.ymd);\n  var data = {\n    SQDBH: pick(item.applyId, item.SQDBH),\n    SQStatus: pick(item.SQStatus, '50'),\n    YLKSDM: pick(item.ddInterfaceCode1, item.executeDeptId, item.idDepart),\n    YLKSMC: pick(item.departName, item.executeDeptName),\n    BRSFH: pick(patient.identitycard, patient.identityCard),\n    BRLX: pick(item.BRLX, '1'),\n    BRH: pick(patient.patientCode, patient.hisPatientId),\n    BRKH: pick(patient.visitNo, patient.archivesCode, patient.patientCode),\n    BRMZH: pick(patient.visitNo, ''),\n    BRZYH: '',\n    BRBQDM: '',\n    BRBQMC: '',\n    BRBCH: '',\n    BRXM: pick(patient.patientName),\n    BRXB: mapSex(patient.sex),\n    BRNL: pick(patient.age),\n    BRCSDate: text(pick(patient.birthday, '')).substring(0, 10),\n    BRLXDZ: pick(patient.address),\n    BRLXDH: pick(patient.phone),\n    BRZY: pick(patient.orgName, ''),\n    SQSF: pick(item.priceYuan, item.factPriceYuan, ''),\n    SQYSGH: pick(item.number, doctor.number),\n    SQYSXM: pick(item.userName, doctor.userName),\n    SQKSDM: pick(item.applyDeptId, ''),\n    SQKSMC: pick(item.applyDeptName, '体检中心'),\n    SQTime: pick(patient.registertime, now.time),\n    SQYY: pick(item.feeItemName, '体检检查'),\n    LCBX: pick(item.feeItemName, ''),\n    LCZD: pick(item.feeItemName, '体检'),\n    DJYSGH: pick(item.number, doctor.number),\n    DJYSXM: pick(item.userName, doctor.userName),\n    DJTime: now.time,\n    JCH: pick(item.applyId, item.idPatientFeeItem),\n    YYH: '',\n    YLXMDM: pick(item.interfaceCode, item.dfiInterfaceCode1, item.idFeeItem),\n    YLXMMC: pick(item.feeItemName),\n    YLXMLX: examType(item),\n    YLBWDM: pick(item.dfiInterfaceCode3, ''),\n    YLBWMC: pick(item.dfiInterfaceCode4, ''),\n    YLSBDM: pick(item.dfiInterfaceCode5, ''),\n    YLSBMC: ''\n  };\n  var dataXml = XML.stringify('Data', data);\n  var soap = '<?xml version=\"1.0\" encoding=\"utf-8\"?>'\n    + '<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:tem=\"http://tempuri.org/\">'\n    + '<soapenv:Header/>'\n    + '<soapenv:Body><tem:Invoke>'\n    + '<tem:appID>' + escapeXml(appID) + '</tem:appID>'\n    + '<tem:pwd>' + escapeXml(pwd) + '</tem:pwd>'\n    + '<tem:method>' + method + '</tem:method>'\n    + '<tem:data><![CDATA[' + dataXml + ']]></tem:data>'\n    + '</tem:Invoke></soapenv:Body></soapenv:Envelope>';\n  return {\n    soapXml: soap,\n    pwd: pwd,\n    serviceUri: serviceUri,\n    applyId: data.SQDBH,\n    idPatientFeeItem: text(item.idPatientFeeItem),\n    medTechRequestId: text(item.applyId)\n  };\n})()"
+                }
+              },
+              {
+                "name": "调用莱达examineregister",
+                "taskReferenceName": "sync_pacs_ws_ref",
+                "type": "WEBSERVICE",
+                "optional": false,
+                "inputParameters": {
+                  "uri": "${build_pacs_soap_ref.output.serviceUri}",
+                  "contentType": "text/xml;charset=utf-8",
+                  "connectionTimeOut": 5000,
+                  "readTimeOut": 60000,
+                  "headers": {
+                    "SOAPAction": "\"http://tempuri.org/Invoke\""
+                  },
+                  "templateParameters": {
+                    "soapXml": "${build_pacs_soap_ref.output.soapXml}"
+                  },
+                  "soapTemplate": "${$.soapXml}"
+                }
+              },
+              {
+                "name": "解析莱达PACS响应",
+                "taskReferenceName": "parse_pacs_resp_ref",
+                "type": "INLINE",
+                "optional": false,
+                "inputParameters": {
+                  "evaluatorType": "graaljs",
+                  "body": "${sync_pacs_ws_ref.output.body}",
+                  "statusCode": "${sync_pacs_ws_ref.output.statusCode}",
+                  "applyId": "${build_pacs_soap_ref.output.applyId}",
+                  "idPatientFeeItem": "${build_pacs_soap_ref.output.idPatientFeeItem}",
+                  "medTechRequestId": "${build_pacs_soap_ref.output.medTechRequestId}",
+                  "expression": "(function () {\n  function text(v) {\n    if (v == null) return '';\n    if (typeof v === 'object') {\n      if (v['#text'] != null) return String(v['#text']);\n      return '';\n    }\n    return String(v);\n  }\n  function localName(k) {\n    var s = String(k);\n    var i = s.indexOf(':');\n    return i >= 0 ? s.slice(i + 1) : s;\n  }\n  function walk(node, name) {\n    if (node == null || typeof node !== 'object') return null;\n    var keys = Object.keys(node);\n    for (var i = 0; i < keys.length; i++) {\n      if (localName(keys[i]) === name) return node[keys[i]];\n    }\n    for (var j = 0; j < keys.length; j++) {\n      var found = walk(node[keys[j]], name);\n      if (found != null) return found;\n    }\n    return null;\n  }\n  var body = $.body;\n  var parsed = (typeof body === 'string' && body.trim()) ? XML.parse(body) : body;\n  var result = walk(parsed, 'InvokeResult') || parsed;\n  var code = text(walk(result, 'code'));\n  var message = text(walk(result, 'message'));\n  var httpOk = Number($.statusCode) >= 200 && Number($.statusCode) < 300;\n  var ok = code ? (code === '200') : httpOk;\n  return {\n    ok: ok,\n    code: ok ? '200' : (code || '-1'),\n    message: message || (ok ? '成功' : '失败'),\n    applyId: $.applyId,\n    idPatientFeeItem: $.idPatientFeeItem,\n    medTechRequestId: $.medTechRequestId,\n    statusCode: $.statusCode\n  };\n})()"
+                }
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "name": "映射ECG检查申请",
+            "taskReferenceName": "mapping_ecg_req_ref",
+            "type": "MAPPING",
+            "optional": false,
+            "inputParameters": {
+              "payload": {
+                "patientInfo": "${workflow.input.data.patientInfo}",
+                "doctorInfo": "${workflow.input.data.doctorInfo}",
+                "items": "${split_apply_ref.output.ecgItems}"
+              },
+              "paramsConfig": [
+                {
+                  "targetParamKey": "patientId",
+                  "targetParamType": "STRING",
+                  "mappingType": "EXPRESSION",
+                  "mappingRule": "String(($.patientInfo && ($.patientInfo.hisPatientId || $.patientInfo.patientId)) || '')",
+                  "paramDesc": "客户ID"
+                },
+                {
+                  "targetParamKey": "clinicId",
+                  "targetParamType": "STRING",
+                  "mappingType": "EXPRESSION",
+                  "mappingRule": "String(($.patientInfo && ($.patientInfo.visitNo || $.patientInfo.clinicId)) || '')",
+                  "paramDesc": "门诊号"
+                },
+                {
+                  "targetParamKey": "patientCode",
+                  "targetParamType": "STRING",
+                  "mappingType": "EXPRESSION",
+                  "mappingRule": "String(($.patientInfo && $.patientInfo.patientCode) || '')",
+                  "paramDesc": "体检编号"
+                },
+                {
+                  "targetParamKey": "name",
+                  "targetParamType": "STRING",
+                  "mappingType": "EXPRESSION",
+                  "mappingRule": "String(($.patientInfo && $.patientInfo.patientName) || '')",
+                  "paramDesc": "姓名"
+                },
+                {
+                  "targetParamKey": "age",
+                  "targetParamType": "STRING",
+                  "mappingType": "EXPRESSION",
+                  "mappingRule": "String(($.patientInfo && $.patientInfo.age) != null ? $.patientInfo.age : '')",
+                  "paramDesc": "年龄"
+                },
+                {
+                  "targetParamKey": "sex",
+                  "targetParamType": "STRING",
+                  "mappingType": "EXPRESSION",
+                  "mappingRule": "(function () { var s = String(($.patientInfo && $.patientInfo.sex) || ''); if (s === '1' || s === 'M' || s === '男') return '男'; if (s === '2' || s === 'F' || s === '女') return '女'; return '未知'; })()",
+                  "paramDesc": "性别"
+                },
+                {
+                  "targetParamKey": "phone",
+                  "targetParamType": "STRING",
+                  "mappingType": "EXPRESSION",
+                  "mappingRule": "String(($.patientInfo && $.patientInfo.phone) || '')",
+                  "paramDesc": "手机号"
+                },
+                {
+                  "targetParamKey": "identityCard",
+                  "targetParamType": "STRING",
+                  "mappingType": "EXPRESSION",
+                  "mappingRule": "String(($.patientInfo && ($.patientInfo.identitycard || $.patientInfo.identityCard)) || '')",
+                  "paramDesc": "身份证号"
+                },
+                {
+                  "targetParamKey": "applyList",
+                  "targetParamType": "ARRAY",
+                  "mappingType": "ARRAY_MAP",
+                  "sourceParamKey": "$.items",
+                  "itemAlias": "item",
+                  "paramDesc": "ECG 申请单列表",
+                  "itemTemplate": {
+                    "targetParamType": "OBJECT",
+                    "mappingType": "OBJECT",
+                    "childParams": [
+                      {
+                        "targetParamKey": "applyId",
+                        "targetParamType": "STRING",
+                        "mappingType": "EXPRESSION",
+                        "mappingRule": "String(item.applyId || '')",
+                        "paramDesc": "申请单ID"
+                      },
+                      {
+                        "targetParamKey": "checkType",
+                        "targetParamType": "STRING",
+                        "mappingType": "CONSTANT",
+                        "mappingRule": "ECG",
+                        "paramDesc": "检查类型"
+                      },
+                      {
+                        "targetParamKey": "itemId",
+                        "targetParamType": "STRING",
+                        "mappingType": "EXPRESSION",
+                        "mappingRule": "String(item.interfaceCode || item.dfiInterfaceCode1 || item.idFeeItem || item.itemId || '')",
+                        "paramDesc": "检查项目ID"
+                      },
+                      {
+                        "targetParamKey": "itemName",
+                        "targetParamType": "STRING",
+                        "mappingType": "EXPRESSION",
+                        "mappingRule": "String(item.feeItemName || item.itemName || '')",
+                        "paramDesc": "检查项目名称"
+                      },
+                      {
+                        "targetParamKey": "price",
+                        "targetParamType": "STRING",
+                        "mappingType": "EXPRESSION",
+                        "mappingRule": "item.priceYuan != null && item.priceYuan !== '' ? String(item.priceYuan) : (item.originalPriceYuan != null ? String(item.originalPriceYuan) : '')",
+                        "paramDesc": "原价"
+                      },
+                      {
+                        "targetParamKey": "factPrice",
+                        "targetParamType": "STRING",
+                        "mappingType": "EXPRESSION",
+                        "mappingRule": "item.factPriceYuan != null && item.factPriceYuan !== '' ? String(item.factPriceYuan) : (item.priceYuan != null ? String(item.priceYuan) : '')",
+                        "paramDesc": "收费价格"
+                      },
+                      {
+                        "targetParamKey": "applyDeptId",
+                        "targetParamType": "STRING",
+                        "mappingType": "EXPRESSION",
+                        "mappingRule": "String(item.applyDeptId || 'tjzx')",
+                        "paramDesc": "申请科室ID"
+                      },
+                      {
+                        "targetParamKey": "applyDeptName",
+                        "targetParamType": "STRING",
+                        "mappingType": "EXPRESSION",
+                        "mappingRule": "String(item.applyDeptName || '体检中心')",
+                        "paramDesc": "申请科室名称"
+                      },
+                      {
+                        "targetParamKey": "executeDeptId",
+                        "targetParamType": "STRING",
+                        "mappingType": "EXPRESSION",
+                        "mappingRule": "String(item.ddInterfaceCode1 || item.executeDeptId || item.idDepart || '')",
+                        "paramDesc": "执行科室ID"
+                      },
+                      {
+                        "targetParamKey": "executeDeptName",
+                        "targetParamType": "STRING",
+                        "mappingType": "EXPRESSION",
+                        "mappingRule": "String(item.departName || item.executeDeptName || '')",
+                        "paramDesc": "执行科室名称"
+                      },
+                      {
+                        "targetParamKey": "applyUserId",
+                        "targetParamType": "STRING",
+                        "mappingType": "EXPRESSION",
+                        "mappingRule": "String(item.number || ($.doctorInfo && $.doctorInfo.number) || '')",
+                        "paramDesc": "申请人员ID"
+                      },
+                      {
+                        "targetParamKey": "applyUserName",
+                        "targetParamType": "STRING",
+                        "mappingType": "EXPRESSION",
+                        "mappingRule": "String(item.userName || ($.doctorInfo && $.doctorInfo.userName) || '')",
+                        "paramDesc": "申请人员姓名"
+                      },
+                      {
+                        "targetParamKey": "applyDate",
+                        "targetParamType": "STRING",
+                        "mappingType": "EXPRESSION",
+                        "mappingRule": "String(item.applyDate || ($.patientInfo && $.patientInfo.registertime) || '')",
+                        "paramDesc": "申请时间"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "发送ECG检查申请",
+            "taskReferenceName": "sync_ecg_ref",
+            "type": "HTTP",
+            "optional": true,
+            "inputParameters": {
+              "uri": "${workflow.input.ecgServiceUri}",
+              "method": "POST",
+              "contentType": "application/json",
+              "accept": "application/json",
+              "connectionTimeOut": 5000,
+              "readTimeOut": 60000,
+              "body": "${mapping_ecg_req_ref.output}"
+            }
+          }
+        ]
+      ]
+    },
+    {
+      "name": "apply_join",
+      "taskReferenceName": "apply_join_ref",
+      "type": "JOIN",
+      "inputParameters": {},
+      "joinOn": [
+        "pacs_loop_ref",
+        "sync_ecg_ref"
+      ]
+    },
+    {
+      "name": "merge_apply_results",
+      "taskReferenceName": "merge_ref",
+      "type": "INLINE",
+      "optional": false,
+      "inputParameters": {
+        "ecgBody": "${sync_ecg_ref.output.body}",
+        "ecgStatusCode": "${sync_ecg_ref.output.statusCode}",
+        "pacsLoop": "${pacs_loop_ref.output}",
+        "splitSummary": "${split_apply_ref.output}",
+        "evaluatorType": "graaljs",
+        "expression": "(function () {\n  function asArray(value) {\n    if (value == null) return [];\n    if (Array.isArray(value)) return value;\n    if (typeof value.size === 'function' && typeof value.get === 'function') {\n      var list = [];\n      for (var i = 0; i < value.size(); i++) list.push(value.get(i));\n      return list;\n    }\n    return [value];\n  }\n  function pick(obj, key) {\n    if (obj == null) return null;\n    if (typeof obj.get === 'function') {\n      var gv = obj.get(key);\n      if (gv != null) return gv;\n    }\n    return obj[key];\n  }\n  function appendUnique(target, items) {\n    asArray(items).forEach(function (item) {\n      if (!item) return;\n      var exists = target.some(function (existing) {\n        return pick(existing, 'medTechRequestId') === pick(item, 'medTechRequestId')\n          && pick(existing, 'sourceId') === pick(item, 'sourceId');\n      });\n      if (!exists) target.push(item);\n    });\n  }\n  function toResultItem(item, type) {\n    return {\n      applyId: pick(item, 'applyId'),\n      idPatientFeeItem: pick(item, 'idPatientFeeItem'),\n      medTechRequestId: pick(item, 'applyId'),\n      sourceId: pick(item, 'applyId'),\n      serviceProviderType: type\n    };\n  }\n  function parseBody(body) {\n    if (!body) return {};\n    if (typeof body === 'string') {\n      try { return JSON.parse(body); } catch (e) { return { message: body }; }\n    }\n    return body;\n  }\n\n  var merged = [];\n  var failures = [];\n  var splitSummary = $.splitSummary || {};\n  var pacsItems = asArray(pick(splitSummary, 'pacsItems'));\n  var ecgItems = asArray(pick(splitSummary, 'ecgItems'));\n\n  var pacsLoop = $.pacsLoop || {};\n  Object.keys(pacsLoop).forEach(function (key) {\n    if (!/^\\d+$/.test(key)) return;\n    var parsed = pick(pacsLoop[key] || {}, 'parse_pacs_resp_ref') || {};\n    var ok = pick(parsed, 'ok') === true || pick(parsed, 'ok') === 'true';\n    if (ok) {\n      appendUnique(merged, [toResultItem(parsed, 'PACS')]);\n    } else {\n      failures.push({\n        branch: 'PACS',\n        iteration: key,\n        code: pick(parsed, 'code'),\n        message: pick(parsed, 'message'),\n        statusCode: pick(parsed, 'statusCode')\n      });\n    }\n  });\n\n  if (ecgItems.length > 0) {\n    var ecgStatus = Number($.ecgStatusCode);\n    var ecgBody = parseBody($.ecgBody);\n    var code = pick(ecgBody, 'code');\n    var ok = ecgStatus >= 200 && ecgStatus < 300 && (code == null || String(code) === '200' || code === 200);\n    if (ok) {\n      appendUnique(merged, ecgItems.map(function (item) { return toResultItem(item, 'ECG'); }));\n    } else {\n      failures.push({\n        branch: 'ECG',\n        statusCode: $.ecgStatusCode,\n        code: code,\n        message: pick(ecgBody, 'message') || pick(ecgBody, 'msg'),\n        body: $.ecgBody\n      });\n    }\n  }\n\n  return {\n    returnCode: failures.length === 0 ? '200' : '500',\n    errorMessage: failures.length === 0 ? '成功' : ('部分调用失败: ' + failures.length),\n    data: merged,\n    pacsItemCount: pacsItems.length,\n    ecgItemCount: ecgItems.length,\n    skippedItemCount: pick(splitSummary, 'skippedItemCount') || 0,\n    failures: failures\n  };\n})()"
+      }
+    }
+  ]
+}
