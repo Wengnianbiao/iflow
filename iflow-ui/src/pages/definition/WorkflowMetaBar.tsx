@@ -128,7 +128,7 @@ export function WorkflowMetaBar({ actor }: { actor: WorkflowDefinitionActor }) {
     error,
   } = state.context
   const dirty = hasWorkflowChanges(state.context)
-  const saving = state.matches('ready.lifecycle.saving')
+  const saving = state.matches('ready.lifecycle.saving') || state.matches('ready.lifecycle.savingBeforeLeave')
   const deleting = state.matches('ready.lifecycle.deleting')
 
   return (

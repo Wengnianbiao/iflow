@@ -11,6 +11,8 @@ import org.springframework.stereotype.Repository;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,7 +21,8 @@ import java.util.Optional;
 /**
  * MySQL {@link MetadataDAO}（WorkflowDef CRUD）。
  *
- * <p>读写均以 {@code json_data} 序列化整份 {@link WorkflowDef}；{@code latest_version} 为索引投影列。
+ * <p>定义内容通过 {@code json_data} 序列化，审计时间统一从 {@code created_on}/{@code modified_on}
+ * 回填；{@code latest_version} 为索引投影列。
  */
 @Repository
 @ConditionalOnMySqlRepository
@@ -94,13 +97,14 @@ public class MySqlMetadataDAO extends MySqlBaseDAO implements MetadataDAO {
     @Override
     public Optional<WorkflowDef> getWorkflowDef(String route, int version) {
         final String sql =
-                "SELECT json_data FROM meta_workflow_def WHERE route = ? AND version = ?";
+                "SELECT json_data, created_on, modified_on "
+                        + "FROM meta_workflow_def WHERE route = ? AND version = ?";
         return Optional.ofNullable(
                 queryWithTransaction(
                         sql,
                         q -> q.addParameter(route)
                                 .addParameter(version)
-                                .executeAndFetchFirst(WorkflowDef.class)));
+                                .executeAndFetch(rs -> rs.next() ? readWorkflowDef(rs) : null)));
     }
 
     @Override
@@ -122,18 +126,22 @@ public class MySqlMetadataDAO extends MySqlBaseDAO implements MetadataDAO {
     @Override
     public Optional<WorkflowDef> getLatestWorkflowDef(String route) {
         final String sql =
-                "SELECT json_data FROM meta_workflow_def WHERE route = ? AND version = latest_version";
+                "SELECT json_data, created_on, modified_on "
+                        + "FROM meta_workflow_def WHERE route = ? AND version = latest_version";
         return Optional.ofNullable(
                 queryWithTransaction(
-                        sql, q -> q.addParameter(route).executeAndFetchFirst(WorkflowDef.class)));
+                        sql,
+                        q -> q.addParameter(route)
+                                .executeAndFetch(rs -> rs.next() ? readWorkflowDef(rs) : null)));
     }
 
     @Override
     public List<WorkflowDef> getAllVersions(String route) {
         final String sql =
-                "SELECT json_data FROM meta_workflow_def WHERE route = ? ORDER BY version";
+                "SELECT json_data, created_on, modified_on "
+                        + "FROM meta_workflow_def WHERE route = ? ORDER BY version";
         return queryWithTransaction(
-                sql, q -> q.addParameter(route).executeAndFetch(WorkflowDef.class));
+                sql, q -> q.addParameter(route).executeAndFetch(this::readWorkflowDefs));
     }
 
     @Override
@@ -142,24 +150,7 @@ public class MySqlMetadataDAO extends MySqlBaseDAO implements MetadataDAO {
                 "SELECT json_data, created_on, modified_on "
                         + "FROM meta_workflow_def WHERE version = latest_version ORDER BY route";
         return queryWithTransaction(
-                sql,
-                q ->
-                        q.executeAndFetch(
-                                rs -> {
-                                    List<WorkflowDef> definitions = new ArrayList<>();
-                                    while (rs.next()) {
-                                        WorkflowDef definition =
-                                                readValue(rs.getString("json_data"), WorkflowDef.class);
-                                        Timestamp createdOn = rs.getTimestamp("created_on");
-                                        Timestamp modifiedOn = rs.getTimestamp("modified_on");
-                                        definition.setCreateTime(
-                                                createdOn == null ? null : createdOn.getTime());
-                                        definition.setUpdateTime(
-                                                modifiedOn == null ? null : modifiedOn.getTime());
-                                        definitions.add(definition);
-                                    }
-                                    return definitions;
-                                }));
+                sql, q -> q.executeAndFetch(this::readWorkflowDefs));
     }
 
     @Override
@@ -182,6 +173,23 @@ public class MySqlMetadataDAO extends MySqlBaseDAO implements MetadataDAO {
                     getLatestVersion(tx, route)
                             .ifPresent(maxVersion -> updateLatestVersion(tx, route, maxVersion));
                 });
+    }
+
+    private List<WorkflowDef> readWorkflowDefs(ResultSet rs) throws SQLException {
+        List<WorkflowDef> definitions = new ArrayList<>();
+        while (rs.next()) {
+            definitions.add(readWorkflowDef(rs));
+        }
+        return definitions;
+    }
+
+    private WorkflowDef readWorkflowDef(ResultSet rs) throws SQLException {
+        WorkflowDef definition = readValue(rs.getString("json_data"), WorkflowDef.class);
+        Timestamp createdOn = rs.getTimestamp("created_on");
+        Timestamp modifiedOn = rs.getTimestamp("modified_on");
+        definition.setCreateTime(createdOn == null ? null : createdOn.getTime());
+        definition.setUpdateTime(modifiedOn == null ? null : modifiedOn.getTime());
+        return definition;
     }
 
     private boolean workflowExists(Connection connection, String route, int version) {

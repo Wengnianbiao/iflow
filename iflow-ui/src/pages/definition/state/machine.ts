@@ -169,6 +169,17 @@ export const workflowDefinitionMachine = createMachine<
                       actions: ['rejectInvalidSave', 'syncDerivedActors', 'expandValidation'],
                     },
                   ],
+                  SAVE_BEFORE_LEAVE: [
+                    {
+                      cond: 'canRequestSave',
+                      target: 'savingBeforeLeave',
+                      actions: ['clearServerProblems', 'syncValidation'],
+                    },
+                    {
+                      cond: 'hasBlockingProblems',
+                      actions: ['rejectInvalidSave', 'syncDerivedActors', 'expandValidation'],
+                    },
+                  ],
                   REQUEST_RESET: {
                     cond: 'hasUnsavedChanges',
                     target: 'confirmReset',
@@ -182,11 +193,6 @@ export const workflowDefinitionMachine = createMachine<
                   REQUEST_VERSION_CHANGE: [
                     {
                       cond: 'isCurrentVersion',
-                    },
-                    {
-                      cond: 'hasUnsavedChanges',
-                      target: 'confirmVersionChange',
-                      actions: 'assignPendingVersion',
                     },
                     {
                       actions: ['assignPendingVersion', 'navigateToPendingVersion'],
@@ -218,6 +224,20 @@ export const workflowDefinitionMachine = createMachine<
                   },
                   onError: {
                     target: 'confirmSave',
+                    actions: ['assignSaveError', 'syncValidation', 'expandValidation'],
+                  },
+                },
+              },
+              savingBeforeLeave: {
+                invoke: {
+                  id: 'saveWorkflowBeforeLeave',
+                  src: 'saveWorkflowDefinition',
+                  onDone: {
+                    target: 'editing',
+                    actions: ['assignSavedWorkflow', 'syncDerivedActors', 'notifyWorkflowSaved'],
+                  },
+                  onError: {
+                    target: 'editing',
                     actions: ['assignSaveError', 'syncValidation', 'expandValidation'],
                   },
                 },
@@ -257,18 +277,6 @@ export const workflowDefinitionMachine = createMachine<
                   onError: {
                     target: 'confirmDelete',
                     actions: 'assignDeleteError',
-                  },
-                },
-              },
-              confirmVersionChange: {
-                on: {
-                  CONFIRM_VERSION_CHANGE: {
-                    target: 'editing',
-                    actions: 'navigateToPendingVersion',
-                  },
-                  CANCEL_DIALOG: {
-                    target: 'editing',
-                    actions: 'clearPendingVersion',
                   },
                 },
               },
@@ -384,9 +392,6 @@ export const workflowDefinitionMachine = createMachine<
       }),
       assignPendingVersion: assign({
         pendingVersion: (context, event) => event.type === 'REQUEST_VERSION_CHANGE' ? event.version : context.pendingVersion,
-      }),
-      clearPendingVersion: assign({
-        pendingVersion: null,
       }),
       clearErrors: assign({
         error: null,

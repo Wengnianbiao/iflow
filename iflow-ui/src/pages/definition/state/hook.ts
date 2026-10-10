@@ -107,10 +107,12 @@ export function useWorkflowDefinition(attributes: WorkflowRouteAttributes) {
       },
       navigateToSavedWorkflow: (context: WorkflowDefinitionMachineContext) => {
         if (!context.workflow) return
-        navigate(editorUrl(context.workflow.route, context.workflow.version), { replace: true })
+        const url = editorUrl(context.workflow.route, context.workflow.version)
+        // Publish the saved baseline before the navigation guard checks for changes.
+        queueMicrotask(() => navigate(url, { replace: true }))
       },
       navigateToDefinitionList: () => {
-        navigate('/workflowDef')
+        queueMicrotask(() => navigate('/workflowDef'))
       },
     },
   })

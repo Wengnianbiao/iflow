@@ -7,7 +7,6 @@ import {
   CaretDownIcon,
   CaretUpIcon,
   FloppyDiskIcon,
-  TagIcon,
   TrashIcon,
   WarningCircleIcon,
   XIcon,
@@ -269,78 +268,6 @@ function ResetWorkflowDialog({
   )
 }
 
-function VersionChangeDialog({
-  actor,
-  open,
-}: {
-  actor: WorkflowDefinitionActor
-  open: boolean
-}) {
-  const pendingVersion = useSelector(actor, (state) => state.context.pendingVersion)
-  if (!open) return null
-
-  return createPortal(
-    <div
-      className="workflow-delete-backdrop"
-      role="presentation"
-      onMouseDown={() => actor.send({ type: 'CANCEL_DIALOG' })}
-    >
-      <section
-        className="workflow-delete-dialog workflow-confirm-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="workflow-version-change-title"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <header>
-          <span
-            className="workflow-delete-dialog-icon workflow-confirm-dialog-icon"
-            aria-hidden="true"
-          >
-            <TagIcon size={23} weight="bold" />
-          </span>
-          <div>
-            <h2 id="workflow-version-change-title">切换工作流版本</h2>
-            <p>当前工作流存在未保存的修改。</p>
-          </div>
-          <button
-            type="button"
-            aria-label="关闭版本切换确认"
-            title="关闭"
-            onClick={() => actor.send({ type: 'CANCEL_DIALOG' })}
-          >
-            <XIcon size={20} />
-          </button>
-        </header>
-        <div className="workflow-delete-dialog-content">
-          <p>
-            切换到{pendingVersion === 'latest' ? '最新版本' : `版本 ${pendingVersion ?? ''}`}
-            后，当前未保存的修改将丢失。
-          </p>
-        </div>
-        <footer>
-          <button
-            type="button"
-            className="delete-cancel-action"
-            onClick={() => actor.send({ type: 'CANCEL_DIALOG' })}
-          >
-            取消
-          </button>
-          <button
-            type="button"
-            className="workflow-confirm-action"
-            onClick={() => actor.send({ type: 'CONFIRM_VERSION_CHANGE' })}
-          >
-            <TagIcon size={18} weight="bold" />
-            继续切换
-          </button>
-        </footer>
-      </section>
-    </div>,
-    document.body,
-  )
-}
-
 function DeleteWorkflowDialog({
   actor,
   open,
@@ -468,8 +395,7 @@ export function WorkflowDialogs({ actor }: { actor: WorkflowDefinitionActor }) {
   const saveOpen = state.matches('ready.lifecycle.confirmSave') || saving
   const resetOpen = state.matches('ready.lifecycle.confirmReset')
   const deleteOpen = state.matches('ready.lifecycle.confirmDelete') || deleting
-  const versionOpen = state.matches('ready.lifecycle.confirmVersionChange')
-  const anyDialogOpen = saveOpen || resetOpen || deleteOpen || versionOpen
+  const anyDialogOpen = saveOpen || resetOpen || deleteOpen
 
   useEffect(() => {
     if (!anyDialogOpen) return
@@ -489,7 +415,6 @@ export function WorkflowDialogs({ actor }: { actor: WorkflowDefinitionActor }) {
   return (
     <>
       <ResetWorkflowDialog actor={actor} open={resetOpen} />
-      <VersionChangeDialog actor={actor} open={versionOpen} />
       <SaveWorkflowDialog actor={actor} open={saveOpen} saving={saving} />
       <DeleteWorkflowDialog actor={actor} open={deleteOpen} deleting={deleting} />
     </>

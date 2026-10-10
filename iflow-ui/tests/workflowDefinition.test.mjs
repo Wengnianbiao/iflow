@@ -55,10 +55,10 @@ const backendWorkflow = () => ({
   correlationExpression: null, inputParameters: ['data'], outputParameters: {}, timeoutSeconds: 60, timeoutPolicy: 'TIME_OUT_WF',
 })
 const tick = () => new Promise(resolve => setImmediate(resolve))
-async function actorFor(workflow = wf(), services = {}) {
+async function actorFor(workflow = wf(), services = {}, actions = {}) {
   const actor = lib.interpret(lib.workflowDefinitionMachine.withConfig({
     services: { loadWorkflowDefinition: async () => ({ workflow, versions: [1] }), ...services },
-    actions: { notifyWorkflowSaved: () => {}, notifyWorkflowReset: () => {}, navigateToSavedWorkflow: () => {} },
+    actions: { notifyWorkflowSaved: () => {}, notifyWorkflowReset: () => {}, navigateToSavedWorkflow: () => {}, ...actions },
   })).start()
   actor.send({ type: 'INITIALIZE', workflowRoute: workflow.route, workflowVersion: 1, isNewWorkflow: false })
   await tick()
@@ -253,6 +253,81 @@ test('save uses the reviewed snapshot, reports server failure in the persistent 
   await tick()
   assert.equal(lib.hasWorkflowChanges(actor.state.context), false)
   actor.stop()
+})
+
+test('save before leaving freezes the draft and updates the baseline only after success', async () => {
+  let resolveSave, saved, notifications = 0, editorNavigations = 0
+  const edited = { ...wf(), description: '退出前保存', route: 'renamed-route', version: 2 }
+  const actor = await actorFor(wf(), {
+    saveWorkflowDefinition: context => {
+      saved = structuredClone(context.workflow)
+      return new Promise(resolve => { resolveSave = resolve })
+    },
+  }, {
+    notifyWorkflowSaved: () => { notifications++ },
+    navigateToSavedWorkflow: () => { editorNavigations++ },
+  })
+  actor.send({ type: 'WORKFLOW_CHANGED', workflow: edited })
+  actor.send({ type: 'SAVE_BEFORE_LEAVE' })
+  assert.ok(actor.state.matches('ready.lifecycle.savingBeforeLeave'))
+  assert.deepEqual(saved, edited)
+  assert.ok(lib.hasWorkflowChanges(actor.state.context))
+  assert.deepEqual(actor.state.context.baseline, wf())
+  actor.send({ type: 'WORKFLOW_CHANGED', workflow: wf([]) })
+  actor.send({ type: 'SOURCE_CHANGED', source: '{unfinished' })
+  actor.send({ type: 'SAVE_BEFORE_LEAVE' })
+  assert.deepEqual(actor.state.context.workflow, edited)
+  resolveSave(edited)
+  await tick()
+  assert.ok(actor.state.matches('ready.lifecycle.editing'))
+  assert.deepEqual(actor.state.context.baseline, edited)
+  assert.equal(lib.hasWorkflowChanges(actor.state.context), false)
+  assert.equal(notifications, 1)
+  assert.equal(editorNavigations, 0)
+  actor.stop()
+})
+
+test('failed save before leaving preserves the draft and can retry without navigating', async () => {
+  let attempts = 0
+  const edited = { ...wf(), description: '保留修改' }
+  const actor = await actorFor(wf(), {
+    saveWorkflowDefinition: async context => {
+      if (++attempts === 1) throw new Error('连接失败')
+      return structuredClone(context.workflow)
+    },
+  })
+  actor.send({ type: 'WORKFLOW_CHANGED', workflow: edited })
+  actor.send({ type: 'SAVE_BEFORE_LEAVE' })
+  await tick()
+  assert.ok(actor.state.matches('ready.lifecycle.editing'))
+  assert.deepEqual(actor.state.context.workflow, edited)
+  assert.deepEqual(actor.state.context.baseline, wf())
+  assert.ok(lib.hasWorkflowChanges(actor.state.context))
+  assert.equal(actor.state.context.serverProblems[0].message, '连接失败')
+  actor.send({ type: 'SAVE_BEFORE_LEAVE' })
+  assert.equal(actor.state.context.serverProblems.length, 0)
+  await tick()
+  assert.equal(attempts, 2)
+  assert.equal(lib.hasWorkflowChanges(actor.state.context), false)
+  actor.stop()
+})
+
+test('invalid workflow source and task drafts cannot be saved before leaving', async () => {
+  for (const draftKind of ['source', 'task']) {
+    let saves = 0
+    const actor = await actorFor(wf(), { saveWorkflowDefinition: async context => { saves++; return context.workflow } })
+    if (draftKind === 'source') actor.send({ type: 'SOURCE_CHANGED', source: '{unfinished' })
+    else {
+      const path = '/tasks/0/inputParameters/body'
+      actor.send({ type: 'FIELD_DRAFT_CHANGED', path, draft: { path, taskPath: '/tasks/0', taskReferenceName: 'a', value: '{unfinished', message: 'JSON 尚未完成' } })
+    }
+    actor.send({ type: 'SAVE_BEFORE_LEAVE' })
+    assert.ok(actor.state.matches('ready.lifecycle.editing'))
+    assert.ok(lib.hasWorkflowChanges(actor.state.context))
+    assert.equal(saves, 0)
+    assert.ok(actor.state.context.validationActor.getSnapshot().matches('expanded'))
+    actor.stop()
+  }
 })
 
 test('reset and new route clear all raw drafts and validation state', async () => {

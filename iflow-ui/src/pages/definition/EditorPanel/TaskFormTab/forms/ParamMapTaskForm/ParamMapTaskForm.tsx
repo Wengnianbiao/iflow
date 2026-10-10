@@ -244,7 +244,7 @@ export function ParamMapTaskForm({ task, variableOptions, onChange }: TaskFormPr
                 checked={payloadMode === 'expression'}
                 onChange={() => setPayloadMode('expression')}
               />
-              <span>表达式</span>
+              <span>JSON</span>
             </label>
             <label>
               <input
@@ -260,7 +260,7 @@ export function ParamMapTaskForm({ task, variableOptions, onChange }: TaskFormPr
         </div>
         {payloadMode === 'expression' ? (
           <label className="inspector-field">
-            <span>payload</span>
+            <span>表达式</span>
             <VariableExpressionInput
               value={typeof payload === 'string' ? payload : ''}
               options={variableOptions}

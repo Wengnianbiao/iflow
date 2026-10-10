@@ -61,6 +61,7 @@ export type WorkflowDefinitionMachineEvent =
   | { type: 'CLOSE_PANEL' }
   | { type: 'RESIZE_PANEL'; width: number }
   | { type: 'REQUEST_SAVE' }
+  | { type: 'SAVE_BEFORE_LEAVE' }
   | { type: 'CONFIRM_SAVE' }
   | { type: 'REQUEST_RESET' }
   | { type: 'CONFIRM_RESET' }
@@ -68,7 +69,6 @@ export type WorkflowDefinitionMachineEvent =
   | { type: 'UPDATE_DELETE_CONFIRMATION'; value: string }
   | { type: 'CONFIRM_DELETE' }
   | { type: 'REQUEST_VERSION_CHANGE'; version: VersionChoice }
-  | { type: 'CONFIRM_VERSION_CHANGE' }
   | { type: 'CANCEL_DIALOG' }
   | { type: 'CLEAR_ERROR' }
   | { type: 'FLOW_RENDERED'; revision: number }
