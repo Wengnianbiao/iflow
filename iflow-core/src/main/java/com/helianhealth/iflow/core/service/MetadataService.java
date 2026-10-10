@@ -35,6 +35,8 @@ public interface MetadataService {
 
     void updateWorkflowDef(WorkflowDef def);
 
+    WorkflowDef updateWorkflowTags(String route, int version, List<String> tags);
+
     WorkflowDef saveWorkflowDef(WorkflowDef def);
 
     /**

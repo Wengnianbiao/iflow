@@ -66,6 +66,9 @@ public interface MetadataDAO {
      */
     void updateWorkflowDef(WorkflowDef def);
 
+    /** 仅替换指定版本的标签，保留其余定义内容。 */
+    void updateWorkflowTags(String route, int version, List<String> tags);
+
     /**
      * 取指定版本的工作流定义。
      */

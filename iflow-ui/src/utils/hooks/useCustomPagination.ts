@@ -3,16 +3,30 @@ import { useSearchParams } from 'react-router-dom'
 
 const SEARCH_QUERY_PARAM = 'search'
 const PAGE_QUERY_PARAM = 'page'
+const TAG_QUERY_PARAM = 'tag'
 
 /**
- * Sync table search + page to the URL so refresh keeps them.
- * No filter/tags — iFlow does not use those.
+ * Sync table search, tags and page to the URL so refresh keeps them.
  */
 export function useCustomPagination() {
   const [searchParams, setSearchParams] = useSearchParams()
 
   const searchParam = searchParams.get(SEARCH_QUERY_PARAM) ?? ''
   const pageParam = searchParams.get(PAGE_QUERY_PARAM) ?? ''
+  const tagsParam = searchParams.getAll(TAG_QUERY_PARAM)
+
+  const setTagsParam = useCallback(
+    (tags: string[]) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete(TAG_QUERY_PARAM)
+        for (const tag of tags) next.append(TAG_QUERY_PARAM, tag)
+        next.delete(PAGE_QUERY_PARAM)
+        return next
+      }, { replace: true })
+    },
+    [setSearchParams],
+  )
 
   const setSearchParam = useCallback(
     (searchTerm: string) => {
@@ -50,10 +64,12 @@ export function useCustomPagination() {
     {
       pageParam,
       searchParam,
+      tagsParam,
     },
     {
       handlePageChange,
       setSearchParam,
+      setTagsParam,
     },
   ] as const
 }

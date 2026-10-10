@@ -6,6 +6,7 @@ export type QuickSearchProps = {
   autoFocusValue?: boolean
   createButton?: ReactNode
   description?: ReactNode
+  filters?: ReactNode
   onChange: (value: string) => void
   quickSearchLabel?: ReactNode
   quickSearchPlaceholder: string
@@ -18,6 +19,7 @@ export function QuickSearch({
   autoFocusValue = true,
   createButton,
   description,
+  filters,
   quickSearchLabel = '快速搜索',
   onChange,
   quickSearchPlaceholder,
@@ -27,18 +29,21 @@ export function QuickSearch({
   return (
     <Box sx={dataTableStyles.quickSearchRoot}>
       <Box sx={dataTableStyles.quickSearchRow}>
-        <Box sx={dataTableStyles.quickSearchField} {...searchModalContainerProps}>
-          <TextField
-            id="quick-search-field"
-            autoFocus={autoFocusValue}
-            fullWidth
-            label={quickSearchLabel}
-            placeholder={quickSearchPlaceholder}
-            slotProps={{ inputLabel: { shrink: true } }}
-            size="small"
-            value={searchTerm}
-            onChange={(event) => onChange(event.target.value)}
-          />
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: 'flex-start', gap: 2, minWidth: 0 }}>
+          <Box sx={{ ...dataTableStyles.quickSearchField, flex: 1, minWidth: 0 }} {...searchModalContainerProps}>
+            <TextField
+              id="quick-search-field"
+              autoFocus={autoFocusValue}
+              fullWidth
+              label={quickSearchLabel}
+              placeholder={quickSearchPlaceholder}
+              slotProps={{ inputLabel: { shrink: true } }}
+              size="small"
+              value={searchTerm}
+              onChange={(event) => onChange(event.target.value)}
+            />
+          </Box>
+          {filters}
         </Box>
 
         {createButton ? (

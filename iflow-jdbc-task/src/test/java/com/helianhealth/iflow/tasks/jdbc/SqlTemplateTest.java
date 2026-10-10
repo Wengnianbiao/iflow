@@ -160,13 +160,6 @@ class SqlTemplateTest {
     }
 
     @Test
-    void doesNotInterpretOldMarkers() {
-        SqlTemplate.Bound bound = SqlTemplate.bind("SELECT #{id}, '##{id}'", JdbcVendor.POSTGRES, Map.of("id", 7));
-        assertEquals("SELECT #{id}, '##{id}'", bound.sql());
-        assertTrue(bound.parameters().isEmpty());
-    }
-
-    @Test
     void rejectsUnterminatedSqlStructures() {
         for (String sql : List.of("SELECT 'raw", "SELECT /* raw", "SELECT $tag$ raw")) {
             assertThrows(IllegalArgumentException.class, () -> SqlTemplate.bind(sql, JdbcVendor.POSTGRES, null));

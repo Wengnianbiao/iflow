@@ -13,6 +13,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.Optional;
+import java.util.List;
 
 import com.helianhealth.iflow.common.exception.WorkFlowConfigException;
 import com.helianhealth.iflow.common.exception.WorkFlowErrorCode;
@@ -198,5 +199,34 @@ class MySqlMetadataDAOTest {
                 .version(1)
                 .description("演示工作流")
                 .build();
+    }
+
+    @Test
+    void tagUpdateChangesOnlyJsonTagsAndDoesNotRewriteTheWholeDefinition() throws Exception {
+        when(connection.prepareStatement(contains("SELECT COUNT"))).thenReturn(countStatement);
+        when(countStatement.executeQuery()).thenReturn(countResultSet);
+        when(countResultSet.next()).thenReturn(true);
+        when(countResultSet.getObject(1)).thenReturn(1);
+        when(connection.prepareStatement(contains("JSON_SET(json_data, '$.tags'"))).thenReturn(insertStatement);
+        when(insertStatement.executeUpdate()).thenReturn(1);
+
+        dao.updateWorkflowTags("HIS/query", 2, List.of(" HIS ", "门诊", "HIS", ""));
+
+        verify(insertStatement).setString(1, "[\"HIS\",\"门诊\"]");
+        verify(insertStatement).setString(2, "HIS/query");
+        verify(insertStatement).setInt(3, 2);
+        verify(connection, never()).prepareStatement(contains("latest_version"));
+        verify(connection).commit();
+    }
+
+    @Test
+    void missingVersionCannotBeCreatedThroughTagMaintenance() throws Exception {
+        when(connection.prepareStatement(contains("SELECT COUNT"))).thenReturn(countStatement);
+        when(countStatement.executeQuery()).thenReturn(countResultSet);
+        when(countResultSet.next()).thenReturn(true);
+        when(countResultSet.getObject(1)).thenReturn(0);
+        assertThrows(WorkFlowConfigException.class, () -> dao.updateWorkflowTags("missing", 1, List.of()));
+        verify(connection, never()).prepareStatement(startsWith("UPDATE"));
+        verify(connection).rollback();
     }
 }

@@ -1,5 +1,6 @@
 import axios from 'axios'
 import type { WorkflowDef, WorkflowTask } from '@/types/workflow'
+import { normalizeWorkflowTags } from '@/utils/workflowTags'
 
 const BASE = '/api/workflow/metadata'
 
@@ -12,7 +13,7 @@ interface ApiResult<T> {
 export function normalizeWorkflowDef(raw: WorkflowDef & { nodes?: WorkflowTask[] }): WorkflowDef {
   const tasks = raw.tasks?.length ? raw.tasks : (raw.nodes ?? [])
   const route = raw.route ?? ''
-  return { ...raw, route, tasks }
+  return { ...raw, route, tasks, tags: normalizeWorkflowTags(raw.tags) }
 }
 
 function unwrapResult<T>(payload: ApiResult<T>, fallbackMessage: string): T {
@@ -88,5 +89,16 @@ export async function listWorkflowVersions(route: string): Promise<number[]> {
     return unwrapResult(data, '加载工作流版本失败')
   } catch (error) {
     throw normalizeApiError(error, '加载工作流版本失败')
+  }
+}
+
+export async function updateWorkflowTags(route: string, version: number, tags: string[]): Promise<WorkflowDef> {
+  try {
+    const { data } = await axios.put<ApiResult<WorkflowDef>>(`${BASE}/tags`, normalizeWorkflowTags(tags), {
+      params: { route, version },
+    })
+    return normalizeWorkflowDef(unwrapResult(data, '保存标签失败'))
+  } catch (error) {
+    throw normalizeApiError(error, '保存标签失败')
   }
 }

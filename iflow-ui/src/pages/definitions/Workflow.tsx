@@ -2,12 +2,14 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Helmet } from 'react-helmet'
 import {
+  Autocomplete,
   Button,
   CircularProgress,
   IconButton,
   Menu,
   MenuItem,
   Stack,
+  TextField,
   Tooltip,
   Typography,
 } from '@mui/material'
@@ -15,11 +17,11 @@ import {
   CaretDownIcon,
   CopyIcon,
   FileArrowUpIcon,
-  PencilSimpleIcon,
   PlusIcon,
   SquaresFourIcon,
   TrashIcon,
   ArrowClockwiseIcon,
+  TagIcon,
 } from '@phosphor-icons/react'
 import type { UseQueryResult } from '@tanstack/react-query'
 import { SectionContainer } from '@/components/layout/SectionContainer'
@@ -31,13 +33,16 @@ import {
   type DataTableColumn,
 } from '@/components/ui/DataTable'
 import { NavLink } from '@/components/ui/NavLink'
+import { WorkflowTagChip } from '@/components/ui/WorkflowTagsInput'
 import type { WorkflowDef } from '@/types/workflow'
 import { useCustomPagination } from '@/utils/hooks/useCustomPagination'
 import { useWorkflowDefs } from '@/utils/query'
 import { normalizeWorkflowDraft, stageWorkflowDraft } from '@/utils/workflowDraft'
+import { collectWorkflowTags, filterWorkflowDefinitions, normalizeWorkflowTags } from '@/utils/workflowTags'
 import { CloneWorkflowDialog } from './dialog/CloneWorkflowDialog'
 import { DeleteWorkflowDialog } from './dialog/DeleteWorkflowDialog'
 import { WorkflowTemplateDialog } from './dialog/WorkflowTemplateDialog'
+import { EditWorkflowTagsDialog } from './dialog/EditWorkflowTagsDialog'
 import type { WorkflowTemplate } from './workflowTemplates'
 import styles from './Workflow.module.css'
 
@@ -65,8 +70,8 @@ export default function WorkflowDefinitions() {
   const { data, isFetching, error, refetch }: UseQueryResult<WorkflowDef[]> =
     useWorkflowDefs()
   const [
-    { pageParam, searchParam },
-    { handlePageChange, setSearchParam },
+    { pageParam, searchParam, tagsParam },
+    { handlePageChange, setSearchParam, setTagsParam },
   ] = useCustomPagination()
   const currentPage = pageParam ? Number(pageParam) || 1 : 1
 
@@ -87,16 +92,8 @@ export default function WorkflowDefinitions() {
     })
   }, [error, setMessage])
 
-  const filteredDefinitions = useMemo(() => {
-    const keyword = searchParam.trim().toLocaleLowerCase()
-    if (!keyword) return data ?? []
-
-    return (data ?? []).filter((definition) =>
-      [definition.route, definition.name, definition.description]
-        .filter((value): value is string => Boolean(value))
-        .some((value) => value.toLocaleLowerCase().includes(keyword)),
-    )
-  }, [data, searchParam])
+  const availableTags = useMemo(() => collectWorkflowTags(data ?? []), [data])
+  const filteredDefinitions = filterWorkflowDefinitions(data ?? [], searchParam, tagsParam)
 
   const openWorkflowDraft = (workflow: WorkflowDef) => {
     try {
@@ -180,6 +177,20 @@ export default function WorkflowDefinitions() {
         ),
       },
       {
+        title: '标签',
+        dataIndex: 'tags',
+        key: 'tags',
+        width: 200,
+        render: (_value, definition) => (
+          <div className={styles.tagList}>
+            {normalizeWorkflowTags(definition.tags).map((tag) => (
+              <WorkflowTagChip key={tag} label={tag} title={tag} />
+            ))}
+            {!definition.tags?.length ? '-' : null}
+          </div>
+        ),
+      },
+      {
         title: '创建时间',
         dataIndex: 'createTime',
         key: 'createTime',
@@ -208,6 +219,18 @@ export default function WorkflowDefinitions() {
         fixed: 'right',
         render: (_value, definition: WorkflowDef) => (
           <Stack direction="row" spacing={0.25}>
+            <Tooltip title="编辑标签">
+              <IconButton
+                size="small"
+                aria-label={`编辑 ${definition.route} 的标签`}
+                onClick={() => setSelectedWorkflowWithAction({
+                  selectedWorkflow: definition,
+                  action: 'tags',
+                })}
+              >
+                <TagIcon size={18} />
+              </IconButton>
+            </Tooltip>
             <Tooltip title="复制工作流定义">
               <IconButton
                 size="small"
@@ -220,19 +243,6 @@ export default function WorkflowDefinitions() {
                 }
               >
                 <CopyIcon size={18} />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="编辑工作流">
-              <IconButton
-                size="small"
-                aria-label={`编辑 ${definition.route}`}
-                onClick={() =>
-                  navigate(
-                    `/workflowDef/${encodeURIComponent(definition.route)}/${definition.version}`,
-                  )
-                }
-              >
-                <PencilSimpleIcon size={18} />
               </IconButton>
             </Tooltip>
             <Tooltip title="删除工作流">
@@ -254,7 +264,7 @@ export default function WorkflowDefinitions() {
         ),
       },
     ],
-    [navigate],
+    [],
   )
 
   return (
@@ -262,6 +272,21 @@ export default function WorkflowDefinitions() {
       <Helmet>
         <title>工作流配置</title>
       </Helmet>
+
+      {selectedWorkflowWithAction.selectedWorkflow && selectedWorkflowWithAction.action === 'tags' ? (
+        <EditWorkflowTagsDialog
+          key={`${selectedWorkflowWithAction.selectedWorkflow.route}-${selectedWorkflowWithAction.selectedWorkflow.version}`}
+          definition={selectedWorkflowWithAction.selectedWorkflow}
+          options={availableTags}
+          onClose={() => setSelectedWorkflowWithAction({ selectedWorkflow: null, action: '' })}
+          onSuccess={() => {
+            setSelectedWorkflowWithAction({ selectedWorkflow: null, action: '' })
+            handlePageChange(1)
+            void refetch()
+            setMessage({ severity: 'success', text: '工作流标签已保存' })
+          }}
+        />
+      ) : null}
 
       {selectedWorkflowWithAction &&
         selectedWorkflowWithAction?.selectedWorkflow &&
@@ -391,6 +416,36 @@ export default function WorkflowDefinitions() {
           quickSearchPlaceholder="搜索工作流配置"
           searchTerm={searchParam}
           onSearchTermChange={setSearchParam}
+          quickSearchFilters={
+            <Autocomplete
+              multiple
+              openOnFocus
+              forcePopupIcon={false}
+              disableCloseOnSelect
+              options={availableTags}
+              value={tagsParam}
+              onChange={(_event, tags) => setTagsParam(tags)}
+              noOptionsText="暂无标签"
+              className={styles.tagFilter}
+              renderOption={(props, tag) => {
+                const { key, ...rest } = props
+                return <li key={key} {...rest}><WorkflowTagChip label={tag} sx={{ cursor: 'pointer' }} /></li>
+              }}
+              renderTags={(tags, getTagProps) => tags.map((tag, index) => {
+                const { key, ...props } = getTagProps({ index })
+                return <WorkflowTagChip key={key} label={tag} {...props} />
+              })}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  size="small"
+                  label="标签筛选"
+                  placeholder={tagsParam.length ? undefined : '全部标签'}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                />
+              )}
+            />
+          }
           toolbar={
             <strong className={styles.resultCount}>
               {filteredDefinitions.length} 条结果
@@ -412,7 +467,7 @@ export default function WorkflowDefinitions() {
           dataSource={filteredDefinitions}
           loading={isFetching}
           rowKey={(definition) => `${definition.route}-${definition.version}`}
-          scroll={{ x: 970 }}
+          scroll={{ x: 1200 }}
           locale={{
             emptyText: <Typography color="text.secondary">没有匹配的工作流配置</Typography>,
           }}

@@ -61,7 +61,7 @@ public class MySqlMetadataDAO extends MySqlBaseDAO implements MetadataDAO {
         validate(def);
         withTransaction(
                 tx -> {
-                    if (workflowExists(tx, def)) {
+                    if (workflowExists(tx, def.getRoute(), def.getVersion())) {
                         throw new WorkFlowConfigException(
                                 WorkFlowErrorCode.REPOSITORY_SAVE_ERROR,
                                 "工作流定义已存在: " + def.key());
@@ -74,7 +74,7 @@ public class MySqlMetadataDAO extends MySqlBaseDAO implements MetadataDAO {
     public void updateWorkflowDef(WorkflowDef def) {
         validate(def);
         withTransaction(tx -> {
-            if (!workflowExists(tx, def)) {
+            if (!workflowExists(tx, def.getRoute(), def.getVersion())) {
                 throw new WorkFlowConfigException(
                         WorkFlowErrorCode.WORKFLOW_NOT_FOUND, "工作流定义不存在: " + def.key());
             }
@@ -101,6 +101,22 @@ public class MySqlMetadataDAO extends MySqlBaseDAO implements MetadataDAO {
                         q -> q.addParameter(route)
                                 .addParameter(version)
                                 .executeAndFetchFirst(WorkflowDef.class)));
+    }
+
+    @Override
+    public void updateWorkflowTags(String route, int version, List<String> tags) {
+        final String sql = "UPDATE meta_workflow_def "
+                + "SET json_data = JSON_SET(json_data, '$.tags', JSON_EXTRACT(?, '$')), "
+                + "modified_on = CURRENT_TIMESTAMP WHERE route = ? AND version = ?";
+        withTransaction(tx -> {
+            if (!workflowExists(tx, route, version)) {
+                throw new WorkFlowConfigException(
+                        WorkFlowErrorCode.WORKFLOW_NOT_FOUND,
+                        "工作流定义不存在: " + WorkflowDef.getKey(route, version));
+            }
+            execute(tx, sql, q -> q.addJsonParameter(WorkflowDef.normalizeTags(tags))
+                    .addParameter(route).addParameter(version).executeUpdate());
+        });
     }
 
     @Override
@@ -168,13 +184,13 @@ public class MySqlMetadataDAO extends MySqlBaseDAO implements MetadataDAO {
                 });
     }
 
-    private boolean workflowExists(Connection connection, WorkflowDef def) {
+    private boolean workflowExists(Connection connection, String route, int version) {
         final String sql =
                 "SELECT COUNT(*) FROM meta_workflow_def WHERE route = ? AND version = ?";
         return query(
                 connection,
                 sql,
-                q -> q.addParameter(def.getRoute()).addParameter(def.getVersion()).exists());
+                q -> q.addParameter(route).addParameter(version).exists());
     }
 
     private Optional<Integer> getLatestVersion(Connection tx, String route) {
@@ -231,6 +247,7 @@ public class MySqlMetadataDAO extends MySqlBaseDAO implements MetadataDAO {
                     WorkFlowErrorCode.REPOSITORY_SAVE_ERROR, "工作流名称 name 不能为空");
         }
         def.setName(def.getName().trim());
+        def.setTags(WorkflowDef.normalizeTags(def.getTags()));
         if (def.getVersion() <= 0) {
             throw new WorkFlowConfigException(
                     WorkFlowErrorCode.REPOSITORY_SAVE_ERROR,

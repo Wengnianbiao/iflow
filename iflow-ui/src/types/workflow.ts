@@ -23,6 +23,7 @@ export interface WorkflowDef {
   version: number
   description?: string | null
   createTime?: number | string
+  tags?: string[] | null
   updateTime?: number | string
   correlationExpression?: string | null
   inputParameters?: string[] | null

@@ -67,6 +67,12 @@ public class MetadataServiceImpl implements MetadataService {
     }
 
     @Override
+    public WorkflowDef updateWorkflowTags(String route, int version, List<String> tags) {
+        metadataDAO.updateWorkflowTags(route, version, WorkflowDef.normalizeTags(tags));
+        return getWorkflowDef(route, version);
+    }
+
+    @Override
     public WorkflowDef saveWorkflowDef(WorkflowDef def) {
         if (metadataDAO.getWorkflowDef(def.getRoute(), def.getVersion()).isPresent()) {
             metadataDAO.updateWorkflowDef(def);

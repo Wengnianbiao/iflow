@@ -1,4 +1,7 @@
 import type { WorkflowDef } from '@/types/workflow'
+import { WorkflowTagsInput } from '@/components/ui/WorkflowTagsInput'
+import { useWorkflowDefs } from '@/utils/query'
+import { collectWorkflowTags, normalizeWorkflowTags } from '@/utils/workflowTags'
 import { ValidationField } from '../validation/ValidationScope'
 import {
   ParameterRows,
@@ -17,6 +20,7 @@ export function WorkflowInspector({
   onChange: (workflow: WorkflowDef) => void
 }) {
   const inputParameters = workflow.inputParameters ?? []
+  const { data: definitions = [] } = useWorkflowDefs()
   const outputParameters = Object.entries(workflow.outputParameters ?? {})
 
   return (
@@ -30,7 +34,6 @@ export function WorkflowInspector({
           <ValidationField path="/route"><label className="inspector-field">
             <span>路由 <strong>*</strong></span>
             <input required value={workflow.route} onChange={(event) => onChange({ ...workflow, route: event.target.value })} placeholder="外部系统调用工作流唯一标识" />
-            <small>修改路由后保存，将创建新工作流。</small>
           </label></ValidationField>
           <label className="inspector-field full">
             <span>关键字表达式</span>

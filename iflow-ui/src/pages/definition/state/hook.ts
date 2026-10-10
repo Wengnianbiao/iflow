@@ -10,6 +10,7 @@ import {
 import { useMessageContext } from '@/components/providers/messageContext/MessageContext'
 import type { WorkflowDef } from '@/types/workflow'
 import { readWorkflowDraft } from '@/utils/workflowDraft'
+import { useInvalidateWorkflowDefs } from '@/utils/query'
 import { workflowDefinitionMachine } from './machine'
 import type {
   LoadedWorkflow,
@@ -29,6 +30,7 @@ function createWorkflow(attributes: WorkflowRouteAttributes): WorkflowDef {
     name: '',
     version: attributes.workflowVersion ?? 1,
     description: '',
+    tags: [],
     inputParameters: [],
     outputParameters: {},
     workflowStatusListenerEnabled: false,
@@ -65,6 +67,7 @@ async function loadWorkflow(attributes: WorkflowRouteAttributes): Promise<Loaded
 export function useWorkflowDefinition(attributes: WorkflowRouteAttributes) {
   const navigate = useNavigate()
   const { setMessage } = useMessageContext()
+  const invalidateWorkflowDefs = useInvalidateWorkflowDefs()
   const actor = useInterpret(workflowDefinitionMachine, {
     services: {
       loadWorkflowDefinition: (context) => loadWorkflow({
@@ -84,12 +87,14 @@ export function useWorkflowDefinition(attributes: WorkflowRouteAttributes) {
     },
     actions: {
       notifyWorkflowSaved: () => {
+        void invalidateWorkflowDefs()
         setMessage({ text: '工作流已保存', severity: 'success' })
       },
       notifyWorkflowReset: () => {
         setMessage({ text: '已恢复为上次保存的内容', severity: 'success' })
       },
       notifyWorkflowDeleted: () => {
+        void invalidateWorkflowDefs()
         setMessage({ text: '工作流版本已删除', severity: 'success' })
       },
       navigateToPendingVersion: (context: WorkflowDefinitionMachineContext) => {

@@ -5,6 +5,7 @@ import com.helianhealth.iflow.common.exception.WorkFlowConfigException;
 import com.helianhealth.iflow.common.exception.WorkFlowErrorCode;
 import com.helianhealth.iflow.core.service.MetadataService;
 import org.junit.jupiter.api.Test;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -38,6 +39,17 @@ class WorkflowDefinitionControllerTest {
         when(metadata.getWorkflowDef("missing", 1)).thenThrow(new WorkFlowConfigException(
                 WorkFlowErrorCode.WORKFLOW_NOT_FOUND, "工作流定义不存在"));
         assertThrows(WorkFlowConfigException.class, () -> controller.update("missing", 1, definition));
+        verify(metadata, never()).updateWorkflowDef(any());
+        verify(metadata, never()).registerWorkflowDef(any());
+    }
+
+    @Test
+    void tagMaintenanceTargetsOnlyTheSelectedVersion() {
+        WorkflowDef definition = WorkflowDef.builder().route("HIS/query").version(2)
+                .name("报告查询").tags(List.of("HIS", "门诊")).build();
+        when(metadata.updateWorkflowTags("HIS/query", 2, definition.getTags())).thenReturn(definition);
+        assertEquals(definition, controller.updateTags("HIS/query", 2, definition.getTags()).getData());
+        verify(metadata).updateWorkflowTags("HIS/query", 2, definition.getTags());
         verify(metadata, never()).updateWorkflowDef(any());
         verify(metadata, never()).registerWorkflowDef(any());
     }

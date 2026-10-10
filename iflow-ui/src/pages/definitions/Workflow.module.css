@@ -24,6 +24,19 @@
   color: var(--iflow-color-text);
   font-size: 14px;
   font-weight: 600;
+  white-space: nowrap;
+}
+
+.tagFilter {
+  width: 320px;
+  max-width: 100%;
+}
+
+.tagList {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .createWorkflowGroup {

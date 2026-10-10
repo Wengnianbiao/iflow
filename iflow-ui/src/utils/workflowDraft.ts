@@ -1,4 +1,5 @@
 import type { WorkflowDef, WorkflowTask } from '@/types/workflow'
+import { normalizeWorkflowTags } from '@/utils/workflowTags'
 
 const WORKFLOW_DRAFT_PREFIX = 'iflow:workflow-draft:'
 
@@ -26,6 +27,9 @@ export function normalizeWorkflowDraft(value: unknown): WorkflowDef {
   const name = typeof raw.name === 'string' ? raw.name.trim() : ''
   if (!route) throw new Error('工作流定义缺少 route 字段')
   if (!name) throw new Error('工作流定义缺少 name 字段')
+  if (raw.tags != null && (!Array.isArray(raw.tags) || raw.tags.some((tag) => typeof tag !== 'string'))) {
+    throw new Error('tags 必须是字符串数组')
+  }
 
   const rawTasks = Array.isArray(raw.tasks)
     ? raw.tasks
@@ -49,6 +53,7 @@ export function normalizeWorkflowDraft(value: unknown): WorkflowDef {
     ...definition,
     route,
     name,
+    tags: normalizeWorkflowTags(raw.tags as string[] | null | undefined),
     version,
     tasks: rawTasks as WorkflowTask[],
     inputParameters: Array.isArray(raw.inputParameters)

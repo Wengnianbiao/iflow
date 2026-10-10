@@ -1,5 +1,7 @@
 package com.helianhealth.iflow.common.domain.metadata.workflow;
 
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.Nulls;
 import com.helianhealth.iflow.common.domain.metadata.Auditable;
 import com.helianhealth.iflow.common.domain.metadata.task.TaskType;
 import lombok.AllArgsConstructor;
@@ -50,6 +52,24 @@ public class WorkflowDef extends Auditable {
      * 工作流描述
      */
     private String description;
+
+    /**
+     * 控制台分类标签，随定义 JSON 迁移，属于当前 route/version。
+     */
+    @Builder.Default
+    @JsonSetter(nulls = Nulls.AS_EMPTY)
+    private List<String> tags = new ArrayList<>();
+
+    public static List<String> normalizeTags(List<String> tags) {
+        if (tags == null) {
+            return new ArrayList<>();
+        }
+        return new ArrayList<>(tags.stream()
+                .filter(tag -> tag != null && !tag.isBlank())
+                .map(String::trim)
+                .distinct()
+                .toList());
+    }
 
     /**
      * 执行期限（秒）。{@code <= 0} 时继承系统默认值

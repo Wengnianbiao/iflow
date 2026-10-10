@@ -88,4 +88,12 @@ public class WorkflowDefinitionController {
         }
         return ResultData.ok(true);
     }
+
+    @PutMapping("/tags")
+    public ResultData<WorkflowDef> updateTags(
+            @RequestParam("route") String route,
+            @RequestParam("version") int version,
+            @RequestBody List<String> tags) {
+        return ResultData.ok(metadataService.updateWorkflowTags(route, version, tags));
+    }
 }

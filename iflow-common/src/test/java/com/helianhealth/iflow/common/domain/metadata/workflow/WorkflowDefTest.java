@@ -20,6 +20,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class WorkflowDefTest {
 
     @Test
+    void tagsTravelWithDefinitionJsonAndLegacyDefinitionsNeedNoMigration() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        WorkflowDef definition = WorkflowDef.builder().route("tagged").name("分类工作流")
+                .tags(List.of("HIS", "门诊")).build();
+        assertEquals(definition.getTags(), mapper.readValue(
+                mapper.writeValueAsString(definition), WorkflowDef.class).getTags());
+        assertTrue(mapper.readValue("{\"route\":\"legacy\"}", WorkflowDef.class).getTags().isEmpty());
+        assertTrue(mapper.readValue("{\"route\":\"legacy\",\"tags\":null}", WorkflowDef.class).getTags().isEmpty());
+        assertEquals(List.of("HIS", "门诊"), WorkflowDef.normalizeTags(
+                Arrays.asList(" HIS ", "", null, "HIS", "门诊", "  ")));
+    }
+
+    @Test
     void routeAndVersionIdentifyDefinitionsIndependentlyOfNames() throws Exception {
         WorkflowDef first = WorkflowDef.builder().route("GetItemResult").version(1).name("获取检验结果").build();
         WorkflowDef sameName = WorkflowDef.builder().route("OtherRoute").version(1).name("获取检验结果").build();

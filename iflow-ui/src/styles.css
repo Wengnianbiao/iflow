@@ -2914,6 +2914,11 @@ textarea {
   grid-column: 1 / -1;
 }
 
+.workflow-tags-field {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
 .inspector-field input,
 .inspector-field select,
 .inspector-field textarea {

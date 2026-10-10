@@ -21,6 +21,7 @@ const built = await esbuild.build({
     export { startWorkflow } from './src/api/workflowExecution';
     export { default as axios } from 'axios';
     export * from './src/utils/workflowDraft';
+    export * from './src/utils/workflowTags';
     export * from './src/pages/definitions/workflowTemplates';
     export * from './src/pages/runWorkflow/gatewayInput';
   `, resolveDir: root, sourcefile: 'workflow-definition-test.ts' },
@@ -510,7 +511,7 @@ test('export uses route/version for the filename and preserves business and task
   const originalDocument = globalThis.document
   const createObjectURL = URL.createObjectURL
   const revokeObjectURL = URL.revokeObjectURL
-  const workflow = wf([{ ...task('task_ref'), name: '任务名称不改动' }])
+  const workflow = { ...wf([{ ...task('task_ref'), name: '任务名称不改动' }]), tags: ['HIS', '门诊'] }
   let exportedBlob
   let clicked = false
   let revoked
@@ -528,11 +529,69 @@ test('export uses route/version for the filename and preserves business and task
     assert.deepEqual(exported, workflow)
     assert.equal(exported.displayName, undefined)
     assert.equal(lib.normalizeWorkflowDraft(exported).route, 'review')
+    assert.deepEqual(lib.normalizeWorkflowDraft(exported).tags, ['HIS', '门诊'])
   } finally {
     globalThis.document = originalDocument
     URL.createObjectURL = createObjectURL
     URL.revokeObjectURL = revokeObjectURL
   }
+})
+
+test('plain tags survive imports and normalize empty names and duplicates', () => {
+  const imported = lib.normalizeWorkflowDraft({ ...wf(), tags: [' HIS ', '', 'HIS', '门诊'] })
+  assert.deepEqual(imported.tags, ['HIS', '门诊'])
+  assert.deepEqual(lib.normalizeWorkflowDraft(wf()).tags, [])
+  assert.deepEqual(lib.normalizeWorkflowDraft({ ...wf(), tags: null }).tags, [])
+  assert.throws(() => lib.normalizeWorkflowDraft({ ...wf(), tags: ['HIS', 1] }), /字符串数组/)
+  assert.ok(lib.validateWorkflow({ ...wf(), tags: 'HIS' }).problems.some(problem => problem.path === '/tags'))
+  assert.ok(lib.validateWorkflow(imported).workflow)
+})
+
+test('tag options cover all definitions and keyword plus tag filtering compose', () => {
+  const definitions = [
+    { ...wf(), route: 'a', name: '报告查询', tags: ['HIS', '门诊'] },
+    { ...wf(), route: 'b', name: '检验查询', tags: ['LIS', '门诊', ' LIS '] },
+    { ...wf(), route: 'c', name: '无标签查询' },
+  ]
+  assert.deepEqual(new Set(lib.collectWorkflowTags(definitions)), new Set(['HIS', 'LIS', '门诊']))
+  assert.equal(lib.filterWorkflowDefinitions(definitions, '', []).length, 3)
+  assert.deepEqual(lib.filterWorkflowDefinitions(definitions, '', ['HIS']).map(def => def.route), ['a'])
+  assert.deepEqual(lib.filterWorkflowDefinitions(definitions, '', ['HIS', 'LIS']).map(def => def.route), ['a', 'b'])
+  assert.deepEqual(lib.filterWorkflowDefinitions(definitions, '检验', ['门诊']).map(def => def.route), ['b'])
+  assert.equal(lib.filterWorkflowDefinitions(definitions, '报告', ['LIS']).length, 0)
+  assert.equal(lib.filterWorkflowDefinitions(definitions, '', ['missing']).length, 0)
+})
+
+test('tags follow code edits, reset, and saves to another version', async () => {
+  const definition = { ...wf(), tags: ['HIS'] }
+  const actor = await actorFor(definition, {
+    saveWorkflowDefinition: async context => structuredClone(context.workflow),
+  })
+  const updated = { ...definition, tags: ['LIS', '门诊'], version: 2 }
+  actor.send({ type: 'SOURCE_CHANGED', source: JSON.stringify(updated, null, 2) })
+  assert.deepEqual(actor.state.context.workflow.tags, ['LIS', '门诊'])
+  actor.send({ type: 'REQUEST_RESET' })
+  actor.send({ type: 'CONFIRM_RESET' })
+  assert.deepEqual(actor.state.context.workflow.tags, ['HIS'])
+  actor.send({ type: 'WORKFLOW_CHANGED', workflow: updated })
+  actor.send({ type: 'REQUEST_SAVE' })
+  actor.send({ type: 'CONFIRM_SAVE' })
+  await tick()
+  assert.deepEqual(actor.state.context.baseline.tags, ['LIS', '门诊'])
+  actor.stop()
+})
+
+test('tag API sends just tags to the selected route and version', async () => {
+  let request
+  lib.axios.defaults.adapter = async config => {
+    request = config
+    return { data: { code: 200, data: { ...wf(), tags: ['HIS'] } }, status: 200, statusText: 'OK', headers: {}, config }
+  }
+  assert.deepEqual((await lib.updateWorkflowTags('HIS/query', 2, [' HIS ', 'HIS'])).tags, ['HIS'])
+  assert.equal(request.url, '/api/workflow/metadata/tags')
+  assert.equal(request.method, 'put')
+  assert.deepEqual(request.params, { route: 'HIS/query', version: 2 })
+  assert.deepEqual(JSON.parse(request.data), ['HIS'])
 })
 
 

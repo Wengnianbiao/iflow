@@ -55,6 +55,7 @@ export type DataTableProps<RecordType extends object> = {
   quickSearchEnabled?: boolean
   quickSearchPlaceholder?: string
   quickSearchLabel?: ReactNode
+  quickSearchFilters?: ReactNode
   searchTerm?: string
   onSearchTermChange?: (value: string) => void
   autoFocus?: boolean
@@ -96,6 +97,7 @@ export function DataTable<RecordType extends object>({
   quickSearchEnabled = false,
   quickSearchPlaceholder = '搜索',
   quickSearchLabel = '快速搜索',
+  quickSearchFilters,
   searchTerm = '',
   onSearchTermChange,
   autoFocus = true,
@@ -141,6 +143,7 @@ export function DataTable<RecordType extends object>({
           autoFocusValue={autoFocus}
           createButton={createButton}
           description={description}
+          filters={quickSearchFilters}
           quickSearchLabel={quickSearchLabel}
           quickSearchPlaceholder={quickSearchPlaceholder}
           searchTerm={searchTerm}

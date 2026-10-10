@@ -96,6 +96,7 @@ export function validateWorkflow(value: unknown): { workflow?: WorkflowDef; prob
   string(value, 'timeoutPolicy', '')
   if (!Number.isInteger(value.version) || Number(value.version) < 1) add('/version', 'VERSION', 'version 必须是大于 0 的整数')
   stringArray(value, 'inputParameters', '')
+  stringArray(value, 'tags', '')
   objectField(value, 'outputParameters', '')
   if (value.timeoutSeconds !== undefined && (typeof value.timeoutSeconds !== 'number' || value.timeoutSeconds < 0)) add('/timeoutSeconds', 'TIMEOUT', 'timeoutSeconds 必须是非负数字')
   walk(value.tasks, '/tasks')
