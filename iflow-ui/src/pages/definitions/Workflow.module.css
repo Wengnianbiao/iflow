@@ -27,11 +27,6 @@
   white-space: nowrap;
 }
 
-.tagFilter {
-  width: 320px;
-  max-width: 100%;
-}
-
 .tagList {
   display: flex;
   align-items: center;

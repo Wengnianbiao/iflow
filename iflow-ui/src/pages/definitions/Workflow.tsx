@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Helmet } from 'react-helmet'
 import {
-  Autocomplete,
   Button,
   CircularProgress,
   IconButton,
   Stack,
-  TextField,
   Tooltip,
   Typography,
 } from '@mui/material'
@@ -27,6 +25,7 @@ import {
 } from '@/components/ui/DataTable'
 import { NavLink } from '@/components/ui/NavLink'
 import { WorkflowTagChip } from '@/components/ui/WorkflowTagsInput'
+import { WorkflowTagFilter } from '@/components/ui/WorkflowTagFilter'
 import type { WorkflowDef } from '@/types/workflow'
 import { useCustomPagination } from '@/utils/hooks/useCustomPagination'
 import { useWorkflowDefs } from '@/utils/query'
@@ -274,52 +273,32 @@ export default function WorkflowDefinitions() {
           quickSearchPlaceholder="搜索工作流配置"
           searchTerm={searchParam}
           onSearchTermChange={setSearchParam}
-          quickSearchFilters={
-            <Autocomplete
-              multiple
-              openOnFocus
-              forcePopupIcon={false}
-              disableCloseOnSelect
-              options={availableTags}
-              value={tagsParam}
-              onChange={(_event, tags) => setTagsParam(tags)}
-              noOptionsText="暂无标签"
-              className={styles.tagFilter}
-              renderOption={(props, tag) => {
-                const { key, ...rest } = props
-                return <li key={key} {...rest}><WorkflowTagChip label={tag} sx={{ cursor: 'pointer' }} /></li>
-              }}
-              renderTags={(tags, getTagProps) => tags.map((tag, index) => {
-                const { key, ...props } = getTagProps({ index })
-                return <WorkflowTagChip key={key} label={tag} {...props} />
-              })}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  size="small"
-                  label="标签筛选"
-                  placeholder={tagsParam.length ? undefined : '全部标签'}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                />
-              )}
-            />
-          }
           toolbar={
             <strong className={styles.resultCount}>
               {filteredDefinitions.length} 条结果
             </strong>
           }
           customActions={
-            <Button
-              variant="text"
-              startIcon={isFetching
-                ? <CircularProgress color="inherit" size={16} />
-                : <ArrowClockwiseIcon size={17} />}
-              disabled={isFetching}
-              onClick={() => void refetch()}
-            >
-              刷新
-            </Button>
+            <>
+              <Button
+                size="small"
+                variant="text"
+                color="inherit"
+                sx={{ color: 'text.secondary', fontWeight: 400 }}
+                startIcon={isFetching
+                  ? <CircularProgress color="inherit" size={16} />
+                  : <ArrowClockwiseIcon size={17} />}
+                disabled={isFetching}
+                onClick={() => void refetch()}
+              >
+                刷新
+              </Button>
+              <WorkflowTagFilter
+                options={availableTags}
+                selectedTags={tagsParam}
+                onChange={setTagsParam}
+              />
+            </>
           }
           columns={columns}
           dataSource={filteredDefinitions}
