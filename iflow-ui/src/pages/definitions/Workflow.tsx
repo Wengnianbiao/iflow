@@ -1,24 +1,17 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
 import { Helmet } from 'react-helmet'
 import {
   Autocomplete,
   Button,
   CircularProgress,
   IconButton,
-  Menu,
-  MenuItem,
   Stack,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material'
 import {
-  CaretDownIcon,
   CopyIcon,
-  FileArrowUpIcon,
-  PlusIcon,
-  SquaresFourIcon,
   TrashIcon,
   ArrowClockwiseIcon,
   TagIcon,
@@ -37,36 +30,15 @@ import { WorkflowTagChip } from '@/components/ui/WorkflowTagsInput'
 import type { WorkflowDef } from '@/types/workflow'
 import { useCustomPagination } from '@/utils/hooks/useCustomPagination'
 import { useWorkflowDefs } from '@/utils/query'
-import { normalizeWorkflowDraft, stageWorkflowDraft } from '@/utils/workflowDraft'
 import { collectWorkflowTags, filterWorkflowDefinitions, normalizeWorkflowTags } from '@/utils/workflowTags'
 import { CloneWorkflowDialog } from './dialog/CloneWorkflowDialog'
 import { DeleteWorkflowDialog } from './dialog/DeleteWorkflowDialog'
-import { WorkflowTemplateDialog } from './dialog/WorkflowTemplateDialog'
 import { EditWorkflowTagsDialog } from './dialog/EditWorkflowTagsDialog'
-import type { WorkflowTemplate } from './workflowTemplates'
+import { WorkflowListActions } from './WorkflowListActions'
 import styles from './Workflow.module.css'
 
-function nextAvailableWorkflowRoute(route: string, definitions: WorkflowDef[]) {
-  const existingRoutes = new Set(definitions.map((definition) => definition.route))
-  if (!existingRoutes.has(route)) return route
-
-  let index = 2
-  while (existingRoutes.has(`${route}_${index}`)) index += 1
-  return `${route}_${index}`
-}
-
-function newWorkflowUrl(route: string, draftId?: string) {
-  const search = new URLSearchParams({ route, version: '1', new: 'true' })
-  if (draftId) search.set('draft', draftId)
-  return `/workflowDef/edit?${search.toString()}`
-}
-
 export default function WorkflowDefinitions() {
-  const navigate = useNavigate()
   const { setMessage } = useMessageContext()
-  const importInputRef = useRef<HTMLInputElement>(null)
-  const [templateDialogOpen, setTemplateDialogOpen] = useState(false)
-  const [createMenuAnchor, setCreateMenuAnchor] = useState<HTMLElement | null>(null)
   const { data, isFetching, error, refetch }: UseQueryResult<WorkflowDef[]> =
     useWorkflowDefs()
   const [
@@ -94,53 +66,6 @@ export default function WorkflowDefinitions() {
 
   const availableTags = useMemo(() => collectWorkflowTags(data ?? []), [data])
   const filteredDefinitions = filterWorkflowDefinitions(data ?? [], searchParam, tagsParam)
-
-  const openWorkflowDraft = (workflow: WorkflowDef) => {
-    try {
-      const draftId = stageWorkflowDraft(workflow)
-      navigate(newWorkflowUrl(workflow.route, draftId))
-    } catch {
-      setMessage({
-        severity: 'error',
-        text: '暂存工作流草稿失败，请检查浏览器存储权限后重试',
-      })
-    }
-  }
-
-  const handleImport = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    if (!file) return
-
-    if (file.size > 5 * 1024 * 1024) {
-      setMessage({ severity: 'error', text: '工作流文件不能超过 5 MB' })
-      return
-    }
-
-    try {
-      const imported = normalizeWorkflowDraft(JSON.parse(await file.text()))
-      const route = nextAvailableWorkflowRoute(imported.route, data ?? [])
-      openWorkflowDraft({
-        ...imported,
-        route,
-        version: 1,
-        name: route === imported.route
-          ? imported.name
-          : `${imported.name?.trim() || imported.route}（导入）`,
-      })
-    } catch (reason) {
-      setMessage({
-        severity: 'error',
-        text: reason instanceof Error ? reason.message : '解析工作流文件失败',
-      })
-    }
-  }
-
-  const handleTemplateSelect = (template: WorkflowTemplate) => {
-    const route = nextAvailableWorkflowRoute(template.route, data ?? [])
-    setTemplateDialogOpen(false)
-    openWorkflowDraft(template.create(route))
-  }
 
   const columns = useMemo<DataTableColumn<WorkflowDef>[]>(
     () => [
@@ -337,76 +262,9 @@ export default function WorkflowDefinitions() {
           />
         )}
 
-      <WorkflowTemplateDialog
-        open={templateDialogOpen}
-        onClose={() => setTemplateDialogOpen(false)}
-        onSelect={handleTemplateSelect}
-      />
-
-      <input
-        ref={importInputRef}
-        className={styles.hiddenFileInput}
-        type="file"
-        accept=".json,application/json"
-        aria-label="导入工作流 JSON 文件"
-        onChange={(event) => void handleImport(event)}
-      />
-
       <SectionHeader
         title="工作流配置"
-        actions={
-          <div className={styles.createWorkflowGroup}>
-            <Button
-              variant="contained"
-              startIcon={<PlusIcon size={17} />}
-              className={styles.createWorkflowButton}
-              onClick={() => navigate(newWorkflowUrl(
-                nextAvailableWorkflowRoute('new_workflow', data ?? []),
-              ))}
-            >
-              新建工作流
-            </Button>
-            <Button
-              variant="contained"
-              className={styles.createWorkflowMenuButton}
-              aria-label="更多新建工作流方式"
-              aria-controls={createMenuAnchor ? 'create-workflow-menu' : undefined}
-              aria-haspopup="true"
-              aria-expanded={createMenuAnchor ? 'true' : undefined}
-              onClick={(event) => setCreateMenuAnchor(event.currentTarget)}
-            >
-              <CaretDownIcon size={16} weight="bold" />
-            </Button>
-            <Menu
-              id="create-workflow-menu"
-              anchorEl={createMenuAnchor}
-              open={Boolean(createMenuAnchor)}
-              onClose={() => setCreateMenuAnchor(null)}
-              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-              slotProps={{ paper: { className: styles.createWorkflowMenu } }}
-            >
-              <MenuItem
-                onClick={() => {
-                  setCreateMenuAnchor(null)
-                  importInputRef.current?.click()
-                }}
-              >
-                <FileArrowUpIcon size={18} />
-                导入工作流
-              </MenuItem>
-              <MenuItem
-                onClick={() => {
-                  setCreateMenuAnchor(null)
-                  setTemplateDialogOpen(true)
-                }}
-              >
-                <SquaresFourIcon size={18} />
-                选择工作流模板
-              </MenuItem>
-            </Menu>
-          </div>
-        }
+        actions={<WorkflowListActions />}
       />
 
       <SectionContainer>

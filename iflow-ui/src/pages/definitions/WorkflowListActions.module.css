@@ -1,0 +1,46 @@
+.actionButton {
+  height: 36px;
+  padding-inline: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.createWorkflowGroup {
+  height: 36px;
+}
+
+.createWorkflowGroup :global(.MuiButtonGroup-grouped:not(:last-of-type)),
+.createWorkflowGroup :global(.MuiButtonGroup-grouped:not(:last-of-type):hover) {
+  border-right: 1px solid rgb(255 255 255 / 50%);
+}
+
+.createWorkflowGroup .createWorkflowMenuButton {
+  min-width: 28px;
+  width: 28px;
+  padding: 0;
+}
+
+.createWorkflowMenu {
+  min-width: 190px;
+  padding: 6px;
+  border: 1px solid var(--iflow-color-border);
+  border-radius: 6px;
+}
+
+.createWorkflowMenu :global(.MuiMenuItem-root) {
+  display: flex;
+  gap: 4px;
+  min-height: 40px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.hiddenFileInput {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
