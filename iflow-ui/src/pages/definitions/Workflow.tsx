@@ -39,7 +39,7 @@ import styles from './Workflow.module.css'
 export default function WorkflowDefinitions() {
   const { setMessage } = useMessageContext()
   const { data, isFetching, error, refetch }: UseQueryResult<WorkflowDef[]> =
-    useWorkflowDefs()
+    useWorkflowDefs({ refetchOnMount: 'always' })
   const [
     { pageParam, searchParam, tagsParam },
     { handlePageChange, setSearchParam, setTagsParam },
