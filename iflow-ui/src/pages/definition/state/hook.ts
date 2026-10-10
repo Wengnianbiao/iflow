@@ -17,6 +17,7 @@ import type {
   WorkflowDefinitionMachineContext,
   WorkflowRouteAttributes,
 } from './types'
+import { getWorkflowToSave } from './types'
 
 function editorUrl(route: string, version?: number) {
   const query = new URLSearchParams({ route })
@@ -76,9 +77,14 @@ export function useWorkflowDefinition(attributes: WorkflowRouteAttributes) {
         isNewWorkflow: context.isNewWorkflow,
         draftId: context.draftId,
       }),
-      saveWorkflowDefinition: (context) => {
+      loadVersionsForSave: (context) => {
         if (!context.workflow) throw new Error('没有可保存的工作流')
-        return saveWorkflowDefinition(context.workflow, context.isNewWorkflow ? undefined : context.baseline ?? undefined)
+        return listWorkflowVersions(context.workflow.route)
+      },
+      saveWorkflowDefinition: (context) => {
+        const workflow = getWorkflowToSave(context)
+        if (!workflow) throw new Error('没有可保存的工作流')
+        return saveWorkflowDefinition(workflow, context.isNewWorkflow ? undefined : context.baseline ?? undefined)
       },
       deleteWorkflowDefinition: (context) => {
         if (!context.baseline) throw new Error('没有可删除的工作流')

@@ -2099,6 +2099,27 @@ textarea {
   border-color: #174554;
 }
 
+.workflow-save-button-group {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.workflow-save-button-group.has-save-menu .save-action {
+  border-radius: 6px 0 0 6px;
+}
+
+.workflow-save-button-group.has-save-menu .save-menu-toggle {
+  width: 28px;
+  justify-content: center;
+  padding: 0;
+  border-left-color: rgba(255, 255, 255, 0.5);
+  border-radius: 0 6px 6px 0;
+}
+
+.workflow-save-button-group .save-menu-toggle:hover:not(:disabled) {
+  border-left-color: rgba(255, 255, 255, 0.5);
+}
+
 .version-headbar-select {
   position: relative;
   display: inline-flex;

@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSelector } from '@xstate/react'
 import { Link } from 'react-router-dom'
+import { Menu, MenuItem } from '@mui/material'
 import {
   ArrowClockwiseIcon,
   CaretDownIcon,
+  CaretCircleDownIcon,
   DownloadSimpleIcon,
   FloppyDiskIcon,
   TagIcon,
@@ -118,6 +120,7 @@ function VersionHeadBarSelect({
 }
 
 export function WorkflowMetaBar({ actor }: { actor: WorkflowDefinitionActor }) {
+  const [saveMenuAnchor, setSaveMenuAnchor] = useState<HTMLElement | null>(null)
   const state = useSelector(actor, (snapshot) => snapshot)
   const {
     workflow,
@@ -128,8 +131,10 @@ export function WorkflowMetaBar({ actor }: { actor: WorkflowDefinitionActor }) {
     error,
   } = state.context
   const dirty = hasWorkflowChanges(state.context)
-  const saving = state.matches('ready.lifecycle.saving') || state.matches('ready.lifecycle.savingBeforeLeave')
+  const preparingNewVersion = state.matches('ready.lifecycle.preparingNewVersion')
+  const saving = preparingNewVersion || state.matches('ready.lifecycle.saving') || state.matches('ready.lifecycle.savingBeforeLeave')
   const deleting = state.matches('ready.lifecycle.deleting')
+  const saveDisabled = !workflow || !dirty || !state.matches('ready.lifecycle.editing')
 
   return (
     <header className="workflow-editor-header">
@@ -181,15 +186,54 @@ export function WorkflowMetaBar({ actor }: { actor: WorkflowDefinitionActor }) {
           <DownloadSimpleIcon size={20} />
           下载
         </button>
-        <button
-          type="button"
-          className="save-action"
-          disabled={!workflow || !dirty || saving}
-          onClick={() => actor.send({ type: 'REQUEST_SAVE' })}
+        <div className={`workflow-save-button-group ${!isNewWorkflow ? 'has-save-menu' : ''}`}>
+          <button
+            type="button"
+            className="save-action"
+            disabled={saveDisabled}
+            onClick={() => actor.send({ type: 'REQUEST_SAVE' })}
+          >
+            <FloppyDiskIcon size={20} />
+            {preparingNewVersion ? '准备中...' : saving ? '保存中...' : '保存'}
+          </button>
+          {!isNewWorkflow ? <button
+            type="button"
+            className="save-action save-menu-toggle"
+            disabled={saveDisabled}
+            aria-label="更多保存选项"
+            aria-haspopup="menu"
+            aria-expanded={Boolean(saveMenuAnchor)}
+            aria-controls={saveMenuAnchor ? 'workflow-save-menu' : undefined}
+            onClick={(event) => setSaveMenuAnchor(event.currentTarget)}
+          >
+            <CaretCircleDownIcon size={18} />
+          </button> : null}
+        </div>
+        <Menu
+          id="workflow-save-menu"
+          anchorEl={saveMenuAnchor}
+          open={Boolean(saveMenuAnchor)}
+          onClose={() => setSaveMenuAnchor(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          slotProps={{ paper: { sx: {
+            minWidth: 156,
+            border: '1px solid #1976d2',
+            borderRadius: '6px',
+            boxShadow: '4px 4px 10px rgba(89, 89, 89, 0.41)',
+          } } }}
         >
-          <FloppyDiskIcon size={20} />
-          {saving ? '保存中...' : '保存'}
-        </button>
+          <MenuItem
+            disabled={saveDisabled}
+            sx={{ minHeight: 34, fontSize: 14, fontWeight: 500 }}
+            onClick={() => {
+              setSaveMenuAnchor(null)
+              actor.send({ type: 'REQUEST_SAVE', isNewVersion: true })
+            }}
+          >
+            保存为新版本
+          </MenuItem>
+        </Menu>
       </div>
 
       {error ? <div className="workflow-toast error">{error}</div> : null}

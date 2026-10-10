@@ -31,6 +31,7 @@ export type WorkflowDefinitionMachineContext = WorkflowRouteAttributes & {
   serverProblems: WorkflowProblem[]
   fieldDrafts: Record<string, FieldDraft>
   saveAttempted: boolean
+  saveVersion: number | null
   problemFocus: ProblemFocus | null
   versions: number[]
   selectedTaskRef?: string
@@ -60,7 +61,7 @@ export type WorkflowDefinitionMachineEvent =
   | { type: 'OPEN_PANEL' }
   | { type: 'CLOSE_PANEL' }
   | { type: 'RESIZE_PANEL'; width: number }
-  | { type: 'REQUEST_SAVE' }
+  | { type: 'REQUEST_SAVE'; isNewVersion?: boolean }
   | { type: 'SAVE_BEFORE_LEAVE' }
   | { type: 'CONFIRM_SAVE' }
   | { type: 'REQUEST_RESET' }
@@ -72,6 +73,10 @@ export type WorkflowDefinitionMachineEvent =
   | { type: 'CANCEL_DIALOG' }
   | { type: 'CLEAR_ERROR' }
   | { type: 'FLOW_RENDERED'; revision: number }
+
+export function getWorkflowToSave({ workflow, saveVersion }: Pick<WorkflowDefinitionMachineContext, 'workflow' | 'saveVersion'>) {
+  return workflow && saveVersion != null ? { ...workflow, version: saveVersion } : workflow
+}
 
 export function hasWorkflowChanges(context: WorkflowDefinitionMachineContext) {
   return Boolean(

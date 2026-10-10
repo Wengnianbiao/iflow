@@ -38,6 +38,7 @@ const initialContext: WorkflowDefinitionMachineContext = {
   serverProblems: [],
   fieldDrafts: {},
   saveAttempted: false,
+  saveVersion: null,
   problemFocus: null,
   versions: [],
   selectedTaskRef: undefined,
@@ -160,9 +161,14 @@ export const workflowDefinitionMachine = createMachine<
                 on: {
                   REQUEST_SAVE: [
                     {
+                      cond: 'canRequestNewVersion',
+                      target: 'preparingNewVersion',
+                      actions: ['clearSaveVersion', 'clearErrors'],
+                    },
+                    {
                       cond: 'canRequestSave',
                       target: 'confirmSave',
-                      actions: 'clearErrors',
+                      actions: ['clearSaveVersion', 'clearErrors'],
                     },
                     {
                       cond: 'hasBlockingProblems',
@@ -173,7 +179,7 @@ export const workflowDefinitionMachine = createMachine<
                     {
                       cond: 'canRequestSave',
                       target: 'savingBeforeLeave',
-                      actions: ['clearServerProblems', 'syncValidation'],
+                      actions: ['clearSaveVersion', 'clearServerProblems', 'syncValidation'],
                     },
                     {
                       cond: 'hasBlockingProblems',
@@ -200,13 +206,27 @@ export const workflowDefinitionMachine = createMachine<
                   ],
                 },
               },
+              preparingNewVersion: {
+                invoke: {
+                  id: 'loadVersionsForSave',
+                  src: 'loadVersionsForSave',
+                  onDone: {
+                    target: 'confirmSave',
+                    actions: 'assignNewSaveVersion',
+                  },
+                  onError: {
+                    target: 'editing',
+                    actions: ['assignSaveError', 'syncValidation', 'expandValidation'],
+                  },
+                },
+              },
               confirmSave: {
                 on: {
                   CONFIRM_SAVE: [
-                    { cond: 'hasBlockingProblems', target: 'editing', actions: ['rejectInvalidSave', 'syncDerivedActors', 'expandValidation'] },
+                    { cond: 'hasBlockingProblems', target: 'editing', actions: ['clearSaveVersion', 'rejectInvalidSave', 'syncDerivedActors', 'expandValidation'] },
                     { target: 'saving', actions: ['clearServerProblems', 'syncValidation'] },
                   ],
-                  CANCEL_DIALOG: 'editing',
+                  CANCEL_DIALOG: { target: 'editing', actions: 'clearSaveVersion' },
                 },
               },
               saving: {
@@ -397,6 +417,16 @@ export const workflowDefinitionMachine = createMachine<
         error: null,
         deleteError: null,
       }),
+      clearSaveVersion: assign({ saveVersion: null }),
+      assignNewSaveVersion: assign((context, event) => {
+        const versions = invokeData(event) as number[]
+        return {
+          saveVersion: Math.max(context.workflow?.version ?? 1, ...versions) + 1,
+          versions: context.baseline && context.workflow?.route === context.baseline.route
+            ? [...new Set([...versions, context.baseline.version])].sort((a, b) => a - b)
+            : context.versions,
+        }
+      }),
       assignSavedWorkflow: assign((context, event) => {
         const saved = invokeData(event) as WorkflowDef
         return {
@@ -413,6 +443,7 @@ export const workflowDefinitionMachine = createMachine<
           serverProblems: [],
           fieldDrafts: {},
           saveAttempted: false,
+          saveVersion: null,
           problemFocus: null,
         }
       }),
@@ -487,8 +518,13 @@ export const workflowDefinitionMachine = createMachine<
         return true
       },
       canEditSource: (context, _event, meta) => draftProblems(context).length === 0 && meta.state.matches('ready.lifecycle.editing'),
-      canRequestSave: (context) => Boolean(
+      canRequestNewVersion: (context, event) => Boolean(
+        event.type === 'REQUEST_SAVE' && event.isNewVersion && !context.isNewWorkflow
+          && hasWorkflowChanges(context) && blockingProblems(context).length === 0,
+      ),
+      canRequestSave: (context, event) => Boolean(
         hasWorkflowChanges(context)
+          && (event.type !== 'REQUEST_SAVE' || !event.isNewVersion)
           && blockingProblems(context).length === 0,
       ),
       canDelete: ({ baseline, isNewWorkflow }) => Boolean(baseline && !isNewWorkflow),
@@ -504,6 +540,9 @@ export const workflowDefinitionMachine = createMachine<
     services: {
       loadWorkflowDefinition: async () => {
         throw new Error('未配置工作流加载服务')
+      },
+      loadVersionsForSave: async () => {
+        throw new Error('未配置工作流版本加载服务')
       },
       saveWorkflowDefinition: async () => {
         throw new Error('未配置工作流保存服务')
