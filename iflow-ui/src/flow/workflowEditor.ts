@@ -17,13 +17,82 @@ function collectWorkflowTasks(tasks: WorkflowTask[] = []): WorkflowTask[] {
   ])
 }
 
-export function buildVariableOptions(workflow: WorkflowDef) {
-  const taskOutputs = collectWorkflowTasks(workflow.tasks)
+export function buildWorkflowInputOptions(workflow: WorkflowDef) {
+  return [...new Set([
+    '${workflow.input}',
+    ...(workflow.inputParameters ?? []).filter((key) => key.trim()).map((key) => (
+      /^[A-Za-z_$][\w$]*$/.test(key)
+        ? `\${workflow.input.${key}}`
+        : `\${workflow.input[${JSON.stringify(key)}]}`
+    )),
+  ])]
+}
+
+function completedTaskOutputs(task: WorkflowTask) {
+  // FORK only starts its branches; their outputs become available after JOIN.
+  return getTaskFlowKind(task.type) === 'fork' ? [task] : collectWorkflowTasks([task])
+}
+
+function tasksBefore(
+  tasks: WorkflowTask[],
+  target: WorkflowTask,
+  inherited: WorkflowTask[] = [],
+): WorkflowTask[] | undefined {
+  const available = [...inherited]
+  const pendingForkBranches: WorkflowTask[][] = []
+
+  for (const task of tasks) {
+    if (task === target) return available
+
+    const branches = [
+      ...Object.values(task.decisionCases ?? {}),
+      task.defaultCase ?? [],
+      ...(task.forkTasks ?? []),
+      task.loopOver ?? [],
+    ]
+    for (const branch of branches) {
+      // Each branch inherits its ancestors, never a sibling branch's outputs.
+      const found = tasksBefore(branch, target, [...available, task])
+      if (found) return found
+    }
+
+    const kind = getTaskFlowKind(task.type)
+    if (kind === 'fork') {
+      pendingForkBranches.push(...(task.forkTasks ?? []))
+      available.push(task)
+    } else if (kind === 'join') {
+      for (const reference of task.joinOn ?? []) {
+        for (const branch of pendingForkBranches) {
+          const joinedTask = findTask(branch, reference)
+          if (joinedTask) {
+            // A partial JOIN only exposes the prefix ending at its waited task.
+            available.push(...(tasksBefore(branch, joinedTask) ?? []), ...completedTaskOutputs(joinedTask))
+          }
+        }
+      }
+      available.push(task)
+    } else {
+      available.push(...completedTaskOutputs(task))
+    }
+    if (kind === 'terminal') break
+  }
+  return undefined
+}
+
+export function buildVariableOptions(workflow: WorkflowDef, selectedTask?: WorkflowTask) {
+  const availableTasks = selectedTask
+    ? tasksBefore(workflow.tasks, selectedTask) ?? []
+    : collectWorkflowTasks(workflow.tasks)
+  // DO_WHILE condition parameters are resolved again after its body completes.
+  const conditionTasks = selectedTask && getTaskFlowKind(selectedTask.type) === 'do_while'
+    ? collectWorkflowTasks(selectedTask.loopOver ?? [])
+    : []
+  const taskOutputs = [...availableTasks, ...conditionTasks]
     .filter((task) => Boolean(task.taskReferenceName))
     .flatMap(getTaskVariableOptions)
 
   return [...new Set([
-    '${workflow.input}',
+    ...buildWorkflowInputOptions(workflow),
     ...taskOutputs,
   ].filter(Boolean))]
 }

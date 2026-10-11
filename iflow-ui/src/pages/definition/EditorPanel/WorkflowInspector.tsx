@@ -1,4 +1,5 @@
 import type { WorkflowDef } from '@/types/workflow'
+import { buildWorkflowInputOptions } from '@/flow/workflowEditor'
 import { WorkflowTagsInput } from '@/components/ui/WorkflowTagsInput'
 import { useWorkflowDefs } from '@/utils/query'
 import { collectWorkflowTags, normalizeWorkflowTags } from '@/utils/workflowTags'
@@ -39,7 +40,7 @@ export function WorkflowInspector({
             <span>关键字表达式</span>
             <VariableExpressionInput
               value={workflow.correlationExpression ?? ''}
-              options={variableOptions}
+              options={buildWorkflowInputOptions(workflow)}
               onChange={(value) => onChange({ ...workflow, correlationExpression: value })}
             />
           </label>

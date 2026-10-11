@@ -60,16 +60,19 @@ export const workflowEditorMachine = createMachine<WorkflowEditorMachineContext,
     actions: {
       assignDerivedState: assign((context, event) => {
         if (event.type !== 'SYNC') return context
+        const selectedTask = event.selectedTaskPath
+          ? pointerValue(event.workflow, event.selectedTaskPath) as WorkflowTask | undefined
+          : event.selectedTaskRef !== undefined
+            ? findTask(event.workflow.tasks, event.selectedTaskRef)
+            : undefined
         return {
           ...context,
           workflow: event.workflow,
           selectedTaskRef: event.selectedTaskRef,
-          selectedTask: event.selectedTaskPath ? pointerValue(event.workflow, event.selectedTaskPath) as WorkflowTask | undefined : event.selectedTaskRef !== undefined
-            ? findTask(event.workflow.tasks, event.selectedTaskRef)
-            : undefined,
+          selectedTask,
           selectedTaskEditorKey: event.selectedTaskEditorKey,
           selectedTaskPath: event.selectedTaskPath,
-          variableOptions: buildVariableOptions(event.workflow),
+          variableOptions: buildVariableOptions(event.workflow, event.activeTab === 'task' ? selectedTask : undefined),
         }
       }),
       notifySelection: sendParent((_context, event) => event.type === 'SELECT_TASK'

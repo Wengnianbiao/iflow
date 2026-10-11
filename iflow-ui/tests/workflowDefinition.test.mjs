@@ -3,7 +3,8 @@ import { test } from 'node:test'
 import { createRequire, Module } from 'node:module'
 import { fileURLToPath } from 'node:url'
 
-const root = fileURLToPath(new URL('..', import.meta.url))
+// Keep alias and relative imports on the same task registry instance.
+const root = fileURLToPath(new URL('..', import.meta.url)).replace(/\/$/, '')
 const requireApp = createRequire(`${root}/package.json`)
 const esbuild = createRequire(requireApp.resolve('vite'))('esbuild')
 // Bundle the real actors/helpers without mounting the React task catalog.
@@ -40,6 +41,112 @@ lib.registerCoreTaskPlugins(['HTTP', 'INLINE', 'SWITCH', 'FORK_JOIN', 'JOIN', 'D
 })))
 const task = ref => ({ name: ref, taskReferenceName: ref, type: 'HTTP', inputParameters: { uri: 'https://example.test', method: 'GET' } })
 const wf = (tasks = [task('a')]) => ({ route: 'review', version: 1, name: '测试', description: '测试定义', tasks })
+
+test('startup expressions suggest only declared workflow inputs with valid field paths', () => {
+  const workflow = { ...wf([task('later')]), inputParameters: ['data', 'patientInfo', 'data', '', 'a.b', '患者'] }
+  assert.deepEqual(lib.buildWorkflowInputOptions(workflow), [
+    '${workflow.input}', '${workflow.input.data}', '${workflow.input.patientInfo}',
+    '${workflow.input["a.b"]}', '${workflow.input["患者"]}',
+  ])
+  assert.deepEqual(lib.buildWorkflowInputOptions({ ...workflow, inputParameters: null }), ['${workflow.input}'])
+})
+
+test('task expressions suggest preceding outputs and exclude current and future tasks', () => {
+  const workflow = wf([task('first'), task('current'), task('last')])
+  const original = structuredClone(workflow)
+  assert.deepEqual(lib.buildVariableOptions(workflow, workflow.tasks[0]), ['${workflow.input}'])
+  assert.deepEqual(lib.buildVariableOptions(workflow, workflow.tasks[1]), ['${workflow.input}', '${first.output}'])
+  assert.deepEqual(lib.buildVariableOptions(workflow, workflow.tasks[2]), ['${workflow.input}', '${first.output}', '${current.output}'])
+  assert.deepEqual(lib.buildVariableOptions(workflow), ['${workflow.input}', '${first.output}', '${current.output}', '${last.output}'])
+  assert.deepEqual(lib.buildVariableOptions(workflow, task('missing')), ['${workflow.input}'])
+  assert.deepEqual(workflow, original)
+})
+
+test('SWITCH branches inherit upstream outputs but cannot reference sibling or later branches', () => {
+  const a = [task('a1'), task('a2')]
+  const b = [task('b1')]
+  const fallback = [task('fallback')]
+  const sw = { ...task('sw'), type: 'SWITCH', decisionCases: { a, b }, defaultCase: fallback }
+  const after = task('after')
+  const workflow = wf([task('before'), sw, after])
+  assert.deepEqual(lib.buildVariableOptions(workflow, sw), ['${workflow.input}', '${before.output}'])
+  assert.deepEqual(lib.buildVariableOptions(workflow, a[1]), ['${workflow.input}', '${before.output}', '${sw.output}', '${a1.output}'])
+  assert.deepEqual(lib.buildVariableOptions(workflow, b[0]), ['${workflow.input}', '${before.output}', '${sw.output}'])
+  assert.deepEqual(lib.buildVariableOptions(workflow, fallback[0]), ['${workflow.input}', '${before.output}', '${sw.output}'])
+  // After SWITCH, the selected branch can supply output; unselected outputs resolve to null.
+  assert.deepEqual(lib.buildVariableOptions(workflow, after), [
+    '${workflow.input}', '${before.output}', '${sw.output}', '${a1.output}', '${a2.output}', '${b1.output}', '${fallback.output}',
+  ])
+})
+
+test('FORK branches stay isolated until JOIN and partial JOIN exposes only waited prefixes', () => {
+  const a = [task('a1'), task('a2')]
+  const b = [task('b1')]
+  const fork = { ...task('fork'), type: 'FORK_JOIN', forkTasks: [a, b] }
+  const between = task('between')
+  const partialJoin = { ...task('partial'), type: 'JOIN', joinOn: ['a1'] }
+  const afterPartial = task('afterPartial')
+  const join = { ...task('join'), type: 'JOIN', joinOn: ['a2', 'b1'] }
+  const after = task('after')
+  const workflow = wf([task('before'), fork, between, partialJoin, afterPartial, join, after])
+  assert.deepEqual(lib.buildVariableOptions(workflow, a[1]), ['${workflow.input}', '${before.output}', '${fork.output}', '${a1.output}'])
+  assert.deepEqual(lib.buildVariableOptions(workflow, b[0]), ['${workflow.input}', '${before.output}', '${fork.output}'])
+  assert.deepEqual(lib.buildVariableOptions(workflow, between), ['${workflow.input}', '${before.output}', '${fork.output}'])
+  assert.deepEqual(lib.buildVariableOptions(workflow, afterPartial), [
+    '${workflow.input}', '${before.output}', '${fork.output}', '${between.output}', '${a1.output}', '${partial.output}',
+  ])
+  assert.deepEqual(lib.buildVariableOptions(workflow, after), [
+    '${workflow.input}', '${before.output}', '${fork.output}', '${between.output}', '${a1.output}', '${partial.output}',
+    '${afterPartial.output}', '${a2.output}', '${b1.output}', '${join.output}',
+  ])
+})
+
+test('nested FORK and JOIN expose completed inner branches to their continuation', () => {
+  const innerA = task('innerA')
+  const innerB = task('innerB')
+  const innerFork = { ...task('innerFork'), type: 'FORK_JOIN', forkTasks: [[innerA], [innerB]] }
+  const innerJoin = { ...task('innerJoin'), type: 'JOIN', joinOn: ['innerA', 'innerB'] }
+  const tail = task('tail')
+  const outerOther = task('outerOther')
+  const outerFork = { ...task('outerFork'), type: 'FORK_JOIN', forkTasks: [[innerFork, innerJoin, tail], [outerOther]] }
+  const outerJoin = { ...task('outerJoin'), type: 'JOIN', joinOn: ['tail', 'outerOther'] }
+  const after = task('after')
+  const workflow = wf([outerFork, outerJoin, after])
+  assert.deepEqual(lib.buildVariableOptions(workflow, innerA), ['${workflow.input}', '${outerFork.output}', '${innerFork.output}'])
+  assert.deepEqual(lib.buildVariableOptions(workflow, tail), [
+    '${workflow.input}', '${outerFork.output}', '${innerFork.output}', '${innerA.output}', '${innerB.output}', '${innerJoin.output}',
+  ])
+  assert.deepEqual(lib.buildVariableOptions(workflow, after), [
+    '${workflow.input}', '${outerFork.output}', '${innerFork.output}', '${innerA.output}', '${innerB.output}', '${innerJoin.output}',
+    '${tail.output}', '${outerOther.output}', '${outerJoin.output}',
+  ])
+})
+
+test('DO_WHILE condition parameters can reference its body without exposing future outputs to body tasks', () => {
+  const body = [task('body1'), task('body2')]
+  const loop = { ...task('loop'), type: 'DO_WHILE', loopOver: body }
+  const after = task('after')
+  const workflow = wf([task('before'), loop, after])
+  assert.deepEqual(lib.buildVariableOptions(workflow, body[0]), ['${workflow.input}', '${before.output}', '${loop.output}'])
+  assert.deepEqual(lib.buildVariableOptions(workflow, body[1]), ['${workflow.input}', '${before.output}', '${loop.output}', '${body1.output}'])
+  assert.deepEqual(lib.buildVariableOptions(workflow, loop), ['${workflow.input}', '${before.output}', '${body1.output}', '${body2.output}'])
+  assert.deepEqual(lib.buildVariableOptions(workflow, after), ['${workflow.input}', '${before.output}', '${loop.output}', '${body1.output}', '${body2.output}'])
+})
+
+test('editor suggestions follow selection, topology edits and workflow output scope', async () => {
+  const workflow = wf([task('a'), task('b'), task('c')])
+  const actor = await actorFor(workflow)
+  const options = () => actor.state.context.editorActor.getSnapshot().context.variableOptions
+  actor.send({ type: 'TASK_SELECTED', task: workflow.tasks[0] })
+  assert.deepEqual(options(), ['${workflow.input}'])
+  actor.send({ type: 'TASK_SELECTED', task: workflow.tasks[2] })
+  assert.deepEqual(options(), ['${workflow.input}', '${a.output}', '${b.output}'])
+  actor.send({ type: 'WORKFLOW_CHANGED', workflow: wf([workflow.tasks[2], workflow.tasks[0], workflow.tasks[1]]) })
+  assert.deepEqual(options(), ['${workflow.input}'])
+  actor.send({ type: 'CHANGE_TAB', tab: 'workflow' })
+  assert.deepEqual(options(), ['${workflow.input}', '${c.output}', '${a.output}', '${b.output}'])
+  actor.stop()
+})
 const backendTaskDefaults = {
   decisionCases: {}, defaultCase: null, forkTasks: [], joinOn: [], defaultExclusiveJoinTask: [],
   evaluatorType: null, expression: null, optional: false, permissive: false,

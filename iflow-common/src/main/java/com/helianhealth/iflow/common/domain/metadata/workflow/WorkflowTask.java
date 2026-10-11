@@ -85,7 +85,7 @@ public class WorkflowTask {
     private List<String> defaultExclusiveJoinTask = new LinkedList<>();
 
     /**
-     * SWITCH / 脚本类任务的求值器类型（如 graaljs、spel）
+     * SWITCH / 脚本类任务的求值器类型
      */
     private String evaluatorType;
 
