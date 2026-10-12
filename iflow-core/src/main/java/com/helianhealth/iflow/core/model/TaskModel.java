@@ -209,7 +209,7 @@ public class TaskModel {
     private int iteration;
 
     /**
-     * 是否循环体任务（iteration &gt; 0 表示 DO_WHILE 迭代内任务）。
+     * 是否循环体任务（iteration > 0 表示 DO_WHILE 迭代内任务）。
      */
     public boolean isLoopOverTask() {
         return iteration > 0;

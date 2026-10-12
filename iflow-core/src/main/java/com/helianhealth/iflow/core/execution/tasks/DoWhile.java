@@ -98,12 +98,6 @@ public class DoWhile extends WorkflowSystemTask {
     @Override
     public void execute(
             WorkflowModel workflow, TaskModel doWhileTaskModel, WorkflowExecutor workflowExecutor) {
-        try {
-            validateDefinition(doWhileTaskModel.getWorkflowTask());
-        } catch (IllegalArgumentException error) {
-            markTaskFailure(doWhileTaskModel, TaskModel.Status.FAILED_WITH_TERMINAL_ERROR, error.getMessage());
-            return;
-        }
 
         boolean hasFailures = false;
         StringBuilder failureReason = new StringBuilder();

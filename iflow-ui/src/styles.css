@@ -4344,6 +4344,10 @@ textarea {
   gap: 18px;
 }
 
+.do-while-strategy-options {
+  margin-bottom: 18px;
+}
+
 .switch-evaluator-options label,
 .do-while-strategy-options label {
   display: inline-flex;
