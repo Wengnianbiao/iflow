@@ -26,7 +26,7 @@ import java.util.regex.Pattern;
 /**
  * 循环任务。
  *
- * <p>首次执行先调度第 1 轮循环体；每一轮循环体全部结束后求值
+ * <p>首次执行先调度第 1 轮循环体首任务，后续任务由 Decider 推进；每一轮循环体全部结束后求值
  * {@link WorkflowTask#getLoopCondition()}。配置 loopItems 时遍历进入时确定的数组快照，
  * 两种配置互斥，空数组执行零轮：
  * <ul>

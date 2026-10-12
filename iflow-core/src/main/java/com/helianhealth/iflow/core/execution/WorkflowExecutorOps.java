@@ -151,8 +151,6 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
             }
 
             List<TaskModel> tasksToBeScheduled = outcome.tasksToBeScheduled;
-            registerTasks(workflow, tasksToBeScheduled);
-
             scheduleTask(workflow, tasksToBeScheduled);
 
             if (!outcome.tasksToBeUpdated.isEmpty() || !tasksToBeScheduled.isEmpty()) {
@@ -171,28 +169,43 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
             return;
         }
 
+        // 只创建新增任务；已有 JOIN/DO_WHILE 仍需派发以继续评估。
+        List<TaskModel> newTasks = dedupAndAddTasks(workflow, tasks);
+        int count = workflow.getTasks().stream().mapToInt(TaskModel::getSeq).max().orElse(0);
+        long now = System.currentTimeMillis();
+        for (TaskModel task : newTasks) {
+            if (task.getSeq() == 0) {
+                task.setSeq(++count);
+            }
+            if (task.getFirstScheduledTime() == 0) {
+                task.setFirstScheduledTime(now);
+            }
+            if (task.getScheduledTime() == 0) {
+                task.setScheduledTime(now);
+            }
+        }
+        if (executionDAOFacade != null && !newTasks.isEmpty()) {
+            executionDAOFacade.createTasks(newTasks);
+        }
+
         taskScheduler.schedule(workflow, tasks, this);
     }
 
     @Override
     public void scheduleNextIteration(TaskModel loopTask, WorkflowModel workflow) {
-        // FORK 分支中的循环可能同时启动下一轮，首任务去重与 seq 分配一起完成。
-        synchronized (workflow) {
-            WorkflowTask firstLoopTask = loopTask.getWorkflowTask().getLoopOver().get(0);
-            List<TaskModel> iterationTasks = deciderService.getTasksToBeScheduled(
-                    workflow,
-                    firstLoopTask,
-                    loopTask.getRetryCount(),
-                    null,
-                    loopTask.getForkTaskId());
-            iterationTasks.forEach(task -> {
-                task.setReferenceTaskName(TaskUtils.appendIteration(
-                        task.getReferenceTaskName(), loopTask.getIteration()));
-                task.setIteration(loopTask.getIteration());
-            });
-            registerTasks(workflow, iterationTasks);
-        }
-        // 主循环统一派发，避免分支线程递归提交同一线程池并等待，也避免重入 Decider。
+        // 只启动循环体首任务，后续任务由 Decider 按完成状态继续推进。
+        List<TaskModel> iterationTasks = deciderService.getTasksToBeScheduled(
+                workflow,
+                loopTask.getWorkflowTask().getLoopOver().get(0),
+                loopTask.getRetryCount(),
+                null,
+                loopTask.getForkTaskId());
+        iterationTasks.forEach(task -> {
+            task.setReferenceTaskName(TaskUtils.appendIteration(
+                    task.getReferenceTaskName(), loopTask.getIteration()));
+            task.setIteration(loopTask.getIteration());
+        });
+        scheduleTask(workflow, iterationTasks);
     }
 
     private void persistTerminatedWorkflow(
@@ -316,37 +329,6 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
         updateWorkflow(workflow);
     }
 
-    /**
-     * 登记新任务并持久化。传入列表也可能包含已经存在但需要再次评估的 JOIN/DO_WHILE，
-     * 因而“创建去重”和“派发去重”必须分开处理。
-     */
-    private List<TaskModel> registerTasks(
-            WorkflowModel workflow, List<TaskModel> tasksToBeScheduled) {
-        if (tasksToBeScheduled == null || tasksToBeScheduled.isEmpty()) {
-            return List.of();
-        }
-
-        List<TaskModel> newTasks = dedupAndAddTasks(workflow, tasksToBeScheduled);
-        int count = workflow.getTasks().stream().mapToInt(TaskModel::getSeq).max().orElse(0);
-        long now = System.currentTimeMillis();
-        for (TaskModel task : newTasks) {
-            if (task.getSeq() == 0) {
-                task.setSeq(++count);
-            }
-            if (task.getFirstScheduledTime() == 0) {
-                task.setFirstScheduledTime(now);
-            }
-            if (task.getScheduledTime() == 0) {
-                task.setScheduledTime(now);
-            }
-        }
-
-        if (executionDAOFacade != null && !newTasks.isEmpty()) {
-            executionDAOFacade.createTasks(newTasks);
-        }
-        return newTasks;
-    }
-
     List<TaskModel> dedupAndAddTasks(WorkflowModel workflow, List<TaskModel> tasks) {
         if (tasks == null || tasks.isEmpty()) {
             return List.of();
@@ -361,7 +343,7 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
                 tasks.stream()
                         .filter(
                                 task ->
-                                        !tasksInWorkflow.contains(
+                                        tasksInWorkflow.add(
                                                 task.getReferenceTaskName()
                                                         + "_"
                                                         + task.getRetryCount()))

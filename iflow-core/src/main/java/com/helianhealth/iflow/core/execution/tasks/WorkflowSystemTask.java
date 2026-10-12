@@ -7,7 +7,8 @@ import com.helianhealth.iflow.core.model.WorkflowModel;
 /**
  * 系统任务基类
  *
- * <p>任务由 Decider 产出、Scheduler 调度：根执行域使用工作流调用线程，FORK 分支使用专用线程池。
+ * <p>任务由 Decider 产出、Scheduler 调度：控制节点和根执行域任务使用工作流调用线程，
+ * FORK 分支业务任务使用专用线程池。
  * 任务本身不选择执行线程，也不直接触发下一轮 Decider。
  */
 public abstract class WorkflowSystemTask {

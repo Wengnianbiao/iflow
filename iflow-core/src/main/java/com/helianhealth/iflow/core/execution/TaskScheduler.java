@@ -8,8 +8,8 @@ import java.util.List;
 /**
  * 工作流任务调度。
  *
- * <p>Scheduler 只执行 Decider 已经选出的本轮任务，不解释或推进 DAG。根执行域任务在调用主线程串行执行，
- * FORK 分支任务按批次提交到分支线程池；本方法返回时，本轮任务均已执行完毕。
+ * <p>Scheduler 执行本轮任务，不解释 DAG。控制节点和根执行域任务在工作流调用线程执行，
+ * FORK 分支业务任务按批次提交到分支线程池；本方法返回时，本轮任务均已执行完毕。
  */
 public interface TaskScheduler {
 

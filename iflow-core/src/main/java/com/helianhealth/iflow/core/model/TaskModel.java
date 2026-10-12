@@ -195,10 +195,11 @@ public class TaskModel {
     private String parentTaskId;
 
     /**
-     * 当前所在的最内层 FORK 运行时任务 ID；为空表示根执行域，应由工作流调用线程执行。
+     * 当前所在的最内层 FORK 运行时任务 ID；为空表示根执行域。
      *
      * <p>嵌套 FORK 的控制节点自身保留外层 execution scope，子分支切换到新的 forkTaskId，
      * 对应 JOIN 再恢复控制节点原有 scope。
+     * 业务任务在分支线程池执行，控制节点仍由工作流调用线程推进。
      */
     private String forkTaskId;
 

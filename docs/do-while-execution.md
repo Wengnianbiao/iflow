@@ -2,7 +2,7 @@
 
 DO_WHILE 共用 `loopOver` 循环体，提供两种互斥配置：顶层 `loopItems` 数组表达式，或 `loopCondition` JS 继续条件。必须且只能配置一个，选用字段不能留空。编辑器的“遍历数组 / JS 条件循环”选择不保存为额外字段。
 
-每一轮由 DO_WHILE 主动调用 Executor 的 `scheduleNextIteration` 启动。Executor 创建、登记并持久化该轮首任务，Decider 推进后续任务，同步主循环统一派发。线性任务在调用线程执行；FORK 分支在分支线程池执行，等待分支与 JOIN 完成后再继续。
+每一轮由 DO_WHILE 调用 Executor 的 `scheduleNextIteration` 创建并直接调度循环体首任务，后续任务由 Decider 按完成状态推进。`scheduleTask` 在调用线程统一登记、分配序号并持久化新增任务，然后执行。DO_WHILE、FORK、JOIN 等控制节点始终由调用线程推进；只有 FORK 分支的业务任务在线程池中并发执行，等待本批任务返回后继续。循环首节点是 FORK_JOIN 时沿用这一规则，等待循环体与 JOIN 完成后才判断是否继续下一轮。
 
 ## 遍历数组
 

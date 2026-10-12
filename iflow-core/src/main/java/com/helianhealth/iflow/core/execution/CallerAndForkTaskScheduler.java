@@ -21,7 +21,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 
 /**
- * 同步工作流默认任务调度器：根执行域使用当前调用线程，FORK 分支使用专用线程池。
+ * 同步工作流默认任务调度器：控制节点和线性任务由调用线程推进，FORK 分支业务任务并行执行。
  */
 @Component
 public class CallerAndForkTaskScheduler implements TaskScheduler {
