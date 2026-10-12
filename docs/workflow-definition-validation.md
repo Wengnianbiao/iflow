@@ -2,7 +2,7 @@
 
 画布、配置表单、源码共用 `workflowDefinitionMachine` 中的定义和校验结果。底部错误栏由持续存活的 `workflowValidationMachine` 管理，布局参考本仓库 Conductor 的 ErrorInspector。
 
-可选引用类型字段允许 `null`，按未配置处理，校验和无关字段编辑保留原值。iFlow 后端的任务字段 `defaultCase`、`evaluatorType`、`expression`、`loopCondition`、`items` 默认就是 `null`，并非结构错误；`decisionCases` 默认 `{}`，`forkTasks`、`joinOn`、`defaultExclusiveJoinTask`、`loopOver` 默认 `[]`。任务专属必填配置仍按类型检查，例如 INLINE 使用 `inputParameters.expression`，SWITCH 使用顶层 `expression`。必填标识为空、任务列表中的 `null` 元素或已配置字段的错误类型仍会报错。
+可选引用类型字段允许 `null`，按未配置处理，校验和无关字段编辑保留原值。iFlow 后端的任务字段 `defaultCase`、`evaluatorType`、`expression`、`loopCondition`、`loopItems` 默认就是 `null`，并非结构错误；`decisionCases` 默认 `{}`，`forkTasks`、`joinOn`、`defaultExclusiveJoinTask`、`loopOver` 默认 `[]`。任务专属必填配置仍按类型检查，例如 INLINE 使用 `inputParameters.expression`，SWITCH 使用顶层 `expression`。必填标识为空、任务列表中的 `null` 元素或已配置字段的错误类型仍会报错。
 
 ## 编辑与保存
 
@@ -38,3 +38,5 @@ registerTaskPlugin({
 校验只检查编辑时能确定的问题，不执行 Java、JS、SQL 或远程请求，也不判定 `${...}` 的运行时值。后端和 task 执行器仍负责最终的运行时校验。后端元数据保存接口检查路由格式、名称非空以及版本为正整数；更新接口要求目标路由和版本与请求体一致，并只更新已有定义。
 
 验证命令：`pnpm test:definition`，以及 `node --experimental-strip-types --test tests/*.test.mjs`。
+
+DO_WHILE 的 `loopItems` 和 `loopCondition` 严格互斥：数组来源只能是完整的 `${...}` 表达式，JS 条件固定由 GraalJS 计算；两者都缺失、都配置、选用字段为空或循环体为空均不能保存。`inputParameters.loopItems` 为数组快照保留键。运行时要求数组来源非 null 且为集合或数组。

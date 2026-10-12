@@ -2,6 +2,7 @@ import { useSelector } from '@xstate/react'
 import { useEffect, useRef } from 'react'
 import { CaretDoubleRightIcon } from '@phosphor-icons/react'
 import { getTaskPlugin } from '@/tasks'
+import { buildVariableOptions } from '@/flow/workflowEditor'
 import type { ActorRefFrom } from 'xstate'
 import { CodeInspector } from './CodeInspector'
 import { TaskInspector } from './TaskInspector'
@@ -28,6 +29,7 @@ function DerivedEditorContent({
   const context = definitionState.context
   const contentRef = useRef<HTMLDivElement>(null)
   const { workflow, selectedTask, selectedTaskEditorKey, variableOptions } = state.context
+  const inputVariableOptions = workflow && selectedTask ? buildVariableOptions(workflow, selectedTask, false) : variableOptions
   const activeTab = state.matches('task') ? 'task' : state.matches('code') ? 'code' : 'workflow'
   const taskPath = state.context.selectedTaskPath ?? ''
   const editable = definitionState.matches('ready.lifecycle.editing')
@@ -43,7 +45,7 @@ function DerivedEditorContent({
       const field = fields.filter((item) => focus.problem.path === item.dataset.fieldPath || focus.problem.path.startsWith(`${item.dataset.fieldPath}/`)).sort((a, b) => (b.dataset.fieldPath?.length ?? 0) - (a.dataset.fieldPath?.length ?? 0))[0]
       if (field) {
         field.scrollIntoView({ block: 'center' })
-        field.querySelector<HTMLElement>('input, textarea, select, [tabindex="0"]')?.focus()
+        field.querySelector<HTMLElement>('input, textarea, select, button[role="combobox"], [tabindex="0"]')?.focus()
       } else if (focus.problem.source !== 'draft') {
         definitionActor.send({ type: 'FOCUS_PROBLEM', problem: focus.problem, tab: 'code' })
       }
@@ -107,6 +109,7 @@ function DerivedEditorContent({
                 key={selectedTaskEditorKey}
                 task={selectedTask}
                 variableOptions={variableOptions}
+                inputVariableOptions={inputVariableOptions}
                 onChange={(task) => actor.send({ type: 'TASK_UPDATED', task })}
               />
             ) : (
@@ -115,6 +118,7 @@ function DerivedEditorContent({
                   key={selectedTaskEditorKey}
                   task={selectedTask}
                   variableOptions={variableOptions}
+                  inputVariableOptions={inputVariableOptions}
                   onChange={(task) => actor.send({ type: 'TASK_UPDATED', task })}
                 />
               </div>

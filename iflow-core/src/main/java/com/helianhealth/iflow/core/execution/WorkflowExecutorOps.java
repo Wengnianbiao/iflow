@@ -1,6 +1,7 @@
 package com.helianhealth.iflow.core.execution;
 
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
+import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 import com.helianhealth.iflow.common.exception.WorkFlowErrorCode;
 import com.helianhealth.iflow.common.exception.WorkFlowException;
 import com.helianhealth.iflow.core.dal.ExecutionDAOFacade;
@@ -15,6 +16,7 @@ import com.helianhealth.iflow.core.model.WorkflowModel;
 import com.helianhealth.iflow.core.service.MetadataService;
 import com.helianhealth.iflow.core.utils.IDGenerator;
 import com.helianhealth.iflow.core.utils.ParametersUtils;
+import com.helianhealth.iflow.core.utils.TaskUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -170,6 +172,27 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
         }
 
         taskScheduler.schedule(workflow, tasks, this);
+    }
+
+    @Override
+    public void scheduleNextIteration(TaskModel loopTask, WorkflowModel workflow) {
+        // FORK 分支中的循环可能同时启动下一轮，首任务去重与 seq 分配一起完成。
+        synchronized (workflow) {
+            WorkflowTask firstLoopTask = loopTask.getWorkflowTask().getLoopOver().get(0);
+            List<TaskModel> iterationTasks = deciderService.getTasksToBeScheduled(
+                    workflow,
+                    firstLoopTask,
+                    loopTask.getRetryCount(),
+                    null,
+                    loopTask.getForkTaskId());
+            iterationTasks.forEach(task -> {
+                task.setReferenceTaskName(TaskUtils.appendIteration(
+                        task.getReferenceTaskName(), loopTask.getIteration()));
+                task.setIteration(loopTask.getIteration());
+            });
+            registerTasks(workflow, iterationTasks);
+        }
+        // 主循环统一派发，避免分支线程递归提交同一线程池并等待，也避免重入 Decider。
     }
 
     private void persistTerminatedWorkflow(

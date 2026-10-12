@@ -112,14 +112,14 @@ public class WorkflowTask {
     private List<WorkflowTask> loopOver = new LinkedList<>();
 
     /**
-     * DO_WHILE 循环条件表达式
+     * DO_WHILE 每轮结束后的 JS 继续条件，与 loopItems 互斥。
      */
     private String loopCondition;
 
     /**
-     * DO_WHILE 列表迭代表达式；为空时使用 loopCondition 进行计数式循环。
+     * DO_WHILE 数组来源表达式，与 loopCondition 互斥；进入循环时解析为固定快照。
      */
-    private String items;
+    private String loopItems;
 
     /**
      * 任务级重试次数上限

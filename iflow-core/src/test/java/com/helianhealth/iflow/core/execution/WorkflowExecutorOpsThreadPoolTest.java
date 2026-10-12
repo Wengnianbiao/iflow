@@ -7,7 +7,7 @@ import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 import com.helianhealth.iflow.core.dal.ExecutionDAOFacade;
 import com.helianhealth.iflow.core.dao.ExecutionDAO;
 import com.helianhealth.iflow.core.exception.TerminateWorkflowException;
-import com.helianhealth.iflow.core.execution.evaluators.ValueParamEvaluator;
+import com.helianhealth.iflow.core.execution.evaluators.GraalJSEvaluator;
 import com.helianhealth.iflow.core.execution.mapper.DoWhileTaskMapper;
 import com.helianhealth.iflow.core.execution.mapper.ForkJoinTaskMapper;
 import com.helianhealth.iflow.core.execution.mapper.JoinTaskMapper;
@@ -468,9 +468,7 @@ class WorkflowExecutorOpsThreadPoolTest {
                 };
         ParametersUtils parametersUtils = new ParametersUtils();
         DoWhile doWhile =
-                new DoWhile(
-                        Map.of(ValueParamEvaluator.NAME, new ValueParamEvaluator()),
-                        parametersUtils);
+                new DoWhile(new GraalJSEvaluator(), parametersUtils, executionDAOFacade(new AtomicReference<>()));
         SystemTaskRegistry registry = new SystemTaskRegistry(Set.of(noop, doWhile));
         Map<String, TaskMapper> mappers =
                 Map.of(
@@ -482,8 +480,8 @@ class WorkflowExecutorOpsThreadPoolTest {
         WorkflowTask loopBody = task("loop_body", TaskType.TASK_TYPE_NOOP);
         WorkflowTask loop = task("loop", TaskType.TASK_TYPE_DO_WHILE);
         loop.setLoopOver(List.of(loopBody));
-        loop.setLoopCondition("continue");
-        loop.setEvaluatorType(ValueParamEvaluator.NAME);
+        loop.setLoopCondition("false");
+        loop.setEvaluatorType(GraalJSEvaluator.NAME);
         loop.setInputParameters(Map.of("continue", false));
         WorkflowDef definition =
                 WorkflowDef.builder()

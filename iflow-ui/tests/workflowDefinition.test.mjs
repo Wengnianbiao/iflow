@@ -16,6 +16,7 @@ const built = await esbuild.build({
     export * from './src/pages/definition/validation/validateWorkflow';
     export * from './src/tasks/taskPluginRegistry';
     export { validateBuiltinTask } from './src/tasks/builtinTaskValidators';
+    export * from './src/tasks/doWhile';
     export * from './src/flow/workflowEditor';
     export * from './src/flow/parameterValues';
     export * from './src/api/workflowDefinition';
@@ -37,6 +38,7 @@ compiled._compile(built.outputFiles[0].text, compiled.filename)
 const lib = compiled.exports
 lib.registerCoreTaskPlugins(['HTTP', 'INLINE', 'SWITCH', 'FORK_JOIN', 'JOIN', 'DO_WHILE', 'SPI', 'JDBC', 'WEBSERVICE', 'MAPPING'].map(type => ({
   type, label: type, validate: lib.validateBuiltinTask,
+  ...(type === 'DO_WHILE' ? { variableOptions: lib.doWhileVariableOptions } : {}),
   flow: { kind: ({ SWITCH: 'switch', FORK_JOIN: 'fork', JOIN: 'join', DO_WHILE: 'do_while' })[type] ?? 'task' },
 })))
 const task = ref => ({ name: ref, taskReferenceName: ref, type: 'HTTP', inputParameters: { uri: 'https://example.test', method: 'GET' } })
@@ -127,10 +129,27 @@ test('DO_WHILE condition parameters can reference its body without exposing futu
   const loop = { ...task('loop'), type: 'DO_WHILE', loopOver: body }
   const after = task('after')
   const workflow = wf([task('before'), loop, after])
-  assert.deepEqual(lib.buildVariableOptions(workflow, body[0]), ['${workflow.input}', '${before.output}', '${loop.output}'])
-  assert.deepEqual(lib.buildVariableOptions(workflow, body[1]), ['${workflow.input}', '${before.output}', '${loop.output}', '${body1.output}'])
+  assert.deepEqual(lib.buildVariableOptions(workflow, body[0]), ['${workflow.input}', '${before.output}', '${loop.output}', '${loop.output.iteration}'])
+  assert.deepEqual(lib.buildVariableOptions(workflow, body[1]), ['${workflow.input}', '${before.output}', '${loop.output}', '${loop.output.iteration}', '${body1.output}'])
   assert.deepEqual(lib.buildVariableOptions(workflow, loop), ['${workflow.input}', '${before.output}', '${body1.output}', '${body2.output}'])
-  assert.deepEqual(lib.buildVariableOptions(workflow, after), ['${workflow.input}', '${before.output}', '${loop.output}', '${body1.output}', '${body2.output}'])
+  assert.deepEqual(lib.buildVariableOptions(workflow, loop, false), ['${workflow.input}', '${before.output}'])
+  assert.deepEqual(lib.buildVariableOptions(workflow, after), ['${workflow.input}', '${before.output}', '${loop.output}', '${loop.output.iteration}', '${body1.output}', '${body2.output}'])
+})
+
+test('loopItems configuration exposes loopItem and loopIndex to body tasks', () => {
+  const body = [task('body1'), task('body2')]
+  const loop = { name: '遍历', taskReferenceName: 'loop', type: 'DO_WHILE', loopItems: '${before.output.entries}', loopOver: body }
+  const workflow = wf([task('before'), loop, task('after')])
+  assert.deepEqual(lib.buildVariableOptions(workflow, body[0]), [
+    '${workflow.input}', '${before.output}', '${loop.output}', '${loop.output.iteration}', '${loop.output.loopItem}', '${loop.output.loopIndex}',
+  ])
+  assert.deepEqual(lib.buildVariableOptions(workflow, body[1]), [
+    '${workflow.input}', '${before.output}', '${loop.output}', '${loop.output.iteration}', '${loop.output.loopItem}', '${loop.output.loopIndex}', '${body1.output}',
+  ])
+  const conditionWorkflow = wf([task('before'), { ...loop, loopItems: null, loopCondition: 'false' }, task('after')])
+  assert.deepEqual(lib.buildVariableOptions(conditionWorkflow, body[0]), [
+    '${workflow.input}', '${before.output}', '${loop.output}', '${loop.output.iteration}',
+  ])
 })
 
 test('editor suggestions follow selection, topology edits and workflow output scope', async () => {
@@ -150,7 +169,7 @@ test('editor suggestions follow selection, topology edits and workflow output sc
 const backendTaskDefaults = {
   decisionCases: {}, defaultCase: null, forkTasks: [], joinOn: [], defaultExclusiveJoinTask: [],
   evaluatorType: null, expression: null, optional: false, permissive: false,
-  loopOver: [], loopCondition: null, items: null, retryCount: 0,
+  loopOver: [], loopCondition: null, loopItems: null, retryCount: 0,
 }
 // Match the backend-serialized WEBSERVICE + INLINE shape, without real SOAP credentials.
 const backendWorkflow = () => ({
@@ -201,7 +220,7 @@ test('optional null properties are unset; null task entries and required values 
   const custom = {
     ...task('custom'), type: 'CUSTOM_HL7', name: null, description: null, inputParameters: null,
     decisionCases: null, defaultCase: null, forkTasks: null, loopOver: null,
-    loopCondition: null, items: null, joinOn: null, defaultExclusiveJoinTask: null, expression: null, evaluatorType: null,
+    loopCondition: null, loopItems: null, joinOn: null, defaultExclusiveJoinTask: null, expression: null, evaluatorType: null,
   }
   const workflow = { ...wf([custom]), correlationExpression: null, timeoutPolicy: null, inputParameters: null, outputParameters: null }
   assert.deepEqual(lib.validateWorkflow(workflow).problems, [])
@@ -223,12 +242,165 @@ test('required task-specific config still reports missing values rather than rej
   for (const [taskConfig, path] of [
     [{ ...backendWorkflow().tasks[1], inputParameters: { expression: null } }, '/inputParameters/expression'],
     [{ ...task('s'), ...backendTaskDefaults, type: 'SWITCH' }, '/expression'],
-    [{ ...task('loop'), ...backendTaskDefaults, type: 'DO_WHILE' }, '/loopCondition'],
   ]) {
     const result = lib.validateWorkflow(wf([taskConfig]))
     assert.equal(result.diagramSafe, true)
     assert.deepEqual(result.problems.map(p => [p.code, p.path]), [['TASK_CONFIG', `/tasks/0${path}`]])
   }
+})
+
+const doWhile = (config = {}) => ({
+  name: '循环', taskReferenceName: 'loop', type: 'DO_WHILE', inputParameters: {},
+  loopOver: [task('body')], ...config,
+})
+
+test('DO_WHILE accepts exactly one array expression or JS condition without rewriting definitions', () => {
+  for (const config of [
+    { loopItems: '${workflow.input.entries}' },
+    { loopItems: ' ${workflow.input.entries} ', loopCondition: null },
+    { loopItems: null, loopCondition: 'false' },
+    { loopCondition: '$.iteration < 3' },
+  ]) {
+    const loop = doWhile(config)
+    const workflow = wf([loop])
+    const original = structuredClone(workflow)
+    assert.deepEqual(lib.validateWorkflow(workflow).problems, [])
+    assert.equal(lib.doWhileStrategy(loop), config.loopItems != null ? 'array' : 'js')
+    assert.deepEqual(workflow, original)
+  }
+})
+
+test('DO_WHILE rejects conflicting, missing, literal, blank, reserved and non-JS configuration', () => {
+  for (const [config, paths] of [
+    [{}, ['/loopItems', '/loopCondition']],
+    [{ loopItems: '${workflow.input.entries}', loopCondition: 'false' }, ['/loopItems', '/loopCondition']],
+    [{ loopItems: '' }, ['/loopItems']],
+    [{ loopItems: '[1,2]' }, ['/loopItems']],
+    [{ loopItems: 'prefix-${workflow.input.entries}' }, ['/loopItems']],
+    [{ loopItems: '${workflow.input.a}${workflow.input.b}' }, ['/loopItems']],
+    [{ loopCondition: ' ' }, ['/loopCondition']],
+    [{ loopCondition: 'false', evaluatorType: 'value-param' }, ['/evaluatorType']],
+    [{ loopItems: '${workflow.input.entries}', inputParameters: { loopItems: [] } }, ['/inputParameters/loopItems']],
+    [{ items: '${workflow.input.entries}' }, ['/loopItems', '/loopCondition']],
+    [{ inputParameters: { _items: [1, 2] } }, ['/loopItems', '/loopCondition']],
+  ]) {
+    const loop = doWhile(config)
+    const original = structuredClone(loop)
+    const result = lib.validateWorkflow(wf([loop]))
+    assert.equal(result.diagramSafe, true)
+    assert.deepEqual(result.problems.map(problem => problem.path), paths.map(path => `/tasks/0${path}`))
+    assert.deepEqual(loop, original)
+  }
+  const malformed = lib.validateWorkflow(wf([doWhile({ loopItems: [] })]))
+  assert.equal(malformed.diagramSafe, false)
+  assert.ok(malformed.problems.some(problem => problem.path === '/tasks/0/loopItems' && problem.code === 'STRING'))
+})
+
+test('loop strategy changes remove the other field and retain body and typed business parameters', () => {
+  const js = doWhile({ loopCondition: 'false', evaluatorType: 'graaljs', inputParameters: { evaluatorType: 'graaljs', options: { retries: 2 }, keepLastN: 2 } })
+  const original = structuredClone(js)
+  const array = lib.changeDoWhileStrategy(js, 'array')
+  assert.equal(array.loopItems, '')
+  assert.equal(lib.doWhileStrategy(array), 'array')
+  assert.equal(Object.hasOwn(array, 'loopCondition'), false)
+  assert.equal(Object.hasOwn(array, 'evaluatorType'), false)
+  assert.deepEqual(array.inputParameters, { options: { retries: 2 }, keepLastN: 2 })
+  assert.deepEqual(array.loopOver, js.loopOver)
+  assert.deepEqual(js, original)
+  const configured = { ...array, loopItems: '${workflow.input.entries}' }
+  const restoredJs = lib.changeDoWhileStrategy(configured, 'js')
+  assert.equal(restoredJs.loopCondition, 'false')
+  assert.equal(Object.hasOwn(restoredJs, 'loopItems'), false)
+  assert.deepEqual(restoredJs.inputParameters, configured.inputParameters)
+  assert.equal(Object.hasOwn(restoredJs, 'loopMode'), false)
+})
+
+test('array expression suggestions exclude the body while JS parameters can reference it', () => {
+  const loop = doWhile({ loopItems: '${before.output.entries}' })
+  const workflow = wf([task('before'), loop, task('after')])
+  assert.deepEqual(lib.buildVariableOptions(workflow, loop, false), ['${workflow.input}', '${before.output}'])
+  assert.deepEqual(lib.buildVariableOptions(workflow, loop), ['${workflow.input}', '${before.output}', '${body.output}'])
+  assert.deepEqual(lib.doWhileVariableOptions(loop), ['${loop.output}', '${loop.output.iteration}', '${loop.output.loopItem}', '${loop.output.loopIndex}'])
+  assert.deepEqual(lib.doWhileVariableOptions(doWhile({ loopCondition: 'false' })), ['${loop.output}', '${loop.output.iteration}'])
+})
+
+test('blank array selection survives task and source tab changes and blocks saving', async () => {
+  const original = wf([doWhile({ loopCondition: 'false' }), task('after')])
+  let saves = 0
+  const actor = await actorFor(original, { saveWorkflowDefinition: async context => { saves++; return context.workflow } })
+  actor.send({ type: 'TASK_SELECTED', task: original.tasks[0] })
+  const arrayDraft = lib.changeDoWhileStrategy(original.tasks[0], 'array')
+  actor.send({ type: 'TASK_UPDATED', task: arrayDraft })
+  assert.equal(lib.doWhileStrategy(JSON.parse(actor.state.context.source).tasks[0]), 'array')
+  actor.send({ type: 'CHANGE_TAB', tab: 'code' })
+  actor.send({ type: 'CHANGE_TAB', tab: 'task' })
+  actor.send({ type: 'TASK_SELECTED', task: actor.state.context.workflow.tasks[1] })
+  actor.send({ type: 'TASK_SELECTED', task: actor.state.context.workflow.tasks[0] })
+  assert.equal(lib.doWhileStrategy(actor.state.context.workflow.tasks[0]), 'array')
+  actor.send({ type: 'REQUEST_SAVE' })
+  assert.equal(saves, 0)
+  assert.equal(actor.state.context.problemFocus.problem.path, '/tasks/0/loopItems')
+  assert.ok(actor.state.matches('ready.lifecycle.editing'))
+  actor.stop()
+})
+
+test('both DO_WHILE strategies require a body', () => {
+  for (const config of [
+    { loopCondition: 'true' },
+    { loopItems: '${workflow.input.entries}' },
+  ]) {
+    for (const loopOver of [undefined, null, []]) {
+      const result = lib.validateWorkflow(wf([doWhile({ ...config, loopOver })]))
+      assert.equal(result.diagramSafe, true)
+      assert.deepEqual(result.problems.map(problem => problem.path), ['/tasks/0/loopOver'])
+    }
+  }
+})
+
+test('nested DO_WHILE validation reports the body with escaped branch paths', () => {
+  const loop = doWhile({ loopItems: '${workflow.input.entries}', loopOver: [] })
+  const workflow = wf([{ ...task('switch'), type: 'SWITCH', expression: '${workflow.input.choice}', decisionCases: { 'a/b~c': [loop] } }])
+  const result = lib.validateWorkflow(workflow)
+  assert.equal(result.diagramSafe, true)
+  assert.deepEqual(result.problems.map(problem => [problem.path, problem.taskPath, problem.taskReferenceName]), [
+    ['/tasks/0/decisionCases/a~1b~0c/0/loopOver', '/tasks/0/decisionCases/a~1b~0c/0', 'loop'],
+  ])
+})
+
+test('DO_WHILE array configuration roundtrip through source and the reviewed save snapshot', async () => {
+  const original = wf([doWhile({ loopItems: null, loopCondition: 'false', inputParameters: { retry: 2 } })])
+  let saved
+  const actor = await actorFor(original, { saveWorkflowDefinition: async context => { saved = structuredClone(lib.getWorkflowToSave(context)); return saved } })
+  actor.send({ type: 'TASK_SELECTED', task: original.tasks[0] })
+  const collection = { ...lib.changeDoWhileStrategy(original.tasks[0], 'array'), loopItems: '${workflow.input.entries}' }
+  actor.send({ type: 'TASK_UPDATED', task: collection })
+  assert.deepEqual(actor.state.context.problems, [])
+  assert.deepEqual(JSON.parse(actor.state.context.source).tasks[0], collection)
+  actor.send({ type: 'CHANGE_TAB', tab: 'code' })
+  actor.send({ type: 'SOURCE_CHANGED', source: actor.state.context.source })
+  actor.send({ type: 'CHANGE_TAB', tab: 'workflow' })
+  actor.send({ type: 'REQUEST_SAVE' })
+  assert.ok(actor.state.matches('ready.lifecycle.confirmSave'))
+  actor.send({ type: 'CONFIRM_SAVE' })
+  await tick()
+  assert.deepEqual(saved, { ...original, tasks: [collection] })
+  assert.equal(Object.hasOwn(saved.tasks[0], 'loopCondition'), false)
+  assert.equal(saved.tasks[0].loopItems, '${workflow.input.entries}')
+  assert.equal(Object.hasOwn(saved.tasks[0], 'items'), false)
+  assert.equal(lib.hasWorkflowChanges(actor.state.context), false)
+  actor.stop()
+})
+
+test('DO_WHILE empty body cannot reach save', async () => {
+  let saves = 0
+  const actor = await actorFor(wf(), { saveWorkflowDefinition: async context => { saves++; return context.workflow } })
+  actor.send({ type: 'SOURCE_CHANGED', source: JSON.stringify(wf([doWhile({ loopItems: '${workflow.input.entries}', loopOver: [] })])) })
+  actor.send({ type: 'REQUEST_SAVE' })
+  actor.send({ type: 'CONFIRM_SAVE' })
+  assert.ok(actor.state.matches('ready.lifecycle.editing'))
+  assert.equal(actor.state.context.problemFocus.problem.path, '/tasks/0/loopOver')
+  assert.equal(saves, 0)
+  actor.stop()
 })
 
 test('backend nullable definition loads, switches tabs, edits, and saves through the actor', async () => {

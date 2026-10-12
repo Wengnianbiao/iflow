@@ -296,12 +296,6 @@ public class DeciderService {
                     && !pendingTask.getStatus().isTerminal()) {
                 tasksToBeScheduled.putIfAbsent(pendingTask.getReferenceTaskName(), pendingTask);
                 executedTaskRefNames.remove(pendingTask.getReferenceTaskName());
-                if (shouldScheduleDoWhileIteration(workflow, pendingTask)) {
-                    createDoWhileIterationTasks(workflow, pendingTask)
-                            .forEach(
-                                    task -> tasksToBeScheduled.putIfAbsent(
-                                            task.getReferenceTaskName(), task));
-                }
             }
 
             // todo task的超时&重试处理
@@ -358,51 +352,6 @@ public class DeciderService {
         }
 
         return outcome;
-    }
-
-    private boolean shouldScheduleDoWhileIteration(
-            WorkflowModel workflow, TaskModel task) {
-        if (!TaskType.TASK_TYPE_DO_WHILE.equals(task.getTaskType())
-                || task.getIteration() <= 0
-                || task.getWorkflowTask() == null
-                || task.getWorkflowTask().getLoopOver() == null
-                || task.getWorkflowTask().getLoopOver().isEmpty()) {
-            return false;
-        }
-
-        int iteration = task.getIteration();
-        return workflow.getTasks().stream()
-                .filter(candidate -> candidate.getIteration() == iteration)
-                .filter(
-                        candidate ->
-                                !task.getReferenceTaskName()
-                                        .equals(candidate.getReferenceTaskName()))
-                .noneMatch(
-                        candidate ->
-                                task.getWorkflowTask()
-                                        .has(
-                                                TaskUtils.removeIterationFromTaskRefName(
-                                                        candidate.getReferenceTaskName())));
-    }
-
-    private List<TaskModel> createDoWhileIterationTasks(
-            WorkflowModel workflow, TaskModel task) {
-        WorkflowTask firstLoopTask = task.getWorkflowTask().getLoopOver().get(0);
-        List<TaskModel> iterationTasks =
-                getTasksToBeScheduled(
-                        workflow,
-                        firstLoopTask,
-                        task.getRetryCount(),
-                        null,
-                        task.getForkTaskId());
-        iterationTasks.forEach(
-                iterationTask -> {
-                    iterationTask.setReferenceTaskName(
-                            TaskUtils.appendIteration(
-                                    iterationTask.getReferenceTaskName(), task.getIteration()));
-                    iterationTask.setIteration(task.getIteration());
-                });
-        return iterationTasks;
     }
 
     List<TaskModel> filterNextLoopOverTasks(

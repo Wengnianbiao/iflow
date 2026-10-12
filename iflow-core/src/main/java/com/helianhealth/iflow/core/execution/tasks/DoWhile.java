@@ -4,32 +4,33 @@ import com.helianhealth.iflow.common.domain.metadata.task.TaskType;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 import com.helianhealth.iflow.core.dal.ExecutionDAOFacade;
 import com.helianhealth.iflow.core.execution.WorkflowExecutor;
-import com.helianhealth.iflow.core.execution.evaluators.Evaluator;
+import com.helianhealth.iflow.core.execution.evaluators.GraalJSEvaluator;
+import com.helianhealth.iflow.core.execution.script.ScriptEvaluator;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
 import com.helianhealth.iflow.core.utils.ParametersUtils;
 import com.helianhealth.iflow.core.utils.TaskUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.regex.Pattern;
 
 /**
  * 循环任务。
  *
  * <p>首次执行先调度第 1 轮循环体；每一轮循环体全部结束后求值
- * {@link WorkflowTask#getLoopCondition()}：
+ * {@link WorkflowTask#getLoopCondition()}。配置 loopItems 时遍历进入时确定的数组快照，
+ * 两种配置互斥，空数组执行零轮：
  * <ul>
- *   <li>返回真值 —— 更新迭代号，由下一轮主线程 Decider 创建循环体任务；</li>
+ *   <li>返回真值 —— 更新迭代号，调用执行器启动下一轮循环体；</li>
  *   <li>返回假值 —— 本 DO_WHILE 完成。</li>
  * </ul>
  */
@@ -39,24 +40,54 @@ public class DoWhile extends WorkflowSystemTask {
     private static final Logger LOGGER = LoggerFactory.getLogger(DoWhile.class);
 
     public static final String OUTPUT_ITERATION = "iteration";
+    public static final String INPUT_LOOP_ITEMS = "loopItems";
+    private static final Pattern COLLECTION_EXPRESSION = Pattern.compile("^\\$\\{[^{}]+}$");
 
-    private final Map<String, Evaluator> evaluators;
+    private final GraalJSEvaluator evaluator;
     private final ParametersUtils parametersUtils;
     private final ExecutionDAOFacade executionDAOFacade;
 
-    public DoWhile(Map<String, Evaluator> evaluators, ParametersUtils parametersUtils) {
-        this(evaluators, parametersUtils, null);
+    public DoWhile(
+            GraalJSEvaluator evaluator,
+            ParametersUtils parametersUtils,
+            ExecutionDAOFacade executionDAOFacade) {
+        super(TaskType.TASK_TYPE_DO_WHILE);
+        this.evaluator = Objects.requireNonNull(evaluator);
+        this.parametersUtils = Objects.requireNonNull(parametersUtils);
+        this.executionDAOFacade = Objects.requireNonNull(executionDAOFacade);
     }
 
-    @Autowired
-    public DoWhile(
-            Map<String, Evaluator> evaluators,
-            ParametersUtils parametersUtils,
-            @Autowired(required = false) ExecutionDAOFacade executionDAOFacade) {
-        super(TaskType.TASK_TYPE_DO_WHILE);
-        this.evaluators = evaluators;
-        this.parametersUtils = parametersUtils;
-        this.executionDAOFacade = executionDAOFacade;
+    /** 定义写入与执行共用的配置校验，不解析动态数组来源。 */
+    public static void validateDefinition(WorkflowTask definition) {
+        if (definition == null) {
+            throw new IllegalArgumentException("DO_WHILE task definition is required");
+        }
+        if (definition.getLoopOver() == null || definition.getLoopOver().isEmpty()) {
+            throw new IllegalArgumentException("DO_WHILE loopOver must contain at least one task");
+        }
+        boolean hasItems = definition.getLoopItems() != null;
+        boolean hasCondition = definition.getLoopCondition() != null;
+        if (hasItems == hasCondition) {
+            throw new IllegalArgumentException("DO_WHILE requires exactly one of loopItems or loopCondition");
+        }
+        if (hasItems) {
+            String expression = definition.getLoopItems().trim();
+            if (!COLLECTION_EXPRESSION.matcher(expression).matches()
+                    || expression.substring(2, expression.length() - 1).isBlank()) {
+                throw new IllegalArgumentException("DO_WHILE loopItems must be a complete ${...} expression");
+            }
+        } else if (definition.getLoopCondition().isBlank()) {
+            throw new IllegalArgumentException("DO_WHILE loopCondition must not be blank");
+        }
+        String evaluatorType = definition.getEvaluatorType();
+        if (evaluatorType != null && !evaluatorType.isBlank()
+                && !GraalJSEvaluator.NAME.equals(evaluatorType)) {
+            throw new IllegalArgumentException("DO_WHILE only supports the graaljs evaluator");
+        }
+        if (definition.getInputParameters() != null
+                && definition.getInputParameters().containsKey(INPUT_LOOP_ITEMS)) {
+            throw new IllegalArgumentException("DO_WHILE inputParameters.loopItems is reserved for the array snapshot");
+        }
     }
 
     @Override
@@ -66,26 +97,11 @@ public class DoWhile extends WorkflowSystemTask {
 
     @Override
     public void execute(
-            WorkflowModel workflow,
-            TaskModel doWhileTaskModel,
-            WorkflowExecutor workflowExecutor) {
-        WorkflowTask definition = doWhileTaskModel.getWorkflowTask();
-        if (definition == null
-                || definition.getLoopOver() == null
-                || definition.getLoopOver().isEmpty()) {
-            markTaskFailure(
-                    doWhileTaskModel,
-                    TaskModel.Status.FAILED_WITH_TERMINAL_ERROR,
-                    "DO_WHILE loopOver must contain at least one task");
-            return;
-        }
-        if (!isListIteration(doWhileTaskModel)
-                && (definition.getLoopCondition() == null
-                        || definition.getLoopCondition().isBlank())) {
-            markTaskFailure(
-                    doWhileTaskModel,
-                    TaskModel.Status.FAILED_WITH_TERMINAL_ERROR,
-                    "DO_WHILE loopCondition is required");
+            WorkflowModel workflow, TaskModel doWhileTaskModel, WorkflowExecutor workflowExecutor) {
+        try {
+            validateDefinition(doWhileTaskModel.getWorkflowTask());
+        } catch (IllegalArgumentException error) {
+            markTaskFailure(doWhileTaskModel, TaskModel.Status.FAILED_WITH_TERMINAL_ERROR, error.getMessage());
             return;
         }
 
@@ -95,6 +111,7 @@ public class DoWhile extends WorkflowSystemTask {
 
         Map<String, TaskModel> relevantTasks = new LinkedHashMap<>();
         TaskModel relevantTask;
+        // 收集当前doWhile轮次中处于运行时的子任务(并且只取the highest retry count task)
         for (TaskModel t : workflow.getTasks()) {
             if (doWhileTaskModel
                     .getWorkflowTask()
@@ -113,11 +130,21 @@ public class DoWhile extends WorkflowSystemTask {
                 workflow.getWorkflowId(),
                 relevantTasks.keySet(),
                 doWhileTaskModel.getIteration());
+
         if (loopOverTasks.isEmpty()) {
             // For list iteration, check if the items list is empty before scheduling iteration 1.
             // An empty items list means there is nothing to iterate over, so complete immediately.
             if (isListIteration(doWhileTaskModel)) {
-                List<Object> itemsList = evaluateItemsList(workflow, doWhileTaskModel);
+                List<Object> itemsList;
+                try {
+                    itemsList = itemsSnapshot(workflow, doWhileTaskModel);
+                } catch (RuntimeException error) {
+                    markTaskFailure(
+                            doWhileTaskModel,
+                            TaskModel.Status.FAILED_WITH_TERMINAL_ERROR,
+                            "Unable to evaluate DO_WHILE loopItems: " + rootCauseMessage(error));
+                    return;
+                }
                 if (itemsList.isEmpty()) {
                     LOGGER.debug(
                             "Task {} has an empty items list, completing without executing loop tasks",
@@ -134,6 +161,7 @@ public class DoWhile extends WorkflowSystemTask {
             // For list iteration, inject loopItem and loopIndex
             injectLoopVariables(workflow, doWhileTaskModel);
 
+            workflowExecutor.scheduleNextIteration(doWhileTaskModel, workflow);
             return;
         }
 
@@ -196,7 +224,7 @@ public class DoWhile extends WorkflowSystemTask {
                 // For list iteration, inject loopItem and loopIndex for next iteration
                 injectLoopVariables(workflow, doWhileTaskModel);
 
-                return;
+                workflowExecutor.scheduleNextIteration(doWhileTaskModel, workflow);
             } else {
                 LOGGER.debug(
                         "Task {} took {} iterations to complete",
@@ -236,17 +264,15 @@ public class DoWhile extends WorkflowSystemTask {
                                                                 task.getReferenceTaskName())))
                         .toList();
 
-        if (executionDAOFacade != null) {
-            for (TaskModel task : tasksToRemove) {
-                try {
-                    executionDAOFacade.removeTask(task.getTaskId());
-                } catch (RuntimeException e) {
-                    LOGGER.warn(
-                            "Unable to remove retained DO_WHILE task {} from workflow {}",
-                            task.getTaskId(),
-                            workflow.getWorkflowId(),
-                            e);
-                }
+        for (TaskModel task : tasksToRemove) {
+            try {
+                executionDAOFacade.removeTask(task.getTaskId());
+            } catch (RuntimeException e) {
+                LOGGER.warn(
+                        "Unable to remove retained DO_WHILE task {} from workflow {}",
+                        task.getTaskId(),
+                        workflow.getWorkflowId(),
+                        e);
             }
         }
         workflow.getTasks().removeAll(tasksToRemove);
@@ -332,67 +358,54 @@ public class DoWhile extends WorkflowSystemTask {
         if (!isListIteration(task)) {
             return;
         }
-        List<Object> items = evaluateItemsList(workflow, task);
+        List<Object> items = itemsSnapshot(workflow, task);
         int loopIndex = task.getIteration() - 1;
         task.addOutput("loopIndex", loopIndex);
         if (loopIndex >= 0 && loopIndex < items.size()) {
-            task.addOutput("loopItem", items.get(loopIndex));
+            task.addOutput("loopItem", ScriptEvaluator.deepCopy(items.get(loopIndex)));
         }
     }
 
     private boolean isListIteration(TaskModel task) {
-        WorkflowTask definition = task.getWorkflowTask();
-        if (definition == null) {
-            return false;
-        }
-        if (definition.getItems() != null && !definition.getItems().isBlank()) {
-            return true;
-        }
-        Map<String, Object> inputParameters = definition.getInputParameters();
-        if (inputParameters == null) {
-            return false;
-        }
-        Object items = inputParameters.get("_items");
-        return items instanceof Collection<?>
-                || items instanceof Object[]
-                || (items instanceof String value && !value.isBlank());
+        return task.getWorkflowTask().getLoopItems() != null;
     }
 
-    private List<Object> evaluateItemsList(WorkflowModel workflow, TaskModel task) {
-        Object items = null;
-        String itemsExpression = task.getWorkflowTask().getItems();
-        if (itemsExpression != null && !itemsExpression.isBlank()) {
-            items =
-                    parametersUtils
-                            .getTaskInput(
-                                    Map.of("items", itemsExpression), workflow, task.getTaskId())
-                            .get("items");
+    @SuppressWarnings("unchecked")
+    private List<Object> itemsSnapshot(WorkflowModel workflow, TaskModel task) {
+        if (task.getInputData().containsKey(INPUT_LOOP_ITEMS)) {
+            Object snapshot = task.getInputData().get(INPUT_LOOP_ITEMS);
+            if (snapshot instanceof List<?> list) {
+                return (List<Object>) list;
+            }
+            throw new IllegalArgumentException("DO_WHILE loopItems snapshot must be an array");
         }
-        if (items == null && task.getWorkflowTask().getInputParameters() != null) {
-            items =
-                    parametersUtils
-                            .getTaskInput(
-                                    task.getWorkflowTask().getInputParameters(),
-                                    workflow,
-                                    task.getTaskId())
-                            .get("_items");
+        Object resolved = parametersUtils.getTaskInput(
+                Map.of(INPUT_LOOP_ITEMS, task.getWorkflowTask().getLoopItems().trim()),
+                workflow, task.getTaskId()).get(INPUT_LOOP_ITEMS);
+        List<?> items;
+        if (resolved instanceof Collection<?> collection) {
+            items = new ArrayList<>(collection);
+        } else if (resolved != null && resolved.getClass().isArray()) {
+            List<Object> array = new ArrayList<>();
+            for (int index = 0; index < java.lang.reflect.Array.getLength(resolved); index++) {
+                array.add(java.lang.reflect.Array.get(resolved, index));
+            }
+            items = array;
+        } else {
+            throw new IllegalArgumentException("DO_WHILE loopItems must resolve to an array or collection, got "
+                    + (resolved == null ? "null" : resolved.getClass().getSimpleName()));
         }
-
-        if (items instanceof List<?> list) {
-            return new ArrayList<>(list);
-        }
-        if (items instanceof Collection<?> collection) {
-            return new ArrayList<>(collection);
-        }
-        if (items instanceof Object[] array) {
-            return new ArrayList<>(Arrays.asList(array));
-        }
-        return items == null ? Collections.emptyList() : List.of(items);
+        List<Object> snapshot = (List<Object>) ScriptEvaluator.deepCopy(items);
+        task.getInputData().put(INPUT_LOOP_ITEMS, snapshot);
+        return snapshot;
     }
 
     private boolean evaluateCondition(
             WorkflowModel workflow, TaskModel task, Collection<TaskModel> loopTasks) {
         WorkflowTask def = task.getWorkflowTask();
+        if (isListIteration(task)) {
+            return task.getIteration() < itemsSnapshot(workflow, task).size();
+        }
         Map<String, Object> ctx = new HashMap<>(task.getInputData());
         ctx.putAll(
                 parametersUtils.getTaskInput(
@@ -406,35 +419,7 @@ public class DoWhile extends WorkflowSystemTask {
         }
         ctx.put("workflow", workflowContext(workflow));
 
-        if (isListIteration(task)) {
-            List<Object> items = evaluateItemsList(workflow, task);
-            int loopIndex = task.getIteration() - 1;
-            ctx.put("loopIndex", loopIndex);
-            if (loopIndex >= 0 && loopIndex < items.size()) {
-                ctx.put("loopItem", items.get(loopIndex));
-            }
-            boolean hasMoreItems = loopIndex < items.size() - 1;
-            if (def.getLoopCondition() == null || def.getLoopCondition().isBlank()) {
-                return hasMoreItems;
-            }
-            return evaluate(def, ctx) && hasMoreItems;
-        }
-
-        return evaluate(def, ctx);
-    }
-
-    private boolean evaluate(WorkflowTask definition, Map<String, Object> context) {
-        String evaluatorType = definition.getEvaluatorType();
-        if (evaluatorType == null || evaluatorType.isBlank()) {
-            Object configured = context.get(Inline.INPUT_EVALUATOR_TYPE);
-            evaluatorType =
-                    configured == null ? Inline.DEFAULT_EVALUATOR : String.valueOf(configured);
-        }
-        Evaluator evaluator = evaluators.get(evaluatorType);
-        if (evaluator == null) {
-            throw new IllegalArgumentException("unknown evaluatorType: " + evaluatorType);
-        }
-        return toBoolean(evaluator.evaluate(definition.getLoopCondition(), context));
+        return toBoolean(evaluator.evaluate(def.getLoopCondition(), ctx));
     }
 
     private Map<String, Object> workflowContext(WorkflowModel workflow) {

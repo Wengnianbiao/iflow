@@ -1,5 +1,6 @@
 import type { TaskValidator, TaskValidationProblem } from '@/pages/definition/validation/types'
 import { parseMappingConfigs } from './mappingConfig'
+import { isLoopItemsExpression } from './doWhile'
 
 const isRecord = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value)
 const text = (value: unknown) => typeof value === 'string' && Boolean(value.trim())
@@ -24,7 +25,22 @@ export const validateBuiltinTask: TaskValidator = (task) => {
     }
   }
   if (task.type === 'INLINE') required(input, 'expression')
-  if (task.type === 'DO_WHILE' && !text(task.loopCondition)) add('/loopCondition', '请填写循环条件 loopCondition')
+  if (task.type === 'DO_WHILE') {
+    const hasItems = task.loopItems != null
+    const hasCondition = task.loopCondition != null
+    if (hasItems === hasCondition) {
+      const message = hasItems ? '数组遍历与 JS 条件循环只能选择一种，请清除另一种配置' : '请填写数组表达式 loopItems 或 JS 循环条件 loopCondition'
+      add('/loopItems', message)
+      add('/loopCondition', message)
+    } else if (hasItems) {
+      if (!isLoopItemsExpression(task.loopItems)) add('/loopItems', '请填写完整的 ${...} 数组表达式，例如 ${workflow.input.orders}')
+    } else if (!text(task.loopCondition)) {
+      add('/loopCondition', '请填写 JS 循环条件；只执行一轮可填写 false')
+    }
+    if (text(task.evaluatorType) && task.evaluatorType !== 'graaljs') add('/evaluatorType', 'DO_WHILE 的 JS 条件固定使用 GraalJS')
+    if (Object.prototype.hasOwnProperty.call(input, 'loopItems')) add('/inputParameters/loopItems', 'loopItems 是引擎保留字段，请在顶层配置数组表达式')
+    if (!task.loopOver?.length) add('/loopOver', '请在循环体中添加至少一个任务')
+  }
   if (task.type === 'SWITCH' || task.type === 'DECISION') {
     if (!text(task.expression)) add('/expression', '请填写分支表达式 expression')
   }

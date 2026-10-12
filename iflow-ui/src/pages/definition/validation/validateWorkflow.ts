@@ -71,7 +71,7 @@ export function validateWorkflow(value: unknown): { workflow?: WorkflowDef; prob
       string(item, 'type', taskPath, true, taskPath)
       string(item, 'taskReferenceName', taskPath, true, taskPath)
       string(item, 'name', taskPath, false, taskPath)
-      for (const key of ['description', 'expression', 'evaluatorType', 'loopCondition', 'items']) string(item, key, taskPath, false, taskPath)
+      for (const key of ['description', 'expression', 'evaluatorType', 'loopCondition', 'loopItems']) string(item, key, taskPath, false, taskPath)
       objectField(item, 'inputParameters', taskPath, taskPath)
       stringArray(item, 'joinOn', taskPath, taskPath)
       stringArray(item, 'defaultExclusiveJoinTask', taskPath, taskPath)

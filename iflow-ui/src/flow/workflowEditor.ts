@@ -79,12 +79,12 @@ function tasksBefore(
   return undefined
 }
 
-export function buildVariableOptions(workflow: WorkflowDef, selectedTask?: WorkflowTask) {
+export function buildVariableOptions(workflow: WorkflowDef, selectedTask?: WorkflowTask, includeLoopBody = true) {
   const availableTasks = selectedTask
     ? tasksBefore(workflow.tasks, selectedTask) ?? []
     : collectWorkflowTasks(workflow.tasks)
   // DO_WHILE condition parameters are resolved again after its body completes.
-  const conditionTasks = selectedTask && getTaskFlowKind(selectedTask.type) === 'do_while'
+  const conditionTasks = includeLoopBody && selectedTask && getTaskFlowKind(selectedTask.type) === 'do_while'
     ? collectWorkflowTasks(selectedTask.loopOver ?? [])
     : []
   const taskOutputs = [...availableTasks, ...conditionTasks]

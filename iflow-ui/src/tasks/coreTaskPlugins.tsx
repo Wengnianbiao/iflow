@@ -38,6 +38,7 @@ import {
 } from './cards'
 import { registerCoreTaskPlugins, type TaskCreationContext } from './taskPluginRegistry'
 import { validateBuiltinTask } from './builtinTaskValidators'
+import { doWhileVariableOptions } from './doWhile'
 import { spiJavaTemplate } from './templates'
 
 const DEFAULT_NODE_WIDTH = 350
@@ -196,13 +197,13 @@ registerCoreTaskPlugins([
     validate: validateBuiltinTask,
     label: '循环',
     icon: RepeatIcon,
-    menu: { label: 'DO WHILE', description: '按条件重复执行循环体任务。' },
+    menu: { label: 'DO WHILE', description: '按条件循环或逐项遍历集合。' },
     form: DoWhileTaskForm,
+    variableOptions: doWhileVariableOptions,
     flow: { kind: 'do_while', nodeSize: { width: 570, height: 450 } },
     create: (context) => baseTask(context, {
       name: `do_while_${context.suffix}`,
-      inputParameters: { evaluatorType: 'graaljs' },
-      evaluatorType: 'graaljs',
+      inputParameters: {},
       loopCondition: 'false',
       loopOver: [],
       optional: false,

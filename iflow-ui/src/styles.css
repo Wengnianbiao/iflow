@@ -4256,11 +4256,13 @@ textarea {
     flex-direction: column;
   }
 
-  .switch-evaluator-options {
+  .switch-evaluator-options,
+  .do-while-strategy-options {
     width: 100%;
   }
 
-  .switch-evaluator-options label {
+  .switch-evaluator-options label,
+  .do-while-strategy-options label {
     min-width: 0;
     flex: 1;
   }
@@ -4335,13 +4337,15 @@ textarea {
   font-weight: 700;
 }
 
-.switch-evaluator-options {
+.switch-evaluator-options,
+.do-while-strategy-options {
   display: flex;
   align-items: center;
   gap: 18px;
 }
 
-.switch-evaluator-options label {
+.switch-evaluator-options label,
+.do-while-strategy-options label {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -4352,7 +4356,8 @@ textarea {
   white-space: nowrap;
 }
 
-.switch-evaluator-options input {
+.switch-evaluator-options input,
+.do-while-strategy-options input {
   width: 17px;
   height: 17px;
   margin: 0;

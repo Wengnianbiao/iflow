@@ -8,7 +8,7 @@ import com.helianhealth.iflow.core.dal.ExecutionDAOFacade;
 import com.helianhealth.iflow.core.dao.ExecutionDAO;
 import com.helianhealth.iflow.core.exception.TerminateWorkflowException;
 import com.helianhealth.iflow.core.execution.evaluators.Evaluator;
-import com.helianhealth.iflow.core.execution.evaluators.ValueParamEvaluator;
+import com.helianhealth.iflow.core.execution.evaluators.GraalJSEvaluator;
 import com.helianhealth.iflow.core.execution.mapper.DoWhileTaskMapper;
 import com.helianhealth.iflow.core.execution.mapper.ForkJoinTaskMapper;
 import com.helianhealth.iflow.core.execution.mapper.JoinTaskMapper;
@@ -92,7 +92,7 @@ class WorkflowExecutorOpsDoWhileTest {
         body.setInputParameters(Map.of("item", "${loop.output.loopItem}", "index", "${loop.output.loopIndex}"));
         WorkflowTask loop = loop(body);
         loop.setLoopCondition(null);
-        loop.setItems("${workflow.input.items}");
+        loop.setLoopItems("${workflow.input.items}");
         List<Object> items = Arrays.asList(Map.of("id", 7), "second", null);
         List<Map<String, Object>> inputs = new ArrayList<>();
         Fixture fixture = new Fixture(
@@ -111,13 +111,66 @@ class WorkflowExecutorOpsDoWhileTest {
         assertEquals(items, inputs.stream().map(input -> input.get("item")).toList());
         assertEquals(List.of(0, 1, 2), inputs.stream().map(input -> input.get("index")).toList());
         assertNull(result.getTaskByRefName("body__3").getOutputData());
+        assertEquals(items, fixture.persistedTasks.get("loop").getInputData().get("loopItems"));
         fixture.assertCreatedOnceAndPersisted(result);
+    }
+
+    @Test
+    void conflictingArrayAndJsFailsBeforeBodyAndFollowingTask() {
+        WorkflowTask loop = loop(task("body", TaskType.TASK_TYPE_INLINE));
+        loop.setLoopItems("${workflow.input.items}");
+        Fixture fixture = new Fixture(definition(loop, task("after", TaskType.TASK_TYPE_INLINE)),
+                (expression, input) -> { throw new AssertionError("invalid loop cannot evaluate JS"); },
+                (workflow, runtime) -> { throw new AssertionError("invalid loop cannot execute body"); });
+
+        assertThrows(TerminateWorkflowException.class, () -> fixture.start(Map.of("items", List.of(1, 2))));
+
+        assertTrue(fixture.executions.isEmpty());
+        assertEquals(TaskModel.Status.FAILED_WITH_TERMINAL_ERROR, fixture.persistedTasks.get("loop").getStatus());
+        assertTrue(fixture.persistedTasks.get("loop").getReasonForInCompletion().contains("exactly one"));
+        assertEquals(List.of("loop"), fixture.createdTasks.stream().map(TaskModel::getReferenceTaskName).toList());
+    }
+
+    @Test
+    void inputParametersDoesNotEnableListIteration() {
+        WorkflowTask loop = loop(task("body", TaskType.TASK_TYPE_INLINE));
+        loop.setInputParameters(Map.of("_items", "${workflow.input.items}"));
+        Fixture fixture = new Fixture(
+                definition(loop),
+                (expression, input) -> false,
+                (workflow, runtime) -> runtime.setStatus(TaskModel.Status.COMPLETED));
+
+        WorkflowModel result = fixture.start(Map.of("items", List.of(1, 2)));
+
+        assertEquals(WorkflowModel.Status.COMPLETED, result.getStatus());
+        assertEquals(List.of("body__1"), fixture.executions);
+        assertEquals(1, result.getTaskByRefName("loop").getIteration());
+        assertFalse(result.getTaskByRefName("loop").outputAsMap().containsKey("loopItem"));
+        assertFalse(result.getTaskByRefName("loop").outputAsMap().containsKey("loopIndex"));
+        fixture.assertCreatedOnceAndPersisted(result);
+    }
+
+    @Test
+    void nonArrayItemsFailBeforeBodyAndFollowingTask() {
+        WorkflowTask loop = loop(task("body", TaskType.TASK_TYPE_INLINE));
+        loop.setLoopItems("${workflow.input.items}");
+        loop.setLoopCondition(null);
+        Fixture fixture = new Fixture(definition(loop, task("after", TaskType.TASK_TYPE_INLINE)),
+                (expression, input) -> { throw new AssertionError("array loop cannot evaluate JS"); },
+                (workflow, runtime) -> { throw new AssertionError("invalid array cannot execute body"); });
+
+        assertThrows(TerminateWorkflowException.class, () -> fixture.start(Map.of("items", Map.of("id", 1))));
+
+        assertTrue(fixture.executions.isEmpty());
+        assertEquals(0, fixture.persistedTasks.get("loop").getIteration());
+        assertTrue(fixture.persistedTasks.get("loop").getReasonForInCompletion().contains("array or collection"));
     }
 
     @Test
     void emptyListSkipsBodyAndContinuesAfterLoop() {
         WorkflowTask loop = loop(task("body", TaskType.TASK_TYPE_INLINE));
-        loop.setItems("${workflow.input.items}");
+        loop.setLoopItems("${workflow.input.items}");
+        loop.setLoopCondition(null);
         Fixture fixture = new Fixture(
                 definition(loop, task("after", TaskType.TASK_TYPE_INLINE)),
                 (expression, input) -> { throw new AssertionError("empty list must not evaluate condition"); },
@@ -185,6 +238,50 @@ class WorkflowExecutorOpsDoWhileTest {
             assertEquals("loop-branch-pool", fixture.executionThreads.get("body__1"));
             assertEquals("loop-branch-pool", fixture.executionThreads.get("body__2"));
             assertEquals(Thread.currentThread().getName(), fixture.executionThreads.get("after"));
+            fixture.assertCreatedOnceAndPersisted(result);
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    @Test
+    void siblingLoopsRegisterIterationsFromForkBranchesAndDispatchOnCaller() {
+        WorkflowTask firstLoop = loop(task("first_body", TaskType.TASK_TYPE_INLINE));
+        firstLoop.setTaskReferenceName("first_loop");
+        WorkflowTask secondLoop = loop(task("second_body", TaskType.TASK_TYPE_INLINE));
+        secondLoop.setTaskReferenceName("second_loop");
+        WorkflowTask fork = task("fork", TaskType.TASK_TYPE_FORK_JOIN);
+        fork.setForkTasks(List.of(List.of(firstLoop), List.of(secondLoop)));
+        WorkflowTask join = task("join", TaskType.TASK_TYPE_JOIN);
+        join.setJoinOn(List.of("first_loop", "second_loop"));
+        Fixture fixture = new Fixture(
+                definition(fork, join, task("after", TaskType.TASK_TYPE_INLINE)),
+                (expression, input) -> ((Number) input.get("iteration")).intValue() < 3,
+                (workflow, runtime) -> runtime.setStatus(TaskModel.Status.COMPLETED));
+        ExecutorService pool = Executors.newFixedThreadPool(2,
+                runnable -> new Thread(runnable, "sibling-loop-pool"));
+        String callerThread = Thread.currentThread().getName();
+        fixture.executor.setTaskScheduler(new CallerAndForkTaskScheduler(pool, fixture.registry) {
+            @Override
+            public void schedule(WorkflowModel workflow, List<TaskModel> tasks, WorkflowExecutor executor) {
+                assertEquals(callerThread, Thread.currentThread().getName(),
+                        "iteration registration must not reenter the scheduler from a branch");
+                super.schedule(workflow, tasks, executor);
+            }
+        });
+
+        try {
+            WorkflowModel result = fixture.start(Map.of());
+
+            assertEquals(WorkflowModel.Status.COMPLETED, result.getStatus());
+            for (String ref : List.of("first_body", "second_body")) {
+                for (int iteration = 1; iteration <= 3; iteration++) {
+                    String runtimeRef = ref + "__" + iteration;
+                    assertEquals(1, Collections.frequency(fixture.executions, runtimeRef));
+                    assertEquals("sibling-loop-pool", fixture.executionThreads.get(runtimeRef));
+                }
+            }
+            assertEquals(callerThread, fixture.executionThreads.get("after"));
             fixture.assertCreatedOnceAndPersisted(result);
         } finally {
             pool.shutdownNow();
@@ -261,6 +358,12 @@ class WorkflowExecutorOpsDoWhileTest {
         verify(fixture.dao, never()).removeWorkflow(any());
     }
 
+    private static GraalJSEvaluator graal(Evaluator evaluator) {
+        GraalJSEvaluator graal = mock(GraalJSEvaluator.class);
+        when(graal.evaluate(anyString(), anyMap())).thenAnswer(invocation -> evaluator.evaluate(invocation.getArgument(0), invocation.getArgument(1)));
+        return graal;
+    }
+
     private static WorkflowTask task(String ref, String type) {
         return WorkflowTask.builder().name(ref).taskReferenceName(ref).type(type).build();
     }
@@ -269,7 +372,7 @@ class WorkflowExecutorOpsDoWhileTest {
         WorkflowTask loop = task("loop", TaskType.TASK_TYPE_DO_WHILE);
         loop.setLoopOver(List.of(body));
         loop.setLoopCondition("continue");
-        loop.setEvaluatorType(ValueParamEvaluator.NAME);
+        loop.setEvaluatorType(GraalJSEvaluator.NAME);
         return loop;
     }
 
@@ -300,17 +403,20 @@ class WorkflowExecutorOpsDoWhileTest {
                 }
             };
             registry = new SystemTaskRegistry(Set.of(inline,
-                    new DoWhile(Map.of(ValueParamEvaluator.NAME, evaluator), parameters), new Fork(), new Join()));
+                    new DoWhile(graal(evaluator), parameters, new ExecutionDAOFacade(dao, new ObjectMapper())), new Fork(), new Join()));
             Map<String, TaskMapper> mappers = Map.of(
                     TaskType.TASK_TYPE_INLINE, new InlineTaskMapper(parameters),
                     TaskType.TASK_TYPE_DO_WHILE, new DoWhileTaskMapper(parameters),
                     TaskType.TASK_TYPE_FORK_JOIN, new ForkJoinTaskMapper(),
                     TaskType.TASK_TYPE_JOIN, new JoinTaskMapper());
+            String callerThread = Thread.currentThread().getName();
             DeciderService decider = new DeciderService(new IDGenerator(), parameters, registry, mappers) {
                 private int rounds;
 
                 @Override
                 public DeciderOutcome decide(WorkflowModel workflow) {
+                    assertEquals(callerThread, Thread.currentThread().getName(),
+                            "only the caller may drive the workflow's decision loop");
                     assertTrue(++rounds <= 100, "workflow did not finish within 100 decision rounds");
                     return super.decide(workflow);
                 }

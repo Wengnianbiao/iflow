@@ -2,6 +2,8 @@ package com.helianhealth.iflow.core.execution.tasks;
 
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
+import com.helianhealth.iflow.core.dal.ExecutionDAOFacade;
+import com.helianhealth.iflow.core.execution.evaluators.GraalJSEvaluator;
 import com.helianhealth.iflow.core.execution.DeciderService;
 import com.helianhealth.iflow.core.execution.WorkflowExecutor;
 import com.helianhealth.iflow.core.execution.mapper.WebServiceTaskMapper;
@@ -22,6 +24,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
 
 class TaskOutputContractTest {
 
@@ -102,7 +105,7 @@ class TaskOutputContractTest {
         loop.setReferenceTaskName("loop");
         loop.setIteration(2);
         loop.setWorkflowTask(WorkflowTask.builder().type("DO_WHILE").taskReferenceName("loop")
-                .loopOver(List.of(childDef)).items("${workflow.input.items}")
+                .loopOver(List.of(childDef)).loopItems("${workflow.input.items}")
                 .inputParameters(Map.of("keepLastN", 1)).build());
         loop.addOutput("iteration", 2);
         loop.addOutput("1", Map.of("branch", "old"));
@@ -110,8 +113,9 @@ class TaskOutputContractTest {
         child.setIteration(2);
         WorkflowModel workflow = workflow(loop, child);
         workflow.setInput(Map.of("items", List.of(1, 2)));
+        loop.getInputData().put("loopItems", List.of(1, 2));
 
-        new DoWhile(Map.of(), parameters).execute(workflow, loop, null);
+        new DoWhile(mock(GraalJSEvaluator.class), parameters, mock(ExecutionDAOFacade.class)).execute(workflow, loop, null);
 
         assertEquals(TaskModel.Status.COMPLETED, loop.getStatus());
         assertFalse(loop.outputAsMap().containsKey("1"));
