@@ -25,7 +25,7 @@ class MappingWorkflowExamplesTest {
     private final ObjectMapper mapper = new ObjectMapper();
     private final GraalJSEvaluator evaluator = new GraalJSEvaluator();
     private final MappingTask mappingTask = new MappingTask(new ParamMapTransformer(evaluator), mapper);
-    private final ParametersUtils parameters = new ParametersUtils();
+    private final ParametersUtils parameters = new ParametersUtils(new ObjectMapper());
 
     @Test
     void migratedCreateArchivesPreservesPatientRequestAndSerializedArray() throws Exception {

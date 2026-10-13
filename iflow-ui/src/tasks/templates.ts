@@ -1,3 +1,14 @@
+export function httpRequestTemplate(uri = 'http://localhost:8080') {
+  return {
+    method: 'POST',
+    uri,
+    contentType: 'application/json',
+    accept: 'application/json',
+    connectionTimeOut: 5000,
+    readTimeOut: 30000,
+  }
+}
+
 export function spiJavaTemplate(className: string) {
   const separator = className.lastIndexOf('.')
   const packageName = separator > 0 ? className.slice(0, separator) : ''

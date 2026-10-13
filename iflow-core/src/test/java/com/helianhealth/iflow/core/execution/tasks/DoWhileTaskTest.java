@@ -28,7 +28,7 @@ import static org.mockito.Mockito.*;
 
 class DoWhileTaskTest {
 
-    private final ParametersUtils parameters = new ParametersUtils();
+    private final ParametersUtils parameters = new ParametersUtils(new ObjectMapper());
     private final WorkflowExecutor workflowExecutor = mock(WorkflowExecutor.class);
     private final ExecutionDAOFacade dao = mock(ExecutionDAOFacade.class);
 

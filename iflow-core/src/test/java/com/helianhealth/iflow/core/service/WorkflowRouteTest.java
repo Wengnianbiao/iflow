@@ -1,5 +1,7 @@
 package com.helianhealth.iflow.core.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
 import com.helianhealth.iflow.common.domain.run.StartWorkflowRequest;
 import com.helianhealth.iflow.core.dao.MetadataDAO;
@@ -34,7 +36,7 @@ class WorkflowRouteTest {
     }
 
     @Test
-    void runtimeSnapshotsAndWorkflowTypeExpressionsKeepTheRouteSeparateFromTheName() {
+    void runtimeSnapshotsAndWorkflowRouteExpressionsKeepTheRouteSeparateFromTheName() {
         var model = new WorkflowModel();
         model.setWorkflowDefinition(WorkflowDef.builder().route("GetItemResult").name("获取检验结果").version(3).build());
         model.setWorkflowId("instance-1");
@@ -42,7 +44,7 @@ class WorkflowRouteTest {
         assertEquals("GetItemResult", restored.getWorkflowRoute());
         assertEquals("获取检验结果", restored.getWorkflowName());
         assertEquals("GetItemResult.3/instance-1", restored.toShortString());
-        var parameters = new ParametersUtils().getTaskInput(Map.of("route", "${workflow.workflowType}"), restored, null);
+        var parameters = new ParametersUtils(new ObjectMapper()).getTaskInput(Map.of("route", "${workflow.workflowRoute}"), restored, null);
         assertEquals("GetItemResult", parameters.get("route"));
     }
 }

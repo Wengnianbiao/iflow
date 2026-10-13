@@ -163,7 +163,7 @@ class WorkflowSweeperTest {
                     }
                 };
         SystemTaskRegistry registry = new SystemTaskRegistry(Set.of(blocking));
-        ParametersUtils parametersUtils = new ParametersUtils();
+        ParametersUtils parametersUtils = new ParametersUtils(new ObjectMapper());
         DeciderService deciderService =
                 new DeciderService(
                         new IDGenerator(),

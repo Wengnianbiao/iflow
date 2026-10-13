@@ -105,7 +105,7 @@ class OpenApiControllerTest {
                 .andExpect(status().isOk());
         WorkflowModel workflow = new WorkflowModel();
         workflow.setInput(started.getInput());
-        Map<String, Object> input = new ParametersUtils().getTaskInput(Map.of(
+        Map<String, Object> input = new ParametersUtils(new ObjectMapper()).getTaskInput(Map.of(
                 "items", "${workflow.input.body}", "first", "${workflow.input.body[0].barCode}"), workflow, "test");
         assertEquals(List.of(Map.of("barCode", "00123")), input.get("items"));
         assertEquals("00123", input.get("first"));

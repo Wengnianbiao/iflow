@@ -545,7 +545,7 @@ class WorkflowExecutorOpsDoWhileTest {
 
         Fixture(WorkflowDef definition, Evaluator evaluator, BiConsumer<WorkflowModel, TaskModel> body) {
             this.definition = definition;
-            ParametersUtils parameters = new ParametersUtils();
+            ParametersUtils parameters = new ParametersUtils(new ObjectMapper());
             WorkflowSystemTask inline = new WorkflowSystemTask(TaskType.TASK_TYPE_INLINE) {
                 @Override
                 public void execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor) {

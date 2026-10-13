@@ -205,7 +205,7 @@ class WebServiceDataTypesTest {
         WorkflowTask definition = WorkflowTask.builder().name("soap").type("WEBSERVICE")
                 .taskReferenceName("soap").inputParameters(Map.of(
                         "uri", URI, "soapTemplate", template, "templateParameters", bindings)).build();
-        return new WebServiceTaskMapper(new ParametersUtils()).getMappedTasks(TaskMapperContext.builder()
+        return new WebServiceTaskMapper(new ParametersUtils(new ObjectMapper())).getMappedTasks(TaskMapperContext.builder()
                 .workflowModel(workflow).workflowTask(definition).taskId("soap-1").build()).get(0);
     }
 

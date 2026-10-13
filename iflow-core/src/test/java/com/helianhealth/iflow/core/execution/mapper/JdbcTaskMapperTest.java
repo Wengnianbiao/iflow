@@ -1,5 +1,7 @@
 package com.helianhealth.iflow.core.execution.mapper;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
@@ -18,7 +20,7 @@ class JdbcTaskMapperTest {
                 "sqlTemplate", "SELECT $.text");
         WorkflowTask definition = WorkflowTask.builder().name("jdbc").type("JDBC")
                 .taskReferenceName("jdbc_ref").inputParameters(Map.of("payload", "${missing.input}")).build();
-        TaskModel task = new JdbcTaskMapper(new ParametersUtils()).getMappedTasks(TaskMapperContext.builder()
+        TaskModel task = new JdbcTaskMapper(new ParametersUtils(new ObjectMapper())).getMappedTasks(TaskMapperContext.builder()
                 .workflowModel(new WorkflowModel()).workflowTask(definition)
                 .taskInput(resolved).taskId("jdbc-1").retryCount(2).build()).get(0);
         assertEquals(resolved, task.getInputData());
@@ -37,7 +39,7 @@ class JdbcTaskMapperTest {
                         "payload", "${workflow.input.patient}",
                         "datasource", "${workflow.input.database}",
                         "sqlTemplate", "SELECT $.name")).build();
-        JdbcTaskMapper mapper = new JdbcTaskMapper(new ParametersUtils());
+        JdbcTaskMapper mapper = new JdbcTaskMapper(new ParametersUtils(new ObjectMapper()));
 
         TaskModel task = mapper.getMappedTasks(TaskMapperContext.builder()
                 .workflowModel(workflow).workflowTask(definition).taskId("jdbc-1")
@@ -58,7 +60,7 @@ class JdbcTaskMapperTest {
     void usesExplicitEmptyPreparedInputWithoutFallingBackToDefinition() {
         WorkflowTask definition = WorkflowTask.builder().name("jdbc").type("JDBC")
                 .taskReferenceName("jdbc_ref").inputParameters(Map.of("datasource", "ignored")).build();
-        TaskModel task = new JdbcTaskMapper(new ParametersUtils()).getMappedTasks(TaskMapperContext.builder()
+        TaskModel task = new JdbcTaskMapper(new ParametersUtils(new ObjectMapper())).getMappedTasks(TaskMapperContext.builder()
                 .workflowModel(new WorkflowModel()).workflowTask(definition)
                 .taskInput(Map.of()).taskId("jdbc-1").build()).get(0);
 

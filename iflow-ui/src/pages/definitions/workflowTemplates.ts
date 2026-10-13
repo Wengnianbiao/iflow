@@ -5,6 +5,7 @@ import {
   GlobeHemisphereWestIcon,
 } from '@phosphor-icons/react'
 import type { WorkflowDef } from '@/types/workflow'
+import { httpRequestTemplate } from '@/tasks/templates'
 
 export type WorkflowTemplate = {
   id: string
@@ -41,14 +42,7 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: '请求 API',
           taskReferenceName: 'request_api_ref',
           type: 'HTTP',
-          inputParameters: {
-            http_request: {
-              method: 'GET',
-              uri: '${workflow.input.apiBaseUrl}/${workflow.input.resourceId}',
-              contentType: 'application/json',
-              readTimeOut: 30000,
-            },
-          },
+          inputParameters: httpRequestTemplate('${workflow.input.apiBaseUrl}/${workflow.input.resourceId}'),
         },
         {
           name: '整理响应',
@@ -156,14 +150,7 @@ export const workflowTemplates: WorkflowTemplate[] = [
                 name: '调用服务 A',
                 taskReferenceName: 'service_a_ref',
                 type: 'HTTP',
-                inputParameters: {
-                  http_request: {
-                    method: 'GET',
-                    uri: '${workflow.input.serviceAUrl}',
-                    contentType: 'application/json',
-                    readTimeOut: 30000,
-                  },
-                },
+                inputParameters: httpRequestTemplate('${workflow.input.serviceAUrl}'),
               },
             ],
             [
@@ -171,14 +158,7 @@ export const workflowTemplates: WorkflowTemplate[] = [
                 name: '调用服务 B',
                 taskReferenceName: 'service_b_ref',
                 type: 'HTTP',
-                inputParameters: {
-                  http_request: {
-                    method: 'GET',
-                    uri: '${workflow.input.serviceBUrl}',
-                    contentType: 'application/json',
-                    readTimeOut: 30000,
-                  },
-                },
+                inputParameters: httpRequestTemplate('${workflow.input.serviceBUrl}'),
               },
             ],
           ],

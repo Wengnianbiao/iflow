@@ -39,7 +39,7 @@ import {
 import { registerCoreTaskPlugins, type TaskCreationContext } from './taskPluginRegistry'
 import { validateBuiltinTask } from './builtinTaskValidators'
 import { doWhileVariableOptions } from './doWhile'
-import { spiJavaTemplate } from './templates'
+import { httpRequestTemplate, spiJavaTemplate } from './templates'
 
 const DEFAULT_NODE_WIDTH = 350
 const SWITCH_SIZE_INCREMENTER = 60
@@ -106,14 +106,7 @@ registerCoreTaskPlugins([
     variableOptions: responseVariableOptions,
     create: (context) => baseTask(context, {
       name: `http_${context.suffix}`,
-      inputParameters: {
-        http_request: {
-          method: 'GET',
-          uri: 'http://localhost:8080',
-          contentType: 'application/json',
-          readTimeOut: 30000,
-        },
-      },
+      inputParameters: httpRequestTemplate(),
     }),
   },
   {

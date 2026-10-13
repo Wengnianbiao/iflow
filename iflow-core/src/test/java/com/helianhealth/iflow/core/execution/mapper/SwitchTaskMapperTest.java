@@ -1,5 +1,7 @@
 package com.helianhealth.iflow.core.execution.mapper;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.helianhealth.iflow.common.domain.metadata.task.TaskType;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 import com.helianhealth.iflow.core.exception.TerminateWorkflowException;
@@ -20,7 +22,7 @@ import static org.mockito.Mockito.*;
 class SwitchTaskMapperTest {
 
     private final DeciderService decider = mock(DeciderService.class);
-    private final ParametersUtils parameters = new ParametersUtils();
+    private final ParametersUtils parameters = new ParametersUtils(new ObjectMapper());
 
     @Test
     void schedulesOnlyFirstTaskOfMatchedCaseAndCarriesRetryAndForkScope() {

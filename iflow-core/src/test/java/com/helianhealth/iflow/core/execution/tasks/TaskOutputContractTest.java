@@ -1,5 +1,7 @@
 package com.helianhealth.iflow.core.execution.tasks;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 import com.helianhealth.iflow.core.dal.ExecutionDAOFacade;
@@ -28,7 +30,7 @@ import static org.mockito.Mockito.mock;
 
 class TaskOutputContractTest {
 
-    private final ParametersUtils parameters = new ParametersUtils();
+    private final ParametersUtils parameters = new ParametersUtils(new ObjectMapper());
     private final DeciderService decider = new DeciderService(
             new IDGenerator(), parameters, new SystemTaskRegistry(Set.of()), Map.of());
 

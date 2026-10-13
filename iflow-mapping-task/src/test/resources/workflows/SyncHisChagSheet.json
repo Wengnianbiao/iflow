@@ -1,0 +1,79 @@
+{
+  "route": "SyncHisChagSheet",
+  "name": "杭州903发送账单",
+  "version": 1,
+  "description": "Jarvis SyncHisChagSheet：按账单明细调用 EXCHANGE-CHARGE-001 orderConfirmFee，directId=1 发送账单。正式网关 http://132.147.181.4/gateway/api，测试网关 http://132.147.181.104/gateway/api。回写 code / message / rsp.presId / rsp.hisItems。",
+  "timeoutPolicy": "TIME_OUT_WF",
+  "correlationExpression": "${workflow.input.data.patientInfo.patientCode}",
+  "inputParameters": [
+    "data",
+    "BusinessMethod",
+    "BusinessCode",
+    "DepartType"
+  ],
+  "outputParameters": {
+    "code": "${map_output_ref.output.code}",
+    "message": "${map_output_ref.output.message}",
+    "rsp": "${map_output_ref.output.rsp}"
+  },
+  "tasks": [
+    {
+      "name": "组装医嘱计费报文",
+      "taskReferenceName": "build_fee_ref",
+      "type": "INLINE",
+      "optional": false,
+      "inputParameters": {
+        "data": "${workflow.input.data}",
+        "evaluatorType": "graaljs",
+        "expression": "(function () {\n  function text(v) {\n    return v == null ? '' : String(v);\n  }\n  function pick() {\n    for (var i = 0; i < arguments.length; i++) {\n      var v = arguments[i];\n      if (v != null && String(v) !== '') return String(v);\n    }\n    return '';\n  }\n  function pad(n) { return n < 10 ? '0' + n : String(n); }\n  function nowText() {\n    var d = new Date();\n    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())\n      + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());\n  }\n\n  var data = $.data || {};\n  var patient = data.patientInfo || {};\n  var sheet = data.chagPatientSheet || {};\n  var details = data.chagPatientSheetDetail || [];\n  if (!Array.isArray(details) || details.length === 0) {\n    throw new Error('账单明细为空');\n  }\n\n  var confirmTime = nowText();\n  var visitNumber = text(patient.visitNo);\n  var presId = pick(sheet.presId, sheet.settlementOrderNo, sheet.idPatientSheet);\n  var orders = [];\n  var hisItems = [];\n  var seen = {};\n  for (var i = 0; i < details.length; i++) {\n    var item = details[i] || {};\n    var orderId = pick(item.hisDetailId, item.presId, item.firstHisDetailId, item.previousHisDetailId, sheet.presId, item.applyId, item.idPatientFeeItem);\n    if (!orderId) {\n      throw new Error('缺少医嘱编码 orderId');\n    }\n    hisItems.push({\n      idPatientFeeItem: item.idPatientFeeItem,\n      hisDetailId: orderId\n    });\n    if (seen[orderId]) continue;\n    seen[orderId] = true;\n    orders.push({\n      applId: text(item.applyId),\n      orderId: orderId,\n      visitNumber: visitNumber,\n      departmentId: '66fca4551d3a1d0001fab02d',\n      confirmTime: confirmTime,\n      userId: '6a4db0dc4da7fc0001a9609a',\n      directId: '1',\n      visitTypeCode: '114',\n      organizationId: '66fca42db0c0ad0001f1a9f4',\n      applicationDepartmentId: '0921',\n      accountId: '66fca570063ef80001a5da41',\n      mainInsurancePlanId: null,\n      sender: 'HELIAN-TJ',\n      applicationEmployeeId: 'XT_HLJK_TJ',\n      tenantId: 'GHIS'\n    });\n  }\n  return {\n    orders: orders,\n    hisItems: hisItems,\n    presId: presId || null,\n    timestamp: String(Date.now())\n  };\n})()"
+      }
+    },
+    {
+      "name": "序列化医嘱计费报文",
+      "taskReferenceName": "serialize_fee_ref",
+      "type": "INLINE",
+      "optional": false,
+      "inputParameters": {
+        "orders": "${build_fee_ref.output.orders}",
+        "evaluatorType": "graaljs",
+        "expression": "JSON.stringify($.orders)"
+      }
+    },
+    {
+      "name": "调用HIS医嘱计费",
+      "taskReferenceName": "call_his_ref",
+      "type": "HTTP",
+      "optional": false,
+      "inputParameters": {
+        "uri": "http://132.147.181.4/gateway/api",
+        "method": "POST",
+        "contentType": "application/json",
+        "accept": "application/json",
+        "connectionTimeOut": 5000,
+        "readTimeOut": 30000,
+        "body": {
+          "appId": "6a4daeb8b4ac040015386004",
+          "encryptData": "${serialize_fee_ref.output}",
+          "sign": "",
+          "timestamp": "${build_fee_ref.output.timestamp}",
+          "version": "1.0.0",
+          "beanName": "exchange.stand.orderConfirmFeeProvider",
+          "methodName": "orderConfirmFee"
+        }
+      }
+    },
+    {
+      "name": "映射发送账单出参",
+      "taskReferenceName": "map_output_ref",
+      "type": "INLINE",
+      "optional": false,
+      "inputParameters": {
+        "body": "${call_his_ref.output.body}",
+        "presId": "${build_fee_ref.output.presId}",
+        "hisItems": "${build_fee_ref.output.hisItems}",
+        "evaluatorType": "graaljs",
+        "expression": "(function () {\n  function collect(node, codes, statusHolder, detailHolder, depth) {\n    if (node == null || depth > 6) return;\n    if (typeof node === 'string') {\n      var text = node.trim();\n      if (!text) return;\n      try { collect(JSON.parse(text), codes, statusHolder, detailHolder, depth + 1); }\n      catch (e) { if (!detailHolder.v) detailHolder.v = text; }\n      return;\n    }\n    if (typeof node !== 'object') return;\n    if (node.code != null && node.code !== '') codes.push(String(node.code));\n    if (node.status != null) statusHolder.v = node.status;\n    if (node.detail) detailHolder.v = node.detail;\n    else if (node.msg && !detailHolder.v) detailHolder.v = node.msg;\n    else if (node.message && !detailHolder.v) detailHolder.v = node.message;\n    if (node.encryptData != null) collect(node.encryptData, codes, statusHolder, detailHolder, depth + 1);\n    if (node.body != null) collect(node.body, codes, statusHolder, detailHolder, depth + 1);\n    if (node.data != null && typeof node.data === 'object') collect(node.data, codes, statusHolder, detailHolder, depth + 1);\n  }\n  var codes = [];\n  var statusHolder = { v: null };\n  var detailHolder = { v: '' };\n  collect($.body, codes, statusHolder, detailHolder, 0);\n  var ok = codes.length > 0\n    && codes.every(function (c) { return c === '200' || c === '0'; })\n    && (statusHolder.v == null || statusHolder.v === true);\n  return {\n    code: ok ? '200' : '-1',\n    message: ok ? '成功' : (detailHolder.v || '失败'),\n    rsp: {\n      presId: $.presId || null,\n      hisItems: $.hisItems || []\n    }\n  };\n})()"
+      }
+    }
+  ]
+}

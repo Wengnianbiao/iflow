@@ -2,9 +2,8 @@ import { LinkIcon } from '@phosphor-icons/react'
 import type { TaskCardContentProps } from '../taskPluginRegistry'
 
 export function HTTPTaskCard({ task }: TaskCardContentProps) {
-  const inputParameters = task.inputParameters ?? {}
-  const request = (inputParameters.http_request as Record<string, unknown> | undefined) ?? inputParameters
-  const method = String(request.method ?? 'GET')
+  const request = task.inputParameters ?? {}
+  const method = String(request.method ?? '')
   const uri = String(request.uri ?? '')
   const clickable = method.toUpperCase() === 'GET' && /^https?:\/\//i.test(uri)
 

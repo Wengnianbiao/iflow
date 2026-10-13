@@ -1,5 +1,7 @@
 package com.helianhealth.iflow.core.execution.mapper;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.helianhealth.iflow.common.domain.metadata.task.TaskType;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 import com.helianhealth.iflow.core.model.TaskModel;
@@ -24,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ParamMappingTaskMapperTest {
 
-    private final ParamMappingTaskMapper mapper = new ParamMappingTaskMapper(new ParametersUtils());
+    private final ParamMappingTaskMapper mapper = new ParamMappingTaskMapper(new ParametersUtils(new ObjectMapper()));
 
     @Test
     void resolvesPayloadExpression() {

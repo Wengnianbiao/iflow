@@ -47,7 +47,7 @@ class WorkflowExecutorOpsPersistenceTest {
                     }
                 };
         SystemTaskRegistry registry = new SystemTaskRegistry(Set.of(failingTask));
-        ParametersUtils parametersUtils = new ParametersUtils();
+        ParametersUtils parametersUtils = new ParametersUtils(new ObjectMapper());
         DeciderService deciderService =
                 new DeciderService(
                         new IDGenerator(),

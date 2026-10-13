@@ -15,14 +15,9 @@ export const validateBuiltinTask: TaskValidator = (task) => {
     if (!text(object[key])) add(`${path}/${key}`, `请填写 ${key}`)
   }
   if (task.type === 'HTTP') {
-    const nested = isRecord(input.http_request)
-    const request = nested ? input.http_request as Record<string, unknown> : input
-    const path = nested ? '/inputParameters/http_request' : '/inputParameters'
-    if (input.http_request !== undefined && !nested && !expression(input.http_request)) add('/inputParameters/http_request', 'http_request 必须是请求对象或 ${...} 表达式')
-    if (!expression(input.http_request)) {
-      required(request, 'uri', path); required(request, 'method', path)
-      if (text(request.method) && !expression(request.method) && !['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS', 'TRACE'].includes(String(request.method).toUpperCase())) add(`${path}/method`, '请选择有效的 HTTP 方法，或使用 ${...} 表达式')
-    }
+    if (Object.prototype.hasOwnProperty.call(input, 'http_request')) add('/inputParameters/http_request', 'HTTP 请求字段请直接配置在 inputParameters 中，移除 http_request 包装')
+    required(input, 'uri'); required(input, 'method')
+    if (text(input.method) && !expression(input.method) && !['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS', 'TRACE'].includes(String(input.method).toUpperCase())) add('/inputParameters/method', '请选择有效的 HTTP 方法，或使用 ${...} 表达式')
   }
   if (task.type === 'INLINE') required(input, 'expression')
   if (task.type === 'DO_WHILE') {

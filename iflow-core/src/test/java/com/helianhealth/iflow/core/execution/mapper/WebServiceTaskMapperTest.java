@@ -1,5 +1,7 @@
 package com.helianhealth.iflow.core.execution.mapper;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
@@ -25,7 +27,7 @@ class WebServiceTaskMapperTest {
         WorkflowTask definition = WorkflowTask.builder().name("soap").type("WEBSERVICE")
                 .taskReferenceName("soap").inputParameters(Map.of("uri", "${missing.input}")).build();
 
-        TaskModel task = new WebServiceTaskMapper(new ParametersUtils()).getMappedTasks(TaskMapperContext.builder()
+        TaskModel task = new WebServiceTaskMapper(new ParametersUtils(new ObjectMapper())).getMappedTasks(TaskMapperContext.builder()
                 .workflowModel(new WorkflowModel()).workflowTask(definition)
                 .taskInput(resolved).taskId("soap-1").retryCount(2).build()).get(0);
 
@@ -44,7 +46,7 @@ class WebServiceTaskMapperTest {
                         "soapTemplate", "${workflow.input.xml}",
                         "templateParameters", Map.of("patient", "${workflow.input.patient}"))).build();
 
-        TaskModel task = new WebServiceTaskMapper(new ParametersUtils()).getMappedTasks(TaskMapperContext.builder()
+        TaskModel task = new WebServiceTaskMapper(new ParametersUtils(new ObjectMapper())).getMappedTasks(TaskMapperContext.builder()
                 .workflowModel(workflow).workflowTask(definition).taskId("soap-1").build()).get(0);
 
         assertEquals("<r>ready</r>", task.getInputData().get("soapTemplate"));
@@ -62,7 +64,7 @@ class WebServiceTaskMapperTest {
         workflow.setCorrelationId("patient-1");
         WorkflowTask definition = WorkflowTask.builder().name("soap").type("WEBSERVICE")
                 .taskReferenceName("soap_ref").build();
-        WebServiceTaskMapper mapper = new WebServiceTaskMapper(new ParametersUtils());
+        WebServiceTaskMapper mapper = new WebServiceTaskMapper(new ParametersUtils(new ObjectMapper()));
 
         TaskModel task = mapper.getMappedTasks(TaskMapperContext.builder()
                 .workflowModel(workflow).workflowTask(definition).taskId("soap-1")
@@ -85,7 +87,7 @@ class WebServiceTaskMapperTest {
     void usesExplicitEmptyPreparedInputWithoutFallingBackToDefinition() {
         WorkflowTask definition = WorkflowTask.builder().name("soap").type("WEBSERVICE")
                 .taskReferenceName("soap_ref").inputParameters(Map.of("uri", "ignored")).build();
-        TaskModel task = new WebServiceTaskMapper(new ParametersUtils()).getMappedTasks(TaskMapperContext.builder()
+        TaskModel task = new WebServiceTaskMapper(new ParametersUtils(new ObjectMapper())).getMappedTasks(TaskMapperContext.builder()
                 .workflowModel(new WorkflowModel()).workflowTask(definition)
                 .taskInput(Map.of()).taskId("soap-1").build()).get(0);
 

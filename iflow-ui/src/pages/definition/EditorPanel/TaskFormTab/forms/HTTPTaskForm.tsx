@@ -36,14 +36,12 @@ const CONTENT_TYPES = [
 const ACCEPT_TYPES = [...CONTENT_TYPES, '*/*']
 
 export function HTTPTaskForm({ task, variableOptions, onChange }: { task: WorkflowTask; variableOptions: string[]; onChange: (task: WorkflowTask) => void }) {
-  const inputParameters = task.inputParameters ?? {}
-  const hasNestedRequest = isRecord(inputParameters.http_request)
-  const request = hasNestedRequest ? inputParameters.http_request as Record<string, unknown> : inputParameters
+  const request = task.inputParameters ?? {}
   const headers = isRecord(request.headers) ? request.headers : {}
   const headerRows = editableParameterRows(headers)
   const bodyParameters = isRecord(request.body) ? request.body : {}
   const bodyParameterRows = editableParameterRows(bodyParameters)
-  const requestPath = hasNestedRequest ? '/inputParameters/http_request' : '/inputParameters'
+  const requestPath = '/inputParameters'
   const bodyDraft = useTaskFieldDraft(`${requestPath}/body`, JSON.stringify(request.body === undefined ? {} : request.body, null, 2))
   const [bodyViewType, setBodyViewType] = useState<'JSON' | 'PARAMETERS'>('JSON')
 
@@ -51,7 +49,7 @@ export function HTTPTaskForm({ task, variableOptions, onChange }: { task: Workfl
     const nextRequest = { ...request, ...next }
     onChange({
       ...task,
-      inputParameters: hasNestedRequest ? { ...inputParameters, http_request: nextRequest } : nextRequest,
+      inputParameters: nextRequest,
     })
   }
 
@@ -118,7 +116,7 @@ export function HTTPTaskForm({ task, variableOptions, onChange }: { task: Workfl
         <div className="inspector-form-grid http-request-grid">
           <ValidationField path={`${requestPath}/method`}><HttpRequestAutocomplete
             label="Method"
-            value={String(request.method ?? 'GET')}
+            value={String(request.method ?? '')}
             options={HTTP_METHODS}
             variableOptions={variableOptions}
             onChange={(value) => updateHttpRequest({ method: value })}
@@ -132,7 +130,7 @@ export function HTTPTaskForm({ task, variableOptions, onChange }: { task: Workfl
           <div className="inspector-form-grid http-request-options-grid">
             <HttpRequestAutocomplete
               label="Content-Type"
-              value={String(request.contentType ?? '')}
+              value={String(request.contentType ?? 'application/json')}
               options={CONTENT_TYPES}
               variableOptions={variableOptions}
               placeholder="application/json"
@@ -140,7 +138,7 @@ export function HTTPTaskForm({ task, variableOptions, onChange }: { task: Workfl
             />
             <HttpRequestAutocomplete
               label="Accept"
-              value={String(request.accept ?? '')}
+              value={String(request.accept ?? 'application/json')}
               options={ACCEPT_TYPES}
               variableOptions={variableOptions}
               placeholder="application/json"

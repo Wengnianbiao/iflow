@@ -71,7 +71,7 @@ class JdbcPayloadExecutionTest {
         workflow.setInput(Map.of("dbUrl", url, "data", data));
         WorkflowTask definition = WorkflowTask.builder().name("query apply").taskReferenceName("query_ref")
                 .type("JDBC").inputParameters(input).build();
-        TaskModel task = new JdbcTaskMapper(new ParametersUtils()).getMappedTasks(TaskMapperContext.builder()
+        TaskModel task = new JdbcTaskMapper(new ParametersUtils(new ObjectMapper())).getMappedTasks(TaskMapperContext.builder()
                 .workflowModel(workflow).workflowTask(definition).taskId("jdbc-task").build()).get(0);
         Connection[] opened = new Connection[1];
         JdbcConnectionProvider provider = new JdbcConnectionProvider() {

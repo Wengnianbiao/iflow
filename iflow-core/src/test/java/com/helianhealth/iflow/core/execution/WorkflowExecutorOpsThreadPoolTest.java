@@ -66,7 +66,7 @@ class WorkflowExecutorOpsThreadPoolTest {
         SystemTaskRegistry registry = new SystemTaskRegistry(Set.of(noop));
         Map<String, TaskMapper> mappers = Map.of(TaskType.TASK_TYPE_NOOP, new NoopTaskMapper());
         DeciderService decider =
-                boundedDecider(new ParametersUtils(), registry, mappers);
+                boundedDecider(new ParametersUtils(new ObjectMapper()), registry, mappers);
 
         WorkflowDef definition =
                 WorkflowDef.builder()
@@ -90,7 +90,7 @@ class WorkflowExecutorOpsThreadPoolTest {
                         executionDAOFacade,
                         metadataService,
                         new IDGenerator(),
-                        new ParametersUtils(),
+                        new ParametersUtils(new ObjectMapper()),
                         new InMemoryExecutionLockService());
         ExecutorService taskPool =
                 Executors.newFixedThreadPool(2, runnable -> new Thread(runnable, "test-task-pool"));
@@ -166,7 +166,7 @@ class WorkflowExecutorOpsThreadPoolTest {
                         TaskType.TASK_TYPE_FORK_JOIN, new ForkJoinTaskMapper(),
                         TaskType.TASK_TYPE_JOIN, new JoinTaskMapper());
         DeciderService decider =
-                boundedDecider(new ParametersUtils(), registry, mappers);
+                boundedDecider(new ParametersUtils(new ObjectMapper()), registry, mappers);
 
         WorkflowTask branchA1 = task("branch_a_1", TaskType.TASK_TYPE_NOOP);
         WorkflowTask branchA2 = task("branch_a_2", TaskType.TASK_TYPE_NOOP);
@@ -189,7 +189,7 @@ class WorkflowExecutorOpsThreadPoolTest {
                         executionDAOFacade(new AtomicReference<>()),
                         metadataService(definition),
                         new IDGenerator(),
-                        new ParametersUtils(),
+                        new ParametersUtils(new ObjectMapper()),
                         new InMemoryExecutionLockService());
         ExecutorService taskPool =
                 Executors.newFixedThreadPool(
@@ -298,7 +298,7 @@ class WorkflowExecutorOpsThreadPoolTest {
                         TaskType.TASK_TYPE_FORK_JOIN, new ForkJoinTaskMapper(),
                         TaskType.TASK_TYPE_JOIN, new JoinTaskMapper());
         DeciderService decider =
-                boundedDecider(new ParametersUtils(), registry, mappers);
+                boundedDecider(new ParametersUtils(new ObjectMapper()), registry, mappers);
 
         WorkflowTask innerA = task("inner_a", TaskType.TASK_TYPE_NOOP);
         WorkflowTask innerB = task("inner_b", TaskType.TASK_TYPE_NOOP);
@@ -328,7 +328,7 @@ class WorkflowExecutorOpsThreadPoolTest {
                         executionDAOFacade(new AtomicReference<>()),
                         metadataService(definition),
                         new IDGenerator(),
-                        new ParametersUtils(),
+                        new ParametersUtils(new ObjectMapper()),
                         new InMemoryExecutionLockService());
         ExecutorService taskPool =
                 Executors.newFixedThreadPool(
@@ -404,7 +404,7 @@ class WorkflowExecutorOpsThreadPoolTest {
                         TaskType.TASK_TYPE_FORK_JOIN, new ForkJoinTaskMapper(),
                         TaskType.TASK_TYPE_JOIN, new JoinTaskMapper());
         DeciderService decider =
-                boundedDecider(new ParametersUtils(), registry, mappers);
+                boundedDecider(new ParametersUtils(new ObjectMapper()), registry, mappers);
 
         WorkflowTask branch = task("branch", TaskType.TASK_TYPE_NOOP);
         WorkflowTask fork = task("fork", TaskType.TASK_TYPE_FORK_JOIN);
@@ -425,7 +425,7 @@ class WorkflowExecutorOpsThreadPoolTest {
                         executionDAOFacade(new AtomicReference<>(), persistedWorkflow),
                         metadataService(definition),
                         new IDGenerator(),
-                        new ParametersUtils(),
+                        new ParametersUtils(new ObjectMapper()),
                         new InMemoryExecutionLockService());
         executor.setTaskScheduler(
                 new CallerAndForkTaskScheduler(
@@ -466,7 +466,7 @@ class WorkflowExecutorOpsThreadPoolTest {
                         task.setStatus(TaskModel.Status.COMPLETED);
                     }
                 };
-        ParametersUtils parametersUtils = new ParametersUtils();
+        ParametersUtils parametersUtils = new ParametersUtils(new ObjectMapper());
         DoWhile doWhile =
                 new DoWhile(new GraalJSEvaluator(), parametersUtils, executionDAOFacade(new AtomicReference<>()));
         SystemTaskRegistry registry = new SystemTaskRegistry(Set.of(noop, doWhile));

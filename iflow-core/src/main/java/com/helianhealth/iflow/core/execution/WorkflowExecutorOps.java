@@ -57,14 +57,14 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
             @Autowired(required = false) ExecutionDAOFacade executionDAOFacade,
             @Autowired(required = false) MetadataService metadataService,
             @Autowired(required = false) IDGenerator idGenerator,
-            @Autowired(required = false) ParametersUtils parametersUtils,
+            ParametersUtils parametersUtils,
             @Autowired(required = false) ExecutionLockService executionLockService) {
         this.deciderService = deciderService;
         this.systemTaskRegistry = systemTaskRegistry;
         this.executionDAOFacade = executionDAOFacade;
         this.metadataService = metadataService;
         this.idGenerator = idGenerator != null ? idGenerator : new IDGenerator();
-        this.parametersUtils = parametersUtils != null ? parametersUtils : new ParametersUtils();
+        this.parametersUtils = parametersUtils;
         this.executionLockService =
                 executionLockService != null
                         ? executionLockService

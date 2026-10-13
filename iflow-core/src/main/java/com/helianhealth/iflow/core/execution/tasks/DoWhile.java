@@ -15,7 +15,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -131,7 +133,7 @@ public class DoWhile extends WorkflowSystemTask {
             if (isListIteration(doWhileTaskModel)) {
                 List<Object> itemsList;
                 try {
-                    itemsList = itemsSnapshot(workflow, doWhileTaskModel);
+                    itemsList = evaluateItemsList(workflow, doWhileTaskModel);
                 } catch (RuntimeException error) {
                     markTaskFailure(
                             doWhileTaskModel,
@@ -352,7 +354,7 @@ public class DoWhile extends WorkflowSystemTask {
         if (!isListIteration(task)) {
             return;
         }
-        List<Object> items = itemsSnapshot(workflow, task);
+        List<Object> items = evaluateItemsList(workflow, task);
         int loopIndex = task.getIteration() - 1;
         task.addOutput("loopIndex", loopIndex);
         if (loopIndex >= 0 && loopIndex < items.size()) {
@@ -365,40 +367,40 @@ public class DoWhile extends WorkflowSystemTask {
     }
 
     @SuppressWarnings("unchecked")
-    private List<Object> itemsSnapshot(WorkflowModel workflow, TaskModel task) {
-        if (task.getInputData().containsKey(INPUT_LOOP_ITEMS)) {
-            Object snapshot = task.getInputData().get(INPUT_LOOP_ITEMS);
-            if (snapshot instanceof List<?> list) {
-                return (List<Object>) list;
-            }
-            throw new IllegalArgumentException("DO_WHILE loopItems snapshot must be an array");
+    private List<Object> evaluateItemsList(WorkflowModel workflow, TaskModel task) {
+        Object itemsValue = null;
+        String itemsParam = task.getWorkflowTask().getLoopItems();
+        if (itemsParam != null && !itemsParam.trim().isEmpty()) {
+            Map<String, Object> tempInputParams = new HashMap<>();
+            tempInputParams.put("loopItems", itemsParam);
+            Map<String, Object> evaluatedParams =
+                    parametersUtils.getTaskInput(
+                            tempInputParams, workflow, task.getTaskId());
+
+            itemsValue = evaluatedParams.get("loopItems");
         }
-        Object resolved = parametersUtils.getTaskInput(
-                Map.of(INPUT_LOOP_ITEMS, task.getWorkflowTask().getLoopItems().trim()),
-                workflow, task.getTaskId()).get(INPUT_LOOP_ITEMS);
-        List<?> items;
-        if (resolved instanceof Collection<?> collection) {
-            items = new ArrayList<>(collection);
-        } else if (resolved != null && resolved.getClass().isArray()) {
-            List<Object> array = new ArrayList<>();
-            for (int index = 0; index < java.lang.reflect.Array.getLength(resolved); index++) {
-                array.add(java.lang.reflect.Array.get(resolved, index));
-            }
-            items = array;
-        } else {
-            throw new IllegalArgumentException("DO_WHILE loopItems must resolve to an array or collection, got "
-                    + (resolved == null ? "null" : resolved.getClass().getSimpleName()));
+
+
+        // Convert itemsValue to List<Object>
+        if (itemsValue instanceof List) {
+            return (List<Object>) itemsValue;
+        } else if (itemsValue instanceof Collection) {
+            return new ArrayList<>((Collection<?>) itemsValue);
+        } else if (itemsValue instanceof Object[]) {
+            return Arrays.asList((Object[]) itemsValue);
+        } else if (itemsValue != null) {
+            // If it's a single value, wrap it in a list
+            return Collections.singletonList(itemsValue);
         }
-        List<Object> snapshot = (List<Object>) ScriptEvaluator.deepCopy(items);
-        task.getInputData().put(INPUT_LOOP_ITEMS, snapshot);
-        return snapshot;
+
+        return Collections.emptyList();
     }
 
     private boolean evaluateCondition(
             WorkflowModel workflow, TaskModel task, Collection<TaskModel> loopTasks) {
         WorkflowTask def = task.getWorkflowTask();
         if (isListIteration(task)) {
-            return task.getIteration() < itemsSnapshot(workflow, task).size();
+            return task.getIteration() < evaluateItemsList(workflow, task).size();
         }
         Map<String, Object> ctx = new HashMap<>(task.getInputData());
         ctx.putAll(

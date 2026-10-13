@@ -441,11 +441,20 @@ test('iFlow task validators preserve expressions and custom task extension rules
   assert.equal(lib.validateWorkflow(wf([custom])).problems[0].path, '/tasks/0/inputParameters/channel')
   dispose()
   assert.equal(lib.validateWorkflow(wf([custom])).problems.length, 0)
-  assert.equal(lib.validateWorkflow(wf([{ ...task('a'), inputParameters: { http_request: '${workflow.input.request}' } }])).problems.length, 0)
+  assert.equal(lib.validateWorkflow(wf([{ ...task('a'), inputParameters: { uri: '${workflow.input.uri}', method: '${workflow.input.method}' } }])).problems.length, 0)
   assert.ok(lib.validateWorkflow(wf([{ ...task('spi'), type: 'SPI', inputParameters: { extensionMode: 'ONLINE', spiInput: '${workflow.input}' } }])).problems.some(p => p.path.endsWith('/className')))
   assert.equal(lib.validateWorkflow(wf([{ ...task('spi'), type: 'SPI', inputParameters: { remoteExtension: 'project', extensionMode: 'PROJECT', spiInput: {} } }])).problems.length, 0)
   assert.ok(lib.validateWorkflow(wf([{ ...task('mapping'), type: 'MAPPING', inputParameters: { paramsConfig: {} } }])).problems.length)
   assert.ok(lib.validateWorkflow({ ...wf(), version: 0 }).problems.some(p => p.code === 'VERSION'))
+})
+
+test('HTTP validation rejects Conductor request wrappers before saving to the iFlow engine', () => {
+  for (const request of [{ uri: 'https://example.test', method: 'POST' }, '${workflow.input.request}']) {
+    const result = lib.validateWorkflow(wf([{ ...task('a'), inputParameters: { http_request: request } }]))
+    assert.ok(result.problems.some(p => p.path === '/tasks/0/inputParameters/http_request'))
+    assert.ok(result.problems.some(p => p.path === '/tasks/0/inputParameters/uri'))
+    assert.ok(result.problems.some(p => p.path === '/tasks/0/inputParameters/method'))
+  }
 })
 
 test('source ranges locate nested duplicate refs and escaped JSON pointer keys', () => {

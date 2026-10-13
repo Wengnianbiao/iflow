@@ -1,6 +1,7 @@
 package com.helianhealth.iflow.core.utils;
 
-import com.helianhealth.iflow.core.exception.TerminateWorkflowException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
 import org.junit.jupiter.api.Test;
@@ -15,19 +16,16 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ParametersUtilsTest {
 
-    private final ParametersUtils parameters = new ParametersUtils();
+    private final ParametersUtils parameters = new ParametersUtils(new ObjectMapper());
 
     @ParameterizedTest
     @ValueSource(strings = {"${parse.output[0]}", "${parse.output.id}",
             "${parse.output['id']}", "${parse.output[\"id\"]}", "${parse.output.}"})
-    void incompatibleOutputPathsReportExpression(String expression) {
+    void incompatibleAndMalformedOutputPathsResolveToNull(String expression) {
         WorkflowModel workflow = withOutput("scalar");
 
-        TerminateWorkflowException error = assertThrows(TerminateWorkflowException.class,
-                () -> parameters.getTaskInput(Map.of("value", expression), workflow, "consumer"));
-
-        assertTrue(error.getMessage().contains("parse.output"));
-        assertTrue(error.getMessage().contains("consumer"));
+        assertEquals(Collections.singletonMap("value", null),
+                parameters.getTaskInput(Map.of("value", expression), workflow, "consumer"));
     }
 
     @Test
@@ -51,10 +49,36 @@ class ParametersUtilsTest {
     }
 
     @Test
-    void scalarInNestedObjectCannotBeReadAsObject() {
-        assertThrows(TerminateWorkflowException.class, () -> parameters.getTaskInput(
+    void scalarInNestedObjectResolvesToNull() {
+        assertEquals(Collections.singletonMap("id", null), parameters.getTaskInput(
                 Map.of("id", "${parse.output.patient.id}"),
                 withOutput(Map.of("patient", 42)), "consumer"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"${parse.output.id}", "${parse.output.missing.id}",
+            "${parse.output.}", "${unknown.output.body.id}"})
+    void replacementEntryPointUsesTheSameLenientReads(String expression) {
+        assertEquals(Collections.singletonMap("value", null), parameters.replace(
+                Map.of("value", expression), Map.of("parse", Map.of("output", 42))));
+        assertEquals(Collections.singletonMap("value", null), parameters.replace(
+                Map.of("value", expression), "{\"parse\":{\"output\":42}}"));
+    }
+
+    @Test
+    void embeddedNullUsesConductorStringConversionAndOtherExpressionsStillResolve() {
+        Map<String, Object> input = Map.of(
+                "text", "before-${parse.output.missing}-after-${parse.output.id}",
+                "nested", Map.of("values", List.of("${parse.output.id}", "${parse.output.}")),
+                "literal", "$${parse.output.id}",
+                "taskLocal", "$.id");
+        Map<String, Object> resolved = parameters.getTaskInput(input, withOutput(Map.of("id", 7)), "consumer");
+
+        assertEquals("before-null-after-7", resolved.get("text"));
+        assertEquals(java.util.Arrays.asList(7, null), ((Map<?, ?>) resolved.get("nested")).get("values"));
+        assertEquals("${parse.output.id}", resolved.get("literal"));
+        assertEquals("$.id", resolved.get("taskLocal"));
+        assertEquals("before-${parse.output.missing}-after-${parse.output.id}", input.get("text"));
     }
 
     @Test

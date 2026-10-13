@@ -116,7 +116,7 @@ class WorkflowExecutorOpsEndExecutionTest {
 
     private WorkflowModel executeTerminateWorkflow(
             WorkflowModel.Status terminationStatus, String reason) {
-        ParametersUtils parametersUtils = new ParametersUtils();
+        ParametersUtils parametersUtils = new ParametersUtils(new ObjectMapper());
         Terminate terminate = new Terminate();
         SystemTaskRegistry registry = new SystemTaskRegistry(Set.of(terminate));
         Map<String, TaskMapper> mappers =
@@ -157,7 +157,7 @@ class WorkflowExecutorOpsEndExecutionTest {
             SystemTaskRegistry registry,
             Map<String, TaskMapper> mappers,
             WorkflowDef definition) {
-        ParametersUtils parametersUtils = new ParametersUtils();
+        ParametersUtils parametersUtils = new ParametersUtils(new ObjectMapper());
         DeciderService decider =
                 new DeciderService(new IDGenerator(), parametersUtils, registry, mappers);
         ExecutionDAO executionDAO =

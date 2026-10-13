@@ -82,7 +82,7 @@ final class SqlTemplate {
 
     private static Object readValue(DocumentContext root, String path) {
         try {
-            Object value = ParametersUtils.readPath(root, path);
+            Object value = root.read(path);
             if (value instanceof Collection<?> values) {
                 if (values.isEmpty()) {
                     throw new IllegalArgumentException("empty arrays cannot be bound to SQL");

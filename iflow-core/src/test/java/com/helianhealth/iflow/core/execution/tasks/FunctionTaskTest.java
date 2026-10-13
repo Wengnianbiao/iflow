@@ -1,5 +1,7 @@
 package com.helianhealth.iflow.core.execution.tasks;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.helianhealth.iflow.core.execution.function.FunctionExecutor;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
@@ -297,7 +299,7 @@ class FunctionTaskTest {
         workflow.setInput(Map.of());
         workflow.setTasks(List.of(task));
 
-        return new ParametersUtils()
+        return new ParametersUtils(new ObjectMapper())
                         .getTaskInput(
                                 Map.of("value", expression),
                                 workflow,

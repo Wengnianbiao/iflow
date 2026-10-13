@@ -1,5 +1,7 @@
 package com.helianhealth.iflow.tasks.spi;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.helianhealth.iflow.common.domain.metadata.task.TaskType;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 import com.helianhealth.iflow.core.execution.mapper.TaskMapperContext;
@@ -25,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SpiTaskMapperTest {
 
-    private final SpiTaskMapper mapper = new SpiTaskMapper(new ParametersUtils());
+    private final SpiTaskMapper mapper = new SpiTaskMapper(new ParametersUtils(new ObjectMapper()));
 
     @Test
     void resolvesRemoteExtensionAndWholeSpiInputMapExpressions() {
@@ -135,7 +137,7 @@ class SpiTaskMapperTest {
         WorkflowTask definition = spiTask(Map.of(SpiTaskInput.SPI_INPUT, Map.of()));
         WorkflowModel workflow = workflow(Map.of());
         workflow.setWorkflowDefinition(com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef
-                .builder().name("patient-workflow").build());
+                .builder().route("patient-workflow").name("patient-workflow").build());
         workflow.setCorrelationId("patient-P001");
         long before = System.currentTimeMillis();
 

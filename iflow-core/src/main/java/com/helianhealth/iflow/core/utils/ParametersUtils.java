@@ -1,17 +1,19 @@
 package com.helianhealth.iflow.core.utils;
 
-import com.alibaba.fastjson2.JSON;
-import com.alibaba.fastjson2.JSONWriter;
-import com.alibaba.fastjson2.TypeReference;
-import com.helianhealth.iflow.core.exception.TerminateWorkflowException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
 import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.DocumentContext;
 import com.jayway.jsonpath.JsonPath;
 import com.jayway.jsonpath.Option;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -32,17 +34,20 @@ import java.util.regex.Pattern;
 @Component
 public class ParametersUtils {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(ParametersUtils.class);
     private static final Pattern PATTERN =
             Pattern.compile(
                     "(?=(?<!\\$)\\$\\{)(?:(?=.*?\\{(?!.*?\\1)(.*\\}(?!.*\\2).*))(?=.*?\\}(?!.*?\\2)(.*)).)+?.*?(?=\\1)[^{]*(?=\\2$)",
                     Pattern.DOTALL);
 
-    private final TypeReference<Map<String, Object>> mapType = new TypeReference<>() {};
+    private final TypeReference<Map<String, Object>> map = new TypeReference<>() {};
 
-    private static final Pattern TASK_OUTPUT_PATH =
-            Pattern.compile("^(?:\\$\\.)?([\\w-]+)\\.output(?:\\.|\\[|$)");
-    private static final Pattern FINAL_PROPERTY = Pattern.compile(
-            "(?:\\.[\\p{L}\\p{N}_$-]+|\\[['\"](?:[^'\"\\\\]|\\\\.)*['\"]\\])$");
+    private final ObjectMapper objectMapper;
+
+    @Autowired
+    public ParametersUtils(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
 
     public Map<String, Object> getTaskInput(
             Map<String, Object> input, WorkflowModel workflow, String taskId) {
@@ -54,7 +59,7 @@ public class ParametersUtils {
         workflowParams.put("output", workflow.getOutput());
         workflowParams.put("status", workflow.getStatus());
         workflowParams.put("workflowId", workflow.getWorkflowId());
-        workflowParams.put("workflowType", workflow.getWorkflowRoute());
+        workflowParams.put("workflowRoute", workflow.getWorkflowRoute());
         workflowParams.put("version", workflow.getWorkflowVersion());
         workflowParams.put("correlationId", workflow.getCorrelationId());
         workflowParams.put("reasonForInCompletion", workflow.getReasonForInCompletion());
@@ -85,7 +90,12 @@ public class ParametersUtils {
                     taskParams.put("taskId", task.getTaskId());
                     taskParams.put("reasonForInCompletion", task.getReasonForInCompletion());
                     taskParams.put("iteration", task.getIteration());
-                    inputMap.put(taskRefKey(task), taskParams);
+                    inputMap.put(
+                            task.isLoopOverTask()
+                                    ? TaskUtils.removeIterationFromTaskRefName(
+                                    task.getReferenceTaskName())
+                                    : task.getReferenceTaskName(),
+                            taskParams);
                 });
 
         return replace(inputParams, parse(inputMap), taskId);
@@ -96,18 +106,23 @@ public class ParametersUtils {
     }
 
     /**
-     * 按引擎统一的 JsonPath 配置解析根上下文。缺失的叶子字段读为 null，而不是抛异常。
+     * 按 Conductor 的 JsonPath 配置解析根上下文，读取时使用 SUPPRESS_EXCEPTIONS。
      *
-     * <p>JDBC 等任务可复用此配置读取自己的 payload，保持字段缺失时的求值语义一致。
+     * <p>JDBC 等任务可复用此配置读取自己的 payload。
      */
     public static DocumentContext parse(Object json) {
         Configuration option =
-                Configuration.defaultConfiguration().addOptions(Option.DEFAULT_PATH_LEAF_TO_NULL);
+                Configuration.defaultConfiguration().addOptions(Option.SUPPRESS_EXCEPTIONS);
         return JsonPath.parse(json instanceof String ? json.toString() : json, option);
     }
 
     private Map<String, Object> clone(Map<String, Object> input) {
-        return JSON.parseObject(JSON.toJSONString(input, JSONWriter.Feature.WriteNulls), mapType);
+        try {
+            byte[] bytes = objectMapper.writeValueAsBytes(input);
+            return objectMapper.readValue(bytes, map);
+        } catch (IOException e) {
+            throw new RuntimeException("Unable to clone input params", e);
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -117,8 +132,8 @@ public class ParametersUtils {
         for (Entry<String, Object> entry : input.entrySet()) {
             Object newValue;
             Object value = entry.getValue();
-            if (value instanceof String stringValue) {
-                newValue = replaceVariables(stringValue, documentContext, taskId);
+            if (value instanceof String) {
+                newValue = replaceVariables(value.toString(), documentContext, taskId);
             } else if (value instanceof Map<?, ?> mapValue) {
                 newValue = replace((Map<String, Object>) mapValue, documentContext, taskId);
             } else if (value instanceof List<?> listValue) {
@@ -167,24 +182,18 @@ public class ParametersUtils {
                 continue;
             }
             try {
-                JsonPath.compile(paramPath);
-                // SWITCH 未执行分支没有运行时任务，保留其输出引用为 null。
-                var outputPath = TASK_OUTPUT_PATH.matcher(paramPath);
-                boolean absentTask = outputPath.find()
-                        && documentContext.json() instanceof Map<?, ?> root
-                        && !root.containsKey(outputPath.group(1));
-                Object resolved = absentTask ? null : readPath(documentContext, paramPath);
-                replacements.add(new Replacement(resolved, start, end));
+                replacements.add(new Replacement(documentContext.read(paramPath), start, end));
             } catch (Exception error) {
-                throw new TerminateWorkflowException(
-                        "Cannot resolve expression '${" + paramPath + "}'"
-                                + (taskId == null ? "" : " for task '" + taskId + "'")
-                                + ": check the output type and field path");
+                LOGGER.warn(
+                        "Error reading documentContext for paramPath: {}. Exception: {}",
+                        paramPath,
+                        error);
+                replacements.add(new Replacement(null, start, end));
             }
         }
         if (replacements.size() == 1
-                && replacements.getFirst().getStartIndex() == 0
-                && replacements.getFirst().getEndIndex() == paramString.length()
+                && replacements.get(0).getStartIndex() == 0
+                && replacements.get(0).getEndIndex() == paramString.length()
                 && depth == 0) {
             return replacements.get(0).getReplacement();
         }
@@ -194,36 +203,9 @@ public class ParametersUtils {
             builder.replace(
                     replacement.getStartIndex(),
                     replacement.getEndIndex(),
-                    Objects.toString(replacement.getReplacement(), ""));
+                    Objects.toString(replacement.getReplacement()));
         }
         return builder.toString().replaceAll("\\$\\$\\{", "\\${");
-    }
-
-    /**
-     * 读取单个 JsonPath 表达式，保留原始类型。任务层表达式复用此方法，确保两层的取值与报错语义一致。
-     */
-    public static Object readPath(DocumentContext context, String path) {
-        // DEFAULT_PATH_LEAF_TO_NULL 也会把“标量上取字段”当作缺失字段，先验证字段的父节点。
-        var property = FINAL_PROPERTY.matcher(path);
-        if (JsonPath.isPathDefinite(path) && property.find()) {
-            String parentPath = path.substring(0, property.start());
-            Object parent = context.read(parentPath.isEmpty() ? "$" : parentPath);
-            if (!(parent instanceof Map<?, ?>)) {
-                throw new IllegalArgumentException("A field can only be read from an object");
-            }
-        }
-        return context.read(path);
-    }
-
-    private static String taskRefKey(TaskModel task) {
-        String refName = task.getReferenceTaskName();
-        if (task.isLoopOverTask() && refName != null) {
-            int idx = refName.lastIndexOf("__");
-            if (idx > 0) {
-                return refName.substring(0, idx);
-            }
-        }
-        return refName;
     }
 
     private static final class Replacement implements Comparable<Replacement> {

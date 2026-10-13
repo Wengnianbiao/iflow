@@ -140,16 +140,22 @@ class SqlTemplateTest {
     }
 
     @Test
-    void rejectsEmptyArraysStructuredValuesAndInvalidParents() {
+    void rejectsEmptyArraysAndStructuredValues() {
         for (Object value : List.of(List.of(), List.of(Map.of("id", 1)), List.of(List.of(1)), Map.of("id", 1))) {
             IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
                     () -> SqlTemplate.bind("SELECT * FROM t WHERE id IN $.value", JdbcVendor.MYSQL,
                             Map.of("value", value)));
             assertTrue(error.getMessage().contains("$.value"));
         }
-        for (String path : List.of("$.value.id", "$.value[0]", "$.missing.id")) {
-            assertThrows(IllegalArgumentException.class,
-                    () -> SqlTemplate.bind("SELECT " + path, JdbcVendor.MYSQL, Map.of("value", 7)));
+    }
+
+    @Test
+    void unreadableParentsAndIndexesBindNullWithConductorJsonPathConfiguration() {
+        for (String path : List.of("$.value.id", "$.value[0]", "$.missing.id", "$.values[5]")) {
+            SqlTemplate.Bound bound = SqlTemplate.bind("SELECT " + path, JdbcVendor.MYSQL,
+                    Map.of("value", 7, "values", List.of(1)));
+            assertEquals("SELECT :_p0", bound.sql());
+            assertEquals(java.util.Collections.singletonMap("_p0", null), bound.parameters());
         }
     }
 
