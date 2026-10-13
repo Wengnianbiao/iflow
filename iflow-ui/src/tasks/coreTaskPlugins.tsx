@@ -3,7 +3,6 @@ import {
   DatabaseIcon,
   DiamondIcon,
   FileJsIcon,
-  FunctionIcon,
   GitBranchIcon,
   GitForkIcon,
   GlobeIcon,
@@ -16,7 +15,6 @@ import { TaskType } from '@/flow/taskType'
 import {
   DoWhileTaskForm,
   ForkJoinTaskForm,
-  FunctionTaskForm,
   HTTPTaskForm,
   INLINETaskForm,
   JDBCTaskForm,
@@ -29,7 +27,6 @@ import {
 import type { WorkflowTask } from '@/types/workflow'
 import {
   HTTPTaskCard,
-  FUNCTIONTaskCard,
   INLINETaskCard,
   JDBCTaskCard,
   MAPPINGTaskCard,
@@ -125,25 +122,6 @@ registerCoreTaskPlugins([
       inputParameters: {
         evaluatorType: 'graaljs',
         expression: '(function () { return {}; })()',
-      },
-    }),
-  },
-  {
-    type: TaskType.FUNCTION,
-    label: '函数转换',
-    cardLabel: '函数转化',
-    icon: FunctionIcon,
-    menu: { label: TaskType.FUNCTION, description: '解析或序列化 JSON / XML。' },
-    card: FUNCTIONTaskCard,
-    form: FunctionTaskForm,
-    inspectorLayout: 'bare',
-    flow: { nodeSize: { width: DEFAULT_NODE_WIDTH, height: 120 } },
-    variableOptions: outputVariableOptions,
-    create: (context) => baseTask(context, {
-      name: `function_${context.suffix}`,
-      inputParameters: {
-        function: 'JSON_PARSE',
-        value: '',
       },
     }),
   },

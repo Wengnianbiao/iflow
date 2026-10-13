@@ -11,8 +11,8 @@ const root = fileURLToPath(new URL('..', import.meta.url))
 const requireApp = createRequire(`${root}/package.json`)
 const esbuild = createRequire(requireApp.resolve('vite'))('esbuild')
 const uiExports = {
-  forms: ['DoWhileTaskForm', 'ForkJoinTaskForm', 'FunctionTaskForm', 'HTTPTaskForm', 'INLINETaskForm', 'JDBCTaskForm', 'JoinTaskForm', 'ParamMapTaskForm', 'SPITaskForm', 'SwitchTaskForm', 'WebServiceTaskForm'],
-  cards: ['HTTPTaskCard', 'FUNCTIONTaskCard', 'INLINETaskCard', 'JDBCTaskCard', 'MAPPINGTaskCard', 'SPITaskCard', 'WebServiceTaskCard'],
+  forms: ['DoWhileTaskForm', 'ForkJoinTaskForm', 'HTTPTaskForm', 'INLINETaskForm', 'JDBCTaskForm', 'JoinTaskForm', 'ParamMapTaskForm', 'SPITaskForm', 'SwitchTaskForm', 'WebServiceTaskForm'],
+  cards: ['HTTPTaskCard', 'INLINETaskCard', 'JDBCTaskCard', 'MAPPINGTaskCard', 'SPITaskCard', 'WebServiceTaskCard'],
 }
 const built = await esbuild.build({
   entryPoints: [`${root}/src/flow/conductorMapper.ts`],

@@ -11,7 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** 网关与 FUNCTION 共用的 JSON 值转换；保留数组、标量、null 和十进制精度。 */
+/** JSON 值转换；保留数组、标量、null 和十进制精度。 */
 public final class JsonValueCodec {
 
     private final ObjectMapper mapper;

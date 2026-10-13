@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.helianhealth.iflow.core.execution.evaluators.GraalJSEvaluator;
+import com.helianhealth.iflow.core.execution.tasks.Inline;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
 import com.helianhealth.iflow.core.utils.ParametersUtils;
@@ -111,7 +112,19 @@ class MappingWorkflowExamplesTest {
         assertEquals("00123", item.get("barCode"));
         assertEquals("P1", item.get("patientCode"));
         assertEquals(0, ((Number) item.get("state")).intValue());
-        assertEquals("JSON_STRINGIFY", status.path("tasks").get(1).path("inputParameters").path("function").asText());
+        JsonNode serializeDef = status.path("tasks").get(1);
+        assertEquals("INLINE", serializeDef.path("type").asText());
+        workflow.setTasks(List.of(statusMapping));
+        TaskModel serializedTask = new TaskModel();
+        serializedTask.setTaskType("INLINE");
+        serializedTask.setReferenceTaskName(serializeDef.path("taskReferenceName").asText());
+        serializedTask.setInputData(resolveInput(serializeDef, workflow));
+        new Inline(Map.of(GraalJSEvaluator.NAME, evaluator)).execute(workflow, serializedTask, null);
+        assertEquals(TaskModel.Status.COMPLETED, serializedTask.getStatus());
+        String serialized = assertInstanceOf(String.class, serializedTask.getOutputData());
+        assertEquals(mapper.valueToTree(statusMapping.outputAsMap().get("items")), mapper.readTree(serialized));
+        workflow.setTasks(List.of(statusMapping, serializedTask));
+        assertEquals(serialized, resolveInput(status.path("tasks").get(2), workflow).get("body"));
         for (JsonNode definition : List.of(query, status, readExample("query_item_workflow.json"))) {
             String json = definition.toString();
             assertFalse(json.contains("workflow.input.request"));

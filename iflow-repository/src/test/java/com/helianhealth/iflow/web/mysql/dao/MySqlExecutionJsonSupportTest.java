@@ -117,8 +117,8 @@ class MySqlExecutionJsonSupportTest {
     @MethodSource("taskResults")
     void taskResultPayloadRoundTrip(String description, Object result) throws Exception {
         TaskModel task = new TaskModel();
-        task.setTaskId("function-1");
-        task.setTaskType(TaskType.TASK_TYPE_FUNCTION);
+        task.setTaskId("inline-1");
+        task.setTaskType(TaskType.TASK_TYPE_INLINE);
         task.setReferenceTaskName("parse_ref");
         task.setStatus(TaskModel.Status.COMPLETED);
         task.setOutputData(result);
@@ -130,7 +130,7 @@ class MySqlExecutionJsonSupportTest {
         assertTrue(objectMapper.readTree(json).has("outputData"));
         assertEquals(objectMapper.valueToTree(result), persistedOutput);
         assertNotNull(restored);
-        assertEquals(TaskType.TASK_TYPE_FUNCTION, restored.getTaskType());
+        assertEquals(TaskType.TASK_TYPE_INLINE, restored.getTaskType());
         assertEquals(TaskModel.Status.COMPLETED, restored.getStatus());
         assertEquals(result, restored.getOutputData());
     }

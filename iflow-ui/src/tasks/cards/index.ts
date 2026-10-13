@@ -1,5 +1,4 @@
 export * from './HTTPTaskCard'
-export * from './FUNCTIONTaskCard'
 export * from './INLINETaskCard'
 export * from './JDBCTaskCard'
 export * from './MAPPINGTaskCard'

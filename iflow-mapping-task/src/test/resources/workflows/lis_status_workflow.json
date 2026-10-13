@@ -82,11 +82,12 @@
     {
       "name": "序列化Jarvis状态推送",
       "taskReferenceName": "stringify_lis_status_ref",
-      "type": "FUNCTION",
+      "type": "INLINE",
       "optional": false,
       "inputParameters": {
-        "function": "JSON_STRINGIFY",
-        "value": "${mapping_lis_status_ref.output.items}"
+        "evaluatorType": "graaljs",
+        "expression": "JSON.stringify($.items)",
+        "items": "${mapping_lis_status_ref.output.items}"
       }
     },
     {
