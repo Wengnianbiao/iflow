@@ -1,8 +1,8 @@
 {
   "route": "SyncHisChagSheet",
-  "name": "杭州903发送账单",
+  "name": "发送账单",
   "version": 1,
-  "description": "Jarvis SyncHisChagSheet：按账单明细调用 EXCHANGE-CHARGE-001 orderConfirmFee，directId=1 发送账单。正式网关 http://132.147.181.4/gateway/api，测试网关 http://132.147.181.104/gateway/api。回写 code / message / rsp.presId / rsp.hisItems。",
+  "description": "Jarvis SyncHisChagSheet：用 chagPatientSheet.idPatientSheet 作为 orderId 调用 EXCHANGE-CHARGE-001 orderConfirmFee，directId=1 发送账单。正式网关 http://132.147.181.4/gateway/api，测试网关 http://132.147.181.104/gateway/api。回写 code / message / rsp.presId。",
   "timeoutPolicy": "TIME_OUT_WF",
   "correlationExpression": "${workflow.input.data.patientInfo.patientCode}",
   "inputParameters": [
@@ -18,14 +18,134 @@
   },
   "tasks": [
     {
-      "name": "组装医嘱计费报文",
-      "taskReferenceName": "build_fee_ref",
-      "type": "INLINE",
+      "name": "映射医嘱计费报文",
+      "taskReferenceName": "map_his_fee_ref",
+      "type": "MAPPING",
       "optional": false,
       "inputParameters": {
-        "data": "${workflow.input.data}",
-        "evaluatorType": "graaljs",
-        "expression": "(function () {\n  function text(v) {\n    return v == null ? '' : String(v);\n  }\n  function pick() {\n    for (var i = 0; i < arguments.length; i++) {\n      var v = arguments[i];\n      if (v != null && String(v) !== '') return String(v);\n    }\n    return '';\n  }\n  function pad(n) { return n < 10 ? '0' + n : String(n); }\n  function nowText() {\n    var d = new Date();\n    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())\n      + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());\n  }\n\n  var data = $.data || {};\n  var patient = data.patientInfo || {};\n  var sheet = data.chagPatientSheet || {};\n  var details = data.chagPatientSheetDetail || [];\n  if (!Array.isArray(details) || details.length === 0) {\n    throw new Error('账单明细为空');\n  }\n\n  var confirmTime = nowText();\n  var visitNumber = text(patient.visitNo);\n  var presId = pick(sheet.presId, sheet.settlementOrderNo, sheet.idPatientSheet);\n  var orders = [];\n  var hisItems = [];\n  var seen = {};\n  for (var i = 0; i < details.length; i++) {\n    var item = details[i] || {};\n    var orderId = pick(item.hisDetailId, item.presId, item.firstHisDetailId, item.previousHisDetailId, sheet.presId, item.applyId, item.idPatientFeeItem);\n    if (!orderId) {\n      throw new Error('缺少医嘱编码 orderId');\n    }\n    hisItems.push({\n      idPatientFeeItem: item.idPatientFeeItem,\n      hisDetailId: orderId\n    });\n    if (seen[orderId]) continue;\n    seen[orderId] = true;\n    orders.push({\n      applId: text(item.applyId),\n      orderId: orderId,\n      visitNumber: visitNumber,\n      departmentId: '66fca4551d3a1d0001fab02d',\n      confirmTime: confirmTime,\n      userId: '6a4db0dc4da7fc0001a9609a',\n      directId: '1',\n      visitTypeCode: '114',\n      organizationId: '66fca42db0c0ad0001f1a9f4',\n      applicationDepartmentId: '0921',\n      accountId: '66fca570063ef80001a5da41',\n      mainInsurancePlanId: null,\n      sender: 'HELIAN-TJ',\n      applicationEmployeeId: 'XT_HLJK_TJ',\n      tenantId: 'GHIS'\n    });\n  }\n  return {\n    orders: orders,\n    hisItems: hisItems,\n    presId: presId || null,\n    timestamp: String(Date.now())\n  };\n})()"
+        "payload": "${workflow.input.data}",
+        "paramsConfig": [
+          {
+            "targetParamKey": "order",
+            "targetParamType": "OBJECT",
+            "mappingType": "OBJECT",
+            "paramDesc": "orderConfirmFee 单条医嘱",
+            "childParams": [
+              {
+                "sourceParamKey": "$.chagPatientSheet.idPatientSheet",
+                "targetParamKey": "orderId",
+                "targetParamType": "STRING",
+                "mappingType": "NAME",
+                "paramDesc": "医嘱编码，取账单 idPatientSheet"
+              },
+              {
+                "sourceParamKey": "$.patientInfo.visitNo",
+                "targetParamKey": "visitNumber",
+                "targetParamType": "STRING",
+                "mappingType": "NAME",
+                "paramDesc": "就诊流水号"
+              },
+              {
+                "targetParamKey": "departmentId",
+                "targetParamType": "STRING",
+                "mappingType": "CONSTANT",
+                "mappingRule": "66fca4551d3a1d0001fab02d",
+                "paramDesc": "操作科室Id"
+              },
+              {
+                "targetParamKey": "confirmTime",
+                "targetParamType": "STRING",
+                "mappingType": "EXPRESSION",
+                "mappingRule": "(function () {\n  function pad(n) { return n < 10 ? '0' + n : String(n); }\n  var d = new Date();\n  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());\n})()",
+                "paramDesc": "确认时间"
+              },
+              {
+                "targetParamKey": "userId",
+                "targetParamType": "STRING",
+                "mappingType": "CONSTANT",
+                "mappingRule": "6a4db0dc4da7fc0001a9609a",
+                "paramDesc": "操作人Id"
+              },
+              {
+                "targetParamKey": "directId",
+                "targetParamType": "STRING",
+                "mappingType": "CONSTANT",
+                "mappingRule": "1",
+                "paramDesc": "确认收费：计费"
+              },
+              {
+                "targetParamKey": "visitTypeCode",
+                "targetParamType": "STRING",
+                "mappingType": "CONSTANT",
+                "mappingRule": "114",
+                "paramDesc": "就诊类型"
+              },
+              {
+                "targetParamKey": "organizationId",
+                "targetParamType": "STRING",
+                "mappingType": "CONSTANT",
+                "mappingRule": "66fca42db0c0ad0001f1a9f4",
+                "paramDesc": "机构ID"
+              },
+              {
+                "targetParamKey": "applicationDepartmentId",
+                "targetParamType": "STRING",
+                "mappingType": "CONSTANT",
+                "mappingRule": "0921",
+                "paramDesc": "确认科室编码"
+              },
+              {
+                "targetParamKey": "accountId",
+                "targetParamType": "STRING",
+                "mappingType": "CONSTANT",
+                "mappingRule": "66fca570063ef80001a5da41",
+                "paramDesc": "基础数据账户"
+              },
+              {
+                "targetParamKey": "mainInsurancePlanId",
+                "targetParamType": "STRING",
+                "mappingType": "CONSTANT",
+                "mappingRule": null,
+                "paramDesc": "执行计划编码"
+              },
+              {
+                "targetParamKey": "sender",
+                "targetParamType": "STRING",
+                "mappingType": "CONSTANT",
+                "mappingRule": "HELIAN-TJ",
+                "paramDesc": "发送方"
+              },
+              {
+                "targetParamKey": "applicationEmployeeId",
+                "targetParamType": "STRING",
+                "mappingType": "CONSTANT",
+                "mappingRule": "XT_HLJK_TJ",
+                "paramDesc": "确认人员编码"
+              },
+              {
+                "targetParamKey": "tenantId",
+                "targetParamType": "STRING",
+                "mappingType": "CONSTANT",
+                "mappingRule": "GHIS",
+                "paramDesc": "租户ID"
+              }
+            ]
+          },
+          {
+            "sourceParamKey": "$.chagPatientSheet.idPatientSheet",
+            "targetParamKey": "presId",
+            "targetParamType": "STRING",
+            "mappingType": "NAME",
+            "paramDesc": "回写账单号，等于 idPatientSheet"
+          },
+          {
+            "targetParamKey": "timestamp",
+            "targetParamType": "STRING",
+            "mappingType": "EXPRESSION",
+            "mappingRule": "String(Date.now())",
+            "paramDesc": "当前时间戳"
+          }
+        ]
       }
     },
     {
@@ -34,9 +154,9 @@
       "type": "INLINE",
       "optional": false,
       "inputParameters": {
-        "orders": "${build_fee_ref.output.orders}",
+        "order": "${map_his_fee_ref.output.order}",
         "evaluatorType": "graaljs",
-        "expression": "JSON.stringify($.orders)"
+        "expression": "JSON.stringify([$.order])"
       }
     },
     {
@@ -55,7 +175,7 @@
           "appId": "6a4daeb8b4ac040015386004",
           "encryptData": "${serialize_fee_ref.output}",
           "sign": "",
-          "timestamp": "${build_fee_ref.output.timestamp}",
+          "timestamp": "${map_his_fee_ref.output.timestamp}",
           "version": "1.0.0",
           "beanName": "exchange.stand.orderConfirmFeeProvider",
           "methodName": "orderConfirmFee"
@@ -63,16 +183,57 @@
       }
     },
     {
-      "name": "映射发送账单出参",
-      "taskReferenceName": "map_output_ref",
+      "name": "反序列化HIS响应",
+      "taskReferenceName": "parse_encrypt_ref",
       "type": "INLINE",
       "optional": false,
       "inputParameters": {
-        "body": "${call_his_ref.output.body}",
-        "presId": "${build_fee_ref.output.presId}",
-        "hisItems": "${build_fee_ref.output.hisItems}",
+        "encryptData": "${call_his_ref.output.body.encryptData}",
         "evaluatorType": "graaljs",
-        "expression": "(function () {\n  function collect(node, codes, statusHolder, detailHolder, depth) {\n    if (node == null || depth > 6) return;\n    if (typeof node === 'string') {\n      var text = node.trim();\n      if (!text) return;\n      try { collect(JSON.parse(text), codes, statusHolder, detailHolder, depth + 1); }\n      catch (e) { if (!detailHolder.v) detailHolder.v = text; }\n      return;\n    }\n    if (typeof node !== 'object') return;\n    if (node.code != null && node.code !== '') codes.push(String(node.code));\n    if (node.status != null) statusHolder.v = node.status;\n    if (node.detail) detailHolder.v = node.detail;\n    else if (node.msg && !detailHolder.v) detailHolder.v = node.msg;\n    else if (node.message && !detailHolder.v) detailHolder.v = node.message;\n    if (node.encryptData != null) collect(node.encryptData, codes, statusHolder, detailHolder, depth + 1);\n    if (node.body != null) collect(node.body, codes, statusHolder, detailHolder, depth + 1);\n    if (node.data != null && typeof node.data === 'object') collect(node.data, codes, statusHolder, detailHolder, depth + 1);\n  }\n  var codes = [];\n  var statusHolder = { v: null };\n  var detailHolder = { v: '' };\n  collect($.body, codes, statusHolder, detailHolder, 0);\n  var ok = codes.length > 0\n    && codes.every(function (c) { return c === '200' || c === '0'; })\n    && (statusHolder.v == null || statusHolder.v === true);\n  return {\n    code: ok ? '200' : '-1',\n    message: ok ? '成功' : (detailHolder.v || '失败'),\n    rsp: {\n      presId: $.presId || null,\n      hisItems: $.hisItems || []\n    }\n  };\n})()"
+        "expression": "(function () {\n  var raw = $.encryptData;\n  if (raw == null || raw === '') return {};\n  if (typeof raw === 'string') return JSON.parse(raw);\n  return raw;\n})()"
+      }
+    },
+    {
+      "name": "映射发送账单出参",
+      "taskReferenceName": "map_output_ref",
+      "type": "MAPPING",
+      "optional": false,
+      "inputParameters": {
+        "payload": {
+          "biz": "${parse_encrypt_ref.output}",
+          "presId": "${map_his_fee_ref.output.presId}"
+        },
+        "paramsConfig": [
+          {
+            "targetParamKey": "code",
+            "targetParamType": "STRING",
+            "mappingType": "EXPRESSION",
+            "mappingRule": "(['200', '0'].includes(String($.biz?.code)) && ($.biz?.status == null || $.biz.status === true)) ? '200' : '-1'",
+            "paramDesc": "200成功 / -1失败，只看反序列化后的业务码和 status"
+          },
+          {
+            "targetParamKey": "message",
+            "targetParamType": "STRING",
+            "mappingType": "EXPRESSION",
+            "mappingRule": "(['200', '0'].includes(String($.biz?.code)) && ($.biz?.status == null || $.biz.status === true)) ? '成功' : ($.biz?.detail || '失败')",
+            "paramDesc": "成功文案或 HIS detail"
+          },
+          {
+            "targetParamKey": "rsp",
+            "targetParamType": "OBJECT",
+            "mappingType": "OBJECT",
+            "paramDesc": "账单回写",
+            "childParams": [
+              {
+                "sourceParamKey": "$.presId",
+                "targetParamKey": "presId",
+                "targetParamType": "STRING",
+                "mappingType": "NAME",
+                "paramDesc": "账单号 idPatientSheet"
+              }
+            ]
+          }
+        ]
       }
     }
   ]

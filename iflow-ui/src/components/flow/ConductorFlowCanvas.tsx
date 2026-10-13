@@ -96,6 +96,7 @@ type ConductorFlowCanvasProps = {
   onSelectTask: (task?: WorkflowTask) => void
   readOnly?: boolean
   taskStatusByRef?: Record<string, string | undefined>
+  taskAttemptsByRef?: Record<string, number | undefined>
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -112,11 +113,12 @@ function selectedNodes(
   nodes: NodeData<NodeTaskData>[],
   selectedTaskRef?: string,
   taskStatusByRef: Record<string, string | undefined> = {},
+  taskAttemptsByRef: Record<string, number | undefined> = {},
 ): NodeData<NodeTaskData>[] {
   return nodes.map((node) => ({
     ...node,
     data: node.data
-      ? { ...node.data, selected: node.id === selectedTaskRef, status: taskStatusByRef[node.id] }
+      ? { ...node.data, selected: node.id === selectedTaskRef, status: taskStatusByRef[node.id], attempts: taskAttemptsByRef[node.id] }
       : node.data,
   }))
 }
@@ -205,6 +207,7 @@ export function ConductorFlowCanvas({
   onSelectTask,
   readOnly = false,
   taskStatusByRef = {},
+  taskAttemptsByRef = {},
 }: ConductorFlowCanvasProps) {
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const hasCenteredRef = useRef(false)
@@ -220,8 +223,8 @@ export function ConductorFlowCanvas({
   const mappedGraph = useMemo(() => workflowToReaflow(workflow), [workflow])
   const { nodes: baseNodes, edges: baseEdges } = graph ?? mappedGraph
   const nodes = useMemo(
-    () => selectedNodes(baseNodes, selectedTaskRef, taskStatusByRef),
-    [baseNodes, selectedTaskRef, taskStatusByRef],
+    () => selectedNodes(baseNodes, selectedTaskRef, taskStatusByRef, taskAttemptsByRef),
+    [baseNodes, selectedTaskRef, taskStatusByRef, taskAttemptsByRef],
   )
   const edges = useMemo(
     () => baseEdges.map((edge) => ({

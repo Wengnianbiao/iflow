@@ -149,6 +149,9 @@ function TaskCard({
     >
       <div className="iflow-task-card-inner">
         <CardStatusBadge status={nodeData.status} />
+        {nodeData.attempts != null && nodeData.attempts > 1 ? (
+          <span className="iflow-task-attempts-badge" title={`执行 ${nodeData.attempts} 次`}>{nodeData.attempts}</span>
+        ) : null}
         {onDelete ? <DeleteButton onDelete={onDelete} /> : null}
         {getTaskFlowKind(nodeData.task.type) === 'fork' && onAddBranch ? (
           <button

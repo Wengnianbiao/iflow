@@ -28,6 +28,7 @@ import { JsonViewer, serializeJson } from '@/components/ui/JsonViewer'
 import type { WorkflowTask } from '@/types/workflow'
 import type { TaskExecution, WorkflowExecution } from '@/types/workflowExecution'
 import { formatDuration, formatTime, statusText } from './ExecutionExplorerPage'
+import { indexTaskExecutions } from './taskExecutionIndex'
 import styles from './ExecutionDetailPage.module.css'
 
 type MainTab = 'diagram' | 'tasks' | 'timeline' | 'summary' | 'io' | 'json'
@@ -136,27 +137,14 @@ export function ExecutionDetailPage() {
     }
   }, [resizing])
 
-  const definitionTasks = useMemo(
-    () => flattenTasks(execution?.workflowDefinition?.tasks ?? []),
-    [execution?.workflowDefinition],
-  )
-  const taskDefinitionByRef = useMemo(
-    () => new Map(definitionTasks.map((task) => [task.taskReferenceName, task])),
-    [definitionTasks],
-  )
   const taskRows = useMemo(
     () => [...(execution?.tasks ?? [])].sort((left, right) => (left.seq ?? 0) - (right.seq ?? 0)),
     [execution?.tasks],
   )
-  const latestTaskByRef = useMemo(() => {
-    const result = new Map<string, TaskExecution>()
-    for (const task of taskRows) {
-      if (!task.referenceTaskName) continue
-      const current = result.get(task.referenceTaskName)
-      if (!current || compareTaskAttempts(task, current) > 0) result.set(task.referenceTaskName, task)
-    }
-    return result
-  }, [taskRows])
+  const { taskDefinitionByRef, definitionRefByTaskId, iterationByTaskId, taskAttemptsByRef, latestTaskByRef } = useMemo(
+    () => indexTaskExecutions(execution?.workflowDefinition?.tasks ?? [], taskRows),
+    [execution?.workflowDefinition, taskRows],
+  )
   const taskById = useMemo(
     () => new Map(taskRows.filter((task) => task.taskId).map((task) => [task.taskId, task])),
     [taskRows],
@@ -166,20 +154,22 @@ export function ExecutionDetailPage() {
     latestTaskByRef.forEach((task, ref) => { result[ref] = task.status })
     return result
   }, [latestTaskByRef])
+  const taskAttemptCounts = useMemo(
+    () => Object.fromEntries(Array.from(taskAttemptsByRef, ([ref, attempts]) => [ref, attempts.length])),
+    [taskAttemptsByRef],
+  )
 
   const selectedRuntime = selectedTaskId
     ? taskById.get(selectedTaskId)
     : selectedTaskRef
       ? latestTaskByRef.get(selectedTaskRef)
       : undefined
-  const activeTaskRef = selectedRuntime?.referenceTaskName || selectedTaskRef
+  const activeTaskRef = selectedRuntime
+    ? definitionRefByTaskId.get(selectedRuntime.taskId) || selectedRuntime.referenceTaskName
+    : selectedTaskRef
   const selectedDefinition = activeTaskRef ? taskDefinitionByRef.get(activeTaskRef) : undefined
-  const taskAttempts = useMemo(
-    () => taskRows
-      .filter((task) => task.referenceTaskName === activeTaskRef)
-      .sort((left, right) => compareTaskAttempts(right, left)),
-    [activeTaskRef, taskRows],
-  )
+  const taskAttempts = taskAttemptsByRef.get(activeTaskRef) ?? []
+  const selectedIteration = selectedRuntime ? iterationByTaskId.get(selectedRuntime.taskId) : undefined
   const availableStatuses = useMemo(
     () => Array.from(new Set(taskRows.map((task) => task.status).filter(Boolean))).sort(),
     [taskRows],
@@ -216,7 +206,7 @@ export function ExecutionDetailPage() {
   }
 
   const selectTaskExecution = (task: TaskExecution) => {
-    setSelectedTaskRef(task.referenceTaskName)
+    setSelectedTaskRef(definitionRefByTaskId.get(task.taskId) || task.referenceTaskName)
     setSelectedTaskId(task.taskId)
     setTaskTab('summary')
   }
@@ -373,6 +363,7 @@ export function ExecutionDetailPage() {
                 workflow={execution.workflowDefinition}
                 selectedTaskRef={activeTaskRef}
                 taskStatusByRef={taskStatuses}
+                taskAttemptsByRef={taskAttemptCounts}
                 readOnly
                 onSelectTask={(task) => selectTaskByRef(task?.taskReferenceName)}
               />
@@ -385,6 +376,7 @@ export function ExecutionDetailPage() {
               allRowsCount={taskRows.length}
               selectedTaskId={selectedRuntime?.taskId}
               definitionByRef={taskDefinitionByRef}
+              definitionRefByTaskId={definitionRefByTaskId}
               statusFilter={taskStatusFilter}
               availableStatuses={availableStatuses}
               onStatusFilterChange={setTaskStatusFilter}
@@ -450,18 +442,24 @@ export function ExecutionDetailPage() {
                     </div>
                   ) : <span className={styles.notScheduled}>该任务尚未调度</span>}
 
-                  {taskAttempts.length > 1 ? (
+                  {taskAttempts.length > 1 || selectedIteration != null ? (
                     <label className={styles.attemptSelector}>
-                      <span>执行尝试</span>
+                      <span>{selectedIteration != null ? '循环轮次' : '执行尝试'}</span>
                       <select value={selectedRuntime?.taskId || ''} onChange={(event) => {
                         const task = taskById.get(event.target.value)
                         if (task) selectTaskExecution(task)
                       }}>
-                        {taskAttempts.map((task) => (
-                          <option key={task.taskId} value={task.taskId}>
-                            #{task.retryCount ?? 0} · {statusText(task.status)} · {shortId(task.taskId)}
-                          </option>
-                        ))}
+                        {taskAttempts.map((task) => {
+                          const iteration = iterationByTaskId.get(task.taskId)
+                          const label = iteration != null
+                            ? `第 ${iteration} 轮${task.retryCount ? ` · 重试 #${task.retryCount}` : ''}`
+                            : `#${task.retryCount ?? 0}`
+                          return (
+                            <option key={task.taskId} value={task.taskId}>
+                              {label} · {statusText(task.status)} · {shortId(task.taskId)}
+                            </option>
+                          )
+                        })}
                       </select>
                     </label>
                   ) : null}
@@ -487,7 +485,7 @@ export function ExecutionDetailPage() {
 
               <div className={styles.taskBody}>
                 {taskTab === 'summary' ? (
-                  <KeyValueTable rows={taskSummaryRows(selectedRuntime, selectedDefinition, activeTaskRef)} compact />
+                  <KeyValueTable rows={taskSummaryRows(selectedRuntime, selectedDefinition, activeTaskRef, selectedIteration)} compact />
                 ) : null}
                 {taskTab === 'input' ? <JsonCard title="任务输入" value={selectedRuntime?.inputData} onCopy={copyText} compact /> : null}
                 {taskTab === 'output' ? <JsonCard title="任务输出" value={selectedRuntime?.outputData} onCopy={copyText} compact /> : null}
@@ -508,6 +506,7 @@ function TaskListView({
   allRowsCount,
   selectedTaskId,
   definitionByRef,
+  definitionRefByTaskId,
   statusFilter,
   availableStatuses,
   onStatusFilterChange,
@@ -518,6 +517,7 @@ function TaskListView({
   allRowsCount: number
   selectedTaskId?: string
   definitionByRef: Map<string, WorkflowTask>
+  definitionRefByTaskId: Map<string, string>
   statusFilter: string
   availableStatuses: string[]
   onStatusFilterChange: (status: string) => void
@@ -568,9 +568,9 @@ function TaskListView({
                     ) : null}
                   </span>
                 </td>
-                <td>{task.taskDefName || definitionByRef.get(task.referenceTaskName)?.name || '-'}</td>
+                <td>{task.taskDefName || definitionByRef.get(definitionRefByTaskId.get(task.taskId) || task.referenceTaskName)?.name || '-'}</td>
                 <td title={task.referenceTaskName}>{task.referenceTaskName || '-'}</td>
-                <td>{task.taskType || definitionByRef.get(task.referenceTaskName)?.type || '-'}</td>
+                <td>{task.taskType || definitionByRef.get(definitionRefByTaskId.get(task.taskId) || task.referenceTaskName)?.type || '-'}</td>
                 <td>{formatTime(task.scheduledTime)}</td>
                 <td>{formatTime(task.startTime)}</td>
                 <td>{formatTime(task.endTime)}</td>
@@ -789,7 +789,7 @@ function workflowSummaryRows(
   return rows
 }
 
-function taskSummaryRows(runtime: TaskExecution | undefined, definition: WorkflowTask | undefined, ref: string): KeyValueRow[] {
+function taskSummaryRows(runtime: TaskExecution | undefined, definition: WorkflowTask | undefined, ref: string, iteration?: number): KeyValueRow[] {
   const rows: KeyValueRow[] = [
     { label: '任务类型', value: definition?.type || runtime?.taskType || '-' },
     { label: '状态', value: <StatusBadge status={runtime?.status || 'NOT_SCHEDULED'} /> },
@@ -803,6 +803,7 @@ function taskSummaryRows(runtime: TaskExecution | undefined, definition: Workflo
   )
   if (!runtime) return rows
   if (runtime.taskId) rows.push({ label: '任务执行 ID', value: runtime.taskId, monospace: true })
+  if (iteration != null) rows.push({ label: '循环轮次', value: iteration })
   rows.push({ label: '重试次数', value: runtime.retryCount ?? 0 })
   if (runtime.scheduledTime) rows.push({ label: '调度时间', value: formatTime(runtime.scheduledTime) })
   if (runtime.startTime) rows.push({ label: '开始时间', value: formatTime(runtime.startTime) })
@@ -854,16 +855,6 @@ function isMainTab(value: string | null): value is MainTab {
   return MAIN_TABS.some(([tab]) => tab === value)
 }
 
-function compareTaskAttempts(left: TaskExecution, right: TaskExecution) {
-  const retryDifference = (left.retryCount ?? 0) - (right.retryCount ?? 0)
-  if (retryDifference !== 0) return retryDifference
-  return taskTime(left) - taskTime(right)
-}
-
-function taskTime(task: TaskExecution) {
-  return task.updateTime ?? task.endTime ?? task.startTime ?? task.scheduledTime ?? task.seq ?? 0
-}
-
 function taskDuration(task: TaskExecution) {
   const start = task.startTime || task.scheduledTime
   if (!start) return '-'
@@ -892,20 +883,4 @@ function statusTone(status?: string) {
 
 function isFailedStatus(status?: string) {
   return status?.includes('FAILED') || status === 'TIMED_OUT'
-}
-
-function taskList(value: unknown): WorkflowTask[] {
-  return Array.isArray(value) ? value : []
-}
-
-function flattenTasks(tasks: WorkflowTask[]): WorkflowTask[] {
-  const result: WorkflowTask[] = []
-  for (const task of tasks) {
-    result.push(task)
-    for (const branch of Object.values(task.decisionCases ?? {})) result.push(...flattenTasks(taskList(branch)))
-    result.push(...flattenTasks(taskList(task.defaultCase)))
-    for (const branch of task.forkTasks ?? []) result.push(...flattenTasks(taskList(branch)))
-    result.push(...flattenTasks(taskList(task.loopOver)))
-  }
-  return result
 }
