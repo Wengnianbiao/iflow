@@ -21,16 +21,15 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 /**
  * 循环任务。
  *
- * <p>首次执行先调度第 1 轮循环体首任务，后续任务由 Decider 推进；每一轮循环体全部结束后求值
+ * <p>首次执行先生成并注册第 1 轮循环体入口任务，由 Decider 统一调度并推进；每一轮循环体全部结束后求值
  * {@link WorkflowTask#getLoopCondition()}。配置 loopItems 时遍历进入时确定的数组快照，
  * 两种配置互斥，空数组执行零轮：
  * <ul>
- *   <li>返回真值 —— 更新迭代号，调用执行器启动下一轮循环体；</li>
+ *   <li>返回真值 —— 更新迭代号，调用执行器生成并注册下一轮循环体入口任务；</li>
  *   <li>返回假值 —— 本 DO_WHILE 完成。</li>
  * </ul>
  */
@@ -40,8 +39,6 @@ public class DoWhile extends WorkflowSystemTask {
     private static final Logger LOGGER = LoggerFactory.getLogger(DoWhile.class);
 
     public static final String OUTPUT_ITERATION = "iteration";
-    public static final String INPUT_LOOP_ITEMS = "loopItems";
-
     private final ParametersUtils parametersUtils;
     private final ExecutionDAOFacade executionDAOFacade;
 
@@ -49,8 +46,8 @@ public class DoWhile extends WorkflowSystemTask {
             ParametersUtils parametersUtils,
             ExecutionDAOFacade executionDAOFacade) {
         super(TaskType.TASK_TYPE_DO_WHILE);
-        this.parametersUtils = Objects.requireNonNull(parametersUtils);
-        this.executionDAOFacade = Objects.requireNonNull(executionDAOFacade);
+        this.parametersUtils = parametersUtils;
+        this.executionDAOFacade = executionDAOFacade;
     }
 
     @Override
@@ -89,7 +86,7 @@ public class DoWhile extends WorkflowSystemTask {
                 doWhileTaskModel.getIteration());
 
         if (loopOverTasks.isEmpty()) {
-            // For list iteration, check if the items list is empty before scheduling iteration 1.
+            // For list iteration, check if the items list is empty before creating iteration 1.
             // An empty items list means there is nothing to iterate over, so complete immediately.
             if (isListIteration(doWhileTaskModel)) {
                 List<Object> itemsList;
@@ -117,8 +114,9 @@ public class DoWhile extends WorkflowSystemTask {
 
             // For list iteration, inject loopItem and loopIndex
             injectLoopVariables(workflow, doWhileTaskModel);
-
-            workflowExecutor.scheduleNextIteration(doWhileTaskModel, workflow);
+            // DO_WHILE 只推进循环状态，生成并注册本轮入口任务，由下一轮 Decider 统一调度。
+            // 避免在 FORK 线程池内递归调度并同步等待循环体，造成线程池饥饿死锁。
+            workflowExecutor.createNextIterationTasks(doWhileTaskModel, workflow);
             return;
         }
 
@@ -181,7 +179,7 @@ public class DoWhile extends WorkflowSystemTask {
                 // For list iteration, inject loopItem and loopIndex for next iteration
                 injectLoopVariables(workflow, doWhileTaskModel);
 
-                workflowExecutor.scheduleNextIteration(doWhileTaskModel, workflow);
+                workflowExecutor.createNextIterationTasks(doWhileTaskModel, workflow);
             } else {
                 LOGGER.debug(
                         "Task {} took {} iterations to complete",

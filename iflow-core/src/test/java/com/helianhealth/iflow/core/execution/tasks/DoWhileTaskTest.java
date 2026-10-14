@@ -1,12 +1,26 @@
 package com.helianhealth.iflow.core.execution.tasks;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.helianhealth.iflow.common.domain.metadata.task.TaskType;
+import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 import com.helianhealth.iflow.core.dal.ExecutionDAOFacade;
+import com.helianhealth.iflow.core.execution.CallerAndForkTaskScheduler;
+import com.helianhealth.iflow.core.execution.DeciderService;
+import com.helianhealth.iflow.core.execution.StartWorkflowInput;
 import com.helianhealth.iflow.core.execution.WorkflowExecutor;
+import com.helianhealth.iflow.core.execution.WorkflowExecutorOps;
+import com.helianhealth.iflow.core.execution.mapper.DoWhileTaskMapper;
+import com.helianhealth.iflow.core.execution.mapper.ForkJoinTaskMapper;
+import com.helianhealth.iflow.core.execution.mapper.JoinTaskMapper;
+import com.helianhealth.iflow.core.execution.mapper.NoopTaskMapper;
+import com.helianhealth.iflow.core.lock.InMemoryExecutionLockService;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
+import com.helianhealth.iflow.core.service.MetadataService;
+import com.helianhealth.iflow.core.utils.IDGenerator;
 import com.helianhealth.iflow.core.utils.ParametersUtils;
+
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -15,6 +29,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -22,6 +37,13 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -29,7 +51,7 @@ import static org.mockito.Mockito.*;
 
 /**
  * 直接评估 DO_WHILE 控制任务的单元测试。
- * 手动提供循环体状态，使用真实参数解析和 JS 求值，仅模拟调度与持久化边界。
+ * 覆盖循环状态与迭代任务创建，使用真实参数解析和 JS 求值，持久化边界使用测试替身。
  */
 class DoWhileTaskTest {
 
@@ -53,7 +75,7 @@ class DoWhileTaskTest {
             assertEquals(1, loop.getIteration());
             assertEquals(Map.of("iteration", 1), loop.getOutputData());
             assertNull(loop.getReasonForInCompletion());
-            verify(workflowExecutor).scheduleNextIteration(loop, workflow);
+            verify(workflowExecutor).createNextIterationTasks(loop, workflow);
             verifyNoMoreInteractions(workflowExecutor);
             verifyNoInteractions(dao);
         }
@@ -90,7 +112,7 @@ class DoWhileTaskTest {
 
             assertEquals(2, loop.getIteration());
             assertEquals(Map.of("first", 7, "tail", "done"), iterationOutput(loop, 1));
-            verify(workflowExecutor).scheduleNextIteration(loop, workflow);
+            verify(workflowExecutor).createNextIterationTasks(loop, workflow);
         }
 
         @ParameterizedTest
@@ -236,7 +258,7 @@ class DoWhileTaskTest {
             assertEquals(continues ? 2 : 1, loop.outputAsMap().get("iteration"));
             assertEquals(Map.of("body", "done"), iterationOutput(loop, 1));
             assertNull(loop.getReasonForInCompletion());
-            verify(workflowExecutor, times(continues ? 1 : 0)).scheduleNextIteration(loop, workflow);
+            verify(workflowExecutor, times(continues ? 1 : 0)).createNextIterationTasks(loop, workflow);
             verifyNoMoreInteractions(workflowExecutor);
             verifyNoInteractions(dao);
         }
@@ -272,7 +294,7 @@ class DoWhileTaskTest {
             assertEquals(2, loop.getIteration());
             assertEquals(Map.of("body", "first"), iterationOutput(loop, 1));
             assertEquals(Map.of("body", "second"), iterationOutput(loop, 2));
-            verify(workflowExecutor, times(2)).scheduleNextIteration(loop, workflow);
+            verify(workflowExecutor, times(2)).createNextIterationTasks(loop, workflow);
             verifyNoMoreInteractions(workflowExecutor);
         }
 
@@ -296,7 +318,7 @@ class DoWhileTaskTest {
             assertEquals(2, loop.getIteration());
             assertEquals(Map.of("limit", 99, "runtimeOnly", "preserved"), loop.getInputData());
             assertEquals(Map.of("body", Map.of("count", 3)), iterationOutput(loop, 1));
-            verify(workflowExecutor).scheduleNextIteration(loop, workflow);
+            verify(workflowExecutor).createNextIterationTasks(loop, workflow);
         }
 
         @ParameterizedTest
@@ -317,7 +339,7 @@ class DoWhileTaskTest {
                 assertTrue(loop.getReasonForInCompletion().contains("condition failure"));
             }
             assertFalse(loop.outputAsMap().containsKey("error"));
-            verify(workflowExecutor).scheduleNextIteration(loop, workflow);
+            verify(workflowExecutor).createNextIterationTasks(loop, workflow);
             verifyNoMoreInteractions(workflowExecutor);
         }
     }
@@ -350,7 +372,7 @@ class DoWhileTaskTest {
             assertEquals(2, loop.getIteration());
             assertEquals(Map.of("body", "first"), iterationOutput(loop, 1));
             assertEquals(Map.of("body", "second"), iterationOutput(loop, 2));
-            verify(workflowExecutor, times(2)).scheduleNextIteration(loop, workflow);
+            verify(workflowExecutor, times(2)).createNextIterationTasks(loop, workflow);
         }
 
         static Stream<Arguments> collectionValues() {
@@ -411,7 +433,7 @@ class DoWhileTaskTest {
 
             assertEquals(TaskModel.Status.COMPLETED, loop.getStatus());
             assertEquals(1, loop.getIteration());
-            verify(workflowExecutor).scheduleNextIteration(loop, workflow);
+            verify(workflowExecutor).createNextIterationTasks(loop, workflow);
             verifyNoMoreInteractions(workflowExecutor);
         }
 
@@ -440,7 +462,7 @@ class DoWhileTaskTest {
             assertEquals(3, loop.getIteration());
             assertTrue(iterationOutput(loop, 3).containsKey("body"));
             assertNull(iterationOutput(loop, 3).get("body"));
-            verify(workflowExecutor, times(3)).scheduleNextIteration(loop, workflow);
+            verify(workflowExecutor, times(3)).createNextIterationTasks(loop, workflow);
         }
 
         @Test
@@ -485,7 +507,7 @@ class DoWhileTaskTest {
             workflow.getTasks().add(child("body", 3, TaskModel.Status.COMPLETED, "third result"));
             doWhile.execute(workflow, loop, workflowExecutor);
             assertEquals(TaskModel.Status.COMPLETED, loop.getStatus());
-            verify(workflowExecutor, times(3)).scheduleNextIteration(loop, workflow);
+            verify(workflowExecutor, times(3)).createNextIterationTasks(loop, workflow);
         }
 
         @Test
@@ -502,7 +524,7 @@ class DoWhileTaskTest {
             assertEquals(2, loop.getIteration());
             assertEquals(2, loop.outputAsMap().get("loopItem"));
             assertNull(loop.getReasonForInCompletion());
-            verify(workflowExecutor).scheduleNextIteration(loop, workflow);
+            verify(workflowExecutor).createNextIterationTasks(loop, workflow);
         }
 
         @Test
@@ -521,7 +543,7 @@ class DoWhileTaskTest {
             assertEquals(1, loop.getIteration());
             assertFalse(loop.outputAsMap().containsKey("loopItem"));
             assertFalse(loop.outputAsMap().containsKey("loopIndex"));
-            verify(workflowExecutor).scheduleNextIteration(loop, workflow);
+            verify(workflowExecutor).createNextIterationTasks(loop, workflow);
         }
 
         @Test
@@ -555,7 +577,7 @@ class DoWhileTaskTest {
             assertEquals(2, loop.getIteration());
             assertEquals(8, loop.outputAsMap().get("loopItem"));
             assertEquals(Map.of("body", "done"), iterationOutput(loop, 1));
-            verify(workflowExecutor, times(2)).scheduleNextIteration(loop, workflow);
+            verify(workflowExecutor, times(2)).createNextIterationTasks(loop, workflow);
         }
 
         @Test
@@ -601,7 +623,7 @@ class DoWhileTaskTest {
             assertEquals(2, loop.getIteration());
             assertEquals(Map.of("choice", Map.of("case", "default"),
                     "first", "first result", "tail", "tail result"), iterationOutput(loop, 1));
-            verify(workflowExecutor).scheduleNextIteration(loop, workflow);
+            verify(workflowExecutor).createNextIterationTasks(loop, workflow);
         }
 
         @Test
@@ -634,7 +656,7 @@ class DoWhileTaskTest {
             assertEquals(2, loop.getIteration());
             assertEquals(Map.of("fork", Map.of(), "left", "left result",
                     "right", "right result", "join", Map.of()), iterationOutput(loop, 1));
-            verify(workflowExecutor).scheduleNextIteration(loop, workflow);
+            verify(workflowExecutor).createNextIterationTasks(loop, workflow);
         }
     }
 
@@ -816,7 +838,242 @@ class DoWhileTaskTest {
             assertEquals("d", loop.outputAsMap().get("loopItem"));
             verify(dao).removeTask("body-1");
             verifyNoMoreInteractions(dao);
-            verify(workflowExecutor).scheduleNextIteration(loop, workflow);
+            verify(workflowExecutor).createNextIterationTasks(loop, workflow);
+        }
+    }
+
+    @Nested
+    class IterationTaskCreation {
+
+        @Test
+        void generatesIterationWithoutExecutingItAndRegistersItOnlyOnce() {
+            WorkflowTask loopDefinition = loop(task("body", TaskType.TASK_TYPE_NOOP),
+                    task("tail", TaskType.TASK_TYPE_NOOP));
+            Fixture fixture = new Fixture(definition(loopDefinition));
+            fixture.useForkPool(Runnable::run);
+            WorkflowModel workflow = new WorkflowModel();
+            workflow.setWorkflowId("workflow-id");
+            workflow.setWorkflowDefinition(fixture.definition);
+            TaskModel loop = new TaskModel();
+            loop.setTaskId("loop-id");
+            loop.setReferenceTaskName("loop");
+            loop.setTaskType(TaskType.TASK_TYPE_DO_WHILE);
+            loop.setWorkflowTask(loopDefinition);
+            loop.setStatus(TaskModel.Status.IN_PROGRESS);
+            loop.setIteration(2);
+            loop.setSeq(7);
+            loop.setForkTaskId("outer-fork-id");
+            workflow.getTasks().add(loop);
+
+            fixture.executor.createNextIterationTasks(loop, workflow);
+            assertTrue(fixture.executions.isEmpty(), "generating an iteration must not execute it");
+            fixture.executor.createNextIterationTasks(loop, workflow);
+
+            assertTrue(fixture.executions.isEmpty(), "generating an iteration must not execute it");
+            assertEquals(2, workflow.getTasks().size());
+            assertEquals(1, fixture.created.size());
+            TaskModel body = workflow.getTaskByRefName("body__2");
+            assertNotNull(body);
+            assertFalse(body.getStatus().isTerminal());
+            assertEquals(2, body.getIteration());
+            assertEquals("outer-fork-id", body.getForkTaskId());
+            assertEquals("workflow-id", body.getWorkflowInstanceId());
+            assertEquals(8, body.getSeq());
+            assertTrue(body.getFirstScheduledTime() > 0);
+            assertTrue(body.getScheduledTime() > 0);
+            TaskModel persisted = fixture.created.get(body.getTaskId());
+            assertEquals(body.getReferenceTaskName(), persisted.getReferenceTaskName());
+            assertEquals(body.getSeq(), persisted.getSeq());
+            assertEquals(body.getFirstScheduledTime(), persisted.getFirstScheduledTime());
+            assertEquals(body.getForkTaskId(), persisted.getForkTaskId());
+            assertNull(workflow.getTaskByRefName("tail__2"));
+        }
+
+        @Test
+        void executesSequentialIterationsInSingleThreadForkPool() throws Exception {
+            WorkflowTask loop = loop(task("body", TaskType.TASK_TYPE_NOOP),
+                    task("tail", TaskType.TASK_TYPE_NOOP));
+            Fixture fixture = new Fixture(outerFork(loop));
+            WorkflowModel result = fixture.startInForkPool(1);
+
+            assertEquals(List.of("body__1", "tail__1", "body__2", "tail__2"),
+                    fixture.executions.stream().filter(ref -> !List.of("sibling", "after").contains(ref)).toList());
+            assertEquals(2, result.getTaskByRefName("loop").getIteration());
+            String forkId = result.getTaskByRefName("outer_fork").getTaskId();
+            for (String ref : List.of("loop", "body__1", "tail__1", "body__2", "tail__2")) {
+                assertEquals(forkId, result.getTaskByRefName(ref).getForkTaskId());
+            }
+            assertEquals("iteration-fork-pool", fixture.executionThreads.get("body__1"));
+            assertEquals("iteration-fork-pool", fixture.executionThreads.get("body__2"));
+            assertEquals("iteration-caller", fixture.executionThreads.get("after"));
+            assertNull(result.getTaskByRefName("outer_join").getForkTaskId());
+            fixture.assertCompletedAndPersistedOnce(result);
+        }
+
+        @Test
+        void generatesEntireForkAtIterationEntryAndRestoresOuterScopeAfterJoin() throws Exception {
+            WorkflowTask innerFork = task("inner_fork", TaskType.TASK_TYPE_FORK_JOIN);
+            innerFork.setForkTasks(List.of(
+                    List.of(task("inner_a", TaskType.TASK_TYPE_NOOP), task("inner_tail", TaskType.TASK_TYPE_NOOP)),
+                    List.of(task("inner_b", TaskType.TASK_TYPE_NOOP))));
+            WorkflowTask innerJoin = task("inner_join", TaskType.TASK_TYPE_JOIN);
+            innerJoin.setJoinOn(List.of("inner_tail", "inner_b"));
+            Fixture fixture = new Fixture(outerFork(loop(innerFork, innerJoin)));
+            WorkflowModel result = fixture.startInForkPool(2);
+
+            String outerForkId = result.getTaskByRefName("outer_fork").getTaskId();
+            for (int iteration = 1; iteration <= 2; iteration++) {
+                TaskModel fork = result.getTaskByRefName("inner_fork__" + iteration);
+                assertEquals(outerForkId, fork.getForkTaskId());
+                for (String ref : List.of("inner_a", "inner_tail", "inner_b")) {
+                    TaskModel task = result.getTaskByRefName(ref + "__" + iteration);
+                    assertEquals(iteration, task.getIteration());
+                    assertEquals(fork.getTaskId(), task.getForkTaskId());
+                }
+                assertEquals(outerForkId, result.getTaskByRefName("inner_join__" + iteration).getForkTaskId());
+            }
+            assertNotEquals(result.getTaskByRefName("inner_fork__1").getTaskId(),
+                    result.getTaskByRefName("inner_fork__2").getTaskId());
+            fixture.assertCompletedAndPersistedOnce(result);
+        }
+
+        private static WorkflowTask task(String ref, String type) {
+            return WorkflowTask.builder().name(ref).taskReferenceName(ref).type(type).build();
+        }
+
+        private static WorkflowTask loop(WorkflowTask... body) {
+            WorkflowTask loop = task("loop", TaskType.TASK_TYPE_DO_WHILE);
+            loop.setLoopOver(List.of(body));
+            loop.setLoopItems("${workflow.input.items}");
+            return loop;
+        }
+
+        private static WorkflowDef definition(WorkflowTask... tasks) {
+            return WorkflowDef.builder().route("iteration-workflow").tasks(List.of(tasks)).build();
+        }
+
+        private static WorkflowDef outerFork(WorkflowTask loop) {
+            WorkflowTask fork = task("outer_fork", TaskType.TASK_TYPE_FORK_JOIN);
+            fork.setForkTasks(List.of(List.of(loop), List.of(task("sibling", TaskType.TASK_TYPE_NOOP))));
+            WorkflowTask join = task("outer_join", TaskType.TASK_TYPE_JOIN);
+            join.setJoinOn(List.of("loop", "sibling"));
+            return definition(fork, join, task("after", TaskType.TASK_TYPE_NOOP));
+        }
+
+        private static class Fixture {
+            final WorkflowDef definition;
+            final Map<String, TaskModel> created = new ConcurrentHashMap<>();
+            final Map<String, TaskModel> updated = new ConcurrentHashMap<>();
+            final List<String> executions = new CopyOnWriteArrayList<>();
+            final Map<String, String> executionThreads = new ConcurrentHashMap<>();
+            final SystemTaskRegistry registry;
+            final DeciderService decider;
+            final WorkflowExecutorOps executor;
+
+            Fixture(WorkflowDef definition) {
+                this.definition = definition;
+                ObjectMapper mapper = new ObjectMapper();
+                ParametersUtils parameters = new ParametersUtils(mapper);
+                ExecutionDAOFacade dao = new ExecutionDAOFacade(null, mapper) {
+                    @Override
+                    public String createWorkflow(WorkflowModel workflow) {
+                        return workflow.getWorkflowId();
+                    }
+
+                    @Override
+                    public List<TaskModel> createTasks(List<TaskModel> tasks) {
+                        for (TaskModel task : tasks) {
+                            assertNull(created.putIfAbsent(task.getTaskId(), TaskModel.fromTask(task.toTask())),
+                                    "each runtime task must be created once");
+                        }
+                        return tasks;
+                    }
+
+                    @Override
+                    public void updateTask(TaskModel task) {
+                        updated.put(task.getTaskId(), TaskModel.fromTask(task.toTask()));
+                    }
+
+                    @Override
+                    public String updateWorkflow(WorkflowModel workflow) {
+                        return workflow.getWorkflowId();
+                    }
+                };
+                WorkflowSystemTask noop = new WorkflowSystemTask(TaskType.TASK_TYPE_NOOP) {
+                    @Override
+                    public void execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor) {
+                        assertTrue(created.containsKey(task.getTaskId()), "persist tasks before executing them");
+                        executions.add(task.getReferenceTaskName());
+                        executionThreads.put(task.getReferenceTaskName(), Thread.currentThread().getName());
+                        task.setOutputData(task.getReferenceTaskName());
+                        task.setStatus(TaskModel.Status.COMPLETED);
+                    }
+                };
+                registry = new SystemTaskRegistry(java.util.Set.of(noop, new DoWhile(parameters, dao), new Fork(), new Join()));
+                decider = new DeciderService(new IDGenerator(), parameters, registry, Map.of(
+                        TaskType.TASK_TYPE_NOOP, new NoopTaskMapper(),
+                        TaskType.TASK_TYPE_DO_WHILE, new DoWhileTaskMapper(parameters),
+                        TaskType.TASK_TYPE_FORK_JOIN, new ForkJoinTaskMapper(),
+                        TaskType.TASK_TYPE_JOIN, new JoinTaskMapper())) {
+                    private int rounds;
+
+                    @Override
+                    public DeciderOutcome decide(WorkflowModel workflow) {
+                        assertTrue(++rounds <= 100, "workflow must complete within 100 decision rounds");
+                        return super.decide(workflow);
+                    }
+                };
+                MetadataService metadata = (MetadataService) Proxy.newProxyInstance(
+                        MetadataService.class.getClassLoader(), new Class<?>[] {MetadataService.class},
+                        (proxy, method, args) -> {
+                            if ("getWorkflowDef".equals(method.getName())) {
+                                return definition;
+                            }
+                            throw new UnsupportedOperationException(method.getName());
+                        });
+                executor = new WorkflowExecutorOps(decider, registry, dao, metadata,
+                        new IDGenerator(), parameters, new InMemoryExecutionLockService());
+            }
+
+            void useForkPool(Executor pool) {
+                AtomicBoolean scheduling = new AtomicBoolean();
+                executor.setTaskScheduler(new CallerAndForkTaskScheduler(pool, registry) {
+                    @Override
+                    public void schedule(WorkflowModel workflow, List<TaskModel> tasks, WorkflowExecutor executor) {
+                        assertTrue(scheduling.compareAndSet(false, true), "task execution must not recursively schedule children");
+                        try {
+                            super.schedule(workflow, tasks, executor);
+                        } finally {
+                            scheduling.set(false);
+                        }
+                    }
+                });
+            }
+
+            WorkflowModel startInForkPool(int size) throws Exception {
+                ExecutorService pool = Executors.newFixedThreadPool(size, runnable -> new Thread(runnable, "iteration-fork-pool"));
+                ExecutorService caller = Executors.newSingleThreadExecutor(runnable -> new Thread(runnable, "iteration-caller"));
+                useForkPool(pool);
+                try {
+                    return caller.submit(() -> executor.startWorkflow(StartWorkflowInput.builder()
+                            .route(definition.getRoute()).workflowInput(Map.of("items", List.of("one", "two"))).build()))
+                            .get(5, TimeUnit.SECONDS);
+                } finally {
+                    caller.shutdownNow();
+                    pool.shutdownNow();
+                }
+            }
+
+            void assertCompletedAndPersistedOnce(WorkflowModel result) {
+                assertEquals(WorkflowModel.Status.COMPLETED, result.getStatus());
+                assertEquals(result.getTasks().size(), created.size());
+                assertEquals(result.getTasks().size(), result.getTasks().stream().map(TaskModel::getSeq).distinct().count());
+                assertEquals(executions.size(), executions.stream().distinct().count());
+                for (TaskModel task : result.getTasks()) {
+                    assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
+                    assertEquals(task.getStatus(), updated.get(task.getTaskId()).getStatus());
+                }
+            }
         }
     }
 

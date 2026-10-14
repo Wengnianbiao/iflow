@@ -169,7 +169,16 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
             return;
         }
 
-        // 将待调度tasks添加到运行时
+        registerTasks(workflow, tasks);
+        taskScheduler.schedule(workflow, tasks, this);
+    }
+
+    private void registerTasks(WorkflowModel workflow, List<TaskModel> tasks) {
+        if (tasks == null || tasks.isEmpty()) {
+            return;
+        }
+
+        // 注册并持久化新任务，不在此处执行任务。
         List<TaskModel> newTasks = dedupAndAddTasks(workflow, tasks);
         int count = workflow.getTasks().stream().mapToInt(TaskModel::getSeq).max().orElse(0);
         long now = System.currentTimeMillis();
@@ -187,25 +196,22 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
         if (executionDAOFacade != null && !newTasks.isEmpty()) {
             executionDAOFacade.createTasks(newTasks);
         }
-
-        taskScheduler.schedule(workflow, tasks, this);
     }
 
     @Override
-    public void scheduleNextIteration(TaskModel loopTask, WorkflowModel workflow) {
-        // 只启动循环体首任务，后续任务由 Decider 按完成状态继续推进。
-        List<TaskModel> scheduledLoopOverTasks = deciderService.getTasksToBeScheduled(
+    public void createNextIterationTasks(TaskModel loopTask, WorkflowModel workflow) {
+        List<TaskModel> iterationTasks = deciderService.getTasksToBeScheduled(
                 workflow,
                 loopTask.getWorkflowTask().getLoopOver().get(0),
                 loopTask.getRetryCount(),
                 null,
                 loopTask.getForkTaskId());
-        scheduledLoopOverTasks.forEach(task -> {
+        iterationTasks.forEach(task -> {
             task.setReferenceTaskName(TaskUtils.appendIteration(
                     task.getReferenceTaskName(), loopTask.getIteration()));
             task.setIteration(loopTask.getIteration());
         });
-        scheduleTask(workflow, scheduledLoopOverTasks);
+        registerTasks(workflow, iterationTasks);
     }
 
     private void persistTerminatedWorkflow(
