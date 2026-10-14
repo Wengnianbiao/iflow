@@ -1,9 +1,6 @@
 package com.helianhealth.iflow.core.service;
 
 import com.helianhealth.iflow.common.domain.metadata.task.TaskDef;
-import com.helianhealth.iflow.common.domain.metadata.task.TaskType;
-import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
-import com.helianhealth.iflow.core.execution.tasks.DoWhile;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
 import com.helianhealth.iflow.common.exception.WorkFlowConfigException;
 import com.helianhealth.iflow.common.exception.WorkFlowErrorCode;
@@ -61,13 +58,11 @@ public class MetadataServiceImpl implements MetadataService {
 
     @Override
     public void registerWorkflowDef(WorkflowDef def) {
-        validateDoWhileTasks(def.getTasks());
         metadataDAO.createWorkflowDef(def);
     }
 
     @Override
     public void updateWorkflowDef(WorkflowDef def) {
-        validateDoWhileTasks(def.getTasks());
         metadataDAO.updateWorkflowDef(def);
     }
 
@@ -79,40 +74,12 @@ public class MetadataServiceImpl implements MetadataService {
 
     @Override
     public WorkflowDef saveWorkflowDef(WorkflowDef def) {
-        validateDoWhileTasks(def.getTasks());
         if (metadataDAO.getWorkflowDef(def.getRoute(), def.getVersion()).isPresent()) {
             metadataDAO.updateWorkflowDef(def);
         } else {
             metadataDAO.createWorkflowDef(def);
         }
         return metadataDAO.getWorkflowDef(def.getRoute(), def.getVersion()).orElse(def);
-    }
-
-    private void validateDoWhileTasks(List<WorkflowTask> tasks) {
-        if (tasks == null) {
-            return;
-        }
-        for (WorkflowTask task : tasks) {
-            if (task == null) {
-                continue;
-            }
-            if (TaskType.TASK_TYPE_DO_WHILE.equals(task.getType())) {
-                try {
-                    DoWhile.validateDefinition(task);
-                } catch (IllegalArgumentException error) {
-                    throw new IllegalArgumentException(
-                            "任务 " + task.getTaskReferenceName() + ": " + error.getMessage(), error);
-                }
-            }
-            validateDoWhileTasks(task.getLoopOver());
-            validateDoWhileTasks(task.getDefaultCase());
-            if (task.getDecisionCases() != null) {
-                task.getDecisionCases().values().forEach(this::validateDoWhileTasks);
-            }
-            if (task.getForkTasks() != null) {
-                task.getForkTasks().forEach(this::validateDoWhileTasks);
-            }
-        }
     }
 
     @Override

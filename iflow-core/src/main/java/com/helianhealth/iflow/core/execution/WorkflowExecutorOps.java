@@ -169,7 +169,7 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
             return;
         }
 
-        // 只创建新增任务；已有 JOIN/DO_WHILE 仍需派发以继续评估。
+        // 将待调度tasks添加到运行时
         List<TaskModel> newTasks = dedupAndAddTasks(workflow, tasks);
         int count = workflow.getTasks().stream().mapToInt(TaskModel::getSeq).max().orElse(0);
         long now = System.currentTimeMillis();
@@ -194,18 +194,18 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
     @Override
     public void scheduleNextIteration(TaskModel loopTask, WorkflowModel workflow) {
         // 只启动循环体首任务，后续任务由 Decider 按完成状态继续推进。
-        List<TaskModel> iterationTasks = deciderService.getTasksToBeScheduled(
+        List<TaskModel> scheduledLoopOverTasks = deciderService.getTasksToBeScheduled(
                 workflow,
                 loopTask.getWorkflowTask().getLoopOver().get(0),
                 loopTask.getRetryCount(),
                 null,
                 loopTask.getForkTaskId());
-        iterationTasks.forEach(task -> {
+        scheduledLoopOverTasks.forEach(task -> {
             task.setReferenceTaskName(TaskUtils.appendIteration(
                     task.getReferenceTaskName(), loopTask.getIteration()));
             task.setIteration(loopTask.getIteration());
         });
-        scheduleTask(workflow, iterationTasks);
+        scheduleTask(workflow, scheduledLoopOverTasks);
     }
 
     private void persistTerminatedWorkflow(

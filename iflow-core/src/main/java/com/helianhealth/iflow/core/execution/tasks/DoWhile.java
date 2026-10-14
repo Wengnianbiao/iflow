@@ -4,7 +4,6 @@ import com.helianhealth.iflow.common.domain.metadata.task.TaskType;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 import com.helianhealth.iflow.core.dal.ExecutionDAOFacade;
 import com.helianhealth.iflow.core.execution.WorkflowExecutor;
-import com.helianhealth.iflow.core.execution.evaluators.GraalJSEvaluator;
 import com.helianhealth.iflow.core.execution.script.ScriptEvaluator;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
@@ -23,7 +22,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.regex.Pattern;
 
 /**
  * 循环任务。
@@ -43,53 +41,16 @@ public class DoWhile extends WorkflowSystemTask {
 
     public static final String OUTPUT_ITERATION = "iteration";
     public static final String INPUT_LOOP_ITEMS = "loopItems";
-    private static final Pattern COLLECTION_EXPRESSION = Pattern.compile("^\\$\\{[^{}]+}$");
 
-    private final GraalJSEvaluator evaluator;
     private final ParametersUtils parametersUtils;
     private final ExecutionDAOFacade executionDAOFacade;
 
     public DoWhile(
-            GraalJSEvaluator evaluator,
             ParametersUtils parametersUtils,
             ExecutionDAOFacade executionDAOFacade) {
         super(TaskType.TASK_TYPE_DO_WHILE);
-        this.evaluator = Objects.requireNonNull(evaluator);
         this.parametersUtils = Objects.requireNonNull(parametersUtils);
         this.executionDAOFacade = Objects.requireNonNull(executionDAOFacade);
-    }
-
-    /** 定义写入与执行共用的配置校验，不解析动态数组来源。 */
-    public static void validateDefinition(WorkflowTask definition) {
-        if (definition == null) {
-            throw new IllegalArgumentException("DO_WHILE task definition is required");
-        }
-        if (definition.getLoopOver() == null || definition.getLoopOver().isEmpty()) {
-            throw new IllegalArgumentException("DO_WHILE loopOver must contain at least one task");
-        }
-        boolean hasItems = definition.getLoopItems() != null;
-        boolean hasCondition = definition.getLoopCondition() != null;
-        if (hasItems == hasCondition) {
-            throw new IllegalArgumentException("DO_WHILE requires exactly one of loopItems or loopCondition");
-        }
-        if (hasItems) {
-            String expression = definition.getLoopItems().trim();
-            if (!COLLECTION_EXPRESSION.matcher(expression).matches()
-                    || expression.substring(2, expression.length() - 1).isBlank()) {
-                throw new IllegalArgumentException("DO_WHILE loopItems must be a complete ${...} expression");
-            }
-        } else if (definition.getLoopCondition().isBlank()) {
-            throw new IllegalArgumentException("DO_WHILE loopCondition must not be blank");
-        }
-        String evaluatorType = definition.getEvaluatorType();
-        if (evaluatorType != null && !evaluatorType.isBlank()
-                && !GraalJSEvaluator.NAME.equals(evaluatorType)) {
-            throw new IllegalArgumentException("DO_WHILE only supports the graaljs evaluator");
-        }
-        if (definition.getInputParameters() != null
-                && definition.getInputParameters().containsKey(INPUT_LOOP_ITEMS)) {
-            throw new IllegalArgumentException("DO_WHILE inputParameters.loopItems is reserved for the array snapshot");
-        }
     }
 
     @Override
@@ -380,7 +341,6 @@ public class DoWhile extends WorkflowSystemTask {
             itemsValue = evaluatedParams.get("loopItems");
         }
 
-
         // Convert itemsValue to List<Object>
         if (itemsValue instanceof List) {
             return (List<Object>) itemsValue;
@@ -415,7 +375,7 @@ public class DoWhile extends WorkflowSystemTask {
         }
         ctx.put("workflow", workflowContext(workflow));
 
-        return toBoolean(evaluator.evaluate(def.getLoopCondition(), ctx));
+        return ScriptEvaluator.evalBool(def.getLoopCondition(), ctx);
     }
 
     private Map<String, Object> workflowContext(WorkflowModel workflow) {
@@ -432,18 +392,5 @@ public class DoWhile extends WorkflowSystemTask {
             current = current.getCause();
         }
         return current.getMessage() == null ? current.getClass().getName() : current.getMessage();
-    }
-
-    private boolean toBoolean(Object value) {
-        if (value == null) {
-            return false;
-        }
-        if (value instanceof Boolean b) {
-            return b;
-        }
-        if (value instanceof Number n) {
-            return n.doubleValue() != 0;
-        }
-        return Boolean.parseBoolean(value.toString());
     }
 }

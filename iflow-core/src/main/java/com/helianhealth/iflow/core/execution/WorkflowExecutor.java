@@ -15,11 +15,11 @@ public interface WorkflowExecutor {
 
     WorkflowModel decide(String workflowId);
 
-    /** 由当前调用线程同步推进工作流至终态。 */
+    /** 由当前调用线程同步推进工作流至终态 */
     WorkflowModel decideWithLock(WorkflowModel workflow);
 
-    /** 创建并直接调度 DO_WHILE 当前轮首任务，后续任务由 Decider 推进。 */
-    void scheduleNextIteration(TaskModel loopTask, WorkflowModel workflow);
+    /** 创建并直接调度 DO_WHILE 当前轮首任务 */
+    void scheduleNextIteration(TaskModel task, WorkflowModel workflow);
 
     void terminateWorkflow(WorkflowModel workflow, String reason);
 

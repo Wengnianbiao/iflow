@@ -38,26 +38,26 @@ class DoWhileDefinitionValidationTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"register", "update", "save"})
-    void invalidNestedLoopIsRejectedBeforeAccessingDao(String operation) {
+    void definitionWritesAllowNestedLoopConfigurationWithoutValidation(String operation) {
         WorkflowTask invalid = arrayLoop(); invalid.setLoopCondition("false");
         WorkflowTask outer = jsLoop(); outer.setLoopOver(List.of(invalid));
         WorkflowTask choice = WorkflowTask.builder().type("SWITCH").decisionCases(Map.of("chosen", List.of(outer))).build();
         WorkflowTask fork = WorkflowTask.builder().type("FORK_JOIN").forkTasks(List.of(List.of(choice))).build();
         MetadataDAO dao = mock(MetadataDAO.class);
-        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
-                () -> write(new MetadataServiceImpl(dao), WorkflowDef.builder().tasks(List.of(fork)).build(), operation));
-        assertTrue(error.getMessage().contains("exactly one"));
-        verifyNoInteractions(dao);
+        WorkflowDef definition = WorkflowDef.builder().route("nested-loops").tasks(List.of(fork)).build();
+        assertDoesNotThrow(() -> write(new MetadataServiceImpl(dao), definition, operation));
+        if ("update".equals(operation)) verify(dao).updateWorkflowDef(definition);
+        else verify(dao).createWorkflowDef(definition);
     }
 
     @ParameterizedTest
     @MethodSource("invalidDefinitions")
-    void rejectsMissingBlankLiteralReservedAndUnsupportedConfiguration(WorkflowTask loop) {
+    void registrationPersistsMissingBlankLiteralReservedAndUnsupportedConfiguration(WorkflowTask loop) {
         MetadataDAO dao = mock(MetadataDAO.class);
         WorkflowTask choice = WorkflowTask.builder().type("SWITCH").defaultCase(List.of(loop)).build();
-        assertThrows(IllegalArgumentException.class,
-                () -> new MetadataServiceImpl(dao).registerWorkflowDef(WorkflowDef.builder().tasks(List.of(choice)).build()));
-        verifyNoInteractions(dao);
+        WorkflowDef definition = WorkflowDef.builder().tasks(List.of(choice)).build();
+        assertDoesNotThrow(() -> new MetadataServiceImpl(dao).registerWorkflowDef(definition));
+        verify(dao).createWorkflowDef(definition);
     }
 
     static Stream<WorkflowTask> invalidDefinitions() {

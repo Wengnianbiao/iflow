@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 import com.helianhealth.iflow.core.dal.ExecutionDAOFacade;
-import com.helianhealth.iflow.core.execution.evaluators.GraalJSEvaluator;
 import com.helianhealth.iflow.core.execution.DeciderService;
 import com.helianhealth.iflow.core.execution.WorkflowExecutor;
 import com.helianhealth.iflow.core.execution.mapper.WebServiceTaskMapper;
@@ -117,7 +116,7 @@ class TaskOutputContractTest {
         workflow.setInput(Map.of("items", List.of(1, 2)));
         loop.getInputData().put("loopItems", List.of(1, 2));
 
-        new DoWhile(mock(GraalJSEvaluator.class), parameters, mock(ExecutionDAOFacade.class)).execute(workflow, loop, null);
+        new DoWhile(parameters, mock(ExecutionDAOFacade.class)).execute(workflow, loop, null);
 
         assertEquals(TaskModel.Status.COMPLETED, loop.getStatus());
         assertFalse(loop.outputAsMap().containsKey("1"));

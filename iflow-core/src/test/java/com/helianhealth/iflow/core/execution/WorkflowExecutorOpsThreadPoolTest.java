@@ -468,7 +468,7 @@ class WorkflowExecutorOpsThreadPoolTest {
                 };
         ParametersUtils parametersUtils = new ParametersUtils(new ObjectMapper());
         DoWhile doWhile =
-                new DoWhile(new GraalJSEvaluator(), parametersUtils, executionDAOFacade(new AtomicReference<>()));
+                new DoWhile(parametersUtils, executionDAOFacade(new AtomicReference<>()));
         SystemTaskRegistry registry = new SystemTaskRegistry(Set.of(noop, doWhile));
         Map<String, TaskMapper> mappers =
                 Map.of(

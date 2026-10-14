@@ -14,6 +14,7 @@ import org.graalvm.polyglot.proxy.ProxyObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Duration;
@@ -112,22 +113,22 @@ public final class ScriptEvaluator {
         int maxSeconds =
                 Integer.parseInt(
                         getEnv(
-                                "AGENT_SCRIPT_MAX_EXECUTION_SECONDS",
+                                "IFLOW_SCRIPT_MAX_EXECUTION_SECONDS",
                                 String.valueOf(DEFAULT_MAX_EXECUTION_SECONDS)));
         int poolSize =
                 Integer.parseInt(
                         getEnv(
-                                "AGENT_SCRIPT_CONTEXT_POOL_SIZE",
+                                "IFLOW_SCRIPT_CONTEXT_POOL_SIZE",
                                 String.valueOf(DEFAULT_CONTEXT_POOL_SIZE)));
         boolean poolEnabled =
                 Boolean.parseBoolean(
                         getEnv(
-                                "AGENT_SCRIPT_CONTEXT_POOL_ENABLED",
+                                "IFLOW_SCRIPT_CONTEXT_POOL_ENABLED",
                                 String.valueOf(DEFAULT_CONTEXT_POOL_ENABLED)));
         sourceCacheMaxSize =
                 Integer.parseInt(
                         getEnv(
-                                "AGENT_SCRIPT_SOURCE_CACHE_SIZE",
+                                "IFLOW_SCRIPT_SOURCE_CACHE_SIZE",
                                 String.valueOf(DEFAULT_SOURCE_CACHE_SIZE)));
         initialize(maxSeconds, poolSize, poolEnabled, null);
     }
@@ -217,10 +218,10 @@ public final class ScriptEvaluator {
         }
         Class<?> cls = input.getClass();
         if (cls.isArray()) {
-            int len = java.lang.reflect.Array.getLength(input);
+            int len = Array.getLength(input);
             List<Object> copy = new ArrayList<>(len);
             for (int i = 0; i < len; i++) {
-                copy.add(deepCopy(java.lang.reflect.Array.get(input, i)));
+                copy.add(deepCopy(Array.get(input, i)));
             }
             return copy;
         }
@@ -238,6 +239,10 @@ public final class ScriptEvaluator {
         Source source = Source.newBuilder("js", script, "inline").cached(true).buildLiteral();
         Source existing = SOURCE_CACHE.putIfAbsent(script, source);
         return existing != null ? existing : source;
+    }
+
+    public static Boolean evalBool(String script, Object input) {
+        return toBoolean(eval(script, input));
     }
 
     public static Object eval(String script, Object input) {
@@ -261,9 +266,7 @@ public final class ScriptEvaluator {
                         futureResult.get(maxExecutionTimeSeconds.getSeconds(), TimeUnit.SECONDS);
                 return getObject(value);
             } catch (TimeoutException e) {
-                if (scriptContext != null) {
-                    interrupt(scriptContext.getContext());
-                }
+                interrupt(scriptContext.getContext());
                 throw new IllegalStateException(
                         String.format(
                                 "Script not evaluated within %d seconds, interrupted.",
@@ -329,6 +332,20 @@ public final class ScriptEvaluator {
             return ProxyArray.fromList(items);
         }
         return jsonCompatibleScalar(value);
+    }
+
+    /**
+     * 将泛型对象转换为布尔值。检查对象是否为布尔和类型返回布尔对象的值。检查对象是否为Number类型并返回当值大于0时为True。
+     * @param input 将被检查以返回布尔值的通用对象。
+     * @return 根据提供的输入返回True或False
+     */
+    public static Boolean toBoolean(Object input) {
+        if (input instanceof Boolean) {
+            return ((Boolean) input);
+        } else if (input instanceof Number) {
+            return ((Number) input).doubleValue() > 0;
+        }
+        return false;
     }
 
     /**
