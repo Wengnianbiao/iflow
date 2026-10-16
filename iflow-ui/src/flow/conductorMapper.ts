@@ -19,6 +19,7 @@ export interface Crumb {
 
 export interface NodeTaskData {
   task: WorkflowTask
+  originalTask?: WorkflowTask
   crumbs: Crumb[]
   nodeKind?: TaskFlowKind
   selected?: boolean
@@ -186,7 +187,10 @@ function makeSwitchJoinNode(task: WorkflowTask, crumbs: Crumb[], decisionKeys: s
       northPort({ id: `${id}-to-join-to=[key=${key}]` }, (decisionKeys.length || 1) - 1 - index, true),
     ),
   ]
-  return makeNode({ taskReferenceName: id, name: `${refName(task)}_switch_join`, type: TaskType.SWITCH_JOIN }, crumbs, 'switch_join', ports)
+  const node = makeNode({ taskReferenceName: id, name: `${refName(task)}_switch_join`, type: TaskType.SWITCH_JOIN }, crumbs, 'switch_join', ports)
+  // The merge bar is visual only; edits at its port belong to the real SWITCH.
+  node.data!.originalTask = task
+  return node
 }
 
 function processSwitch(task: WorkflowTask, crumbs: Crumb[]): WalkResult {

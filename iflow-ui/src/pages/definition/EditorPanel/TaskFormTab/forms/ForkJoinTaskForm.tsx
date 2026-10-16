@@ -11,11 +11,31 @@ export function ForkJoinTaskForm({ task, onChange }: { task: WorkflowTask; onCha
       <WorkflowCollapsibleSection title="并行路径">
         <div className="operator-branch-list">
           {forkTasks.map((branch, index) => (
-            <div className="operator-branch-row" key={index}>
-              <span>分支 {index + 1}</span>
-              <strong>{branch.length} 个任务</strong>
-              <small>{branch.map((item) => item.taskReferenceName).join(' → ') || '点击画布分支端口添加任务'}</small>
-            </div>
+            <section className="fork-path-card" key={index} aria-label={`分支 ${index + 1}`}>
+              <div className="fork-path-heading">
+                <h3>分支 {index + 1}</h3>
+                <span>{branch.length} 个任务</span>
+              </div>
+              {branch.length ? (
+                <ol className="fork-path-steps">
+                  {branch.map((item, taskIndex) => (
+                    <li className="fork-path-step" key={item.taskReferenceName}>
+                      <span className="fork-path-step-number" aria-hidden="true">{taskIndex + 1}</span>
+                      <div className="fork-path-task">
+                        <strong>{item.name || '未命名任务'}</strong>
+                        <code>{item.taskReferenceName}</code>
+                      </div>
+                      <div className="fork-path-task-meta">
+                        <span className="fork-path-task-type">{item.type}</span>
+                        {taskIndex === branch.length - 1 ? <small>分支末尾</small> : null}
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="fork-path-empty">暂无任务，请在画布中点击该分支的 + 添加任务。</p>
+              )}
+            </section>
           ))}
           {!forkTasks.length ? <p className="inspector-empty">尚未创建并行分支</p> : null}
         </div>
@@ -27,7 +47,6 @@ export function ForkJoinTaskForm({ task, onChange }: { task: WorkflowTask; onCha
           <PlusCircleIcon size={16} />
           添加并行分支
         </button>
-        <p className="field-help">FORK 与紧随其后的 JOIN 作为一个结构整体保存；在画布分支端口的 + 中添加分支任务。</p>
       </WorkflowCollapsibleSection>
     </div>
   )

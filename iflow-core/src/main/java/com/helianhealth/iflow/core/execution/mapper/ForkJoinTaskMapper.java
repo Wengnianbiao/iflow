@@ -24,7 +24,7 @@ public class ForkJoinTaskMapper implements TaskMapper {
 
     @Override
     public List<TaskModel> getMappedTasks(TaskMapperContext taskMapperContext) {
-        WorkflowTask workflowTask = taskMapperContext.getWorkflowTask();
+        WorkflowTask forkJoinTask = taskMapperContext.getWorkflowTask();
         Map<String, Object> taskInput = taskMapperContext.getTaskInput();
         WorkflowModel workflowModel = taskMapperContext.getWorkflowModel();
         int retryCount = taskMapperContext.getRetryCount();
@@ -37,7 +37,7 @@ public class ForkJoinTaskMapper implements TaskMapper {
         forkTask.setStatus(TaskModel.Status.IN_PROGRESS);
         tasksToBeScheduled.add(forkTask);
 
-        List<List<WorkflowTask>> forkTasks = workflowTask.getForkTasks();
+        List<List<WorkflowTask>> forkTasks = forkJoinTask.getForkTasks();
         for (List<WorkflowTask> branchTasks : forkTasks) {
             WorkflowTask branchTask = branchTasks.get(0);
             List<TaskModel> branchTasksToBeScheduled = taskMapperContext
@@ -56,7 +56,7 @@ public class ForkJoinTaskMapper implements TaskMapper {
         WorkflowTask joinWorkflowTask =
                 workflowModel
                         .getWorkflowDefinition()
-                        .getNextTask(workflowTask.getTaskReferenceName());
+                        .getNextTask(forkJoinTask.getTaskReferenceName());
         if (joinWorkflowTask == null
                 || !TaskType.TASK_TYPE_JOIN.equals(joinWorkflowTask.getType())) {
             throw new TerminateWorkflowException(

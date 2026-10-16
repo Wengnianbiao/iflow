@@ -1,6 +1,5 @@
 package com.helianhealth.iflow.core.execution.evaluators;
 
-import com.helianhealth.iflow.core.execution.script.GraalScriptUtils;
 import com.helianhealth.iflow.core.execution.script.ScriptEvaluator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,9 +24,8 @@ public class GraalJSEvaluator implements Evaluator {
 
     public Object evaluateWithBindings(String expression, Object input, Map<String, Object> bindings) {
         log.debug("GraalJS evaluator -- expression: {}", expression);
-        String script = GraalScriptUtils.normalizeScript(expression);
         Object inputCopy = ScriptEvaluator.deepCopy(input);
-        Object result = ScriptEvaluator.eval(script, inputCopy,
+        Object result = ScriptEvaluator.eval(expression, inputCopy,
                 (Map<String, Object>) ScriptEvaluator.deepCopy(bindings));
         log.debug("GraalJS evaluator -- result: {}", result);
         return result;

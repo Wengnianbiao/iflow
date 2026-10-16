@@ -101,14 +101,6 @@ public class DeciderService {
             WorkflowModel workflow,
             WorkflowTask taskToSchedule,
             int retryCount,
-            String retriedTaskId) {
-        return getTasksToBeScheduled(workflow, taskToSchedule, retryCount, retriedTaskId, null);
-    }
-
-    public List<TaskModel> getTasksToBeScheduled(
-            WorkflowModel workflow,
-            WorkflowTask taskToSchedule,
-            int retryCount,
             String retriedTaskId,
             String forkTaskId) {
         String type = taskToSchedule.getType();
@@ -137,11 +129,10 @@ public class DeciderService {
                         .forkTaskId(forkTaskId)
                         .build();
 
-        // mapper当前workflowTask(定义)到taskModel(运行时)
-        // e.g.
-        // 对于switch task会根据Evaluator配置计算出命中的分支
-        // 命中的分支和switch task本身就是待调度的task
-        // 对于fork join
+        // 静态/动态 FORK 的各分支结束后，都会尝试创建同一个 JOIN。
+        // 展开 FORK 时已创建对应的 JOIN，通常处于 IN_PROGRESS，因此需要避免重复创建。
+        // 按 referenceTaskName，过滤当前工作流中已处于 IN_PROGRESS 或终态的同名任务。
+        // 当前正常执行路径中，主要在 JOIN 场景触发，也作为公共调度入口的去重保护。
         return taskMappers.getOrDefault(type, taskMappers.get(SPI.name()))
                         .getMappedTasks(taskMapperContext)
                         .stream()
@@ -259,8 +250,6 @@ public class DeciderService {
                     workflow.getReasonForInCompletion());
             return outcome;
         }
-
-        // 超时终止在 decide 之前由 WorkflowSweeper 完成，这里不再调度后续任务。
 
         // 1、收集当前工作流运行时
         // decide本轮pending的task

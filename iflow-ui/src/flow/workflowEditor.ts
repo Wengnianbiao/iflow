@@ -3,6 +3,7 @@ import {
   createRegisteredTaskSequence,
   getTaskFlowKind,
   getTaskVariableOptions,
+  taskBlocksContinuation,
   type AddableTaskType,
 } from '@/tasks'
 import type { WorkflowDef, WorkflowTask } from '@/types/workflow'
@@ -97,6 +98,45 @@ export function buildVariableOptions(workflow: WorkflowDef, selectedTask?: Workf
   ].filter(Boolean))]
 }
 
+export function buildJoinTaskOptions(workflow: WorkflowDef, selectedTask: WorkflowTask): string[] {
+  if (getTaskFlowKind(selectedTask.type) !== 'join') return []
+
+  const findOptions = (tasks: WorkflowTask[]): string[] | undefined => {
+    let references: string[] = []
+    for (const task of tasks) {
+      if (task === selectedTask) return [...new Set(references)]
+
+      // A nested JOIN only sees forks in its own task sequence.
+      const branches = [
+        ...Object.values(task.decisionCases ?? {}),
+        task.defaultCase ?? [],
+        ...(task.forkTasks ?? []),
+        task.loopOver ?? [],
+      ]
+      for (const branch of branches) {
+        const found = findOptions(branch)
+        if (found) return found
+      }
+
+      if (getTaskFlowKind(task.type) === 'fork') {
+        references.push(...(task.forkTasks ?? []).flatMap((branch) => {
+          const tail = branch.at(-1)
+          return tail?.taskReferenceName && !branch.some((item) => taskBlocksContinuation(item.type))
+            ? [tail.taskReferenceName]
+            : []
+        }))
+      } else if (getTaskFlowKind(task.type) === 'join') {
+        // Earlier JOINs have already waited for these branch ends.
+        references = references.filter((reference) => !task.joinOn?.includes(reference))
+      }
+      if (taskBlocksContinuation(task.type)) break
+    }
+    return undefined
+  }
+
+  return findOptions(workflow.tasks) ?? []
+}
+
 export type { AddableTaskType } from '@/tasks'
 export { spiJavaTemplate } from '@/tasks/templates'
 
@@ -120,6 +160,24 @@ function cloneTask(task: WorkflowTask): WorkflowTask {
     loopOver: task.loopOver ? task.loopOver.map(cloneTask) : task.loopOver,
     joinOn: task.joinOn ? [...task.joinOn] : task.joinOn,
   }
+}
+
+/** Visual deletions must also remove waits for deleted tasks, including descendants. */
+export function syncJoinOnAfterTaskRemoval(previous: WorkflowDef, next: WorkflowDef): WorkflowDef {
+  const remainingReferences = new Set(collectWorkflowTasks(next.tasks).map((task) => task.taskReferenceName))
+  const removedReferences = new Set(collectWorkflowTasks(previous.tasks)
+    .map((task) => task.taskReferenceName)
+    .filter((reference) => !remainingReferences.has(reference)))
+  if (!removedReferences.size) return next
+
+  const tasks = next.tasks.map(cloneTask)
+  let changed = false
+  for (const task of collectWorkflowTasks(tasks)) {
+    if (getTaskFlowKind(task.type) !== 'join' || !task.joinOn?.some((reference) => removedReferences.has(reference))) continue
+    task.joinOn = task.joinOn.filter((reference) => !removedReferences.has(reference))
+    changed = true
+  }
+  return changed ? { ...next, tasks } : next
 }
 
 function updateTaskList(
@@ -272,25 +330,15 @@ export function addForkBranch(def: WorkflowDef, forkReferenceName: string): Work
 }
 
 export function removeForkBranch(def: WorkflowDef, forkReferenceName: string, branchIndex: number): WorkflowDef {
-  return {
+  return syncJoinOnAfterTaskRemoval(def, {
     ...def,
     tasks: updateTaskList(def.tasks, (task, index, list) => {
       if (task.taskReferenceName !== forkReferenceName || getTaskFlowKind(task.type) !== 'fork') return undefined
-      const removedBranch = task.forkTasks?.[branchIndex] ?? []
-      const removedTailRef = removedBranch.at(-1)?.taskReferenceName
       const nextTask = cloneTask(task)
       nextTask.forkTasks = (nextTask.forkTasks ?? []).filter((_, itemIndex) => itemIndex !== branchIndex)
-      const nextList = list.map((item, taskIndex) => (taskIndex === index ? nextTask : item))
-      const join = nextList[index + 1]
-      if (join && getTaskFlowKind(join.type) === 'join' && removedTailRef) {
-        nextList[index + 1] = {
-          ...cloneTask(join),
-          joinOn: (join.joinOn ?? []).filter((reference) => reference !== removedTailRef),
-        }
-      }
-      return nextList
+      return list.map((item, taskIndex) => (taskIndex === index ? nextTask : item))
     }),
-  }
+  })
 }
 
 export function appendToSwitchBranch(
@@ -342,7 +390,7 @@ export function addSwitchCase(def: WorkflowDef, switchReferenceName: string): Wo
 }
 
 export function removeSwitchCase(def: WorkflowDef, switchReferenceName: string, branchName: string): WorkflowDef {
-  return {
+  return syncJoinOnAfterTaskRemoval(def, {
     ...def,
     tasks: updateTaskList(def.tasks, (task, index, list) => {
       if (task.taskReferenceName !== switchReferenceName) return undefined
@@ -355,7 +403,7 @@ export function removeSwitchCase(def: WorkflowDef, switchReferenceName: string, 
       }
       return list.map((item, taskIndex) => (taskIndex === index ? nextTask : item))
     }),
-  }
+  })
 }
 
 export function parseSwitchBranch(value?: string) {
@@ -404,7 +452,7 @@ export function updateTask(
 }
 
 export function removeTask(def: WorkflowDef, taskReferenceName: string): WorkflowDef {
-  return {
+  return syncJoinOnAfterTaskRemoval(def, {
     ...def,
     tasks: updateTaskList(def.tasks, (task, index, list) => {
       if (task.taskReferenceName !== taskReferenceName) return undefined
@@ -417,5 +465,5 @@ export function removeTask(def: WorkflowDef, taskReferenceName: string): Workflo
       const removalIndex = pairedTask === 2 && flowKind === 'join' ? index - 1 : index
       return [...list.slice(0, removalIndex), ...list.slice(removalIndex + pairedTask)]
     }),
-  }
+  })
 }

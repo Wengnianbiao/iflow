@@ -2,7 +2,7 @@ import { useSelector } from '@xstate/react'
 import { useEffect, useRef } from 'react'
 import { CaretDoubleRightIcon } from '@phosphor-icons/react'
 import { getTaskPlugin } from '@/tasks'
-import { buildVariableOptions } from '@/flow/workflowEditor'
+import { buildJoinTaskOptions, buildVariableOptions, findTask } from '@/flow/workflowEditor'
 import type { ActorRefFrom } from 'xstate'
 import { CodeInspector } from './CodeInspector'
 import { TaskInspector } from './TaskInspector'
@@ -30,6 +30,12 @@ function DerivedEditorContent({
   const contentRef = useRef<HTMLDivElement>(null)
   const { workflow, selectedTask, selectedTaskEditorKey, variableOptions } = state.context
   const inputVariableOptions = workflow && selectedTask ? buildVariableOptions(workflow, selectedTask, false) : variableOptions
+  const joinTaskOptions = workflow && selectedTask
+    ? buildJoinTaskOptions(workflow, selectedTask).map((reference) => ({
+        taskReferenceName: reference,
+        name: findTask(workflow.tasks, reference)?.name,
+      }))
+    : []
   const activeTab = state.matches('task') ? 'task' : state.matches('code') ? 'code' : 'workflow'
   const taskPath = state.context.selectedTaskPath ?? ''
   const editable = definitionState.matches('ready.lifecycle.editing')
@@ -110,6 +116,7 @@ function DerivedEditorContent({
                 task={selectedTask}
                 variableOptions={variableOptions}
                 inputVariableOptions={inputVariableOptions}
+                joinTaskOptions={joinTaskOptions}
                 onChange={(task) => actor.send({ type: 'TASK_UPDATED', task })}
               />
             ) : (
@@ -119,6 +126,7 @@ function DerivedEditorContent({
                   task={selectedTask}
                   variableOptions={variableOptions}
                   inputVariableOptions={inputVariableOptions}
+                  joinTaskOptions={joinTaskOptions}
                   onChange={(task) => actor.send({ type: 'TASK_UPDATED', task })}
                 />
               </div>

@@ -155,7 +155,7 @@ function FlowEdge(props: Partial<EdgeProps>) {
   return <Edge {...props} sections={sections} />
 }
 
-function applyAddTask(workflow: WorkflowDef, target: MenuTarget, type: AddableTaskType) {
+export function applyAddTask(workflow: WorkflowDef, target: MenuTarget, type: AddableTaskType) {
   const tasks = createTaskSequence(type)
 
   if (target.kind === 'doWhileBody') {
@@ -164,11 +164,12 @@ function applyAddTask(workflow: WorkflowDef, target: MenuTarget, type: AddableTa
 
   if (target.kind === 'port') {
     const node = target.node
+    const taskReferenceName = node.data?.originalTask?.taskReferenceName ?? node.id
     if (node.id === START_TASK_REF) {
       return { ...workflow, tasks: [...tasks, ...workflow.tasks] }
     }
     if (target.port.properties?.side === 'NORTH') {
-      return insertTasksBeforeTask(workflow, node.id, tasks)
+      return insertTasksBeforeTask(workflow, taskReferenceName, tasks)
     }
     const branchName = parseNodeBranchTarget(target.port)
     const flowKind = getTaskFlowKind(node.data?.task.type ?? '')
@@ -178,7 +179,7 @@ function applyAddTask(workflow: WorkflowDef, target: MenuTarget, type: AddableTa
     if (branchName && flowKind === 'fork') {
       return appendToForkBranch(workflow, node.id, Number(branchName), tasks, 'start')
     }
-    return insertTasksAfterTask(workflow, node.id, tasks)
+    return insertTasksAfterTask(workflow, taskReferenceName, tasks)
   }
 
   const edge = target.edge

@@ -92,16 +92,18 @@ public class CallerAndForkTaskScheduler implements TaskScheduler {
             }
         }
 
-        for (CompletableFuture<Void> execution : executions) {
-            try {
-                execution.join();
-            } catch (CompletionException e) {
-                Throwable cause = e.getCause();
-                if (cause instanceof RuntimeException runtimeException) {
-                    throw runtimeException;
-                }
-                throw e;
+        if (executions.isEmpty()) {
+            return;
+        }
+
+        try {
+            CompletableFuture.anyOf(executions.toArray(CompletableFuture[]::new)).join();
+        } catch (CompletionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof RuntimeException runtimeException) {
+                throw runtimeException;
             }
+            throw e;
         }
     }
 

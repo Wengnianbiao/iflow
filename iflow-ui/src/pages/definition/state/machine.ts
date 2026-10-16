@@ -1,5 +1,6 @@
 import { assign, createMachine, spawn } from 'xstate'
 import type { WorkflowDef } from '@/types/workflow'
+import { syncJoinOnAfterTaskRemoval } from '@/flow/workflowEditor'
 import {
   hasWorkflowChanges,
   type LoadedWorkflow,
@@ -10,7 +11,7 @@ import { workflowFlowMachine } from './flowMachine'
 import { workflowEditorMachine } from './editorMachine'
 import { workflowValidationMachine } from './validationMachine'
 import { blockingProblems, currentProblems, draftProblems, focusProblem, validatedEdit, workflowEdit } from './definitionValidation'
-import { findTaskPath, replaceTaskAtPath } from '../validation/validateWorkflow'
+import { findTaskPath, pointerValue, replaceTaskAtPath } from '../validation/validateWorkflow'
 
 function cloneWorkflow(workflow: WorkflowDef): WorkflowDef {
   return JSON.parse(JSON.stringify(workflow)) as WorkflowDef
@@ -360,19 +361,19 @@ export const workflowDefinitionMachine = createMachine<
         if (event.type !== 'WORKFLOW_CHANGED') return context
         return {
           ...context,
-          ...workflowEdit(context, event.workflow),
+          ...workflowEdit(context, context.workflow ? syncJoinOnAfterTaskRemoval(context.workflow, event.workflow) : event.workflow),
           fieldDrafts: Object.fromEntries(Object.entries(context.fieldDrafts).filter(([, draft]) => draft.message)),
         }
       }),
       assignUpdatedTask: assign((context, event) => {
         if (event.type !== 'TASK_UPDATED' || !context.workflow || !context.selectedTaskPath) return context
+        const workflow = replaceTaskAtPath(context.workflow, context.selectedTaskPath, event.task)
+        const previousReference = pointerValue(context.workflow, `${context.selectedTaskPath}/taskReferenceName`)
         return {
           ...context,
-          ...workflowEdit(context, replaceTaskAtPath(
-            context.workflow,
-            context.selectedTaskPath,
-            event.task,
-          )),
+          ...workflowEdit(context, previousReference === event.task.taskReferenceName
+            ? syncJoinOnAfterTaskRemoval(context.workflow, workflow)
+            : workflow),
           selectedTaskPath: context.selectedTaskPath,
           fieldDrafts: Object.fromEntries(Object.entries(context.fieldDrafts).filter(([, draft]) => draft.message)),
           selectedTaskRef: event.task.taskReferenceName,

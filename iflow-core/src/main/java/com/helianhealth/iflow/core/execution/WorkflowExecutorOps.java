@@ -47,7 +47,6 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
     private final IDGenerator idGenerator;
     private final ParametersUtils parametersUtils;
     private final ExecutionLockService executionLockService;
-    private WorkflowSweeper workflowSweeper;
     private TaskScheduler taskScheduler;
 
     @Autowired
@@ -69,18 +68,9 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
                 executionLockService != null
                         ? executionLockService
                         : new InMemoryExecutionLockService();
-        this.workflowSweeper =
-                new WorkflowSweeper(systemTaskRegistry, this.executionDAOFacade, null, 3600L);
         this.taskScheduler =
                 new CallerAndForkTaskScheduler(
                         ForkJoinPool.commonPool(), systemTaskRegistry);
-    }
-
-    @Autowired(required = false)
-    public void setWorkflowSweeper(WorkflowSweeper workflowSweeper) {
-        if (workflowSweeper != null) {
-            this.workflowSweeper = workflowSweeper;
-        }
     }
 
     @Autowired
@@ -139,9 +129,6 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
 
     private WorkflowModel driveWorkflow(WorkflowModel workflow) {
         while (!workflow.getStatus().isTerminal()) {
-            if (workflowSweeper.sweep(workflow, this)) {
-                return workflow;
-            }
 
             DeciderService.DeciderOutcome outcome = deciderService.decide(workflow);
             if (outcome.isComplete) {
@@ -151,6 +138,7 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
             }
 
             List<TaskModel> tasksToBeScheduled = outcome.tasksToBeScheduled;
+            tasksToBeScheduled = dedupAndAddTasks(workflow, tasksToBeScheduled);
             scheduleTask(workflow, tasksToBeScheduled);
 
             if (!outcome.tasksToBeUpdated.isEmpty() || !tasksToBeScheduled.isEmpty()) {
@@ -169,20 +157,9 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
             return;
         }
 
-        registerTasks(workflow, tasks);
-        taskScheduler.schedule(workflow, tasks, this);
-    }
-
-    private void registerTasks(WorkflowModel workflow, List<TaskModel> tasks) {
-        if (tasks == null || tasks.isEmpty()) {
-            return;
-        }
-
-        // 注册并持久化新任务，不在此处执行任务。
-        List<TaskModel> newTasks = dedupAndAddTasks(workflow, tasks);
         int count = workflow.getTasks().stream().mapToInt(TaskModel::getSeq).max().orElse(0);
         long now = System.currentTimeMillis();
-        for (TaskModel task : newTasks) {
+        for (TaskModel task : tasks) {
             if (task.getSeq() == 0) {
                 task.setSeq(++count);
             }
@@ -193,13 +170,14 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
                 task.setScheduledTime(now);
             }
         }
-        if (executionDAOFacade != null && !newTasks.isEmpty()) {
-            executionDAOFacade.createTasks(newTasks);
+        if (executionDAOFacade != null && !tasks.isEmpty()) {
+            executionDAOFacade.createTasks(tasks);
         }
+        taskScheduler.schedule(workflow, tasks, this);
     }
 
     @Override
-    public void createNextIterationTasks(TaskModel loopTask, WorkflowModel workflow) {
+    public void addNextIterationTasks(TaskModel loopTask, WorkflowModel workflow) {
         List<TaskModel> iterationTasks = deciderService.getTasksToBeScheduled(
                 workflow,
                 loopTask.getWorkflowTask().getLoopOver().get(0),
@@ -211,7 +189,7 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
                     task.getReferenceTaskName(), loopTask.getIteration()));
             task.setIteration(loopTask.getIteration());
         });
-        registerTasks(workflow, iterationTasks);
+        dedupAndAddTasks(workflow, iterationTasks);
     }
 
     private void persistTerminatedWorkflow(

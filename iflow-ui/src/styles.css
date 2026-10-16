@@ -3053,6 +3053,86 @@ textarea {
   margin-top: 14px;
 }
 
+.join-inputs-heading {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 12px;
+}
+
+.join-inputs-heading h2 {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.join-select-all {
+  min-height: 28px;
+  padding: 3px 12px;
+  color: #fff;
+  background: #1976d2;
+  border: 0;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.join-select-all:hover {
+  background: #1565c0;
+}
+
+.join-select-all:disabled {
+  color: #888;
+  background: #e0e0e0;
+  cursor: default;
+}
+
+.join-task-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  align-items: center;
+  gap: 16px 20px;
+  padding: 4px 0 12px;
+}
+
+.join-task-option {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  color: #222;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.join-task-option input {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #1976d2;
+  cursor: pointer;
+}
+
+.join-task-label {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  overflow-wrap: anywhere;
+}
+
+.join-task-label strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.join-task-label small {
+  color: #788b93;
+  font-size: 11px;
+}
+
 .inspector-select {
   position: relative;
   width: 100%;
@@ -4291,32 +4371,123 @@ textarea {
 
 .operator-branch-list {
   display: grid;
-  gap: 8px;
+  gap: 12px;
   margin-bottom: 12px;
 }
 
-.operator-branch-row {
-  display: grid;
-  grid-template-columns: minmax(90px, 0.6fr) auto;
-  gap: 4px 12px;
-  padding: 11px 12px;
+.fork-path-card {
+  min-width: 0;
+  overflow: hidden;
   color: #31434b;
-  background: #f6f9fa;
+  background: #fff;
   border: 1px solid #dbe6ea;
-  border-radius: 7px;
+  border-radius: 6px;
 }
 
-.operator-branch-row strong {
+.fork-path-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #f6f9fa;
+  border-bottom: 1px solid #e7ecef;
+}
+
+.fork-path-heading h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.fork-path-heading > span {
   color: #205668;
   font-size: 12px;
 }
 
-.operator-branch-row small {
-  grid-column: 1 / -1;
-  overflow: hidden;
+.fork-path-steps {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 14px 12px;
+  list-style: none;
+}
+
+.fork-path-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+}
+
+.fork-path-step:not(:last-child)::after {
+  position: absolute;
+  top: 26px;
+  bottom: -10px;
+  left: 10px;
+  width: 1px;
+  background: #dbe6ea;
+  content: '';
+}
+
+.fork-path-step-number {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  color: #526975;
+  background: #f1f5f7;
+  border: 1px solid #dbe6ea;
+  border-radius: 50%;
+  font-size: 11px;
+}
+
+.fork-path-task {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  overflow-wrap: anywhere;
+}
+
+.fork-path-task strong {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 22px;
+}
+
+.fork-path-task code {
   color: #788b93;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.fork-path-task-meta {
+  display: grid;
+  justify-items: end;
+  gap: 5px;
+}
+
+.fork-path-task-type {
+  padding: 3px 6px;
+  color: #526070;
+  background: #eef2f4;
+  border-radius: 3px;
+  font-size: 10px;
+  line-height: 16px;
+}
+
+.fork-path-task-meta small {
+  color: #788b93;
+  font-size: 10px;
+}
+
+.fork-path-empty {
+  margin: 0;
+  padding: 14px 12px;
+  color: #788b93;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .generic-json-editor {

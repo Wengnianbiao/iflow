@@ -75,7 +75,7 @@ class DoWhileTaskTest {
             assertEquals(1, loop.getIteration());
             assertEquals(Map.of("iteration", 1), loop.getOutputData());
             assertNull(loop.getReasonForInCompletion());
-            verify(workflowExecutor).createNextIterationTasks(loop, workflow);
+            verify(workflowExecutor).addNextIterationTasks(loop, workflow);
             verifyNoMoreInteractions(workflowExecutor);
             verifyNoInteractions(dao);
         }
@@ -112,7 +112,7 @@ class DoWhileTaskTest {
 
             assertEquals(2, loop.getIteration());
             assertEquals(Map.of("first", 7, "tail", "done"), iterationOutput(loop, 1));
-            verify(workflowExecutor).createNextIterationTasks(loop, workflow);
+            verify(workflowExecutor).addNextIterationTasks(loop, workflow);
         }
 
         @ParameterizedTest
@@ -258,7 +258,7 @@ class DoWhileTaskTest {
             assertEquals(continues ? 2 : 1, loop.outputAsMap().get("iteration"));
             assertEquals(Map.of("body", "done"), iterationOutput(loop, 1));
             assertNull(loop.getReasonForInCompletion());
-            verify(workflowExecutor, times(continues ? 1 : 0)).createNextIterationTasks(loop, workflow);
+            verify(workflowExecutor, times(continues ? 1 : 0)).addNextIterationTasks(loop, workflow);
             verifyNoMoreInteractions(workflowExecutor);
             verifyNoInteractions(dao);
         }
@@ -294,7 +294,7 @@ class DoWhileTaskTest {
             assertEquals(2, loop.getIteration());
             assertEquals(Map.of("body", "first"), iterationOutput(loop, 1));
             assertEquals(Map.of("body", "second"), iterationOutput(loop, 2));
-            verify(workflowExecutor, times(2)).createNextIterationTasks(loop, workflow);
+            verify(workflowExecutor, times(2)).addNextIterationTasks(loop, workflow);
             verifyNoMoreInteractions(workflowExecutor);
         }
 
@@ -318,7 +318,7 @@ class DoWhileTaskTest {
             assertEquals(2, loop.getIteration());
             assertEquals(Map.of("limit", 99, "runtimeOnly", "preserved"), loop.getInputData());
             assertEquals(Map.of("body", Map.of("count", 3)), iterationOutput(loop, 1));
-            verify(workflowExecutor).createNextIterationTasks(loop, workflow);
+            verify(workflowExecutor).addNextIterationTasks(loop, workflow);
         }
 
         @ParameterizedTest
@@ -339,7 +339,7 @@ class DoWhileTaskTest {
                 assertTrue(loop.getReasonForInCompletion().contains("condition failure"));
             }
             assertFalse(loop.outputAsMap().containsKey("error"));
-            verify(workflowExecutor).createNextIterationTasks(loop, workflow);
+            verify(workflowExecutor).addNextIterationTasks(loop, workflow);
             verifyNoMoreInteractions(workflowExecutor);
         }
     }
@@ -372,7 +372,7 @@ class DoWhileTaskTest {
             assertEquals(2, loop.getIteration());
             assertEquals(Map.of("body", "first"), iterationOutput(loop, 1));
             assertEquals(Map.of("body", "second"), iterationOutput(loop, 2));
-            verify(workflowExecutor, times(2)).createNextIterationTasks(loop, workflow);
+            verify(workflowExecutor, times(2)).addNextIterationTasks(loop, workflow);
         }
 
         static Stream<Arguments> collectionValues() {
@@ -433,7 +433,7 @@ class DoWhileTaskTest {
 
             assertEquals(TaskModel.Status.COMPLETED, loop.getStatus());
             assertEquals(1, loop.getIteration());
-            verify(workflowExecutor).createNextIterationTasks(loop, workflow);
+            verify(workflowExecutor).addNextIterationTasks(loop, workflow);
             verifyNoMoreInteractions(workflowExecutor);
         }
 
@@ -462,7 +462,7 @@ class DoWhileTaskTest {
             assertEquals(3, loop.getIteration());
             assertTrue(iterationOutput(loop, 3).containsKey("body"));
             assertNull(iterationOutput(loop, 3).get("body"));
-            verify(workflowExecutor, times(3)).createNextIterationTasks(loop, workflow);
+            verify(workflowExecutor, times(3)).addNextIterationTasks(loop, workflow);
         }
 
         @Test
@@ -507,7 +507,7 @@ class DoWhileTaskTest {
             workflow.getTasks().add(child("body", 3, TaskModel.Status.COMPLETED, "third result"));
             doWhile.execute(workflow, loop, workflowExecutor);
             assertEquals(TaskModel.Status.COMPLETED, loop.getStatus());
-            verify(workflowExecutor, times(3)).createNextIterationTasks(loop, workflow);
+            verify(workflowExecutor, times(3)).addNextIterationTasks(loop, workflow);
         }
 
         @Test
@@ -524,7 +524,7 @@ class DoWhileTaskTest {
             assertEquals(2, loop.getIteration());
             assertEquals(2, loop.outputAsMap().get("loopItem"));
             assertNull(loop.getReasonForInCompletion());
-            verify(workflowExecutor).createNextIterationTasks(loop, workflow);
+            verify(workflowExecutor).addNextIterationTasks(loop, workflow);
         }
 
         @Test
@@ -543,7 +543,7 @@ class DoWhileTaskTest {
             assertEquals(1, loop.getIteration());
             assertFalse(loop.outputAsMap().containsKey("loopItem"));
             assertFalse(loop.outputAsMap().containsKey("loopIndex"));
-            verify(workflowExecutor).createNextIterationTasks(loop, workflow);
+            verify(workflowExecutor).addNextIterationTasks(loop, workflow);
         }
 
         @Test
@@ -577,7 +577,7 @@ class DoWhileTaskTest {
             assertEquals(2, loop.getIteration());
             assertEquals(8, loop.outputAsMap().get("loopItem"));
             assertEquals(Map.of("body", "done"), iterationOutput(loop, 1));
-            verify(workflowExecutor, times(2)).createNextIterationTasks(loop, workflow);
+            verify(workflowExecutor, times(2)).addNextIterationTasks(loop, workflow);
         }
 
         @Test
@@ -623,7 +623,7 @@ class DoWhileTaskTest {
             assertEquals(2, loop.getIteration());
             assertEquals(Map.of("choice", Map.of("case", "default"),
                     "first", "first result", "tail", "tail result"), iterationOutput(loop, 1));
-            verify(workflowExecutor).createNextIterationTasks(loop, workflow);
+            verify(workflowExecutor).addNextIterationTasks(loop, workflow);
         }
 
         @Test
@@ -656,7 +656,7 @@ class DoWhileTaskTest {
             assertEquals(2, loop.getIteration());
             assertEquals(Map.of("fork", Map.of(), "left", "left result",
                     "right", "right result", "join", Map.of()), iterationOutput(loop, 1));
-            verify(workflowExecutor).createNextIterationTasks(loop, workflow);
+            verify(workflowExecutor).addNextIterationTasks(loop, workflow);
         }
     }
 
@@ -838,12 +838,29 @@ class DoWhileTaskTest {
             assertEquals("d", loop.outputAsMap().get("loopItem"));
             verify(dao).removeTask("body-1");
             verifyNoMoreInteractions(dao);
-            verify(workflowExecutor).createNextIterationTasks(loop, workflow);
+            verify(workflowExecutor).addNextIterationTasks(loop, workflow);
         }
     }
 
     @Nested
     class IterationTaskCreation {
+
+        @Test
+        void executesArrayIterationsOnCallerThread() throws Exception {
+            Fixture fixture = new Fixture(definition(loop(
+                    task("body", TaskType.TASK_TYPE_NOOP),
+                    task("tail", TaskType.TASK_TYPE_NOOP))));
+
+            WorkflowModel result = fixture.startInForkPool(1);
+
+            assertEquals(List.of("body__1", "tail__1", "body__2", "tail__2"), fixture.executions);
+            TaskModel loop = result.getTaskByRefName("loop");
+            assertEquals(2, loop.getIteration());
+            assertEquals(1, loop.outputAsMap().get("loopIndex"));
+            assertEquals("two", loop.outputAsMap().get("loopItem"));
+            assertTrue(fixture.executionThreads.values().stream().allMatch("iteration-caller"::equals));
+            fixture.assertCompletedAndPersistedOnce(result);
+        }
 
         @Test
         void generatesIterationWithoutExecutingItAndRegistersItOnlyOnce() {
@@ -865,9 +882,9 @@ class DoWhileTaskTest {
             loop.setForkTaskId("outer-fork-id");
             workflow.getTasks().add(loop);
 
-            fixture.executor.createNextIterationTasks(loop, workflow);
+            fixture.executor.addNextIterationTasks(loop, workflow);
             assertTrue(fixture.executions.isEmpty(), "generating an iteration must not execute it");
-            fixture.executor.createNextIterationTasks(loop, workflow);
+            fixture.executor.addNextIterationTasks(loop, workflow);
 
             assertTrue(fixture.executions.isEmpty(), "generating an iteration must not execute it");
             assertEquals(2, workflow.getTasks().size());

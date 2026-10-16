@@ -18,6 +18,8 @@ const built = await esbuild.build({
     export { validateBuiltinTask } from './src/tasks/builtinTaskValidators';
     export * from './src/tasks/doWhile';
     export * from './src/flow/workflowEditor';
+    export { workflowToReaflow } from './src/flow/conductorMapper';
+    export { applyAddTask } from './src/components/flow/ConductorFlowCanvas';
     export * from './src/flow/parameterValues';
     export * from './src/api/workflowDefinition';
     export { startWorkflow } from './src/api/workflowExecution';
@@ -43,6 +45,61 @@ lib.registerCoreTaskPlugins(['HTTP', 'INLINE', 'SWITCH', 'FORK_JOIN', 'JOIN', 'D
 })))
 const task = ref => ({ name: ref, taskReferenceName: ref, type: 'HTTP', inputParameters: { uri: 'https://example.test', method: 'GET' } })
 const wf = (tasks = [task('a')]) => ({ route: 'review', version: 1, name: '测试', description: '测试定义', tasks })
+
+function addAfterSwitch(workflow, reference, type = 'HTTP') {
+  const node = lib.workflowToReaflow(workflow).nodes.find(node => node.id === `${reference}_switch_join`)
+  assert.ok(node)
+  const port = node.ports.find(port => port.side === 'SOUTH')
+  assert.ok(port)
+  return lib.applyAddTask(workflow, { kind: 'port', node, port: { id: port.id, properties: port } }, type)
+}
+
+test('SWITCH end add control inserts after the whole switch, including before an existing successor', () => {
+  for (const remaining of [[], [task('after')]]) {
+    const sw = { ...task('sw'), type: 'SWITCH', decisionCases: { yes: [task('caseTask')] }, defaultCase: [] }
+    const workflow = wf([task('before'), sw, ...remaining])
+    const original = structuredClone(workflow)
+    const updated = addAfterSwitch(workflow, 'sw')
+    assert.equal(updated.tasks.length, workflow.tasks.length + 1)
+    assert.equal(updated.tasks[2].type, 'HTTP')
+    assert.ok(updated.tasks[2].taskReferenceName)
+    assert.deepEqual(updated.tasks.slice(0, 2), [task('before'), sw])
+    assert.deepEqual(updated.tasks.slice(3), remaining)
+    assert.deepEqual(workflow, original)
+    const graph = lib.workflowToReaflow(updated)
+    assert.ok(graph.edges.some(edge => edge.from === 'sw_switch_join' && edge.to === updated.tasks[2].taskReferenceName))
+    assert.equal(updated.tasks.some(task => task.type === 'SWITCH_JOIN'), false)
+  }
+})
+
+test('nested SWITCH end add control inserts a complete task sequence in the owning branch', () => {
+  const unregister = lib.registerTaskPlugin({ type: 'FORK_JOIN', sequence: ['JOIN'] })
+  try {
+    for (const container of ['case', 'default', 'fork', 'loop']) {
+      const sw = { ...task('nested_switch_join'), type: 'SWITCH', decisionCases: { yes: [] }, defaultCase: [task('fallback')] }
+      const branch = [sw, task('branchAfter')]
+      const parent = {
+        case: { ...task('parent'), type: 'SWITCH', decisionCases: { yes: branch }, defaultCase: [] },
+        default: { ...task('parent'), type: 'SWITCH', decisionCases: { yes: [task('otherCase')] }, defaultCase: branch },
+        fork: { ...task('parent'), type: 'FORK_JOIN', forkTasks: [branch, [task('otherBranch')]] },
+        loop: { ...task('parent'), type: 'DO_WHILE', loopOver: branch },
+      }[container]
+      const workflow = wf([parent, task('outerAfter')])
+      const original = structuredClone(workflow)
+      const updated = addAfterSwitch(workflow, sw.taskReferenceName, 'FORK_JOIN')
+      const updatedParent = updated.tasks[0]
+      const updatedBranch = ({ case: updatedParent.decisionCases?.yes, default: updatedParent.defaultCase,
+        fork: updatedParent.forkTasks?.[0], loop: updatedParent.loopOver })[container]
+      assert.deepEqual(updatedBranch.map(task => task.type), ['SWITCH', 'FORK_JOIN', 'JOIN', 'HTTP'])
+      assert.deepEqual(updatedBranch[0], sw)
+      assert.deepEqual(updatedBranch[3], task('branchAfter'))
+      assert.deepEqual(updated.tasks[1], task('outerAfter'))
+      assert.deepEqual(workflow, original)
+    }
+  } finally {
+    unregister()
+  }
+})
 
 test('startup expressions suggest only declared workflow inputs with valid field paths', () => {
   const workflow = { ...wf([task('later')]), inputParameters: ['data', 'patientInfo', 'data', '', 'a.b', '患者'] }
@@ -122,6 +179,138 @@ test('nested FORK and JOIN expose completed inner branches to their continuation
     '${workflow.input}', '${outerFork.output}', '${innerFork.output}', '${innerA.output}', '${innerB.output}', '${innerJoin.output}',
     '${tail.output}', '${outerOther.output}', '${outerJoin.output}',
   ])
+})
+
+test('JOIN options contain only fork branch tails and do not change the saved selection', () => {
+  const loop = { ...task('loop'), type: 'DO_WHILE', loopOver: [task('loopBody')] }
+  const sw = { ...task('switch'), type: 'SWITCH', decisionCases: { yes: [task('caseTail')] }, defaultCase: [] }
+  const fork = { ...task('fork'), type: 'FORK_JOIN', forkTasks: [[task('a1'), task('a2')], [loop], [sw], []] }
+  const join = { ...task('join'), type: 'JOIN', joinOn: ['a2', 'loop', 'legacy_ref'] }
+  const workflow = wf([task('before'), fork, join, task('after')])
+  const original = structuredClone(workflow)
+  assert.deepEqual(lib.buildJoinTaskOptions(workflow, join), ['a2', 'loop', 'switch'])
+  assert.deepEqual(lib.buildJoinTaskOptions(workflow, fork), [])
+  assert.deepEqual(workflow, original)
+})
+
+test('nested JOIN options stay within their FORK, SWITCH case, default case and loop body', () => {
+  const forkJoin = prefix => [
+    { ...task(`${prefix}Fork`), type: 'FORK_JOIN', forkTasks: [[task(`${prefix}A`)], [task(`${prefix}B`)]] },
+    { ...task(`${prefix}Join`), type: 'JOIN', joinOn: [] },
+  ]
+  const inner = forkJoin('inner')
+  const yes = forkJoin('yes')
+  const fallback = forkJoin('fallback')
+  const body = forkJoin('loop')
+  const sw = { ...task('switch'), type: 'SWITCH', decisionCases: { yes }, defaultCase: fallback }
+  const loop = { ...task('loop'), type: 'DO_WHILE', loopOver: body }
+  const outerFork = { ...task('outerFork'), type: 'FORK_JOIN', forkTasks: [inner, [sw, loop]] }
+  const outerJoin = { ...task('outerJoin'), type: 'JOIN', joinOn: [] }
+  const workflow = wf([outerFork, outerJoin])
+  for (const [prefix, branch] of [['inner', inner], ['yes', yes], ['fallback', fallback], ['loop', body]]) {
+    assert.deepEqual(lib.buildJoinTaskOptions(workflow, branch[1]), [`${prefix}A`, `${prefix}B`])
+  }
+  assert.deepEqual(lib.buildJoinTaskOptions(workflow, outerJoin), ['innerJoin', 'loop'])
+})
+
+test('later JOIN options exclude branch tails already waited for by earlier JOINs', () => {
+  const firstFork = { ...task('firstFork'), type: 'FORK_JOIN', forkTasks: [[task('a1'), task('a2')], [task('b')]] }
+  const firstJoin = { ...task('firstJoin'), type: 'JOIN', joinOn: ['a2'] }
+  const secondFork = { ...task('secondFork'), type: 'FORK_JOIN', forkTasks: [[task('c')], [task('d')]] }
+  const secondJoin = { ...task('secondJoin'), type: 'JOIN', joinOn: ['b', 'c', 'd'] }
+  const futureFork = { ...task('futureFork'), type: 'FORK_JOIN', forkTasks: [[task('future')]] }
+  const workflow = wf([firstFork, firstJoin, task('between'), secondFork, secondJoin, futureFork])
+  assert.deepEqual(lib.buildJoinTaskOptions(workflow, firstJoin), ['a2', 'b'])
+  assert.deepEqual(lib.buildJoinTaskOptions(workflow, secondJoin), ['b', 'c', 'd'])
+  assert.deepEqual(lib.buildJoinTaskOptions(workflow, { ...task('missing'), type: 'JOIN' }), [])
+  const standaloneJoin = { ...task('standalone'), type: 'JOIN' }
+  assert.deepEqual(lib.buildJoinTaskOptions(wf([standaloneJoin]), standaloneJoin), [])
+})
+
+test('JOIN options follow edited branch tails and exclude terminated or empty branches', () => {
+  const unregister = lib.registerTaskPlugin({ type: 'TERMINATE', flow: { blocksContinuation: true } })
+  try {
+    const fork = { ...task('fork'), type: 'FORK_JOIN', forkTasks: [
+      [task('a')], [], [{ ...task('stop'), type: 'TERMINATE' }],
+      [{ ...task('stopBeforeTail'), type: 'TERMINATE' }, task('unreachable')],
+    ] }
+    const join = { ...task('join'), type: 'JOIN', joinOn: ['a'] }
+    const workflow = wf([fork, join])
+    assert.deepEqual(lib.buildJoinTaskOptions(workflow, join), ['a'])
+    const appended = lib.appendToForkBranch(workflow, 'fork', 0, [task('newTail')])
+    assert.deepEqual(lib.buildJoinTaskOptions(appended, appended.tasks[1]), ['newTail'])
+    assert.deepEqual(appended.tasks[1].joinOn, ['newTail'])
+    const removed = lib.removeForkBranch(appended, 'fork', 0)
+    assert.deepEqual(lib.buildJoinTaskOptions(removed, removed.tasks[1]), [])
+    assert.deepEqual(removed.tasks[1].joinOn, [])
+  } finally {
+    unregister()
+  }
+})
+
+test('adding a fork branch then deleting its task removes its JOIN reference', () => {
+  const original = wf([
+    { ...task('fork'), type: 'FORK_JOIN', forkTasks: [[task('a')], [task('b')]] },
+    { ...task('join'), type: 'JOIN', joinOn: ['a', 'b'] },
+  ])
+  const added = lib.appendToForkBranch(lib.addForkBranch(original, 'fork'), 'fork', 2, [task('newBranchTask')])
+  assert.deepEqual(added.tasks[1].joinOn, ['a', 'b', 'newBranchTask'])
+  const removed = lib.removeTask(added, 'newBranchTask')
+  assert.deepEqual(removed.tasks[1].joinOn, ['a', 'b'])
+  assert.deepEqual(removed.tasks[0].forkTasks[2], [])
+  assert.deepEqual(lib.validateWorkflow(removed).problems, [])
+  assert.deepEqual(added.tasks[1].joinOn, ['a', 'b', 'newBranchTask'])
+  assert.deepEqual(original.tasks[1].joinOn, ['a', 'b'])
+})
+
+test('removing a branch cleans all deleted descendants from every JOIN', () => {
+  const loop = { ...task('loop'), type: 'DO_WHILE', loopItems: '${workflow.input.items}', loopOver: [task('body')] }
+  const fork = { ...task('fork'), type: 'FORK_JOIN', forkTasks: [[loop, task('tail')], [task('keep')]] }
+  const partial = { ...task('partial'), type: 'JOIN', joinOn: ['body', 'loop'] }
+  const join = { ...task('join'), type: 'JOIN', joinOn: ['tail', 'keep'] }
+  const original = wf([fork, partial, join])
+  const removed = lib.removeForkBranch(original, 'fork', 0)
+  assert.deepEqual(removed.tasks[1].joinOn, [])
+  assert.deepEqual(removed.tasks[2].joinOn, ['keep'])
+  assert.deepEqual(lib.validateWorkflow(removed).problems, [])
+  assert.deepEqual(original.tasks[1].joinOn, ['body', 'loop'])
+})
+
+test('deleting nested operators cleans descendant JOIN references and preserves unchecked branches', () => {
+  const innerFork = { ...task('innerFork'), type: 'FORK_JOIN', forkTasks: [[task('innerA')], [task('innerB')]] }
+  const innerJoin = { ...task('innerJoin'), type: 'JOIN', joinOn: ['innerA', 'innerB'] }
+  const fork = { ...task('fork'), type: 'FORK_JOIN', forkTasks: [[innerFork, innerJoin], [task('unchecked')], [task('keep')]] }
+  const join = { ...task('join'), type: 'JOIN', joinOn: ['innerA', 'innerJoin', 'keep'] }
+  const original = wf([fork, join])
+  const removed = lib.removeTask(original, 'innerFork')
+  assert.deepEqual(removed.tasks[0].forkTasks[0], [])
+  assert.deepEqual(removed.tasks[1].joinOn, ['keep'])
+  assert.deepEqual(lib.validateWorkflow(removed).problems, [])
+})
+
+test('form branch removal synchronizes JOIN, source and validation before saving', async () => {
+  const fork = { ...task('fork'), type: 'FORK_JOIN', forkTasks: [[task('keep')], [task('removed')]] }
+  const join = { ...task('join'), type: 'JOIN', joinOn: ['keep', 'removed'] }
+  const actor = await actorFor(wf([fork, join]))
+  actor.send({ type: 'TASK_SELECTED', task: fork })
+  actor.send({ type: 'TASK_UPDATED', task: { ...fork, forkTasks: [[task('keep')]] } })
+  assert.deepEqual(actor.state.context.workflow.tasks[1].joinOn, ['keep'])
+  assert.deepEqual(JSON.parse(actor.state.context.source).tasks[1].joinOn, ['keep'])
+  assert.deepEqual(actor.state.context.problems, [])
+  assert.deepEqual(lib.getWorkflowToSave(actor.state.context).tasks[1].joinOn, ['keep'])
+  actor.stop()
+})
+
+test('explicit source edits keep missing JOIN references for validation', async () => {
+  const fork = { ...task('fork'), type: 'FORK_JOIN', forkTasks: [[task('keep')], [task('removed')]] }
+  const join = { ...task('join'), type: 'JOIN', joinOn: ['keep', 'removed'] }
+  const actor = await actorFor(wf([fork, join]))
+  const source = JSON.stringify(wf([{ ...fork, forkTasks: [[task('keep')]] }, join]))
+  actor.send({ type: 'SOURCE_CHANGED', source })
+  assert.equal(actor.state.context.source, source)
+  assert.deepEqual(actor.state.context.workflow.tasks[1].joinOn, ['keep', 'removed'])
+  assert.ok(actor.state.context.problems.some(problem => problem.code === 'MISSING_REF'))
+  actor.stop()
 })
 
 test('DO_WHILE condition parameters can reference its body without exposing future outputs to body tasks', () => {

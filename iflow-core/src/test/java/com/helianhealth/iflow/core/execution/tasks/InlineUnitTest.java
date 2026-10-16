@@ -123,7 +123,9 @@ class InlineUnitTest {
                 Arguments.of("[]", List.of()),
                 Arguments.of("42", 42),
                 Arguments.of("false", false),
-                Arguments.of("null", null));
+                Arguments.of("null", null),
+                Arguments.of("function scriptFun() { throw new Error('must be called explicitly'); }", null),
+                Arguments.of("let calls = 0; function scriptFun() { return ++calls; }\nscriptFun();", 1));
     }
 
     private TaskModel executeInline(Object result) {
