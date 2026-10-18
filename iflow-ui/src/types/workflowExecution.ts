@@ -8,7 +8,6 @@ export type WorkflowExecutionStatus =
   | 'TERMINATED'
 
 export type TaskExecutionStatus =
-  | 'SCHEDULED'
   | 'IN_PROGRESS'
   | 'CANCELED'
   | 'FAILED'

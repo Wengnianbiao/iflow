@@ -113,12 +113,12 @@ function CardStatusBadge({ status }: { status?: string }) {
         : status === TaskStatus.SKIPPED ? '#f5bf42'
           : status === TaskStatus.CANCELED ? '#fba404'
             : failure.includes(status as never) ? '#dd2222'
-              : [TaskStatus.IN_PROGRESS, TaskStatus.SCHEDULED].includes(status as never) ? '#ffffff'
+              : status === TaskStatus.IN_PROGRESS ? '#ffffff'
                 : ''
   if (!background) return null
   return (
     <span className="iflow-task-status-badge" style={{ background }} title={status}>
-      {[TaskStatus.IN_PROGRESS, TaskStatus.SCHEDULED].includes(status as never) ? <CircleNotchIcon className="spin" size={16} weight="bold" /> : null}
+      {status === TaskStatus.IN_PROGRESS ? <CircleNotchIcon className="spin" size={16} weight="bold" /> : null}
       {status === TaskStatus.COMPLETED ? <CheckIcon size={18} weight="bold" /> : null}
       {[TaskStatus.COMPLETED_WITH_ERRORS, TaskStatus.SKIPPED].includes(status as never) ? <ArrowArcRightIcon size={17} weight="bold" /> : null}
       {failure.includes(status as never) ? <ProhibitIcon size={17} weight="bold" /> : null}

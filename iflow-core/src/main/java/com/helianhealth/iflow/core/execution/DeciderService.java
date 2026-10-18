@@ -205,6 +205,7 @@ public class DeciderService {
     List<TaskModel> getNextTask(WorkflowModel workflow, TaskModel task) {
         WorkflowDef workflowDef = workflow.getWorkflowDefinition();
 
+        // SWITCH TASK在Mapper中已经完成分支任务加入运行时,SWITCH TASK任务本身不需要待出
         if (systemTaskRegistry.isSystemTask(task.getTaskType())
                 && TaskType.TASK_TYPE_SWITCH.equals(task.getTaskType())
                 && task.getInputData().get("hasChildren") != null) {
@@ -220,22 +221,23 @@ public class DeciderService {
             taskToSchedule = workflowDef.getNextTask(taskToSchedule.getTaskReferenceName());
         }
 
-        if (taskToSchedule != null
-                && TaskType.TASK_TYPE_DO_WHILE.equals(taskToSchedule.getType())) {
-            String nextRef = taskToSchedule.getTaskReferenceName();
-            boolean exists =
-                    workflow.getTasks().stream()
-                            .anyMatch(t -> nextRef.equals(t.getReferenceTaskName()));
-            if (exists) {
-                return List.of();
+        if (taskToSchedule != null && TaskType.TASK_TYPE_DO_WHILE.equals(taskToSchedule.getType())) {
+            // 循环体最后一格走完时,结构后继是 DO_WHILE 自己,此时DO_WHILE自己的状态是IN_PROGRESS中不能再建一个
+            String nextTaskReferenceName = taskToSchedule.getTaskReferenceName();
+            if (workflow.getTasks().stream()
+                    .anyMatch(
+                            runningTask ->
+                                    runningTask
+                                            .getReferenceTaskName()
+                                            .equals(nextTaskReferenceName))) {
+                return Collections.emptyList();
             }
         }
 
         if (taskToSchedule != null) {
-            return getTasksToBeScheduled(
-                    workflow, taskToSchedule, 0, null, task.getForkTaskId());
+            return getTasksToBeScheduled(workflow, taskToSchedule, 0, null, task.getForkTaskId());
         }
-        return List.of();
+        return Collections.emptyList();
     }
 
     /**
@@ -346,7 +348,7 @@ public class DeciderService {
     List<TaskModel> filterNextLoopOverTasks(
             List<TaskModel> tasks, TaskModel pendingTask, WorkflowModel workflow) {
 
-        // Update the task reference name and iteration
+        // DO WHILE循环体内的任务需要加上__迭代号
         tasks.forEach(
                 nextTask -> {
                     nextTask.setReferenceTaskName(

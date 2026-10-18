@@ -70,7 +70,7 @@ public interface ExecutionDAO {
     List<TaskModel> getTasksByReferenceName(String workflowId, String referenceTaskName);
 
     /**
-     * 按任务类型取处于待执行状态的任务（IN_PROGRESS / SCHEDULED）。
+     * 按任务类型取已进入执行生命周期且尚未结束的任务（IN_PROGRESS）。
      *
      * <p>用于运行态查询与监控统计，不用于恢复或后台拉取执行。
      */

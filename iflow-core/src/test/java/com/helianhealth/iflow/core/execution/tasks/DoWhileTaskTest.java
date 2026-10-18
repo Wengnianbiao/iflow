@@ -80,11 +80,10 @@ class DoWhileTaskTest {
             verifyNoInteractions(dao);
         }
 
-        @ParameterizedTest
-        @EnumSource(value = TaskModel.Status.class, names = {"SCHEDULED", "IN_PROGRESS"})
-        void waitsForNonTerminalBodyWithoutEvaluatingCondition(TaskModel.Status status) {
+        @Test
+        void waitsForNonTerminalBodyWithoutEvaluatingCondition() {
             TaskModel loop = loop(jsDefinition("return ???"), 1);
-            TaskModel body = child("body", 1, status, "partial");
+            TaskModel body = child("body", 1, TaskModel.Status.IN_PROGRESS, "partial");
 
             doWhile.execute(workflow(loop, body), loop, workflowExecutor);
 

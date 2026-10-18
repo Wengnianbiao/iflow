@@ -875,7 +875,7 @@ function formatTimelineTick(value: number) {
 function statusTone(status?: string) {
   if (status === 'COMPLETED') return 'statusCompleted'
   if (status === 'COMPLETED_WITH_ERRORS') return 'statusWarning'
-  if (status === 'RUNNING' || status === 'IN_PROGRESS' || status === 'SCHEDULED') return 'statusRunning'
+  if (status === 'RUNNING' || status === 'IN_PROGRESS') return 'statusRunning'
   if (status === 'FAILED' || status === 'FAILED_WITH_TERMINAL_ERROR' || status === 'TIMED_OUT') return 'statusFailed'
   if (status === 'TERMINATED' || status === 'CANCELED' || status === 'SKIPPED') return 'statusStopped'
   return 'statusPending'

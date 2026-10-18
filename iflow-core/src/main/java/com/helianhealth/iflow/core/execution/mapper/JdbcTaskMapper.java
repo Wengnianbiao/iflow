@@ -37,7 +37,7 @@ public class JdbcTaskMapper implements TaskMapper {
 
         TaskModel jdbcTask = context.createTaskModel();
         jdbcTask.setInputData(input);
-        jdbcTask.setStatus(TaskModel.Status.SCHEDULED);
+        jdbcTask.setStatus(TaskModel.Status.IN_PROGRESS);
         jdbcTask.setRetryCount(context.getRetryCount());
         return List.of(jdbcTask);
     }

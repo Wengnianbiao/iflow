@@ -25,7 +25,10 @@ import com.helianhealth.iflow.core.model.WorkflowModel;
 import com.helianhealth.iflow.core.service.MetadataService;
 import com.helianhealth.iflow.core.utils.IDGenerator;
 import com.helianhealth.iflow.core.utils.ParametersUtils;
+import com.helianhealth.iflow.core.utils.TaskUtils;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.lang.reflect.Proxy;
 import java.util.List;
@@ -38,6 +41,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -48,6 +52,85 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WorkflowExecutorOpsThreadPoolTest {
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void advancesFastBranchWithoutResubmittingSlowBranch(boolean loopBranch) throws Exception {
+        CountDownLatch slowStarted = new CountDownLatch(1);
+        CountDownLatch releaseSlow = new CountDownLatch(1);
+        CountDownLatch successorStarted = new CountDownLatch(loopBranch ? 2 : 1);
+        AtomicInteger slowExecutions = new AtomicInteger();
+        WorkflowSystemTask noop = new WorkflowSystemTask(TaskType.TASK_TYPE_NOOP) {
+            @Override
+            public void execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor) {
+                try {
+                    switch (TaskUtils.removeIterationFromTaskRefName(task.getReferenceTaskName())) {
+                        case "fast" -> assertTrue(slowStarted.await(2, TimeUnit.SECONDS));
+                        case "slow" -> {
+                            slowExecutions.incrementAndGet();
+                            slowStarted.countDown();
+                            assertTrue(releaseSlow.await(5, TimeUnit.SECONDS));
+                        }
+                        case "successor" -> successorStarted.countDown();
+                        default -> { }
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(e);
+                }
+                task.setStatus(TaskModel.Status.COMPLETED);
+            }
+        };
+        ParametersUtils parameters = new ParametersUtils(new ObjectMapper());
+        ExecutionDAOFacade dao = executionDAOFacade(new AtomicReference<>());
+        SystemTaskRegistry registry = new SystemTaskRegistry(Set.of(
+                noop, new Fork(), new Join(), new DoWhile(parameters, dao)));
+        DeciderService decider = boundedDecider(parameters, registry, Map.of(
+                TaskType.TASK_TYPE_NOOP, new NoopTaskMapper(),
+                TaskType.TASK_TYPE_FORK_JOIN, new ForkJoinTaskMapper(),
+                TaskType.TASK_TYPE_JOIN, new JoinTaskMapper(),
+                TaskType.TASK_TYPE_DO_WHILE, new DoWhileTaskMapper(parameters)));
+        List<WorkflowTask> fastBranch = List.of(
+                task("fast", TaskType.TASK_TYPE_NOOP), task("successor", TaskType.TASK_TYPE_NOOP));
+        if (loopBranch) {
+            WorkflowTask loop = task("loop", TaskType.TASK_TYPE_DO_WHILE);
+            loop.setLoopOver(fastBranch);
+            loop.setLoopItems("${workflow.input.items}");
+            fastBranch = List.of(loop);
+        }
+        WorkflowTask fork = task("fork", TaskType.TASK_TYPE_FORK_JOIN);
+        fork.setForkTasks(List.of(fastBranch, List.of(task("slow", TaskType.TASK_TYPE_NOOP))));
+        WorkflowTask join = task("join", TaskType.TASK_TYPE_JOIN);
+        join.setJoinOn(List.of(loopBranch ? "loop" : "successor", "slow"));
+        WorkflowDef definition = WorkflowDef.builder().route("uneven-fork")
+                .tasks(List.of(fork, join, task("after", TaskType.TASK_TYPE_NOOP))).build();
+        WorkflowExecutorOps executor = new WorkflowExecutorOps(decider, registry,
+                dao, metadataService(definition),
+                new IDGenerator(), parameters, new InMemoryExecutionLockService());
+        ExecutorService branches = Executors.newFixedThreadPool(2);
+        ExecutorService caller = Executors.newSingleThreadExecutor();
+        executor.setTaskScheduler(new CallerAndForkTaskScheduler(branches, registry));
+        try {
+            var result = caller.submit(() -> executor.startWorkflow(
+                    StartWorkflowInput.builder().route(definition.getRoute())
+                            .workflowInput(Map.of("items", List.of("one", "two"))).build()));
+            assertTrue(successorStarted.await(2, TimeUnit.SECONDS));
+            assertThrows(TimeoutException.class, () -> result.get(100, TimeUnit.MILLISECONDS),
+                    "the caller must wait for the slow branch instead of spinning through decisions");
+            releaseSlow.countDown();
+            WorkflowModel workflow = result.get(2, TimeUnit.SECONDS);
+            assertEquals(WorkflowModel.Status.COMPLETED, workflow.getStatus());
+            assertEquals(TaskModel.Status.COMPLETED, workflow.getTaskByRefName("after").getStatus());
+            assertEquals(1, slowExecutions.get());
+            if (loopBranch) {
+                assertEquals(2, workflow.getTaskByRefName("loop").getIteration());
+            }
+        } finally {
+            releaseSlow.countDown();
+            caller.shutdownNow();
+            branches.shutdownNow();
+        }
+    }
 
     @Test
     void executesLinearTaskOnCallerThread() {

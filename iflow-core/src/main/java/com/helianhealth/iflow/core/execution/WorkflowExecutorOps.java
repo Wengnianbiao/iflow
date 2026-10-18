@@ -1,7 +1,6 @@
 package com.helianhealth.iflow.core.execution;
 
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
-import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 import com.helianhealth.iflow.common.exception.WorkFlowErrorCode;
 import com.helianhealth.iflow.common.exception.WorkFlowException;
 import com.helianhealth.iflow.core.dal.ExecutionDAOFacade;
@@ -128,6 +127,14 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
     }
 
     private WorkflowModel driveWorkflow(WorkflowModel workflow) {
+        try {
+            return driveWorkflowUntilTerminal(workflow);
+        } finally {
+            taskScheduler.release(workflow);
+        }
+    }
+
+    private WorkflowModel driveWorkflowUntilTerminal(WorkflowModel workflow) {
         while (!workflow.getStatus().isTerminal()) {
 
             DeciderService.DeciderOutcome outcome = deciderService.decide(workflow);
@@ -138,7 +145,7 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
             }
 
             List<TaskModel> tasksToBeScheduled = outcome.tasksToBeScheduled;
-            tasksToBeScheduled = dedupAndAddTasks(workflow, tasksToBeScheduled);
+            dedupAndAddTasks(workflow, tasksToBeScheduled);
             scheduleTask(workflow, tasksToBeScheduled);
 
             if (!outcome.tasksToBeUpdated.isEmpty() || !tasksToBeScheduled.isEmpty()) {
@@ -154,6 +161,7 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
 
     private void scheduleTask(WorkflowModel workflow, List<TaskModel> tasks) {
         if (tasks == null || tasks.isEmpty()) {
+            taskScheduler.schedule(workflow, List.of(), this);
             return;
         }
 
@@ -313,9 +321,9 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
         updateWorkflow(workflow);
     }
 
-    List<TaskModel> dedupAndAddTasks(WorkflowModel workflow, List<TaskModel> tasks) {
+    void dedupAndAddTasks(WorkflowModel workflow, List<TaskModel> tasks) {
         if (tasks == null || tasks.isEmpty()) {
-            return List.of();
+            return;
         }
 
         Set<String> tasksInWorkflow =
@@ -334,7 +342,6 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
                         .collect(Collectors.toList());
 
         workflow.getTasks().addAll(dedupedTasks);
-        return dedupedTasks;
     }
 
     private WorkflowModel createWorkflowModel(

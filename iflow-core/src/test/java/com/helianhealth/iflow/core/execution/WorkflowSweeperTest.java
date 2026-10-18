@@ -55,8 +55,8 @@ class WorkflowSweeperTest {
         workflow.setStartTime(System.currentTimeMillis() - 5_000);
         TaskModel completed = task("done_ref", TaskModel.Status.COMPLETED);
         TaskModel waiting = inProgressTask("sync_lis_ref");
-        TaskModel scheduled = task("next_ref", TaskModel.Status.SCHEDULED);
-        workflow.setTasks(List.of(completed, waiting, scheduled));
+        TaskModel queued = inProgressTask("next_ref");
+        workflow.setTasks(List.of(completed, waiting, queued));
 
         List<TaskModel> updated = new ArrayList<>();
         AtomicReference<WorkflowModel> persisted = new AtomicReference<>();
@@ -67,13 +67,13 @@ class WorkflowSweeperTest {
         assertEquals(WorkflowModel.Status.TIMED_OUT, workflow.getStatus());
         assertEquals(TaskModel.Status.COMPLETED, completed.getStatus());
         assertEquals(TaskModel.Status.TIMED_OUT, waiting.getStatus());
-        assertEquals(TaskModel.Status.CANCELED, scheduled.getStatus());
+        assertEquals(TaskModel.Status.TIMED_OUT, queued.getStatus());
         assertEquals(waiting.getTaskId(), workflow.getFailedTaskId());
         assertTrue(waiting.isExecuted());
-        assertTrue(scheduled.isExecuted());
+        assertTrue(queued.isExecuted());
         assertTrue(workflow.getReasonForInCompletion().contains("未完成任务：sync_lis_ref(IN_PROGRESS)"));
-        assertTrue(workflow.getReasonForInCompletion().contains("next_ref(SCHEDULED)"));
-        assertEquals(List.of(waiting, scheduled), updated);
+        assertTrue(workflow.getReasonForInCompletion().contains("next_ref(IN_PROGRESS)"));
+        assertEquals(List.of(waiting, queued), updated);
         assertEquals(WorkflowModel.Status.TIMED_OUT, persisted.get().getStatus());
     }
 

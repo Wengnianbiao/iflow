@@ -103,7 +103,7 @@ class WorkflowExecutorOpsEndExecutionTest {
         pendingTask.setTaskId("pending-task-id");
         pendingTask.setReferenceTaskName("pending_ref");
         pendingTask.setTaskType(TaskType.TASK_TYPE_NOOP);
-        pendingTask.setStatus(TaskModel.Status.SCHEDULED);
+        pendingTask.setStatus(TaskModel.Status.IN_PROGRESS);
         workflow.setTasks(List.of(terminateTask, pendingTask));
 
         WorkflowModel result = executor.decideWithLock(workflow);

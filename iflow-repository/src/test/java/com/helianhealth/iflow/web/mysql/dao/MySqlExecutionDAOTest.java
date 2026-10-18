@@ -114,7 +114,7 @@ class MySqlExecutionDAOTest {
     @Test
     void createTasksSkipsDuplicateScheduleKey() throws Exception {
         when(statement.executeUpdate()).thenReturn(0);
-        TaskModel task = scheduledTask(TaskModel.Status.SCHEDULED);
+        TaskModel task = scheduledTask(TaskModel.Status.IN_PROGRESS);
 
         List<TaskModel> created = dao.createTasks(List.of(task));
 

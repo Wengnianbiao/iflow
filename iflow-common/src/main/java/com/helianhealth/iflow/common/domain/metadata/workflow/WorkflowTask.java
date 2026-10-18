@@ -182,7 +182,6 @@ public class WorkflowTask {
                         if (task.getTaskReferenceName().equals(taskReferenceName)) {
                             break;
                         }
-                        // 递归获取嵌套子任务是否有taskReferenceName
                         WorkflowTask nextTask = task.next(taskReferenceName, this);
                         if (nextTask != null) {
                             return nextTask;
@@ -195,6 +194,7 @@ public class WorkflowTask {
                         return iterator.next();
                     }
                 }
+                // 循环体最后一格：返回 DO_WHILE 自己，让外层忽略重复创建
                 if (taskType == TaskType.DO_WHILE && has(taskReferenceName)) {
                     return this;
                 }
@@ -220,6 +220,7 @@ public class WorkflowTask {
                     if (iterator.hasNext()) {
                         return iterator.next();
                     }
+                    // 分支最后一格，且自己嵌在别的节点里：问父节点“我的下一个是谁”
                     if (found && parent != null) {
                         return parent.next(this.taskReferenceName, parent);
                     }
@@ -228,12 +229,13 @@ public class WorkflowTask {
             default:
                 break;
         }
+        // 到当前层级的末尾节点就没有后继节点了
         return null;
     }
 
     private Collection<List<WorkflowTask>> children() {
         Collection<List<WorkflowTask>> workflowTaskLists = new LinkedList<>();
-
+        // 不同控制节点的子节点列表children
         switch (TaskType.of(type)) {
             case SWITCH:
                 workflowTaskLists.addAll(decisionCases.values());

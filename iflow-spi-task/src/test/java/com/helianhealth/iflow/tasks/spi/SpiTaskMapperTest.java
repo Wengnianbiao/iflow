@@ -150,7 +150,8 @@ class SpiTaskMapperTest {
         assertEquals(1, tasks.size());
         TaskModel task = tasks.get(0);
         assertEquals(TaskType.TASK_TYPE_SPI, task.getTaskType());
-        assertEquals(TaskModel.Status.SCHEDULED, task.getStatus());
+        assertEquals(TaskModel.Status.IN_PROGRESS, task.getStatus());
+        assertEquals(0, task.getStartTime());
         assertEquals("retry-task", task.getTaskId());
         assertEquals("invoke_spi", task.getTaskDefName());
         assertEquals("invoke_spi_ref", task.getReferenceTaskName());

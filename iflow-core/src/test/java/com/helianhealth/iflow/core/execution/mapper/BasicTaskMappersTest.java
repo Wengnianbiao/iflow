@@ -35,7 +35,8 @@ class BasicTaskMappersTest {
         assertEquals(TaskType.TASK_TYPE_HTTP, new HttpTaskMapper(parameters).getTaskType());
         assertEquals(Map.of("uri", "http://example.test", "body", body, "localPath", "$.body.id"),
                 task.getInputData());
-        assertEquals(TaskModel.Status.SCHEDULED, task.getStatus());
+        assertEquals(TaskModel.Status.IN_PROGRESS, task.getStatus());
+        assertEquals(0, task.getStartTime());
         assertEquals(2, task.getRetryCount());
         assertEquals("${workflow.input.body}", context.getWorkflowTask().getInputParameters().get("body"));
     }

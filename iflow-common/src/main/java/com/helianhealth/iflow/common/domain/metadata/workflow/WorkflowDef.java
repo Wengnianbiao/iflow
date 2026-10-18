@@ -162,30 +162,32 @@ public class WorkflowDef extends Auditable {
             return null;
         }
 
-        // 从workflowDef的顶层tasks迭代
+        // WorkflowDef.tasks 本质上是一条顺序链表相接,子任务嵌套在各个控制节点中
+        // 其实是DFS算法，顺序迭代链表中搜索每个节点的嵌套控制任务
         Iterator<WorkflowTask> iterator = tasks.iterator();
         while (iterator.hasNext()) {
             WorkflowTask task = iterator.next();
-            // 顶层task找到直接返回该task的next
             if (taskReferenceName.equals(task.getTaskReferenceName())) {
                 break;
             }
 
-            // 嵌套任务中获取next task
             WorkflowTask nextTask = task.next(taskReferenceName, null);
             if (nextTask != null) {
                 return nextTask;
             } else if (TaskType.DO_WHILE.name().equals(task.getType())
                     && !task.getTaskReferenceName().equals(taskReferenceName)
                     && task.has(taskReferenceName)) {
-                // If the task is child of Loop Task and at last position, return null.
+                // 引用名在 DO_WHILE 里、又没有层内后继：返回 null，禁止跳出循环去调度 DO_WHILE 后面的任务
+                // 因为还需要调度DO_WHILE自己去判断当前循环是否应当结束
                 return null;
             }
 
+            // 引用名在这棵子树里，但子树已经走到末尾：has(ref) 为真，停住，返回这一层的下一个兄弟。
             if (task.has(taskReferenceName)) {
                 break;
             }
         }
+        // 返回当前当前层的下一个兄弟
         if (iterator.hasNext()) {
             return iterator.next();
         }

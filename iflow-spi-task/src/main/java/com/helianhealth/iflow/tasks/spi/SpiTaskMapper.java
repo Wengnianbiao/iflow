@@ -47,7 +47,7 @@ public class SpiTaskMapper implements TaskMapper {
 
         TaskModel taskModel = context.createTaskModel();
         taskModel.setInputData(input);
-        taskModel.setStatus(TaskModel.Status.SCHEDULED);
+        taskModel.setStatus(TaskModel.Status.IN_PROGRESS);
         taskModel.setRetryCount(context.getRetryCount());
         return List.of(taskModel);
     }
