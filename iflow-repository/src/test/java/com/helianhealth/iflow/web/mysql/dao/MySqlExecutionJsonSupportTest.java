@@ -3,11 +3,13 @@ package com.helianhealth.iflow.web.mysql.dao;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.helianhealth.iflow.common.domain.metadata.task.TaskType;
+import com.helianhealth.iflow.common.domain.run.Task;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.LinkedHashMap;
@@ -111,6 +113,32 @@ class MySqlExecutionJsonSupportTest {
         assertEquals("http", restored.getReferenceTaskName());
         assertEquals(TaskModel.Status.COMPLETED, restored.getStatus());
         assertEquals("fork-1", restored.getForkTaskId());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = TaskModel.Status.class, names = {"SCHEDULED", "IN_PROGRESS"})
+    void pendingTaskStatusSurvivesPublicModelAndJsonRoundTrip(TaskModel.Status status) throws Exception {
+        TaskModel task = new TaskModel();
+        task.setTaskId("queued-1");
+        task.setStatus(status);
+        task.setPreviousStatus(TaskModel.Status.SCHEDULED);
+        task.setScheduledTime(12345);
+
+        Task publicTask = task.toTask();
+        assertEquals(Task.Status.valueOf(status.name()), publicTask.getStatus());
+        assertEquals(Task.Status.SCHEDULED, publicTask.getPreviousStatus());
+        TaskModel fromPublic = TaskModel.fromTask(publicTask);
+        assertEquals(status, fromPublic.getStatus());
+        assertEquals(TaskModel.Status.SCHEDULED, fromPublic.getPreviousStatus());
+
+        String json = support.toTaskPayload(fromPublic);
+        TaskModel restored = support.fromTaskPayload(json);
+
+        assertEquals(status.name(), objectMapper.readTree(json).path("status").asText());
+        assertEquals(status, restored.getStatus());
+        assertEquals(TaskModel.Status.SCHEDULED, restored.getPreviousStatus());
+        assertEquals(12345, restored.getScheduledTime());
+        assertEquals(0, restored.getStartTime());
     }
 
     @ParameterizedTest(name = "task result survives JSON persistence: {0}")

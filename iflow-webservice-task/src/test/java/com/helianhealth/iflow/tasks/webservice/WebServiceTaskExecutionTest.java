@@ -37,7 +37,7 @@ class WebServiceTaskExecutionTest {
         TaskModel task = task();
         task.getInputData().put("uri", uri);
 
-        new WebServiceTask(provider, objectMapper).execute(workflow, task, null);
+        new WebServiceTask(provider, objectMapper).start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertTrue(task.getReasonForInCompletion().contains("Missing WebService URI"));
@@ -53,7 +53,7 @@ class WebServiceTaskExecutionTest {
         TaskModel task = task();
         task.getInputData().put("soapTemplate", template);
 
-        new WebServiceTask(provider, objectMapper).execute(workflow, task, null);
+        new WebServiceTask(provider, objectMapper).start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertEquals("Missing soapTemplate", task.getReasonForInCompletion());
@@ -66,7 +66,7 @@ class WebServiceTaskExecutionTest {
         CloseableHttpClient client = responding(statusCode, null);
         TaskModel task = task();
 
-        new WebServiceTask(providerFor(client), objectMapper).execute(workflow, task, null);
+        new WebServiceTask(providerFor(client), objectMapper).start(workflow, task, null);
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus(), task.getReasonForInCompletion());
         assertEquals(statusCode, task.outputAsMap().get("statusCode"));
@@ -83,7 +83,7 @@ class WebServiceTaskExecutionTest {
         CloseableHttpClient client = responding(statusCode, fault);
         TaskModel task = task();
 
-        new WebServiceTask(providerFor(client), objectMapper).execute(workflow, task, null);
+        new WebServiceTask(providerFor(client), objectMapper).start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertEquals(fault, task.getReasonForInCompletion());
@@ -97,7 +97,7 @@ class WebServiceTaskExecutionTest {
         CloseableHttpClient client = responding(503, null);
         TaskModel task = task();
 
-        new WebServiceTask(providerFor(client), objectMapper).execute(workflow, task, null);
+        new WebServiceTask(providerFor(client), objectMapper).start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertEquals("No response from the remote service", task.getReasonForInCompletion());
@@ -129,7 +129,7 @@ class WebServiceTaskExecutionTest {
         task.getInputData().putAll(Map.of("soapTemplate", "<request>$.name</request>",
                 "templateParameters", Map.of("name", "张三"), "headers", headers));
 
-        new WebServiceTask(providerFor(client), objectMapper).execute(workflow, task, null);
+        new WebServiceTask(providerFor(client), objectMapper).start(workflow, task, null);
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus(), task.getReasonForInCompletion());
         assertEquals("<request>$.name</request>", task.getInputData().get("soapTemplate"));
@@ -145,7 +145,7 @@ class WebServiceTaskExecutionTest {
         TaskModel task = task();
         task.setOutputData(Map.of("retained", "previous output"));
 
-        new WebServiceTask(providerFor(client), objectMapper).execute(workflow, task, null);
+        new WebServiceTask(providerFor(client), objectMapper).start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertTrue(task.getReasonForInCompletion().contains("read timed out"));

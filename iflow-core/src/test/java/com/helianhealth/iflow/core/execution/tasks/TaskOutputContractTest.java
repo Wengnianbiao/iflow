@@ -90,7 +90,7 @@ class TaskOutputContractTest {
         WorkflowModel workflow = workflow(terminate);
         workflow.getWorkflowDefinition().setOutputParameters(Map.of("fallback", true));
 
-        new Terminate().execute(workflow, terminate, null);
+        new Terminate().start(workflow, terminate, null);
         decider.updateWorkflowOutput(workflow, terminate);
 
         assertEquals(TaskModel.Status.COMPLETED, terminate.getStatus());
@@ -137,12 +137,12 @@ class TaskOutputContractTest {
         TaskModel task = completed("business", Map.of("error", "third-party error field"));
         WorkflowSystemTask failing = new WorkflowSystemTask("TEST") {
             @Override
-            public void execute(WorkflowModel workflow, TaskModel task,
+            public void start(WorkflowModel workflow, TaskModel task,
                     WorkflowExecutor executor) {
                 addError(task, "execution failed");
             }
         };
-        failing.execute(workflow(task), task, null);
+        failing.start(workflow(task), task, null);
 
         assertEquals(Map.of("error", "third-party error field"), task.getOutputData());
         assertEquals("execution failed", task.getReasonForInCompletion());

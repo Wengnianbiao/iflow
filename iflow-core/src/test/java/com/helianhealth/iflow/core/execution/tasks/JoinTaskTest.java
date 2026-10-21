@@ -14,12 +14,29 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class JoinTaskTest {
 
+    @ParameterizedTest
+    @EnumSource(value = TaskModel.Status.class, names = {"SCHEDULED", "IN_PROGRESS"})
+    void waitingForBranchDoesNotRequestAnotherDecisionRound(TaskModel.Status status) {
+        TaskModel branch = branch("branch", status, null);
+        TaskModel join = join(Map.of("joinOn", List.of("branch")));
+        WorkflowModel workflow = workflow(branch);
+
+        assertFalse(new Join().execute(workflow, join, null));
+        assertFalse(new Join().execute(workflow, join, null));
+        assertEquals(TaskModel.Status.IN_PROGRESS, join.getStatus());
+
+        branch.setOutputData("finished");
+        branch.setStatus(TaskModel.Status.COMPLETED);
+        assertTrue(new Join().execute(workflow, join, null));
+        assertEquals(Map.of("branch", "finished"), join.getOutputData());
+    }
+
     @Test
     void absentOrEmptyJoinReferencesCompleteImmediately() {
         for (Map<String, Object> input : List.<Map<String, Object>>of(Map.of(), Map.of("joinOn", List.of()))) {
             TaskModel join = join(input);
 
-            new Join().execute(workflow(), join, null);
+            assertTrue(new Join().execute(workflow(), join, null));
 
             assertEquals(TaskModel.Status.COMPLETED, join.getStatus());
             assertTrue(join.outputAsMap().isEmpty());
@@ -32,7 +49,7 @@ class JoinTaskTest {
         TaskModel right = branch("right", TaskModel.Status.SKIPPED, List.of(2, 3));
         TaskModel join = join(Map.of("joinOn", List.of("left", "right")));
 
-        new Join().execute(workflow(left, right), join, null);
+        assertTrue(new Join().execute(workflow(left, right), join, null));
 
         assertEquals(TaskModel.Status.COMPLETED, join.getStatus());
         assertEquals(Map.of("left", Map.of("id", 1), "right", List.of(2, 3)), join.getOutputData());
@@ -46,7 +63,7 @@ class JoinTaskTest {
         TaskModel running = branch("running", TaskModel.Status.IN_PROGRESS, Map.of());
         TaskModel join = join(Map.of("joinOn", List.of("failed", "running")));
 
-        new Join().execute(workflow(failed, running), join, null);
+        assertTrue(new Join().execute(workflow(failed, running), join, null));
 
         assertEquals(TaskModel.Status.FAILED, join.getStatus());
         assertEquals("branch failed", join.getReasonForInCompletion());
@@ -62,10 +79,10 @@ class JoinTaskTest {
         WorkflowModel workflow = workflow(optional, running);
         TaskModel join = join(Map.of("joinOn", List.of("optional", "running")));
 
-        new Join().execute(workflow, join, null);
+        assertFalse(new Join().execute(workflow, join, null));
         assertEquals(TaskModel.Status.IN_PROGRESS, join.getStatus());
         running.setStatus(TaskModel.Status.COMPLETED);
-        new Join().execute(workflow, join, null);
+        assertTrue(new Join().execute(workflow, join, null));
 
         assertEquals(TaskModel.Status.COMPLETED_WITH_ERRORS, join.getStatus());
         assertTrue(join.getReasonForInCompletion().contains("optional/task-optional"));
@@ -82,10 +99,10 @@ class JoinTaskTest {
         WorkflowModel workflow = workflow(failed, running);
         TaskModel join = join(Map.of("joinOn", List.of("failed", "running")));
 
-        new Join().execute(workflow, join, null);
+        assertFalse(new Join().execute(workflow, join, null));
         assertEquals(TaskModel.Status.IN_PROGRESS, join.getStatus());
         running.setStatus(TaskModel.Status.COMPLETED);
-        new Join().execute(workflow, join, null);
+        assertTrue(new Join().execute(workflow, join, null));
 
         assertEquals(TaskModel.Status.FAILED, join.getStatus());
         assertEquals("deferred failure", join.getReasonForInCompletion());
@@ -98,7 +115,7 @@ class JoinTaskTest {
         TaskModel join = join(Map.of("joinOn", List.of("branch")));
         join.setIteration(2);
 
-        new Join().execute(workflow(previous, current), join, null);
+        assertTrue(new Join().execute(workflow(previous, current), join, null));
 
         assertEquals(TaskModel.Status.COMPLETED, join.getStatus());
         assertEquals(Map.of("branch__2", "current"), join.getOutputData());

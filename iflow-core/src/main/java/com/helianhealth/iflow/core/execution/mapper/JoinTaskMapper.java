@@ -29,9 +29,9 @@ public class JoinTaskMapper implements TaskMapper {
         TaskModel joinTask = taskMapperContext.createTaskModel();
         joinTask.setTaskType(TaskType.TASK_TYPE_JOIN);
         joinTask.setTaskDefName(TaskType.TASK_TYPE_JOIN);
-        joinTask.setStartTime(System.currentTimeMillis());
+
         joinTask.setInputData(joinInput);
-        joinTask.setStatus(TaskModel.Status.IN_PROGRESS);
+        joinTask.setStatus(TaskModel.Status.SCHEDULED);
         return List.of(joinTask);
     }
 }

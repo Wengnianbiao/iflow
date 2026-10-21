@@ -29,7 +29,7 @@ import java.util.Map;
  * {@link WorkflowTask#getLoopCondition()}。配置 loopItems 时遍历进入时确定的数组快照，
  * 两种配置互斥，空数组执行零轮：
  * <ul>
- *   <li>返回真值 —— 更新迭代号，调用执行器生成并注册下一轮循环体入口任务；</li>
+ *   <li>返回真值 —— 更新迭代号，生成并登记下一轮循环体入口任务；</li>
  *   <li>返回假值 —— 本 DO_WHILE 完成。</li>
  * </ul>
  */
@@ -56,7 +56,7 @@ public class DoWhile extends WorkflowSystemTask {
     }
 
     @Override
-    public void execute(
+    public boolean execute(
             WorkflowModel workflow, TaskModel doWhileTaskModel, WorkflowExecutor workflowExecutor) {
 
         boolean hasFailures = false;
@@ -97,7 +97,7 @@ public class DoWhile extends WorkflowSystemTask {
                             doWhileTaskModel,
                             TaskModel.Status.FAILED_WITH_TERMINAL_ERROR,
                             "Unable to evaluate DO_WHILE loopItems: " + rootCauseMessage(error));
-                    return;
+                    return true;
                 }
                 if (itemsList.isEmpty()) {
                     LOGGER.debug(
@@ -105,7 +105,7 @@ public class DoWhile extends WorkflowSystemTask {
                             doWhileTaskModel.getTaskId());
                     doWhileTaskModel.addOutput("iteration", 0);
                     markTaskSuccess(doWhileTaskModel);
-                    return;
+                    return true;
                 }
             }
 
@@ -117,7 +117,7 @@ public class DoWhile extends WorkflowSystemTask {
             // DO_WHILE 只推进循环状态，注册本轮入口任务，由下一轮 Decider 统一调度。
             // 避免在 FORK 线程池内递归调度并同步等待循环体，造成线程池饥饿死锁。
             workflowExecutor.addNextIterationTasks(doWhileTaskModel, workflow);
-            return;
+            return true;
         }
 
         for (TaskModel loopOverTask : loopOverTasks) {
@@ -155,12 +155,12 @@ public class DoWhile extends WorkflowSystemTask {
                     doWhileTaskModel.getIteration());
             markTaskFailure(
                     doWhileTaskModel, TaskModel.Status.FAILED, failureReason.toString());
-            return;
+            return true;
         }
 
         if (!isIterationComplete(doWhileTaskModel, relevantTasks)) {
             // current iteration is not complete (all tasks inside the loop are not terminal)
-            return;
+            return false;
         }
 
         // if we are here, the iteration is complete, and we need to check if there is a next
@@ -197,6 +197,7 @@ public class DoWhile extends WorkflowSystemTask {
             markTaskFailure(
                     doWhileTaskModel, TaskModel.Status.FAILED_WITH_TERMINAL_ERROR, message);
         }
+        return true;
     }
 
     private void removeIterations(

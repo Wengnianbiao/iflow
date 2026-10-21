@@ -26,7 +26,7 @@ public class OpenApiController {
     }
 
     @RequestMapping(
-            value = "/hl-open-api/**",
+            value = OpenApiPaths.MAPPING,
             method = RequestMethod.POST,
             produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE}
     )
@@ -36,7 +36,7 @@ public class OpenApiController {
     }
 
     @RequestMapping(
-            value = "/hl-open-api/**",
+            value = OpenApiPaths.MAPPING,
             method = RequestMethod.GET,
             produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE}
     )

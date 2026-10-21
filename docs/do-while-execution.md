@@ -2,7 +2,13 @@
 
 DO_WHILE 共用 `loopOver` 循环体，提供两种互斥配置：顶层 `loopItems` 数组表达式，或 `loopCondition` JS 继续条件。必须且只能配置一个，选用字段不能留空。编辑器的“遍历数组 / JS 条件循环”选择不保存为额外字段。
 
-每一轮由 DO_WHILE 调用 Executor 的 `scheduleNextIteration` 创建并直接调度循环体首任务，后续任务由 Decider 按完成状态推进。`scheduleTask` 在调用线程统一登记、分配序号并持久化新增任务，然后执行。DO_WHILE、FORK、JOIN 等控制节点始终由调用线程推进；只有 FORK 分支的业务任务在线程池中并发执行，等待本批任务返回后继续。循环首节点是 FORK_JOIN 时沿用这一规则，等待循环体与 JOIN 完成后才判断是否继续下一轮。
+DO_WHILE 在 `execute()` 中创建首轮及后续轮次，直接调用传入的 `workflowExecutor.addNextIterationTasks()`。`WorkflowExecutorOps` 生成带迭代引用名的循环体首任务，再调用 `ExecutionDAOFacade.registerTasks()` 完成去重、序号分配、持久化和运行时登记，将新任务置为 `SCHEDULED`。主驱动登记新任务时也使用这一公共登记方法。该回调不调用 `start()`，不提交线程池，也不需要绑定驱动上下文的 Executor 代理。
+
+DO_WHILE 保持现有构造依赖，不注入 DeciderService，也不通过 `@Lazy` 处理循环依赖。任务使用生命周期参数中的 Executor 回调登记下一轮，Decider 的依赖留在 `WorkflowExecutorOps` 中。
+
+下一轮 Decider 从工作流运行时选出这些 `SCHEDULED` 任务，再由调度器按执行域启动；后续任务继续由 Decider 按完成状态推进。主线程启动后将任务置为 `IN_PROGRESS`，FORK 业务任务排队时保持 `SCHEDULED`，通过在途分支 ID 集合防止重复提交。循环体不会因控制任务重复评估而重复启动。
+
+DO_WHILE、FORK、JOIN 等控制节点始终由调用线程推进；只有 FORK 分支的业务任务在线程池中并发执行。调用线程消费分支完成事件后继续决策，快分支可先推进后继，无需等待同批慢分支。没有可推进的工作且仍有分支执行时，调用线程阻塞等待通知。循环首节点是 FORK_JOIN 时沿用这一规则，循环体及对应 JOIN 完成后才判断是否继续下一轮。`execute()` 只有在轮次、任务图或状态实际变化时返回 `true`，等待本轮任务时返回 `false`。完整协议见 [同步工作流执行模型](synchronous-workflow-execution.md)。
 
 ## 遍历数组
 

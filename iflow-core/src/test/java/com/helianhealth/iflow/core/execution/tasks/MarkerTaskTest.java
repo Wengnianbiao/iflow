@@ -26,7 +26,7 @@ class MarkerTaskTest {
         task.setInputData(input);
         task.setOutputData(decision);
 
-        systemTask.execute(workflow, task, null);
+        systemTask.start(workflow, task, null);
 
         assertEquals(type, systemTask.getTaskType());
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());

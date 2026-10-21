@@ -46,7 +46,7 @@ class ForkJoinTaskMapperTest {
         assertEquals(4, mapped.size());
         assertEquals(TaskType.TASK_TYPE_FORK, mapped.get(0).getTaskType());
         assertEquals(TaskType.TASK_TYPE_FORK, mapped.get(0).getTaskDefName());
-        assertEquals(TaskModel.Status.IN_PROGRESS, mapped.get(0).getStatus());
+        assertEquals(TaskModel.Status.SCHEDULED, mapped.get(0).getStatus());
         assertEquals(Map.of("payload", 42), mapped.get(0).getInputData());
         assertEquals("fork-1", leftRuntime.getParentTaskId());
         assertEquals("fork-1", rightRuntime.getParentTaskId());

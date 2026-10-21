@@ -40,7 +40,7 @@ public class MappingTask extends WorkflowSystemTask {
     }
 
     @Override
-    public void execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
+    public void start(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
         try {
             Object payload = task.getInputData().get(INPUT_PAYLOAD);
             List<ParamMappingConfig> fields =

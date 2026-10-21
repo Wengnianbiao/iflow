@@ -61,7 +61,7 @@ public class HttpTask extends WorkflowSystemTask {
     }
 
     @Override
-    public void execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor) {
+    public void start(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor) {
         Object request = task.getInputData();
 
         Input input = objectMapper.convertValue(request, Input.class);

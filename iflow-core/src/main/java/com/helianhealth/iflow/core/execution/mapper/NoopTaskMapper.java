@@ -21,8 +21,8 @@ public class NoopTaskMapper implements TaskMapper {
     public List<TaskModel> getMappedTasks(TaskMapperContext context) {
         TaskModel task = context.createTaskModel();
         task.setTaskType(TaskType.TASK_TYPE_NOOP);
-        task.setStartTime(System.currentTimeMillis());
-        task.setStatus(TaskModel.Status.IN_PROGRESS);
+
+        task.setStatus(TaskModel.Status.SCHEDULED);
         return List.of(task);
     }
 }

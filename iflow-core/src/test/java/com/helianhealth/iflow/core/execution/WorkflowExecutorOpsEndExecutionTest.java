@@ -7,6 +7,11 @@ import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 import com.helianhealth.iflow.core.dal.ExecutionDAOFacade;
 import com.helianhealth.iflow.core.dao.ExecutionDAO;
 import com.helianhealth.iflow.core.execution.mapper.TaskMapper;
+import com.helianhealth.iflow.core.execution.mapper.ForkJoinTaskMapper;
+import com.helianhealth.iflow.core.execution.mapper.JoinTaskMapper;
+import com.helianhealth.iflow.core.execution.mapper.NoopTaskMapper;
+import com.helianhealth.iflow.core.execution.tasks.Fork;
+import com.helianhealth.iflow.core.execution.tasks.Join;
 import com.helianhealth.iflow.core.execution.mapper.TerminateTaskMapper;
 import com.helianhealth.iflow.core.execution.tasks.SystemTaskRegistry;
 import com.helianhealth.iflow.core.execution.tasks.Terminate;
@@ -80,38 +85,35 @@ class WorkflowExecutorOpsEndExecutionTest {
                         cancelCalled.set(true);
                     }
                 };
-        SystemTaskRegistry registry = new SystemTaskRegistry(Set.of(noop));
-        WorkflowExecutorOps executor = newExecutor(registry, Map.of(), null);
+        SystemTaskRegistry registry = new SystemTaskRegistry(Set.of(noop, new Fork(), new Join(), new Terminate()));
+        WorkflowTask pending = WorkflowTask.builder().name("pending").taskReferenceName("pending_ref")
+                .type(TaskType.TASK_TYPE_NOOP).build();
+        WorkflowTask terminate = WorkflowTask.builder().name("terminate").taskReferenceName("terminate_ref")
+                .type(TaskType.TASK_TYPE_TERMINATE).inputParameters(Map.of(
+                        Terminate.getTerminationStatusParameter(), WorkflowModel.Status.COMPLETED.name())).build();
+        WorkflowTask fork = WorkflowTask.builder().name("fork").taskReferenceName("fork_ref")
+                .type(TaskType.TASK_TYPE_FORK_JOIN).forkTasks(List.of(List.of(pending), List.of(terminate))).build();
+        WorkflowTask join = WorkflowTask.builder().name("join").taskReferenceName("join_ref")
+                .type(TaskType.TASK_TYPE_JOIN).joinOn(List.of("pending_ref", "terminate_ref")).build();
+        WorkflowDef definition = WorkflowDef.builder().route("terminate-with-pending-task")
+                .tasks(List.of(fork, join)).build();
+        ParametersUtils parameters = new ParametersUtils(new ObjectMapper());
+        WorkflowExecutorOps executor = newExecutor(registry, Map.of(
+                TaskType.TASK_TYPE_FORK_JOIN, new ForkJoinTaskMapper(),
+                TaskType.TASK_TYPE_JOIN, new JoinTaskMapper(),
+                TaskType.TASK_TYPE_NOOP, new NoopTaskMapper(),
+                TaskType.TASK_TYPE_TERMINATE, new TerminateTaskMapper(parameters)), definition);
+        List<Runnable> queued = new java.util.ArrayList<>();
+        executor.setTaskScheduler(new CallerAndForkTaskScheduler(queued::add, registry));
 
-        WorkflowModel workflow = new WorkflowModel();
-        workflow.setWorkflowId("workflow-id");
-        workflow.setWorkflowDefinition(
-                WorkflowDef.builder().route("terminate-with-pending-task").build());
-
-        TaskModel terminateTask = new TaskModel();
-        terminateTask.setTaskId("terminate-task-id");
-        terminateTask.setReferenceTaskName("terminate_ref");
-        terminateTask.setTaskType(TaskType.TASK_TYPE_TERMINATE);
-        terminateTask.setStatus(TaskModel.Status.COMPLETED);
-        terminateTask.setExecuted(true);
-        terminateTask.setInputData(
-                Map.of(
-                        Terminate.getTerminationStatusParameter(),
-                        WorkflowModel.Status.COMPLETED.name()));
-
-        TaskModel pendingTask = new TaskModel();
-        pendingTask.setTaskId("pending-task-id");
-        pendingTask.setReferenceTaskName("pending_ref");
-        pendingTask.setTaskType(TaskType.TASK_TYPE_NOOP);
-        pendingTask.setStatus(TaskModel.Status.IN_PROGRESS);
-        workflow.setTasks(List.of(terminateTask, pendingTask));
-
-        WorkflowModel result = executor.decideWithLock(workflow);
-
+        WorkflowModel result = executor.startWorkflow(StartWorkflowInput.builder().route(definition.getRoute()).build());
+        TaskModel pendingTask = result.getTaskByRefName("pending_ref");
         assertEquals(WorkflowModel.Status.COMPLETED, result.getStatus());
         assertEquals(TaskModel.Status.CANCELED, pendingTask.getStatus());
         assertTrue(pendingTask.isExecuted());
         assertTrue(cancelCalled.get());
+        queued.forEach(Runnable::run);
+        assertEquals(TaskModel.Status.CANCELED, pendingTask.getStatus(), "late branch must not overwrite cancellation");
     }
 
     private WorkflowModel executeTerminateWorkflow(

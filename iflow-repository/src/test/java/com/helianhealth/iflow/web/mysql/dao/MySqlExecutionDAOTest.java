@@ -6,6 +6,9 @@ import com.helianhealth.iflow.core.model.WorkflowModel;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -123,10 +126,11 @@ class MySqlExecutionDAOTest {
         verify(connection, never()).prepareStatement(contains("INSERT INTO task (task_id, json_data)"));
     }
 
-    @Test
-    void createTasksIndexesPendingTask() throws Exception {
+    @ParameterizedTest
+    @EnumSource(value = TaskModel.Status.class, names = {"SCHEDULED", "IN_PROGRESS"})
+    void createTasksIndexesPendingTask(TaskModel.Status status) throws Exception {
         when(statement.executeUpdate()).thenReturn(1, 1, 1, 1, 1);
-        TaskModel task = scheduledTask(TaskModel.Status.IN_PROGRESS);
+        TaskModel task = scheduledTask(status);
 
         List<TaskModel> created = dao.createTasks(List.of(task));
 
@@ -135,6 +139,50 @@ class MySqlExecutionDAOTest {
         assertEquals(task.getScheduledTime(), task.getFirstScheduledTime());
         verify(connection).prepareStatement(contains("INSERT IGNORE INTO task_in_progress"));
         verify(statement, atLeastOnce()).setString(eq(1), eq(task.getTaskDefName()));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = TaskModel.Status.class, names = {"SCHEDULED", "IN_PROGRESS"})
+    void updateTaskKeepsPendingIndexUntilTerminal(TaskModel.Status status) throws Exception {
+        dao.updateTask(scheduledTask(status));
+
+        verify(connection).prepareStatement(contains("DELETE FROM task_in_progress"));
+        verify(connection).prepareStatement(contains("INSERT IGNORE INTO task_in_progress"));
+    }
+
+    @Test
+    void terminalTaskIsRemovedFromPendingIndex() throws Exception {
+        dao.updateTask(scheduledTask(TaskModel.Status.COMPLETED));
+
+        verify(connection).prepareStatement(contains("DELETE FROM task_in_progress"));
+        verify(connection, never()).prepareStatement(contains("INSERT IGNORE INTO task_in_progress"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void pendingQueriesIncludeScheduledAndRunningButExcludeTerminal(boolean byTaskType) throws Exception {
+        TaskModel scheduled = scheduledTask(TaskModel.Status.SCHEDULED);
+        scheduled.setSeq(2);
+        scheduled.setScheduledTime(200);
+        TaskModel running = scheduledTask(TaskModel.Status.IN_PROGRESS);
+        running.setSeq(1);
+        running.setScheduledTime(100);
+        TaskModel terminal = scheduledTask(TaskModel.Status.COMPLETED);
+        when(statement.executeQuery()).thenReturn(resultSet);
+        when(resultSet.next()).thenReturn(true, true, true, false);
+        when(resultSet.getString("task_id")).thenReturn("scheduled", "running", "terminal");
+        when(resultSet.getString("json_data")).thenReturn(
+                jsonSupport.toTaskPayload(scheduled),
+                jsonSupport.toTaskPayload(running),
+                jsonSupport.toTaskPayload(terminal));
+
+        List<TaskModel> pending = byTaskType
+                ? dao.getPendingTasksForTaskType("HTTP")
+                : dao.getPendingTasks();
+
+        assertEquals(List.of("running", "scheduled"), pending.stream().map(TaskModel::getTaskId).toList());
+        assertEquals(List.of(TaskModel.Status.IN_PROGRESS, TaskModel.Status.SCHEDULED),
+                pending.stream().map(TaskModel::getStatus).toList());
     }
 
     @Test
@@ -156,6 +204,7 @@ class MySqlExecutionDAOTest {
         task.setWorkflowInstanceId("wf-1");
         task.setReferenceTaskName("ref");
         task.setTaskType("HTTP");
+        task.setTaskDefName("HTTP");
         task.setStatus(status);
         return task;
     }

@@ -37,7 +37,9 @@ public class TaskModel {
      * </ul>
      */
     public enum Status {
-        /** 已进入执行生命周期且尚未结束，包括等待线程池或分支汇合。 */
+        /** 已登记并等待首次执行，包括在线程池中排队。 */
+        SCHEDULED(false, true, true),
+        /** 已实际开始执行，或正在等待控制任务的完成条件。 */
         IN_PROGRESS(false, true, true),
         CANCELED(true, false, false),
         FAILED(true, false, true),

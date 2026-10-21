@@ -70,21 +70,21 @@ public interface ExecutionDAO {
     List<TaskModel> getTasksByReferenceName(String workflowId, String referenceTaskName);
 
     /**
-     * 按任务类型取已进入执行生命周期且尚未结束的任务（IN_PROGRESS）。
+     * 按任务类型取等待执行或执行中的任务（SCHEDULED、IN_PROGRESS）。
      *
      * <p>用于运行态查询与监控统计，不用于恢复或后台拉取执行。
      */
     List<TaskModel> getPendingTasksForTaskType(String taskType);
 
     /**
-     * 取全部未完成任务。
+     * 取全部等待执行或执行中的任务（SCHEDULED、IN_PROGRESS）。
      *
      * <p>仅用于运维查询和监控统计，不用于任务恢复。
      */
     List<TaskModel> getPendingTasks();
 
     /**
-     * 统计指定任务定义当前处于 IN_PROGRESS 的实例数（用于配额监控）。
+     * 统计指定任务定义当前等待执行及执行中的实例数（用于配额监控）。
      */
     long getInProgressTaskCount(String taskDefName);
 

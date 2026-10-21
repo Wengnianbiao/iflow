@@ -50,7 +50,7 @@ public class WebServiceTaskMapper implements TaskMapper {
 
         TaskModel webServiceTask = context.createTaskModel();
         webServiceTask.setInputData(input);
-        webServiceTask.setStatus(TaskModel.Status.IN_PROGRESS);
+        webServiceTask.setStatus(TaskModel.Status.SCHEDULED);
         webServiceTask.setRetryCount(context.getRetryCount());
         return List.of(webServiceTask);
     }

@@ -72,7 +72,7 @@ class WebServiceTaskUnitTest {
         TaskModel task = new TaskModel();
         task.setInputData(Map.of("uri", "http://example.com/soap"));
 
-        webServiceTask.execute(workflow, task, null);
+        webServiceTask.start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertTrue(task.getReasonForInCompletion().contains("Missing soapTemplate"));
@@ -92,7 +92,7 @@ class WebServiceTaskUnitTest {
         task.setInputData(Map.of("uri", "http://example.com/soap", "soapTemplate", template,
                 "templateParameters", Map.of("patient", Map.of("name", "张三"))));
 
-        new WebServiceTask(provider, OBJECT_MAPPER).execute(workflow, task, null);
+        new WebServiceTask(provider, OBJECT_MAPPER).start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertTrue(task.getReasonForInCompletion().contains("SOAP"));
@@ -136,7 +136,7 @@ class WebServiceTaskUnitTest {
                 "headers", Map.of("soapaction", "GetUser", "content-type", "text/xml; charset=UTF-8", "X-Trace", "trace-42"),
                 "connectionTimeOut", 1200, "readTimeOut", 4500));
 
-        new WebServiceTask(provider, OBJECT_MAPPER).execute(workflow, task, null);
+        new WebServiceTask(provider, OBJECT_MAPPER).start(workflow, task, null);
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus(), task.getReasonForInCompletion());
         assertEquals(template, task.getInputData().get("soapTemplate"));
@@ -160,7 +160,7 @@ class WebServiceTaskUnitTest {
         task.setInputData(Map.of("uri", "http://example.com/soap", "soapTemplate", template,
                 "templateParameters", Map.of("name", "张三<&"), "body", "stale body"));
 
-        failingTask.execute(workflow, task, null);
+        failingTask.start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertTrue(task.getReasonForInCompletion().contains("connection refused"));
@@ -168,7 +168,7 @@ class WebServiceTaskUnitTest {
         assertEquals("<request>张三&lt;&amp;</request>", task.getInputData().get("body"));
 
         task.getInputData().put("templateParameters", Map.of("name", "李四"));
-        failingTask.execute(workflow, task, null);
+        failingTask.start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertTrue(task.getReasonForInCompletion().contains("connection refused"));
@@ -183,7 +183,7 @@ class WebServiceTaskUnitTest {
         task.setInputData(Map.of("uri", "http://example.com/soap", "soapTemplate", "<r/>",
                 "templateParameters", java.util.List.of(1)));
 
-        new WebServiceTask(provider, OBJECT_MAPPER).execute(workflow, task, null);
+        new WebServiceTask(provider, OBJECT_MAPPER).start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertTrue(task.getReasonForInCompletion().contains("templateParameters"));
@@ -210,7 +210,7 @@ class WebServiceTaskUnitTest {
                         "uri", "http://example.com/soap",
                         "soapTemplate", "<request/>"));
 
-        successfulTask.execute(workflow, task, null);
+        successfulTask.start(workflow, task, null);
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
         assertEquals("<result>ok</result>", task.outputAsMap().get("body"));

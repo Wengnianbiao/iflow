@@ -24,7 +24,7 @@ class TerminateTaskTest {
         TaskModel task = task(Map.of("terminationStatus", status,
                 "terminationReason", "business rule", "workflowOutput", List.of(1, 2)));
 
-        terminate.execute(workflow, task, null);
+        terminate.start(workflow, task, null);
 
         assertTrue(Terminate.isValidStatus(status));
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
@@ -42,7 +42,7 @@ class TerminateTaskTest {
         input.put("terminationStatus", status);
         TaskModel task = task(input);
 
-        terminate.execute(new WorkflowModel(), task, null);
+        terminate.start(new WorkflowModel(), task, null);
 
         assertFalse(Terminate.isValidStatus(status));
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
@@ -54,7 +54,7 @@ class TerminateTaskTest {
         TaskModel task = task(Map.of("terminationStatus", "COMPLETED"));
         task.setOutputData(Map.of("stale", true));
 
-        terminate.execute(new WorkflowModel(), task, null);
+        terminate.start(new WorkflowModel(), task, null);
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
         assertNull(task.getOutputData());

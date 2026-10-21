@@ -119,7 +119,7 @@ class MappingWorkflowExamplesTest {
         serializedTask.setTaskType("INLINE");
         serializedTask.setReferenceTaskName(serializeDef.path("taskReferenceName").asText());
         serializedTask.setInputData(resolveInput(serializeDef, workflow));
-        new Inline(Map.of(GraalJSEvaluator.NAME, evaluator)).execute(workflow, serializedTask, null);
+        new Inline(Map.of(GraalJSEvaluator.NAME, evaluator)).start(workflow, serializedTask, null);
         assertEquals(TaskModel.Status.COMPLETED, serializedTask.getStatus());
         String serialized = assertInstanceOf(String.class, serializedTask.getOutputData());
         assertEquals(mapper.valueToTree(statusMapping.outputAsMap().get("items")), mapper.readTree(serialized));
@@ -346,7 +346,7 @@ class MappingWorkflowExamplesTest {
         TaskModel task = new TaskModel();
         task.setReferenceTaskName(definition.path("taskReferenceName").asText());
         task.setInputData(resolveInput(definition, workflow));
-        mappingTask.execute(workflow, task, null);
+        mappingTask.start(workflow, task, null);
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus(), task.getReasonForInCompletion());
         return task;
     }

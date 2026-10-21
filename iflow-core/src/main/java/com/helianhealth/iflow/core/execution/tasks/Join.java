@@ -18,8 +18,8 @@ import java.util.stream.Collectors;
  * <p>{@code joinOn} 列表声明本 JOIN 等待哪些 fork 分支的引用名；只有当
  * 全部目标任务进入终态才推进自己；任一非可选 / 非宽容失败则立即失败。
  *
- * <p>JOIN 是同步决策屏障：未汇聚时立即返回；Scheduler 完成本轮分支批次后，
- * 由工作流调用线程在下一轮 Decider 中再次评估。
+ * <p>JOIN 是同步决策屏障：未汇聚时立即返回 false；分支调用结束后唤醒工作流调用线程，
+ * 在下一轮 Decider 中再次评估。
  */
 @Component(TaskType.TASK_TYPE_JOIN)
 public class Join extends WorkflowSystemTask {
@@ -29,11 +29,11 @@ public class Join extends WorkflowSystemTask {
 
     @Override
     @SuppressWarnings("unchecked")
-    public void execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
+    public boolean execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
         List<String> joinOn = (List<String>) task.getInputData().get("joinOn");
         if (joinOn == null || joinOn.isEmpty()) {
             task.setStatus(TaskModel.Status.COMPLETED);
-            return;
+            return true;
         }
         if (task.isLoopOverTask()) {
             joinOn =
@@ -76,7 +76,7 @@ public class Join extends WorkflowSystemTask {
                         .collect(Collectors.joining(" "));
                 task.setReasonForInCompletion(reason);
                 task.setStatus(TaskModel.Status.FAILED);
-                return;
+                return true;
             }
 
             if (optional
@@ -98,6 +98,8 @@ public class Join extends WorkflowSystemTask {
             } else {
                 task.setStatus(TaskModel.Status.COMPLETED);
             }
+            return true;
         }
+        return false;
     }
 }

@@ -6,6 +6,7 @@ import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 import com.helianhealth.iflow.core.dal.ExecutionDAOFacade;
 import com.helianhealth.iflow.core.dao.ExecutionDAO;
+import com.helianhealth.iflow.core.exception.TerminateWorkflowException;
 import com.helianhealth.iflow.core.execution.mapper.NoopTaskMapper;
 import com.helianhealth.iflow.core.execution.tasks.SystemTaskRegistry;
 import com.helianhealth.iflow.core.execution.tasks.WorkflowSystemTask;
@@ -31,6 +32,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WorkflowSweeperTest {
@@ -145,21 +147,18 @@ class WorkflowSweeperTest {
     }
 
     @Test
-    void driveLoopStopsAtTimeoutWithoutSchedulingAgain() {
+    void businessStartReturningWithoutTerminalStatusFailsWithoutRestarting() {
         AtomicInteger executions = new AtomicInteger();
+        AtomicReference<WorkflowModel> drivenWorkflow = new AtomicReference<>();
         WorkflowSystemTask blocking =
                 new WorkflowSystemTask(TaskType.TASK_TYPE_NOOP) {
                     @Override
-                    public void execute(
+                    public void start(
                             WorkflowModel workflow,
                             TaskModel task,
                             WorkflowExecutor workflowExecutor) {
-                        int attempt = executions.incrementAndGet();
-                        workflow.setStartTime(System.currentTimeMillis() - 10_000);
-                        if (attempt > 1) {
-                            task.setStatus(TaskModel.Status.FAILED_WITH_TERMINAL_ERROR);
-                            task.setReasonForInCompletion("sweep did not stop the workflow");
-                        }
+                        executions.incrementAndGet();
+                        drivenWorkflow.set(workflow);
                     }
                 };
         SystemTaskRegistry registry = new SystemTaskRegistry(Set.of(blocking));
@@ -184,9 +183,8 @@ class WorkflowSweeperTest {
                         .build();
         WorkflowDef workflowDefinition =
                 WorkflowDef.builder()
-                        .route("sweep-timeout")
+                        .route("nonterminal-business-start")
                         .version(1)
-                        .timeoutSeconds(1)
                         .tasks(List.of(blockingTask, nextTask))
                         .build();
         ExecutionDAO executionDAO =
@@ -221,16 +219,16 @@ class WorkflowSweeperTest {
                         parametersUtils,
                         new InMemoryExecutionLockService());
 
-        WorkflowModel result =
-                executor.startWorkflow(
-                        StartWorkflowInput.builder().route(workflowDefinition.getRoute()).build());
+        assertThrows(TerminateWorkflowException.class, () -> executor.startWorkflow(
+                StartWorkflowInput.builder().route(workflowDefinition.getRoute()).build()));
+        WorkflowModel result = drivenWorkflow.get();
 
         assertEquals(1, executions.get());
-        assertEquals(WorkflowModel.Status.TIMED_OUT, result.getStatus());
+        assertEquals(WorkflowModel.Status.FAILED, result.getStatus());
         assertEquals(1, result.getTasks().size());
-        assertEquals(TaskModel.Status.TIMED_OUT, result.getTasks().get(0).getStatus());
+        assertEquals(TaskModel.Status.FAILED_WITH_TERMINAL_ERROR, result.getTasks().get(0).getStatus());
         assertNull(result.getTaskByRefName("next_ref"));
-        assertTrue(result.getReasonForInCompletion().contains("blocking_ref(IN_PROGRESS)"));
+        assertTrue(result.getReasonForInCompletion().contains("必须进入终态"));
     }
 
     private static WorkflowSweeper sweeper(long defaultTimeoutSeconds) {

@@ -48,7 +48,7 @@ public class Inline extends WorkflowSystemTask {
     }
 
     @Override
-    public void execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
+    public void start(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
         Map<String, Object> input = task.getInputData();
         String evaluatorType = (String) input.getOrDefault(INPUT_EVALUATOR_TYPE, DEFAULT_EVALUATOR);
         String expression = (String) input.get(INPUT_EXPRESSION);

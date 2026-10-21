@@ -47,7 +47,7 @@ public class WebServiceTask extends WorkflowSystemTask {
     }
 
     @Override
-    public void execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor) {
+    public void start(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor) {
         Input input = null;
         try {
             input = objectMapper.convertValue(task.getInputData(), Input.class);

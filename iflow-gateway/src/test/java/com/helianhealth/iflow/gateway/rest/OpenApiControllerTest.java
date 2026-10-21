@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -67,6 +68,42 @@ class OpenApiControllerTest {
         return MockMvcBuilders.standaloneSetup(new OpenApiController(service,
                 new OpenApiRequestReader(new ObjectMapper(), limit, raw)))
                 .addFilters(filters).build();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/pacs/apply-status", "/GetItemResult", "/hl-open-api/query-lis-apply"})
+    void routesGetAndPostByFullPathWithoutRequiringPrefix(String path) throws Exception {
+        mvc.perform(post(path).contentType(MediaType.APPLICATION_JSON).content("{\"id\":1}"))
+                .andExpect(status().isOk());
+        assertEquals(path.substring(1), started.getRoute());
+        assertEquals(path, started.getInput().get("path"));
+        assertEquals(Map.of("id", 1), started.getInput().get("body"));
+
+        mvc.perform(get(path).queryParam("id", "2"))
+                .andExpect(status().isOk());
+        assertEquals(path.substring(1), started.getRoute());
+        assertEquals("GET", started.getInput().get("method"));
+        assertEquals(Map.of("id", "2"), started.getInput().get("query"));
+        assertEquals(2, starts);
+    }
+
+    @Test
+    void excludesServletContextPathFromWorkflowRoute() throws Exception {
+        mvc.perform(post("/iflow/pacs/apply-status").contextPath("/iflow")
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isOk());
+        assertEquals("pacs/apply-status", started.getRoute());
+        assertEquals("/pacs/apply-status", started.getInput().get("path"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/", "/api/workflow/metadata/latest", "/assets/main.js",
+            "/index.html", "/favicon.svg", "/error", "/actuator/health", "/HLOpenApi/Hjk"})
+    void leavesReservedPathsToTheirOwnHandlers(String path) throws Exception {
+        mvc.perform(get(path)).andExpect(status().isNotFound());
+        mvc.perform(post(path).contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isNotFound());
+        assertEquals(0, starts);
     }
 
     static Stream<Arguments> jsonValues() {

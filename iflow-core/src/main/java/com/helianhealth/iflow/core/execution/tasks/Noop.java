@@ -19,7 +19,7 @@ public class Noop extends WorkflowSystemTask {
     }
 
     @Override
-    public void execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
+    public void start(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
         task.setStatus(TaskModel.Status.COMPLETED);
     }
 }

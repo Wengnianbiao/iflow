@@ -2,14 +2,18 @@ package com.helianhealth.iflow.core.dal;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.helianhealth.iflow.core.dao.ExecutionDAO;
+import com.helianhealth.iflow.core.exception.TransientException;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * 执行态数据访问门面。
@@ -87,6 +91,65 @@ public class ExecutionDAOFacade {
 
     public List<TaskModel> createTasks(List<TaskModel> tasks) {
         return executionDAO.createTasks(tasks);
+    }
+
+    /** 去重、持久化并加入工作流运行时，不启动或调度任务。 */
+    public List<TaskModel> registerTasks(WorkflowModel workflow, List<TaskModel> candidates) {
+        Set<String> registeredKeys = new HashSet<>();
+        int sequence = 0;
+        for (TaskModel task : workflow.getTasks()) {
+            registeredKeys.add(taskKey(task));
+            sequence = Math.max(sequence, task.getSeq());
+        }
+
+        List<TaskModel> newTasks = new ArrayList<>();
+        for (TaskModel task : candidates) {
+            String key = taskKey(task);
+            if (registeredKeys.contains(key)) {
+                continue;
+            }
+            registeredKeys.add(key);
+            newTasks.add(task);
+        }
+        if (newTasks.isEmpty()) {
+            return List.of();
+        }
+
+        long now = System.currentTimeMillis();
+        for (TaskModel task : newTasks) {
+            task.setSeq(++sequence);
+            task.setStartTime(0);
+            if (task.getStatus() == null || !task.getStatus().isTerminal()) {
+                task.setStatus(TaskModel.Status.SCHEDULED);
+            }
+            if (task.getScheduledTime() == 0) {
+                task.setScheduledTime(now);
+            }
+            if (task.getFirstScheduledTime() == 0) {
+                task.setFirstScheduledTime(task.getScheduledTime());
+            }
+        }
+
+        List<TaskModel> created = createTasks(newTasks);
+        Set<String> createdIds = new HashSet<>();
+        if (created != null) {
+            for (TaskModel task : created) {
+                createdIds.add(task.getTaskId());
+            }
+        }
+        for (TaskModel task : newTasks) {
+            if (!createdIds.contains(task.getTaskId())) {
+                throw new TransientException("任务实例未成功登记，拒绝启动未持久化任务");
+            }
+        }
+
+        workflow.getTasks().addAll(newTasks);
+        updateWorkflow(workflow);
+        return newTasks;
+    }
+
+    private String taskKey(TaskModel task) {
+        return task.getReferenceTaskName() + "_" + task.getRetryCount();
     }
 
     public void updateTask(TaskModel task) {

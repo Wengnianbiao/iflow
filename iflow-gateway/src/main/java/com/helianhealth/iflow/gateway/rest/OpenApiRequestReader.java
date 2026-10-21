@@ -193,7 +193,7 @@ public class OpenApiRequestReader {
             Map<String, Object> files,
             String rawBody) {
         return new OpenApiRequest(body, query, headers, files, request.getMethod(),
-                request.getRequestURI(), rawBody);
+                OpenApiPaths.pathWithinApplication(request), rawBody);
     }
 
     private byte[] readLimited(InputStream input, long reportedLength, long alreadyRead) throws IOException {

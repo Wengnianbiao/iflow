@@ -62,14 +62,19 @@ class WorkflowExecutorOpsThreadPoolTest {
         AtomicInteger slowExecutions = new AtomicInteger();
         WorkflowSystemTask noop = new WorkflowSystemTask(TaskType.TASK_TYPE_NOOP) {
             @Override
-            public void execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor) {
+            public void start(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor) {
                 try {
                     switch (TaskUtils.removeIterationFromTaskRefName(task.getReferenceTaskName())) {
                         case "fast" -> assertTrue(slowStarted.await(2, TimeUnit.SECONDS));
                         case "slow" -> {
                             slowExecutions.incrementAndGet();
+                            // 分支先修改自己的副本，返回前不得向 Decider 发布终态和部分输出。
+                            task.setStatus(TaskModel.Status.COMPLETED);
+                            task.setOutputData("partial");
                             slowStarted.countDown();
                             assertTrue(releaseSlow.await(5, TimeUnit.SECONDS));
+                            task.setOutputData(List.of("complete", 42));
+                            task.setInputData(Map.of("renderedBody", "ready"));
                         }
                         case "successor" -> successorStarted.countDown();
                         default -> { }
@@ -82,9 +87,11 @@ class WorkflowExecutorOpsThreadPoolTest {
             }
         };
         ParametersUtils parameters = new ParametersUtils(new ObjectMapper());
-        ExecutionDAOFacade dao = executionDAOFacade(new AtomicReference<>());
+        AtomicReference<WorkflowModel> persistedWorkflow = new AtomicReference<>();
+        ExecutionDAOFacade dao = executionDAOFacade(new AtomicReference<>(), persistedWorkflow);
+        DoWhile doWhile = new DoWhile(parameters, dao);
         SystemTaskRegistry registry = new SystemTaskRegistry(Set.of(
-                noop, new Fork(), new Join(), new DoWhile(parameters, dao)));
+                noop, new Fork(), new Join(), doWhile));
         DeciderService decider = boundedDecider(parameters, registry, Map.of(
                 TaskType.TASK_TYPE_NOOP, new NoopTaskMapper(),
                 TaskType.TASK_TYPE_FORK_JOIN, new ForkJoinTaskMapper(),
@@ -115,6 +122,9 @@ class WorkflowExecutorOpsThreadPoolTest {
                     StartWorkflowInput.builder().route(definition.getRoute())
                             .workflowInput(Map.of("items", List.of("one", "two"))).build()));
             assertTrue(successorStarted.await(2, TimeUnit.SECONDS));
+            assertEquals(TaskModel.Status.IN_PROGRESS,
+                    persistedWorkflow.get().getTaskByRefName("slow").getStatus());
+            assertEquals(Map.of(), persistedWorkflow.get().getTaskByRefName("slow").getOutputData());
             assertThrows(TimeoutException.class, () -> result.get(100, TimeUnit.MILLISECONDS),
                     "the caller must wait for the slow branch instead of spinning through decisions");
             releaseSlow.countDown();
@@ -122,6 +132,8 @@ class WorkflowExecutorOpsThreadPoolTest {
             assertEquals(WorkflowModel.Status.COMPLETED, workflow.getStatus());
             assertEquals(TaskModel.Status.COMPLETED, workflow.getTaskByRefName("after").getStatus());
             assertEquals(1, slowExecutions.get());
+            assertEquals(List.of("complete", 42), workflow.getTaskByRefName("slow").getOutputData());
+            assertEquals(Map.of("renderedBody", "ready"), workflow.getTaskByRefName("slow").getInputData());
             if (loopBranch) {
                 assertEquals(2, workflow.getTaskByRefName("loop").getIteration());
             }
@@ -138,7 +150,7 @@ class WorkflowExecutorOpsThreadPoolTest {
         WorkflowSystemTask noop =
                 new WorkflowSystemTask(TaskType.TASK_TYPE_NOOP) {
                     @Override
-                    public void execute(
+                    public void start(
                             WorkflowModel workflow,
                             TaskModel task,
                             WorkflowExecutor workflowExecutor) {
@@ -205,7 +217,7 @@ class WorkflowExecutorOpsThreadPoolTest {
         WorkflowSystemTask noop =
                 new WorkflowSystemTask(TaskType.TASK_TYPE_NOOP) {
                     @Override
-                    public void execute(
+                    public void start(
                             WorkflowModel workflow,
                             TaskModel task,
                             WorkflowExecutor workflowExecutor) {
@@ -338,7 +350,7 @@ class WorkflowExecutorOpsThreadPoolTest {
         WorkflowSystemTask noop =
                 new WorkflowSystemTask(TaskType.TASK_TYPE_NOOP) {
                     @Override
-                    public void execute(
+                    public void start(
                             WorkflowModel workflow,
                             TaskModel task,
                             WorkflowExecutor workflowExecutor) {
@@ -363,14 +375,14 @@ class WorkflowExecutorOpsThreadPoolTest {
         WorkflowSystemTask join =
                 new WorkflowSystemTask(TaskType.TASK_TYPE_JOIN) {
                     @Override
-                    public void execute(
+                    public boolean execute(
                             WorkflowModel workflow,
                             TaskModel task,
                             WorkflowExecutor workflowExecutor) {
                         if ("nested_join".equals(task.getReferenceTaskName())) {
                             nestedJoinEvaluations.incrementAndGet();
                         }
-                        joinDelegate.execute(workflow, task, workflowExecutor);
+                        return joinDelegate.execute(workflow, task, workflowExecutor);
                     }
                 };
         SystemTaskRegistry registry =
@@ -472,7 +484,7 @@ class WorkflowExecutorOpsThreadPoolTest {
         WorkflowSystemTask noop =
                 new WorkflowSystemTask(TaskType.TASK_TYPE_NOOP) {
                     @Override
-                    public void execute(
+                    public void start(
                             WorkflowModel workflow,
                             TaskModel task,
                             WorkflowExecutor workflowExecutor) {
@@ -541,7 +553,7 @@ class WorkflowExecutorOpsThreadPoolTest {
         WorkflowSystemTask noop =
                 new WorkflowSystemTask(TaskType.TASK_TYPE_NOOP) {
                     @Override
-                    public void execute(
+                    public void start(
                             WorkflowModel workflow,
                             TaskModel task,
                             WorkflowExecutor workflowExecutor) {
@@ -593,6 +605,28 @@ class WorkflowExecutorOpsThreadPoolTest {
                 TaskModel.Status.COMPLETED,
                 result.getTaskByRefName("loop_body__1").getStatus());
         assertEquals(callerThread, loopThread.get());
+    }
+
+    @Test
+    void failsWhenControlCannotProgressAndNoBranchCanWakeCaller() {
+        ParametersUtils parameters = new ParametersUtils(new ObjectMapper());
+        SystemTaskRegistry registry = new SystemTaskRegistry(Set.of(new Join()));
+        WorkflowTask join = task("join", TaskType.TASK_TYPE_JOIN);
+        join.setJoinOn(List.of("missing_branch"));
+        WorkflowDef definition = WorkflowDef.builder().route("stalled-workflow")
+                .tasks(List.of(join)).build();
+        AtomicReference<WorkflowModel> persisted = new AtomicReference<>();
+        WorkflowExecutorOps executor = new WorkflowExecutorOps(
+                boundedDecider(parameters, registry, Map.of(TaskType.TASK_TYPE_JOIN, new JoinTaskMapper())),
+                registry, executionDAOFacade(new AtomicReference<>(), persisted), metadataService(definition),
+                new IDGenerator(), parameters, new InMemoryExecutionLockService());
+
+        TerminateWorkflowException failure = assertThrows(TerminateWorkflowException.class,
+                () -> executor.startWorkflow(StartWorkflowInput.builder().route(definition.getRoute()).build()));
+
+        assertTrue(failure.getMessage().contains("无法推进"));
+        assertEquals(WorkflowModel.Status.FAILED, persisted.get().getStatus());
+        assertEquals(TaskModel.Status.CANCELED, persisted.get().getTaskByRefName("join").getStatus());
     }
 
     private DeciderService boundedDecider(

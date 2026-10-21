@@ -170,7 +170,7 @@ class WebServiceDataTypesTest {
         TaskModel task = mapTask(workflow, "<r>" + path + "</r>", Map.of("payload", "${workflow.input}"));
         SoapClientProvider provider = mock(SoapClientProvider.class);
 
-        new WebServiceTask(provider, OBJECT_MAPPER).execute(workflow, task, null);
+        new WebServiceTask(provider, OBJECT_MAPPER).start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertTrue(task.getReasonForInCompletion().contains(path), task.getReasonForInCompletion());
@@ -227,7 +227,7 @@ class WebServiceDataTypesTest {
                     return handler.handleResponse(response);
                 });
 
-        new WebServiceTask(provider, OBJECT_MAPPER).execute(workflow, task, null);
+        new WebServiceTask(provider, OBJECT_MAPPER).start(workflow, task, null);
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus(), task.getReasonForInCompletion());
         assertEquals(expectedXml, sentXml.get());

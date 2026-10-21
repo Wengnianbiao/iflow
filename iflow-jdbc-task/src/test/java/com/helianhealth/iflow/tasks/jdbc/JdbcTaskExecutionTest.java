@@ -33,7 +33,7 @@ class JdbcTaskExecutionTest {
             task.getInputData().put("operation", operation);
         }
 
-        new JdbcTask(provider, new ObjectMapper()).execute(workflow, task, null);
+        new JdbcTask(provider, new ObjectMapper()).start(workflow, task, null);
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus(), task.getReasonForInCompletion());
         assertEquals(List.of(Map.of("id", 42)), task.outputAsMap().get("rows"));
@@ -47,7 +47,7 @@ class JdbcTaskExecutionTest {
         RecordingProvider provider = new RecordingProvider();
         TaskModel task = task(provider.url, "SELECT 1 AS id WHERE 1=0", Map.of());
 
-        new JdbcTask(provider, new ObjectMapper()).execute(workflow, task, null);
+        new JdbcTask(provider, new ObjectMapper()).start(workflow, task, null);
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus(), task.getReasonForInCompletion());
         assertEquals(List.of(), task.outputAsMap().get("rows"));
@@ -62,7 +62,7 @@ class JdbcTaskExecutionTest {
         payload.put("value", null);
         TaskModel task = task(provider.url, "SELECT CAST($.value AS VARCHAR) AS result", payload);
 
-        new JdbcTask(provider, new ObjectMapper()).execute(workflow, task, null);
+        new JdbcTask(provider, new ObjectMapper()).start(workflow, task, null);
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus(), task.getReasonForInCompletion());
         List<?> rows = (List<?>) task.outputAsMap().get("rows");
@@ -82,7 +82,7 @@ class JdbcTaskExecutionTest {
                     Map.of("name", "changed", "id", 99));
             task.getInputData().put("operation", " update ");
 
-            new JdbcTask(provider, new ObjectMapper()).execute(workflow, task, null);
+            new JdbcTask(provider, new ObjectMapper()).start(workflow, task, null);
 
             assertEquals(TaskModel.Status.COMPLETED, task.getStatus(), task.getReasonForInCompletion());
             assertEquals(0, task.outputAsMap().get("updateCount"));
@@ -102,7 +102,7 @@ class JdbcTaskExecutionTest {
         TaskModel task = task(provider.url, "SELECT * FROM missing_table", Map.of());
         task.setOutputData(Map.of("retained", "previous output"));
 
-        new JdbcTask(provider, new ObjectMapper()).execute(workflow, task, null);
+        new JdbcTask(provider, new ObjectMapper()).start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertTrue(task.getReasonForInCompletion().contains("missing_table"));
@@ -118,7 +118,7 @@ class JdbcTaskExecutionTest {
         TaskModel task = task(provider.url, "SELECT 1", Map.of());
         task.getInputData().put(field, value);
 
-        new JdbcTask(provider, new ObjectMapper()).execute(workflow, task, null);
+        new JdbcTask(provider, new ObjectMapper()).start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertTrue(task.getReasonForInCompletion().contains("Invalid JDBC inputParameters"));

@@ -107,7 +107,7 @@ class HttpTaskCallTest {
         task.getInputData().put("body", body);
         task.getInputData().put("headers", Map.of("X-Request-Id", "trace-1"));
 
-        httpTask.execute(workflow, task, null);
+        httpTask.start(workflow, task, null);
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus(), task.getReasonForInCompletion());
         assertEquals(200, task.outputAsMap().get("statusCode"));
@@ -121,7 +121,7 @@ class HttpTaskCallTest {
         TaskModel task = task("/post2", "POST");
         task.getInputData().put("body", Map.of("input_key1", "value1"));
 
-        httpTask.execute(workflow, task, null);
+        httpTask.start(workflow, task, null);
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus(), task.getReasonForInCompletion());
         assertEquals(204, task.outputAsMap().get("statusCode"));
@@ -132,7 +132,7 @@ class HttpTaskCallTest {
     void failureIncludesRemoteBody() {
         TaskModel task = task("/failure", "GET");
 
-        httpTask.execute(workflow, task, null);
+        httpTask.start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertTrue(task.getReasonForInCompletion().contains("HTTP 调用失败"));
@@ -143,7 +143,7 @@ class HttpTaskCallTest {
     void textGet() {
         TaskModel task = task("/text", "GET");
 
-        httpTask.execute(workflow, task, null);
+        httpTask.start(workflow, task, null);
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus(), task.getReasonForInCompletion());
         assertEquals(TEXT_RESPONSE, task.outputAsMap().get("body"));
@@ -153,7 +153,7 @@ class HttpTaskCallTest {
     void numberGet() {
         TaskModel task = task("/numeric", "GET");
 
-        httpTask.execute(workflow, task, null);
+        httpTask.start(workflow, task, null);
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus(), task.getReasonForInCompletion());
         Object response = task.outputAsMap().get("body");
@@ -165,7 +165,7 @@ class HttpTaskCallTest {
     void jsonGetKeepsNulls() {
         TaskModel task = task("/json", "GET");
 
-        httpTask.execute(workflow, task, null);
+        httpTask.start(workflow, task, null);
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus(), task.getReasonForInCompletion());
         Object response = task.outputAsMap().get("body");
@@ -181,7 +181,7 @@ class HttpTaskCallTest {
     void jsonArrayGet() {
         TaskModel task = task("/array", "GET");
 
-        httpTask.execute(workflow, task, null);
+        httpTask.start(workflow, task, null);
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus(), task.getReasonForInCompletion());
         Object response = task.outputAsMap().get("body");
@@ -202,7 +202,7 @@ class HttpTaskCallTest {
         task.getInputData().put("method", "GET");
         task.getInputData().put("connectionTimeOut", 1000);
 
-        httpTask.execute(workflow, task, null);
+        httpTask.start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertTrue(task.getReasonForInCompletion().contains("HTTP 调用失败"));
@@ -214,7 +214,7 @@ class HttpTaskCallTest {
         TaskModel task = task("/slow", "GET");
         task.getInputData().put("readTimeOut", 500);
 
-        httpTask.execute(workflow, task, null);
+        httpTask.start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertTrue(task.getReasonForInCompletion().contains("HTTP 调用失败"));

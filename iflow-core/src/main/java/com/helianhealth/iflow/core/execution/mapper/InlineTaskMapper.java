@@ -38,9 +38,9 @@ public class InlineTaskMapper implements TaskMapper {
 
         TaskModel inlineTask = context.createTaskModel();
         inlineTask.setTaskType(TaskType.TASK_TYPE_INLINE);
-        inlineTask.setStartTime(System.currentTimeMillis());
+
         inlineTask.setInputData(taskInput);
-        inlineTask.setStatus(TaskModel.Status.IN_PROGRESS);
+        inlineTask.setStatus(TaskModel.Status.SCHEDULED);
         return List.of(inlineTask);
     }
 }

@@ -38,7 +38,7 @@ class WorkflowExecutorOpsPersistenceTest {
         WorkflowSystemTask failingTask =
                 new WorkflowSystemTask(TaskType.TASK_TYPE_NOOP) {
                     @Override
-                    public void execute(
+                    public void start(
                             WorkflowModel workflow,
                             TaskModel task,
                             WorkflowExecutor workflowExecutor) {

@@ -143,7 +143,7 @@ export function ExecutionExplorerPage() {
 export function statusText(status?: string) {
   const labels: Record<string, string> = {
     RUNNING: '运行中', COMPLETED: '已完成', FAILED: '失败', TIMED_OUT: '已超时', TERMINATED: '已终止',
-    IN_PROGRESS: '执行中', CANCELED: '已取消', FAILED_WITH_TERMINAL_ERROR: '终止性失败',
+    SCHEDULED: '等待执行', IN_PROGRESS: '执行中', CANCELED: '已取消', FAILED_WITH_TERMINAL_ERROR: '终止性失败',
     COMPLETED_WITH_ERRORS: '完成但有错误', SKIPPED: '已跳过', NOT_SCHEDULED: '未调度',
   }
   return labels[status ?? ''] ?? status ?? '-'

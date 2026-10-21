@@ -25,7 +25,7 @@ class JdbcTaskMapperTest {
                 .taskInput(resolved).taskId("jdbc-1").retryCount(2).build()).get(0);
         assertEquals(resolved, task.getInputData());
         assertNotSame(resolved, task.getInputData());
-        assertEquals(TaskModel.Status.IN_PROGRESS, task.getStatus());
+        assertEquals(TaskModel.Status.SCHEDULED, task.getStatus());
         assertEquals(0, task.getStartTime());
         assertEquals(2, task.getRetryCount());
     }

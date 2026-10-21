@@ -19,10 +19,13 @@ public abstract class WorkflowSystemTask {
         this.taskType = taskType;
     }
 
-    /**
-     * 执行或评估一次任务。任务直接通过 {@link TaskModel} 表达执行结果。
-     */
-    public void execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
+    /** 首次启动任务。业务任务返回时必须进入终态，控制任务可等待后续评估。 */
+    public void start(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
+    }
+
+    /** 主线程评估控制任务；状态、迭代或任务图有实际推进时返回 true，等待时返回 false。 */
+    public boolean execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
+        return false;
     }
 
     /**

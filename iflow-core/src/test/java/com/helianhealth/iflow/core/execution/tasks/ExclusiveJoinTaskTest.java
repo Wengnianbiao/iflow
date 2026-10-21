@@ -3,6 +3,8 @@ package com.helianhealth.iflow.core.execution.tasks;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import java.util.List;
 import java.util.Map;
@@ -18,7 +20,7 @@ class ExclusiveJoinTaskTest {
         TaskModel later = branch("later", TaskModel.Status.COMPLETED, "later");
         TaskModel join = join(Map.of("joinOn", List.of("missing", "running", "selected", "later")));
 
-        new ExclusiveJoin().execute(workflow(running, selected, later), join, null);
+        assertTrue(new ExclusiveJoin().execute(workflow(running, selected, later), join, null));
 
         assertEquals(TaskModel.Status.COMPLETED, join.getStatus());
         assertEquals(List.of(1, 2), join.getOutputData());
@@ -31,7 +33,7 @@ class ExclusiveJoinTaskTest {
         TaskModel join = join(Map.of("joinOn", List.of("primary"),
                 "defaultExclusiveJoinTask", List.of("fallback")));
 
-        new ExclusiveJoin().execute(workflow(primary, fallback), join, null);
+        assertTrue(new ExclusiveJoin().execute(workflow(primary, fallback), join, null));
 
         assertEquals(TaskModel.Status.COMPLETED, join.getStatus());
         assertEquals("fallback output", join.getOutputData());
@@ -45,19 +47,21 @@ class ExclusiveJoinTaskTest {
         TaskModel join = join(Map.of("joinOn", List.of("primary"),
                 "defaultExclusiveJoinTask", List.of("fallback")));
 
-        new ExclusiveJoin().execute(workflow(primary, fallback), join, null);
+        assertTrue(new ExclusiveJoin().execute(workflow(primary, fallback), join, null));
 
         assertEquals(TaskModel.Status.FAILED, join.getStatus());
         assertEquals("selected branch failed", join.getReasonForInCompletion());
         assertTrue(join.outputAsMap().isEmpty());
     }
 
-    @Test
-    void waitsWhenAllCandidatesAreAbsentOrStillRunning() {
-        TaskModel running = branch("running", TaskModel.Status.IN_PROGRESS, null);
+    @ParameterizedTest
+    @EnumSource(value = TaskModel.Status.class, names = {"SCHEDULED", "IN_PROGRESS"})
+    void waitsWhenAllCandidatesAreAbsentOrStillRunning(TaskModel.Status status) {
+        TaskModel running = branch("running", status, null);
         TaskModel join = join(Map.of("joinOn", List.of("missing", "running")));
 
-        new ExclusiveJoin().execute(workflow(running), join, null);
+        assertFalse(new ExclusiveJoin().execute(workflow(running), join, null));
+        assertFalse(new ExclusiveJoin().execute(workflow(running), join, null));
 
         assertEquals(TaskModel.Status.IN_PROGRESS, join.getStatus());
         assertNull(join.getReasonForInCompletion());

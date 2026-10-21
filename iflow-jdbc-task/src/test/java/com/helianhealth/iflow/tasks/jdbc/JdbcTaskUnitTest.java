@@ -75,7 +75,7 @@ class JdbcTaskUnitTest {
             input.put("sqlTemplate", "SELECT 1");
             input.put(field, Map.of());
             task.setInputData(input);
-            strictTask.execute(workflow, task, null);
+            strictTask.start(workflow, task, null);
             assertEquals(TaskModel.Status.FAILED, task.getStatus());
             assertTrue(task.getReasonForInCompletion().contains(field));
         }
@@ -91,7 +91,7 @@ class JdbcTaskUnitTest {
                     "sqlTemplate", "SELECT 1",
                     "payload", payload));
 
-            jdbcTask.execute(workflow, task, null);
+            jdbcTask.start(workflow, task, null);
 
             assertEquals(TaskModel.Status.FAILED, task.getStatus());
             assertTrue(task.getReasonForInCompletion().contains("Invalid JDBC inputParameters"));
@@ -102,7 +102,7 @@ class JdbcTaskUnitTest {
     void startFailsWhenMissingSqlTemplate() {
         TaskModel task = new TaskModel();
         task.setInputData(Map.of("url", "jdbc:mysql://localhost/demo", "vendor", "MYSQL"));
-        jdbcTask.execute(workflow, task, null);
+        jdbcTask.start(workflow, task, null);
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertTrue(task.getReasonForInCompletion().contains("Missing sqlTemplate"));
     }
@@ -112,7 +112,7 @@ class JdbcTaskUnitTest {
         TaskModel task = new TaskModel();
         task.setInputData(Map.of("sqlTemplate", "SELECT 1", "vendor", "MYSQL"));
 
-        jdbcTask.execute(workflow, task, null);
+        jdbcTask.start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertTrue(task.getReasonForInCompletion().contains("Missing JDBC URL"));
@@ -123,7 +123,7 @@ class JdbcTaskUnitTest {
         TaskModel task = new TaskModel();
         task.setInputData(Map.of());
 
-        jdbcTask.execute(workflow, task, null);
+        jdbcTask.start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertTrue(task.getReasonForInCompletion().contains("Missing JDBC URL"));
@@ -137,7 +137,7 @@ class JdbcTaskUnitTest {
         input.put("sqlTemplate", "SELECT 1");
         task.setInputData(input);
 
-        jdbcTask.execute(workflow, task, null);
+        jdbcTask.start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertTrue(task.getReasonForInCompletion().contains("Missing vendor"));
@@ -151,7 +151,7 @@ class JdbcTaskUnitTest {
                 "vendor", "MYSQL",
                 "sqlTemplate", "SELECT 1"));
 
-        jdbcTask.execute(workflow, task, null);
+        jdbcTask.start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertTrue(task.getReasonForInCompletion().contains("Missing payload"));
@@ -183,7 +183,7 @@ class JdbcTaskUnitTest {
                         "sqlTemplate", "SELECT * FROM t WHERE id IN $.ids",
                         "payload", Map.of("ids", List.of())));
 
-        new JdbcTask(refusing, OBJECT_MAPPER).execute(workflow, task, null);
+        new JdbcTask(refusing, OBJECT_MAPPER).start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertTrue(task.getReasonForInCompletion().contains("empty arrays"));
@@ -255,7 +255,7 @@ class JdbcTaskUnitTest {
                         "sqlTemplate", "SELECT 1",
                         "payload", Map.of()));
 
-        failingTask.execute(workflow, task, null);
+        failingTask.start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertTrue(task.getReasonForInCompletion().contains("database unavailable"));

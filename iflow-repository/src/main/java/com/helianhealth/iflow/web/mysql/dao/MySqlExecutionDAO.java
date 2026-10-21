@@ -169,7 +169,7 @@ public class MySqlExecutionDAO extends MySqlBaseDAO implements ExecutionDAO {
                         + "WHERE p.task_def_name = ?",
                 q -> q.addParameter(taskType).executeAndFetch(this::readTasks))
                 .stream()
-                .filter(task -> task.getStatus() == TaskModel.Status.IN_PROGRESS)
+                .filter(MySqlExecutionDAO::isPendingTask)
                 .sorted(Comparator.comparingInt(TaskModel::getSeq))
                 .collect(Collectors.toCollection(ArrayList::new));
     }
@@ -182,7 +182,7 @@ public class MySqlExecutionDAO extends MySqlBaseDAO implements ExecutionDAO {
                                 + " FROM task t INNER JOIN task_in_progress p ON p.task_id = t.task_id",
                         q -> q.executeAndFetch(this::readTasks))
                 .stream()
-                .filter(task -> task.getStatus() == TaskModel.Status.IN_PROGRESS)
+                .filter(MySqlExecutionDAO::isPendingTask)
                 .sorted(Comparator.comparingLong(TaskModel::getScheduledTime))
                 .collect(Collectors.toCollection(ArrayList::new));
     }
@@ -540,9 +540,14 @@ public class MySqlExecutionDAO extends MySqlBaseDAO implements ExecutionDAO {
 
     private void syncTaskInProgress(Connection tx, TaskModel task) {
         deleteTaskInProgress(tx, task.getTaskId());
-        if (task.getStatus() == TaskModel.Status.IN_PROGRESS) {
+        if (isPendingTask(task)) {
             insertTaskInProgress(tx, task);
         }
+    }
+
+    private static boolean isPendingTask(TaskModel task) {
+        return task.getStatus() == TaskModel.Status.SCHEDULED
+                || task.getStatus() == TaskModel.Status.IN_PROGRESS;
     }
 
     private int executeUpdate(Connection tx, String sql, Consumer<Query> binder) {

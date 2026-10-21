@@ -235,7 +235,7 @@ class MappingTaskTest {
                                 MappingTask.INPUT_PAYLOAD,
                                 Map.of("patientCode", "2508190082")));
         task.addOutput("stale", true);
-        mappingTask.execute(newWorkflow(), task, null);
+        mappingTask.start(newWorkflow(), task, null);
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
         assertEquals(Map.of("patientCode", "2508190082"), task.getOutputData());
@@ -562,7 +562,7 @@ class MappingTaskTest {
                         "targetParamKey", "status", "targetParamType", "STRING",
                         "mappingType", "CONSTANT", "mappingRule", "OK", "unknownField", true))));
 
-        strictTask.execute(newWorkflow(), task, null);
+        strictTask.start(newWorkflow(), task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertTrue(task.getReasonForInCompletion().contains("unknownField"));
@@ -580,7 +580,7 @@ class MappingTaskTest {
         TaskModel task = new TaskModel();
         task.setTaskId("mapping-task");
         task.setInputData(input);
-        mappingTask.execute(newWorkflow(), task, null);
+        mappingTask.start(newWorkflow(), task, null);
         return task;
     }
 

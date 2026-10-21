@@ -59,7 +59,7 @@ public class JdbcTask extends WorkflowSystemTask {
     }
 
     @Override
-    public void execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor) {
+    public void start(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor) {
         Input input;
         try {
             input = objectMapper.convertValue(task.getInputData(), Input.class);

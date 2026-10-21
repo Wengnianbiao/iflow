@@ -16,6 +16,12 @@ import java.util.Map;
 @RestControllerAdvice
 public class OpenApiMultipartExceptionHandler {
 
+    private final OpenApiPaths paths;
+
+    public OpenApiMultipartExceptionHandler(OpenApiPaths paths) {
+        this.paths = paths;
+    }
+
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<Map<String, Object>> tooLarge(
             MaxUploadSizeExceededException exception, HttpServletRequest request) {
@@ -33,9 +39,8 @@ public class OpenApiMultipartExceptionHandler {
         return response(HttpStatus.BAD_REQUEST, "multipart/form-data 请求不合法");
     }
 
-    private static void requireOpenApi(HttpServletRequest request, MultipartException exception) {
-        String path = request.getRequestURI().substring(request.getContextPath().length());
-        if (!(path.equals("/hl-open-api") || path.startsWith("/hl-open-api/"))) {
+    private void requireOpenApi(HttpServletRequest request, MultipartException exception) {
+        if (!paths.matches(request)) {
             throw exception;
         }
     }

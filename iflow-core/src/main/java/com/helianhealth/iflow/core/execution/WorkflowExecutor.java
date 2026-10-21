@@ -13,12 +13,7 @@ public interface WorkflowExecutor {
      */
     WorkflowModel startWorkflow(StartWorkflowInput input);
 
-    WorkflowModel decide(String workflowId);
-
-    /** 由当前调用线程同步推进工作流至终态 */
-    WorkflowModel decideWithLock(WorkflowModel workflow);
-
-    /** 注册 DO_WHILE 当前轮入口任务 */
+    /** 只生成并登记 DO_WHILE 当前轮的入口任务，下一轮决策再调度。 */
     void addNextIterationTasks(TaskModel task, WorkflowModel workflow);
 
     void terminateWorkflow(WorkflowModel workflow, String reason);

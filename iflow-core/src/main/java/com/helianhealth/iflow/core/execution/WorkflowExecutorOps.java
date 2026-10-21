@@ -22,14 +22,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
-import java.util.stream.Collectors;
 
 /**
  * 工作流执行引擎默认实现：调用线程同步推进 DAG，FORK 分支任务交给专用 Scheduler 并行执行。
@@ -127,77 +128,92 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
     }
 
     private WorkflowModel driveWorkflow(WorkflowModel workflow) {
-        try {
-            return driveWorkflowUntilTerminal(workflow);
-        } finally {
-            taskScheduler.release(workflow);
+        try (WorkflowDriveContext context = new WorkflowDriveContext(executionDAOFacade)) {
+            while (!workflow.getStatus().isTerminal()) {
+                boolean receivedEvent = context.consumeEvents(workflow);
+                persistDriveChanges(workflow, context);
+
+                DeciderService.DeciderOutcome outcome = deciderService.decide(workflow);
+                for (TaskModel task : outcome.tasksToBeUpdated) {
+                    context.markDirty(task);
+                }
+                if (outcome.isComplete) {
+                    persistDriveChanges(workflow, context);
+                    endExecution(workflow, outcome.terminateTask);
+                    return workflow;
+                }
+
+                List<TaskModel> newTasks = executionDAOFacade.registerTasks(workflow, outcome.tasksToBeScheduled);
+                List<TaskModel> tasksToSchedule = canonicalCandidates(workflow, outcome.tasksToBeScheduled);
+                boolean tasksStarted = taskScheduler.schedule(
+                        workflow, tasksToSchedule, this, context);
+                boolean controlTasksAdvanced = taskScheduler.evaluate(
+                        workflow, tasksToSchedule, this, context);
+                boolean stateChanged = !newTasks.isEmpty() || tasksStarted || controlTasksAdvanced;
+                persistDriveChanges(workflow, context);
+
+                if (workflow.getStatus().isTerminal()) {
+                    return workflow;
+                }
+                if (stateChanged || receivedEvent || context.hasEvents()) {
+                    continue;
+                }
+                if (context.outstandingBranches() == 0) {
+                    throw new TerminateWorkflowException("工作流无法推进：没有可执行任务或运行中的 FORK 分支");
+                }
+                try {
+                    context.awaitChange();
+                } catch (InterruptedException error) {
+                    Thread.currentThread().interrupt();
+                    throw new TerminateWorkflowException("工作流调用线程等待分支时被中断", error);
+                }
+            }
+            return workflow;
         }
     }
 
-    private WorkflowModel driveWorkflowUntilTerminal(WorkflowModel workflow) {
-        while (!workflow.getStatus().isTerminal()) {
-
-            DeciderService.DeciderOutcome outcome = deciderService.decide(workflow);
-            if (outcome.isComplete) {
-                executionDAOFacade.updateTasks(outcome.tasksToBeUpdated);
-                endExecution(workflow, outcome.terminateTask);
-                return workflow;
-            }
-
-            List<TaskModel> tasksToBeScheduled = outcome.tasksToBeScheduled;
-            dedupAndAddTasks(workflow, tasksToBeScheduled);
-            scheduleTask(workflow, tasksToBeScheduled);
-
-            if (!outcome.tasksToBeUpdated.isEmpty() || !tasksToBeScheduled.isEmpty()) {
-                Map<String, TaskModel> tasksToBeUpdated = new LinkedHashMap<>();
-                outcome.tasksToBeUpdated.forEach(task -> tasksToBeUpdated.put(task.getTaskId(), task));
-                tasksToBeScheduled.forEach(task -> tasksToBeUpdated.put(task.getTaskId(), task));
-                executionDAOFacade.updateTasks(List.copyOf(tasksToBeUpdated.values()));
-                executionDAOFacade.updateWorkflow(workflow);
-            }
+    private void persistDriveChanges(WorkflowModel workflow, WorkflowDriveContext context) {
+        List<TaskModel> changedTasks = context.drainDirtyTasks();
+        if (executionDAOFacade != null && !changedTasks.isEmpty()) {
+            executionDAOFacade.updateTasks(changedTasks);
+            executionDAOFacade.updateWorkflow(workflow);
         }
-        return workflow;
     }
 
-    private void scheduleTask(WorkflowModel workflow, List<TaskModel> tasks) {
-        if (tasks == null || tasks.isEmpty()) {
-            taskScheduler.schedule(workflow, List.of(), this);
-            return;
+    private List<TaskModel> canonicalCandidates(WorkflowModel workflow, List<TaskModel> candidates) {
+        Map<String, TaskModel> registered = new LinkedHashMap<>();
+        for (TaskModel task : workflow.getTasks()) {
+            registered.put(taskKey(task), task);
         }
+        List<TaskModel> tasks = new ArrayList<>();
+        Set<String> selectedKeys = new HashSet<>();
+        for (TaskModel candidate : candidates) {
+            String key = taskKey(candidate);
+            TaskModel task = registered.get(key);
+            if (task == null || selectedKeys.contains(key)) {
+                continue;
+            }
+            selectedKeys.add(key);
+            tasks.add(task);
+        }
+        return tasks;
+    }
 
-        int count = workflow.getTasks().stream().mapToInt(TaskModel::getSeq).max().orElse(0);
-        long now = System.currentTimeMillis();
-        for (TaskModel task : tasks) {
-            if (task.getSeq() == 0) {
-                task.setSeq(++count);
-            }
-            if (task.getFirstScheduledTime() == 0) {
-                task.setFirstScheduledTime(now);
-            }
-            if (task.getScheduledTime() == 0) {
-                task.setScheduledTime(now);
-            }
-        }
-        if (executionDAOFacade != null && !tasks.isEmpty()) {
-            executionDAOFacade.createTasks(tasks);
-        }
-        taskScheduler.schedule(workflow, tasks, this);
+    private String taskKey(TaskModel task) {
+        return task.getReferenceTaskName() + "_" + task.getRetryCount();
     }
 
     @Override
     public void addNextIterationTasks(TaskModel loopTask, WorkflowModel workflow) {
         List<TaskModel> iterationTasks = deciderService.getTasksToBeScheduled(
-                workflow,
-                loopTask.getWorkflowTask().getLoopOver().get(0),
-                loopTask.getRetryCount(),
-                null,
-                loopTask.getForkTaskId());
-        iterationTasks.forEach(task -> {
+                workflow, loopTask.getWorkflowTask().getLoopOver().get(0),
+                loopTask.getRetryCount(), null, loopTask.getForkTaskId());
+        for (TaskModel task : iterationTasks) {
             task.setReferenceTaskName(TaskUtils.appendIteration(
                     task.getReferenceTaskName(), loopTask.getIteration()));
             task.setIteration(loopTask.getIteration());
-        });
-        dedupAndAddTasks(workflow, iterationTasks);
+        }
+        executionDAOFacade.registerTasks(workflow, iterationTasks);
     }
 
     private void persistTerminatedWorkflow(
@@ -213,11 +229,6 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
         workflow.setEndTime(System.currentTimeMillis());
         cancelNonTerminalTasks(workflow, termination.getMessage());
         executionDAOFacade.updateWorkflow(workflow);
-    }
-
-    @Override
-    public WorkflowModel decideWithLock(WorkflowModel workflow) {
-        return driveWorkflow(workflow);
     }
 
     @Override
@@ -266,24 +277,6 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
         }
     }
 
-    @Override
-    public WorkflowModel decide(String workflowId) {
-        boolean lockAcquired = executionLockService.acquireLock(workflowId);
-        if (!lockAcquired) {
-            return null;
-        }
-        WorkflowModel workflow;
-        try {
-            workflow = executionDAOFacade.getWorkflowModel(workflowId);
-            if (workflow == null) {
-                return null;
-            }
-        } finally {
-            executionLockService.releaseLock(workflowId);
-        }
-        return driveWorkflow(workflow);
-    }
-
     private void endExecution(WorkflowModel workflow, TaskModel terminateTask) {
         deciderService.updateWorkflowOutput(workflow, terminateTask);
         if (terminateTask != null) {
@@ -319,29 +312,6 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
         workflow.setEndTime(System.currentTimeMillis());
         cancelNonTerminalTasks(workflow, workflow.getReasonForInCompletion());
         updateWorkflow(workflow);
-    }
-
-    void dedupAndAddTasks(WorkflowModel workflow, List<TaskModel> tasks) {
-        if (tasks == null || tasks.isEmpty()) {
-            return;
-        }
-
-        Set<String> tasksInWorkflow =
-                workflow.getTasks().stream()
-                        .map(task -> task.getReferenceTaskName() + "_" + task.getRetryCount())
-                        .collect(Collectors.toSet());
-
-        List<TaskModel> dedupedTasks =
-                tasks.stream()
-                        .filter(
-                                task ->
-                                        tasksInWorkflow.add(
-                                                task.getReferenceTaskName()
-                                                        + "_"
-                                                        + task.getRetryCount()))
-                        .collect(Collectors.toList());
-
-        workflow.getTasks().addAll(dedupedTasks);
     }
 
     private WorkflowModel createWorkflowModel(

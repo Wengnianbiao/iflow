@@ -75,8 +75,8 @@ public class SwitchTaskMapper implements TaskMapper {
         switchTask.getInputData().put("case", evalResult);
         switchTask.addOutput("evaluationResult", List.of(evalResult));
         switchTask.addOutput("selectedCase", evalResult);
-        switchTask.setStartTime(System.currentTimeMillis());
-        switchTask.setStatus(TaskModel.Status.IN_PROGRESS);
+
+        switchTask.setStatus(TaskModel.Status.SCHEDULED);
         tasksToBeScheduled.add(switchTask);
 
         List<WorkflowTask> selectedTasks =
@@ -106,7 +106,7 @@ public class SwitchTaskMapper implements TaskMapper {
         switchTask.setTaskType(TaskType.TASK_TYPE_SWITCH);
         switchTask.setTaskDefName(TaskType.TASK_TYPE_SWITCH);
         switchTask.getInputData().putAll(taskInput);
-        switchTask.setStartTime(System.currentTimeMillis());
+
         switchTask.setStatus(TaskModel.Status.FAILED);
         switchTask.setReasonForInCompletion(reason);
         return switchTask;

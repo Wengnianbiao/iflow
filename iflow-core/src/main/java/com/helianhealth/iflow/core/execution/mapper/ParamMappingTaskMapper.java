@@ -49,9 +49,9 @@ public class ParamMappingTaskMapper implements TaskMapper {
 
         TaskModel task = context.createTaskModel();
         task.setTaskType(TaskType.TASK_TYPE_MAPPING);
-        task.setStartTime(System.currentTimeMillis());
+
         task.setInputData(taskInput);
-        task.setStatus(TaskModel.Status.IN_PROGRESS);
+        task.setStatus(TaskModel.Status.SCHEDULED);
         return List.of(task);
     }
 

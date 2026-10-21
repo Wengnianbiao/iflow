@@ -82,7 +82,7 @@ class JdbcPayloadExecutionTest {
             public int resolveConnectTimeoutMs(JdbcTask.Input resolved) { return 1000; }
             public int resolveQueryTimeoutMs(JdbcTask.Input resolved) { return 2500; }
         };
-        new JdbcTask(provider, new ObjectMapper()).execute(workflow, task, null);
+        new JdbcTask(provider, new ObjectMapper()).start(workflow, task, null);
         if (opened[0] != null) assertTrue(opened[0].isClosed());
         return task;
     }

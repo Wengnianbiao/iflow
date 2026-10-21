@@ -32,7 +32,7 @@ public class Terminate extends WorkflowSystemTask {
     }
 
     @Override
-    public void execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
+    public void start(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
         String returnStatus = (String) task.getInputData().get(INPUT_TERMINATION_STATUS);
         if (!isValidStatus(returnStatus)) {
             task.setReasonForInCompletion("invalid terminationStatus: " + returnStatus);

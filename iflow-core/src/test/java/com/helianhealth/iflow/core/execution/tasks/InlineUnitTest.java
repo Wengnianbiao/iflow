@@ -45,7 +45,7 @@ class InlineUnitTest {
         TaskModel task = new TaskModel();
         task.setInputData(Map.of(Inline.INPUT_EXPRESSION, expression));
 
-        inline.execute(new WorkflowModel(), task, null);
+        inline.start(new WorkflowModel(), task, null);
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
         assertEquals(expected, task.getOutputData());
@@ -113,7 +113,7 @@ class InlineUnitTest {
         task.setTaskId("inline-1");
         task.setInputData(input);
         task.setOutputData(Map.of("stale", true));
-        new Inline(evaluators).execute(new WorkflowModel(), task, null);
+        new Inline(evaluators).start(new WorkflowModel(), task, null);
         return task;
     }
 
@@ -134,7 +134,7 @@ class InlineUnitTest {
         TaskModel task = new TaskModel();
         task.setInputData(Map.of(Inline.INPUT_EXPRESSION, "ignored"));
 
-        inline.execute(new WorkflowModel(), task, null);
+        inline.start(new WorkflowModel(), task, null);
         return task;
     }
 }

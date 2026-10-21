@@ -42,7 +42,7 @@ class SwitchTaskMapperTest {
         assertEquals("accepted", mapped.get(0).outputAsMap().get("selectedCase"));
         assertEquals("accepted", mapped.get(0).getInputData().get("case"));
         assertEquals("true", mapped.get(0).getInputData().get("hasChildren"));
-        assertEquals(TaskModel.Status.IN_PROGRESS, mapped.get(0).getStatus());
+        assertEquals(TaskModel.Status.SCHEDULED, mapped.get(0).getStatus());
         assertSame(branch, mapped.get(1));
         verify(decider).getTasksToBeScheduled(context.getWorkflowModel(), first, 2, "previous", "outer-fork");
         verifyNoMoreInteractions(decider);

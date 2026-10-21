@@ -155,7 +155,7 @@ class ParamMappingTaskMapperTest {
         assertEquals(prepared, task.getInputData());
         assertNotSame(prepared, task.getInputData());
         assertNotSame(configs, task.getInputData().get("paramsConfig"));
-        assertEquals(TaskModel.Status.IN_PROGRESS, task.getStatus());
+        assertEquals(TaskModel.Status.SCHEDULED, task.getStatus());
         configs.clear();
         assertEquals(1, ((List<?>) task.getInputData().get("paramsConfig")).size());
     }
@@ -189,7 +189,7 @@ class ParamMappingTaskMapperTest {
 
         assertTrue(task.getInputData().containsKey("payload"));
         assertNull(task.getInputData().get("payload"));
-        assertEquals(TaskModel.Status.IN_PROGRESS, task.getStatus());
+        assertEquals(TaskModel.Status.SCHEDULED, task.getStatus());
     }
 
     @ParameterizedTest
@@ -213,7 +213,7 @@ class ParamMappingTaskMapperTest {
             assertEquals(output.getClass(), task.getInputData().get("payload").getClass());
         }
         assertEquals(output, upstream.getOutputData());
-        assertEquals(TaskModel.Status.IN_PROGRESS, task.getStatus());
+        assertEquals(TaskModel.Status.SCHEDULED, task.getStatus());
     }
 
     private static Stream<Object> upstreamOutputs() {

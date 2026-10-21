@@ -36,7 +36,7 @@ class HttpTaskExecutionTest {
         HttpTask.HttpResponse response = response(statusCode, "ok");
         TaskModel task = task();
 
-        returning(response).execute(workflow, task, null);
+        returning(response).start(workflow, task, null);
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
         assertEquals(response.asMap(), task.getOutputData());
@@ -48,7 +48,7 @@ class HttpTaskExecutionTest {
         HttpTask.HttpResponse response = response(statusCode, Map.of("message", "rejected"));
         TaskModel task = task();
 
-        returning(response).execute(workflow, task, null);
+        returning(response).start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertTrue(task.getReasonForInCompletion().contains("rejected"));
@@ -59,7 +59,7 @@ class HttpTaskExecutionTest {
     void unsuccessfulStatusWithoutBodyIncludesStatusInDiagnostic() {
         TaskModel task = task();
 
-        returning(response(503, null)).execute(workflow, task, null);
+        returning(response(503, null)).start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertTrue(task.getReasonForInCompletion().contains("503"));
@@ -77,7 +77,7 @@ class HttpTaskExecutionTest {
         TaskModel task = task();
         task.setOutputData(Map.of("retained", "previous output"));
 
-        failing.execute(workflow, task, null);
+        failing.start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertEquals("HTTP 调用失败：IOException", task.getReasonForInCompletion());
@@ -115,7 +115,7 @@ class HttpTaskExecutionTest {
                 "contentType", "application/xml", "accept", List.of("application/json", "text/plain"),
                 "headers", headers, "connectionTimeOut", 1234, "readTimeOut", 5678));
 
-        new HttpTask(provider, objectMapper).execute(workflow, task, null);
+        new HttpTask(provider, objectMapper).start(workflow, task, null);
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus(), task.getReasonForInCompletion());
         assertEquals(Map.of("accepted", true), task.outputAsMap().get("body"));
@@ -130,7 +130,7 @@ class HttpTaskExecutionTest {
                 .thenThrow(new ResourceAccessException("read timed out"));
         TaskModel task = task();
 
-        new HttpTask(input -> restTemplate, objectMapper).execute(workflow, task, null);
+        new HttpTask(input -> restTemplate, objectMapper).start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertEquals("HTTP 调用失败：read timed out", task.getReasonForInCompletion());
@@ -144,7 +144,7 @@ class HttpTaskExecutionTest {
         TaskModel task = task();
         task.getInputData().put("contentType", contentType);
 
-        new HttpTask(input -> restTemplate, objectMapper).execute(workflow, task, null);
+        new HttpTask(input -> restTemplate, objectMapper).start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertTrue(task.getReasonForInCompletion().startsWith("HTTP 调用失败："));

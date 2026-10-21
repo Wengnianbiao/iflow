@@ -29,6 +29,18 @@
 
 执行摘要和运行时对象的 `workflowRoute` 表示路由，`workflowName` 表示业务名称，实例身份仍为 `workflowId`。任务的 `name` 保持任务名称语义；任务运行时的 `workflowType` 和 `${workflow.workflowType}` 表达式取工作流路由。
 
-REST 网关去掉请求路径的前导 `/` 后按路由调用；Jarvis 的 `BusinessMethod` 按路由调用，均默认使用最新版本。
+REST 网关支持任意业务路径的 GET / POST 请求，不要求 `hl-open-api` 前缀。去掉应用 context path 和请求路径的前导 `/` 后，与工作流 `route` 精确匹配，默认使用最新版本。例如：
+
+| 请求路径 | 工作流 route |
+| --- | --- |
+| `/pacs/apply-status` | `pacs/apply-status` |
+| `/GetItemResult` | `GetItemResult` |
+| `/hl-open-api/pacs/apply-status` | `hl-open-api/pacs/apply-status` |
+
+`*` / `**` 表示 HTTP 入口可以接收不同路径，工作流 `route` 本身仍是精确标识，不支持通配符。已有 `hl-open-api/...` 路由保持可用；改为新路径时需要保存对应 route 的定义。
+
+根路径、`/index.html`、`/favicon.svg` 以及 `/api/**`、`/assets/**`、`/error/**`、`/actuator/**`、`/HLOpenApi/**` 保留给控制台、静态资源、应用基础设施和 Jarvis；其他明确声明的 Controller 路径优先于通用 HTTP 工作流入口。所有业务路径使用相同的请求体解析、体积限制和 multipart 错误处理。
+
+Jarvis 兼容入口仍为 `POST /HLOpenApi/Hjk`，按请求体中的 `BusinessMethod` 匹配工作流 route，默认使用最新版本；不按该 URL 查找工作流。
 
 项目未上线，接口及初始化建表脚本直接采用新格式。旧 `name/displayName` 协议和既有开发数据的迁移不在本次范围内。

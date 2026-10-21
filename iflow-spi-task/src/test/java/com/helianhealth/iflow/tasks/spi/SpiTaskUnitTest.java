@@ -71,7 +71,7 @@ class SpiTaskUnitTest {
         input.put(SpiTaskInput.SPI_INPUT, Map.of("patientName", "Alice"));
         task.setInputData(input);
 
-        spiTask.execute(workflow, task, null);
+        spiTask.start(workflow, task, null);
 
         assertEquals("my-invoker", extensionRouter.remoteExtension);
         assertEquals(Map.of("patientName", "Alice"), extensionRouter.spiInput);
@@ -86,7 +86,7 @@ class SpiTaskUnitTest {
         TaskModel task = new TaskModel();
         task.setInputData(Map.of(SpiTaskInput.SPI_INPUT, Map.of()));
 
-        spiTask.execute(workflow, task, null);
+        spiTask.start(workflow, task, null);
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
         assertEquals(Map.of(), task.getOutputData());
@@ -151,7 +151,7 @@ class SpiTaskUnitTest {
                 SpiTaskInput.REMOTE_EXTENSION, "  patient-invoker  ",
                 SpiTaskInput.SPI_INPUT, businessInput));
 
-        spiTask.execute(workflow, task, null);
+        spiTask.start(workflow, task, null);
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
         assertEquals("patient-invoker", extensionRouter.remoteExtension);
@@ -170,7 +170,7 @@ class SpiTaskUnitTest {
                 SpiTaskInput.CLASS_NAME, "  com.example.PatientInvoker  ",
                 SpiTaskInput.SPI_INPUT, Map.of("patientId", "P001")));
 
-        spiTask.execute(workflow, task, null);
+        spiTask.start(workflow, task, null);
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
         assertEquals(new SpiTaskInput.ExtensionDefinition(
@@ -185,7 +185,7 @@ class SpiTaskUnitTest {
         TaskModel task = new TaskModel();
         task.setInputData(Map.of(SpiTaskInput.SPI_INPUT, Map.of(7, "invalid-key")));
 
-        spiTask.execute(workflow, task, null);
+        spiTask.start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertEquals("SPI inputParameters.spiInput keys must be strings",
@@ -199,7 +199,7 @@ class SpiTaskUnitTest {
         TaskModel task = new TaskModel();
         task.setInputData(Map.of(SpiTaskInput.REMOTE_EXTENSION, "patient-invoker"));
 
-        spiTask.execute(workflow, task, null);
+        spiTask.start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertEquals("SPI inputParameters.spiInput must resolve to a Map",
@@ -216,7 +216,7 @@ class SpiTaskUnitTest {
                 SpiTaskInput.CLASS_NAME, "com.example.PatientInvoker",
                 SpiTaskInput.SPI_INPUT, Map.of()));
 
-        spiTask.execute(workflow, task, null);
+        spiTask.start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertEquals("SPI inputParameters.sourceCode is required in ONLINE mode",
@@ -232,7 +232,7 @@ class SpiTaskUnitTest {
         TaskModel task = new TaskModel();
         task.setInputData(Map.of(SpiTaskInput.SPI_INPUT, Map.of()));
 
-        spiTask.execute(workflow, task, null);
+        spiTask.start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertEquals(expectedReason, task.getReasonForInCompletion());
@@ -255,7 +255,7 @@ class SpiTaskUnitTest {
                 SpiTaskInput.REMOTE_EXTENSION, "missing-spi-unit-test-extension",
                 SpiTaskInput.SPI_INPUT, Map.of()));
 
-        new SpiTask(new SpiExtensionRouter()).execute(workflow, task, null);
+        new SpiTask(new SpiExtensionRouter()).start(workflow, task, null);
 
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertTrue(task.getReasonForInCompletion().contains("missing-spi-unit-test-extension"));
@@ -269,7 +269,7 @@ class SpiTaskUnitTest {
         TaskModel task = new TaskModel();
         task.setInputData(Map.of(SpiTaskInput.SPI_INPUT, Map.of()));
 
-        spiTask.execute(workflow, task, null);
+        spiTask.start(workflow, task, null);
 
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
         assertEquals(output, task.getOutputData());

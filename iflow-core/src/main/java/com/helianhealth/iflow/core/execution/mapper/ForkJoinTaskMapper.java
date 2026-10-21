@@ -34,7 +34,7 @@ public class ForkJoinTaskMapper implements TaskMapper {
         forkTask.setTaskType(TaskType.TASK_TYPE_FORK);
         forkTask.setTaskDefName(TaskType.TASK_TYPE_FORK);
         forkTask.setInputData(taskInput);
-        forkTask.setStatus(TaskModel.Status.IN_PROGRESS);
+        forkTask.setStatus(TaskModel.Status.SCHEDULED);
         tasksToBeScheduled.add(forkTask);
 
         List<List<WorkflowTask>> forkTasks = forkJoinTask.getForkTasks();

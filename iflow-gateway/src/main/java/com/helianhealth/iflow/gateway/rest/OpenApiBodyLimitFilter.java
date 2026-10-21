@@ -28,19 +28,21 @@ import java.util.Map;
 public class OpenApiBodyLimitFilter extends OncePerRequestFilter {
 
     private final long maxBodyBytes;
+    private final OpenApiPaths paths;
 
     public OpenApiBodyLimitFilter(
-            @Value("${iflow.open-api.max-body-bytes:10485760}") long maxBodyBytes) {
+            @Value("${iflow.open-api.max-body-bytes:10485760}") long maxBodyBytes,
+            OpenApiPaths paths) {
         if (maxBodyBytes <= 0) {
             throw new IllegalArgumentException("iflow.open-api.max-body-bytes must be positive");
         }
         this.maxBodyBytes = maxBodyBytes;
+        this.paths = paths;
     }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        String path = request.getRequestURI().substring(request.getContextPath().length());
-        return !(path.equals("/hl-open-api") || path.startsWith("/hl-open-api/"));
+        return !paths.matches(request);
     }
 
     @Override

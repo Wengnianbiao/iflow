@@ -119,7 +119,7 @@ class HttpTaskUnitTest {
         task.getInputData().put("method", "GET");
         task.getInputData().put("accept", "text/html");
 
-        httpTask.execute(workflow, task, null);
+        httpTask.start(workflow, task, null);
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
         assertEquals(200, task.outputAsMap().get("statusCode"));
     }
@@ -129,7 +129,7 @@ class HttpTaskUnitTest {
         TaskModel task = new TaskModel();
         task.getInputData().put("method", "GET");
 
-        httpTask.execute(workflow, task, null);
+        httpTask.start(workflow, task, null);
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertTrue(task.getReasonForInCompletion().contains("缺少请求地址 uri"));
     }
@@ -139,7 +139,7 @@ class HttpTaskUnitTest {
         TaskModel task = new TaskModel();
         task.getInputData().put("uri", "http://example.com");
 
-        httpTask.execute(workflow, task, null);
+        httpTask.start(workflow, task, null);
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertTrue(task.getReasonForInCompletion().contains("未指定 HTTP 方法"));
     }
@@ -151,7 +151,7 @@ class HttpTaskUnitTest {
         task.getInputData().put("method", "GET");
         task.getInputData().put("accept", Arrays.asList("application/json", "text/plain"));
 
-        httpTask.execute(workflow, task, null);
+        httpTask.start(workflow, task, null);
         assertEquals(TaskModel.Status.COMPLETED, task.getStatus());
         assertEquals(200, task.outputAsMap().get("statusCode"));
     }
@@ -159,7 +159,7 @@ class HttpTaskUnitTest {
     @Test
     void emptyInputFails() {
         TaskModel task = new TaskModel();
-        httpTask.execute(workflow, task, null);
+        httpTask.start(workflow, task, null);
         assertEquals(TaskModel.Status.FAILED, task.getStatus());
         assertTrue(task.getReasonForInCompletion().contains("缺少请求地址 uri"));
     }

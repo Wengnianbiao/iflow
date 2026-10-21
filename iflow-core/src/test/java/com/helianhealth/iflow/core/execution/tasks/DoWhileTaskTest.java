@@ -6,6 +6,7 @@ import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 import com.helianhealth.iflow.core.dal.ExecutionDAOFacade;
 import com.helianhealth.iflow.core.execution.CallerAndForkTaskScheduler;
+import com.helianhealth.iflow.core.execution.WorkflowDriveContext;
 import com.helianhealth.iflow.core.execution.DeciderService;
 import com.helianhealth.iflow.core.execution.StartWorkflowInput;
 import com.helianhealth.iflow.core.execution.WorkflowExecutor;
@@ -44,6 +45,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -68,7 +70,7 @@ class DoWhileTaskTest {
             TaskModel loop = loop(jsDefinition("return ???"), 0);
             WorkflowModel workflow = workflow(loop);
 
-            doWhile.execute(workflow, loop, workflowExecutor);
+            assertTrue(doWhile.execute(workflow, loop, workflowExecutor));
 
             assertEquals("DO_WHILE", doWhile.getTaskType());
             assertEquals(TaskModel.Status.IN_PROGRESS, loop.getStatus());
@@ -76,16 +78,17 @@ class DoWhileTaskTest {
             assertEquals(Map.of("iteration", 1), loop.getOutputData());
             assertNull(loop.getReasonForInCompletion());
             verify(workflowExecutor).addNextIterationTasks(loop, workflow);
-            verifyNoMoreInteractions(workflowExecutor);
-            verifyNoInteractions(dao);
+            verifyNoMoreInteractions(dao);
         }
 
-        @Test
-        void waitsForNonTerminalBodyWithoutEvaluatingCondition() {
+        @ParameterizedTest
+        @EnumSource(value = TaskModel.Status.class, names = {"SCHEDULED", "IN_PROGRESS"})
+        void waitsForNonTerminalBodyWithoutEvaluatingCondition(TaskModel.Status status) {
             TaskModel loop = loop(jsDefinition("return ???"), 1);
-            TaskModel body = child("body", 1, TaskModel.Status.IN_PROGRESS, "partial");
+            TaskModel body = child("body", 1, status, "partial");
 
-            doWhile.execute(workflow(loop, body), loop, workflowExecutor);
+            assertFalse(doWhile.execute(workflow(loop, body), loop, workflowExecutor));
+            assertFalse(doWhile.execute(workflow(loop, body), loop, workflowExecutor));
 
             assertEquals(TaskModel.Status.IN_PROGRESS, loop.getStatus());
             assertEquals(1, loop.getIteration());
@@ -101,13 +104,13 @@ class DoWhileTaskTest {
             TaskModel first = child("first", 1, TaskModel.Status.COMPLETED, 7);
             WorkflowModel workflow = workflow(loop, first);
 
-            doWhile.execute(workflow, loop, workflowExecutor);
+            assertFalse(doWhile.execute(workflow, loop, workflowExecutor));
             assertEquals(TaskModel.Status.IN_PROGRESS, loop.getStatus());
             assertEquals(1, loop.getIteration());
             verifyNoInteractions(workflowExecutor);
 
             workflow.getTasks().add(child("tail", 1, TaskModel.Status.COMPLETED, "done"));
-            doWhile.execute(workflow, loop, workflowExecutor);
+            assertTrue(doWhile.execute(workflow, loop, workflowExecutor));
 
             assertEquals(2, loop.getIteration());
             assertEquals(Map.of("first", 7, "tail", "done"), iterationOutput(loop, 1));
@@ -121,7 +124,7 @@ class DoWhileTaskTest {
             TaskModel loop = loop(jsDefinition("false"), 1);
             TaskModel body = child("body", 1, status, List.of(7));
 
-            doWhile.execute(workflow(loop, body), loop, workflowExecutor);
+            assertTrue(doWhile.execute(workflow(loop, body), loop, workflowExecutor));
 
             assertEquals(TaskModel.Status.COMPLETED, loop.getStatus());
             assertEquals(1, loop.getIteration());
@@ -137,7 +140,7 @@ class DoWhileTaskTest {
             TaskModel body = child("body", 1, status, Map.of("businessError", "preserved"));
             body.setReasonForInCompletion("body failed");
 
-            doWhile.execute(workflow(loop, body), loop, workflowExecutor);
+            assertTrue(doWhile.execute(workflow(loop, body), loop, workflowExecutor));
 
             assertEquals(TaskModel.Status.FAILED, loop.getStatus());
             assertEquals(1, loop.getIteration());
@@ -258,8 +261,7 @@ class DoWhileTaskTest {
             assertEquals(Map.of("body", "done"), iterationOutput(loop, 1));
             assertNull(loop.getReasonForInCompletion());
             verify(workflowExecutor, times(continues ? 1 : 0)).addNextIterationTasks(loop, workflow);
-            verifyNoMoreInteractions(workflowExecutor);
-            verifyNoInteractions(dao);
+            verifyNoMoreInteractions(dao);
         }
 
         static Stream<Arguments> conditionResults() {
@@ -836,8 +838,8 @@ class DoWhileTaskTest {
             assertEquals(3, loop.outputAsMap().get("loopIndex"));
             assertEquals("d", loop.outputAsMap().get("loopItem"));
             verify(dao).removeTask("body-1");
-            verifyNoMoreInteractions(dao);
             verify(workflowExecutor).addNextIterationTasks(loop, workflow);
+            verifyNoMoreInteractions(dao);
         }
     }
 
@@ -862,47 +864,75 @@ class DoWhileTaskTest {
         }
 
         @Test
-        void generatesIterationWithoutExecutingItAndRegistersItOnlyOnce() {
+        void registersScheduledIterationWithoutExecutingItAndRegistersItOnlyOnce() {
             WorkflowTask loopDefinition = loop(task("body", TaskType.TASK_TYPE_NOOP),
                     task("tail", TaskType.TASK_TYPE_NOOP));
             Fixture fixture = new Fixture(definition(loopDefinition));
-            fixture.useForkPool(Runnable::run);
             WorkflowModel workflow = new WorkflowModel();
             workflow.setWorkflowId("workflow-id");
             workflow.setWorkflowDefinition(fixture.definition);
+            workflow.setInput(Map.of("items", List.of("one", "two")));
             TaskModel loop = new TaskModel();
             loop.setTaskId("loop-id");
             loop.setReferenceTaskName("loop");
             loop.setTaskType(TaskType.TASK_TYPE_DO_WHILE);
             loop.setWorkflowTask(loopDefinition);
             loop.setStatus(TaskModel.Status.IN_PROGRESS);
-            loop.setIteration(2);
             loop.setSeq(7);
             loop.setForkTaskId("outer-fork-id");
             workflow.getTasks().add(loop);
 
-            fixture.executor.addNextIterationTasks(loop, workflow);
-            assertTrue(fixture.executions.isEmpty(), "generating an iteration must not execute it");
-            fixture.executor.addNextIterationTasks(loop, workflow);
+            assertTrue(fixture.doWhileTask.execute(workflow, loop, fixture.executor));
+            assertFalse(fixture.doWhileTask.execute(workflow, loop, fixture.executor));
 
-            assertTrue(fixture.executions.isEmpty(), "generating an iteration must not execute it");
+            assertTrue(fixture.executions.isEmpty(), "registration must not schedule iteration tasks");
             assertEquals(2, workflow.getTasks().size());
             assertEquals(1, fixture.created.size());
-            TaskModel body = workflow.getTaskByRefName("body__2");
+            TaskModel body = workflow.getTaskByRefName("body__1");
             assertNotNull(body);
-            assertFalse(body.getStatus().isTerminal());
-            assertEquals(2, body.getIteration());
+            assertEquals(TaskModel.Status.SCHEDULED, body.getStatus());
+            assertEquals(0, body.getStartTime());
+            assertEquals(1, loop.getIteration());
+            assertEquals(1, body.getIteration());
             assertEquals("outer-fork-id", body.getForkTaskId());
             assertEquals("workflow-id", body.getWorkflowInstanceId());
             assertEquals(8, body.getSeq());
             assertTrue(body.getFirstScheduledTime() > 0);
             assertTrue(body.getScheduledTime() > 0);
             TaskModel persisted = fixture.created.get(body.getTaskId());
+            assertEquals(TaskModel.Status.SCHEDULED, persisted.getStatus());
+            assertEquals(0, persisted.getStartTime());
             assertEquals(body.getReferenceTaskName(), persisted.getReferenceTaskName());
             assertEquals(body.getSeq(), persisted.getSeq());
             assertEquals(body.getFirstScheduledTime(), persisted.getFirstScheduledTime());
             assertEquals(body.getForkTaskId(), persisted.getForkTaskId());
-            assertNull(workflow.getTaskByRefName("tail__2"));
+            assertNull(workflow.getTaskByRefName("tail__1"));
+
+            fixture.decider.decide(workflow);
+
+            assertSame(body, workflow.getTaskByRefName("body__1"));
+            assertEquals(TaskModel.Status.SCHEDULED, body.getStatus());
+            assertTrue(fixture.executions.isEmpty(), "deciding alone must not execute the task");
+            assertEquals(1, fixture.created.size());
+        }
+
+        @Test
+        void startsEachIterationOnlyAfterTheNextDecisionSelectsItsRegisteredTask() throws Exception {
+            Fixture fixture = new Fixture(definition(loop(task("body", TaskType.TASK_TYPE_NOOP))));
+
+            WorkflowModel result = fixture.startInForkPool(1);
+
+            assertEquals(List.of("body__1", "body__2"), fixture.executions);
+            for (String ref : List.of("body__1", "body__2")) {
+                int registrationRound = fixture.registrationRounds.get(ref);
+                int selectedRound = fixture.selectedRounds.get(ref);
+                int executionRound = fixture.executionRounds.get(ref);
+                assertEquals(registrationRound + 1, selectedRound,
+                        "a child registered during control evaluation belongs to the next decision");
+                assertEquals(selectedRound, executionRound,
+                        "start must follow the decision that selected the registered child");
+            }
+            fixture.assertCompletedAndPersistedOnce(result);
         }
 
         @Test
@@ -982,6 +1012,11 @@ class DoWhileTaskTest {
             final Map<String, TaskModel> updated = new ConcurrentHashMap<>();
             final List<String> executions = new CopyOnWriteArrayList<>();
             final Map<String, String> executionThreads = new ConcurrentHashMap<>();
+            final AtomicInteger decisionRounds = new AtomicInteger();
+            final Map<String, Integer> registrationRounds = new ConcurrentHashMap<>();
+            final Map<String, Integer> selectedRounds = new ConcurrentHashMap<>();
+            final Map<String, Integer> executionRounds = new ConcurrentHashMap<>();
+            final DoWhile doWhileTask;
             final SystemTaskRegistry registry;
             final DeciderService decider;
             final WorkflowExecutorOps executor;
@@ -1001,6 +1036,7 @@ class DoWhileTaskTest {
                         for (TaskModel task : tasks) {
                             assertNull(created.putIfAbsent(task.getTaskId(), TaskModel.fromTask(task.toTask())),
                                     "each runtime task must be created once");
+                            registrationRounds.put(task.getReferenceTaskName(), decisionRounds.get());
                         }
                         return tasks;
                     }
@@ -1017,25 +1053,26 @@ class DoWhileTaskTest {
                 };
                 WorkflowSystemTask noop = new WorkflowSystemTask(TaskType.TASK_TYPE_NOOP) {
                     @Override
-                    public void execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor) {
+                    public void start(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor) {
                         assertTrue(created.containsKey(task.getTaskId()), "persist tasks before executing them");
                         executions.add(task.getReferenceTaskName());
                         executionThreads.put(task.getReferenceTaskName(), Thread.currentThread().getName());
+                        executionRounds.put(task.getReferenceTaskName(), decisionRounds.get());
                         task.setOutputData(task.getReferenceTaskName());
                         task.setStatus(TaskModel.Status.COMPLETED);
                     }
                 };
-                registry = new SystemTaskRegistry(java.util.Set.of(noop, new DoWhile(parameters, dao), new Fork(), new Join()));
+                doWhileTask = new DoWhile(parameters, dao);
+                registry = new SystemTaskRegistry(java.util.Set.of(noop, doWhileTask, new Fork(), new Join()));
                 decider = new DeciderService(new IDGenerator(), parameters, registry, Map.of(
                         TaskType.TASK_TYPE_NOOP, new NoopTaskMapper(),
                         TaskType.TASK_TYPE_DO_WHILE, new DoWhileTaskMapper(parameters),
                         TaskType.TASK_TYPE_FORK_JOIN, new ForkJoinTaskMapper(),
                         TaskType.TASK_TYPE_JOIN, new JoinTaskMapper())) {
-                    private int rounds;
-
                     @Override
                     public DeciderOutcome decide(WorkflowModel workflow) {
-                        assertTrue(++rounds <= 100, "workflow must complete within 100 decision rounds");
+                        int round = decisionRounds.incrementAndGet();
+                        assertTrue(round <= 100, "workflow must complete within 100 decision rounds");
                         return super.decide(workflow);
                     }
                 };
@@ -1055,10 +1092,13 @@ class DoWhileTaskTest {
                 AtomicBoolean scheduling = new AtomicBoolean();
                 executor.setTaskScheduler(new CallerAndForkTaskScheduler(pool, registry) {
                     @Override
-                    public void schedule(WorkflowModel workflow, List<TaskModel> tasks, WorkflowExecutor executor) {
+                    public boolean schedule(WorkflowModel workflow, List<TaskModel> tasks, WorkflowExecutor executor, WorkflowDriveContext context) {
                         assertTrue(scheduling.compareAndSet(false, true), "task execution must not recursively schedule children");
                         try {
-                            super.schedule(workflow, tasks, executor);
+                            for (TaskModel task : tasks) {
+                                selectedRounds.putIfAbsent(task.getReferenceTaskName(), decisionRounds.get());
+                            }
+                            return super.schedule(workflow, tasks, executor, context);
                         } finally {
                             scheduling.set(false);
                         }

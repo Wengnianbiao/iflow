@@ -42,7 +42,7 @@ import static com.helianhealth.iflow.core.model.TaskModel.Status.SKIPPED;
  * <p>职责边界：
  * <ul>
  *   <li>占位符解析 → {@link TaskMapper} + {@link ParametersUtils}</li>
- *   <li>任务执行 → {@link TaskScheduler} 调用各系统任务的 {@code execute()}</li>
+ *   <li>任务执行 → {@link TaskScheduler} 调用各系统任务的 {@code start()} 或 {@code execute()}</li>
  *   <li>持久化 → {@link ExecutionDAO}（由 {@link WorkflowExecutorOps} 调用）</li>
  * </ul>
  */
@@ -111,7 +111,8 @@ public class DeciderService {
                 workflow.getTasks().stream()
                         .filter(
                                 runningTask ->
-                                        runningTask.getStatus().equals(TaskModel.Status.IN_PROGRESS)
+                                        runningTask.getStatus().equals(TaskModel.Status.SCHEDULED)
+                                                || runningTask.getStatus().equals(TaskModel.Status.IN_PROGRESS)
                                                 || runningTask.getStatus().isTerminal())
                         .map(TaskModel::getReferenceTaskName)
                         .toList();
@@ -130,8 +131,8 @@ public class DeciderService {
                         .build();
 
         // 静态/动态 FORK 的各分支结束后，都会尝试创建同一个 JOIN。
-        // 展开 FORK 时已创建对应的 JOIN，通常处于 IN_PROGRESS，因此需要避免重复创建。
-        // 按 referenceTaskName，过滤当前工作流中已处于 IN_PROGRESS 或终态的同名任务。
+        // 展开 FORK 时已创建对应的 JOIN，通常处于 SCHEDULED 或 IN_PROGRESS，因此需要避免重复创建。
+        // 按 referenceTaskName，过滤当前工作流中已处于 SCHEDULED、IN_PROGRESS 或终态的同名任务。
         // 当前正常执行路径中，主要在 JOIN 场景触发，也作为公共调度入口的去重保护。
         return taskMappers.getOrDefault(type, taskMappers.get(SPI.name()))
                         .getMappedTasks(taskMapperContext)
@@ -361,7 +362,8 @@ public class DeciderService {
                 workflow.getTasks().stream()
                         .filter(
                                 runningTask ->
-                                        runningTask.getStatus().equals(TaskModel.Status.IN_PROGRESS)
+                                        runningTask.getStatus().equals(TaskModel.Status.SCHEDULED)
+                                                || runningTask.getStatus().equals(TaskModel.Status.IN_PROGRESS)
                                                 || runningTask.getStatus().isTerminal())
                         .map(TaskModel::getReferenceTaskName)
                         .toList();

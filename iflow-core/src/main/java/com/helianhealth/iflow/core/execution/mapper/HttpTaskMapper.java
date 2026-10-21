@@ -36,7 +36,7 @@ public class HttpTaskMapper implements TaskMapper {
 
         TaskModel httpTask = context.createTaskModel();
         httpTask.setInputData(input);
-        httpTask.setStatus(TaskModel.Status.IN_PROGRESS);
+        httpTask.setStatus(TaskModel.Status.SCHEDULED);
         httpTask.setRetryCount(context.getRetryCount());
         return List.of(httpTask);
     }

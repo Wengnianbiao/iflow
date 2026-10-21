@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 /**
  * 条件分支任务
  *
- * <p>由 Mapper 在 Decider 阶段按 evaluator 求值后挑选分支调度子任务；Task 本体只负责
+ * <p>由 Mapper 在 Decider 阶段按 evaluator 求值后挑选分支调度子任务；Task 的 start 只负责
  * 把自身置 COMPLETED，分支决策结果写在 outputData 中由调用方使用。
  */
 @Component(TaskType.TASK_TYPE_SWITCH)
@@ -20,7 +20,7 @@ public class Switch extends WorkflowSystemTask {
     }
 
     @Override
-    public void execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
+    public void start(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
         task.setStatus(TaskModel.Status.COMPLETED);
     }
 }
