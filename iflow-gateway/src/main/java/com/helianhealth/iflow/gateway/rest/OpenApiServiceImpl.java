@@ -31,7 +31,7 @@ public class OpenApiServiceImpl implements OpenApiService {
         String workflowRoute = normalizeWorkflowRoute(request.path());
         try {
             WorkflowModel executed =
-                    workflowExecutionService.startWorkflow(
+                    workflowExecutionService.startWorkflowSync(
                             StartWorkflowRequest.builder()
                                     .route(workflowRoute)
                                     .input(request.toWorkflowInput())

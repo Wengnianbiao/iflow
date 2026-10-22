@@ -109,7 +109,7 @@ public class WorkflowExecutionController {
 
     @PostMapping("/start")
     public ResultData<String> start(@RequestBody StartWorkflowRequest request) {
-        return ResultData.ok(workflowExecutionService.startWorkflow(request).getWorkflowId());
+        return ResultData.ok(workflowExecutionService.startWorkflow(request));
     }
 
     @GetMapping("/{workflowId}")

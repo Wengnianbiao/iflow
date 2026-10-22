@@ -226,12 +226,20 @@ class OpenApiMultipartServerTest {
 
         @Bean
         WorkflowExecutionService workflowExecutionService() {
-            return request -> {
-                jarvisRequest = request;
-                WorkflowModel result = new WorkflowModel();
-                result.setStatus(WorkflowModel.Status.COMPLETED);
-                result.setOutput(Map.of("ok", true));
-                return result;
+            return new WorkflowExecutionService() {
+                @Override
+                public String startWorkflow(StartWorkflowRequest request) {
+                    throw new AssertionError("Jarvis 必须同步等待工作流输出");
+                }
+
+                @Override
+                public WorkflowModel startWorkflowSync(StartWorkflowRequest request) {
+                    jarvisRequest = request;
+                    WorkflowModel result = new WorkflowModel();
+                    result.setStatus(WorkflowModel.Status.COMPLETED);
+                    result.setOutput(Map.of("ok", true));
+                    return result;
+                }
             };
         }
     }

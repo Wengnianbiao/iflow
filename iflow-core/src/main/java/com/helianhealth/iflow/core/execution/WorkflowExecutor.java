@@ -9,12 +9,16 @@ import com.helianhealth.iflow.core.model.WorkflowModel;
 public interface WorkflowExecutor {
 
     /**
-     * 启动工作流并同步执行至终态。
+     * 创建工作流并在调用线程执行首次决策，不等待异步任务完成。
+     * 返回工作流实例 ID，执行状态和结果通过实例查询获取。
      */
-    WorkflowModel startWorkflow(StartWorkflowInput input);
+    String startWorkflow(StartWorkflowInput input);
 
-    /** 只生成并登记 DO_WHILE 当前轮的入口任务，下一轮决策再调度。 */
-    void addNextIterationTasks(TaskModel task, WorkflowModel workflow);
+    /** 创建工作流并等待进入终态后返回最终结果。 */
+    WorkflowModel startWorkflowSync(StartWorkflowInput input);
+
+    /** 生成并调度 DO_WHILE 当前轮入口任务，其余任务由 Decider 在入口完成后推进。 */
+    void scheduleNextIteration(TaskModel task, WorkflowModel workflow);
 
     void terminateWorkflow(WorkflowModel workflow, String reason);
 

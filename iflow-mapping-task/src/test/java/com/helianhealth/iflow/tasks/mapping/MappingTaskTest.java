@@ -35,6 +35,11 @@ class MappingTaskTest {
     }
 
     @Test
+    void executesSynchronously() {
+        assertFalse(mappingTask.isAsync());
+    }
+
+    @Test
     void mapsFieldsFromPayloadObject() {
         ParamMappingConfig mapping =
                 ParamMappingConfig.builder()

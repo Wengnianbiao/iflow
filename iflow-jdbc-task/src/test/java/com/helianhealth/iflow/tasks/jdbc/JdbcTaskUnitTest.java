@@ -36,6 +36,11 @@ class JdbcTaskUnitTest {
     }
 
     @Test
+    void executesAsynchronously() {
+        assertTrue(jdbcTask.isAsync());
+    }
+
+    @Test
     void parseFlatInput() {
         Map<String, Object> inputMap = new HashMap<>();
         inputMap.put("url", "jdbc:mysql://localhost:3306/demo");

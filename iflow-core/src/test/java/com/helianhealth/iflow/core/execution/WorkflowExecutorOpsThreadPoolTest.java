@@ -22,6 +22,7 @@ import com.helianhealth.iflow.core.execution.tasks.WorkflowSystemTask;
 import com.helianhealth.iflow.core.lock.InMemoryExecutionLockService;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
+import com.helianhealth.iflow.core.model.WorkflowExecutionMapper;
 import com.helianhealth.iflow.core.service.MetadataService;
 import com.helianhealth.iflow.core.utils.IDGenerator;
 import com.helianhealth.iflow.core.utils.ParametersUtils;
@@ -61,6 +62,11 @@ class WorkflowExecutorOpsThreadPoolTest {
         CountDownLatch successorStarted = new CountDownLatch(loopBranch ? 2 : 1);
         AtomicInteger slowExecutions = new AtomicInteger();
         WorkflowSystemTask noop = new WorkflowSystemTask(TaskType.TASK_TYPE_NOOP) {
+                    @Override
+                    public boolean isAsync() {
+                        return true;
+                    }
+
             @Override
             public void start(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor) {
                 try {
@@ -111,14 +117,14 @@ class WorkflowExecutorOpsThreadPoolTest {
         join.setJoinOn(List.of(loopBranch ? "loop" : "successor", "slow"));
         WorkflowDef definition = WorkflowDef.builder().route("uneven-fork")
                 .tasks(List.of(fork, join, task("after", TaskType.TASK_TYPE_NOOP))).build();
-        WorkflowExecutorOps executor = new WorkflowExecutorOps(decider, registry,
+        TestWorkflowExecutor executor = new TestWorkflowExecutor(decider, registry,
                 dao, metadataService(definition),
                 new IDGenerator(), parameters, new InMemoryExecutionLockService());
         ExecutorService branches = Executors.newFixedThreadPool(2);
         ExecutorService caller = Executors.newSingleThreadExecutor();
-        executor.setTaskScheduler(new CallerAndForkTaskScheduler(branches, registry));
+        executor.useTaskExecutor(branches);
         try {
-            var result = caller.submit(() -> executor.startWorkflow(
+            var result = caller.submit(() -> executor.startWorkflowSync(
                     StartWorkflowInput.builder().route(definition.getRoute())
                             .workflowInput(Map.of("items", List.of("one", "two"))).build()));
             assertTrue(successorStarted.await(2, TimeUnit.SECONDS));
@@ -178,8 +184,8 @@ class WorkflowExecutorOpsThreadPoolTest {
         AtomicReference<TaskModel> updatedTask = new AtomicReference<>();
         ExecutionDAOFacade executionDAOFacade = executionDAOFacade(updatedTask);
 
-        WorkflowExecutorOps executor =
-                new WorkflowExecutorOps(
+        TestWorkflowExecutor executor =
+                new TestWorkflowExecutor(
                         decider,
                         registry,
                         executionDAOFacade,
@@ -189,12 +195,12 @@ class WorkflowExecutorOpsThreadPoolTest {
                         new InMemoryExecutionLockService());
         ExecutorService taskPool =
                 Executors.newFixedThreadPool(2, runnable -> new Thread(runnable, "test-task-pool"));
-        executor.setTaskScheduler(new CallerAndForkTaskScheduler(taskPool, registry));
+        executor.useTaskExecutor(taskPool);
 
         try {
             String callerThread = Thread.currentThread().getName();
             WorkflowModel result =
-                    executor.startWorkflow(
+                    executor.startWorkflowSync(
                             StartWorkflowInput.builder().route("thread-pool-workflow").build());
 
             assertEquals(WorkflowModel.Status.COMPLETED, result.getStatus());
@@ -202,10 +208,84 @@ class WorkflowExecutorOpsThreadPoolTest {
             assertEquals(TaskModel.Status.COMPLETED, result.getTasks().get(0).getStatus());
             assertTrue(result.getTasks().get(0).isExecuted());
             assertEquals(callerThread, executionThread.get());
-            assertEquals(result.getTasks().get(0), updatedTask.get());
+            assertEquals(result.getTasks().get(0).getTaskId(), updatedTask.get().getTaskId());
+            assertEquals(TaskModel.Status.COMPLETED, updatedTask.get().getStatus());
         } finally {
             taskPool.shutdownNow();
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {TaskType.TASK_TYPE_HTTP, TaskType.TASK_TYPE_JDBC,
+            TaskType.TASK_TYPE_SPI, TaskType.TASK_TYPE_WEBSERVICE})
+    void dispatchesLinearAsyncTaskToMemoryWorkerThenMapsItsCompleteResult(String type) {
+        AtomicReference<String> asyncThread = new AtomicReference<>();
+        AtomicReference<String> mappingThread = new AtomicReference<>();
+        WorkflowSystemTask remote = new WorkflowSystemTask(type) {
+            @Override
+            public boolean isAsync() {
+                return true;
+            }
+
+            @Override
+            public void start(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor) {
+                asyncThread.set(Thread.currentThread().getName());
+                task.setOutputData(List.of("remote", 42));
+                task.setStatus(TaskModel.Status.COMPLETED);
+            }
+        };
+        WorkflowSystemTask mapping = new WorkflowSystemTask(TaskType.TASK_TYPE_MAPPING) {
+            @Override
+            public void start(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor) {
+                mappingThread.set(Thread.currentThread().getName());
+                assertEquals(List.of("remote", 42), task.getInputData().get("source"));
+                task.setOutputData("mapped");
+                task.setStatus(TaskModel.Status.COMPLETED);
+            }
+        };
+        SystemTaskRegistry registry = new SystemTaskRegistry(Set.of(remote, mapping));
+        ParametersUtils parameters = new ParametersUtils(new ObjectMapper());
+        WorkflowTask mapped = task("mapped", TaskType.TASK_TYPE_MAPPING);
+        mapped.setInputParameters(Map.of("source", "${remote.output}"));
+        WorkflowDef definition = WorkflowDef.builder().route("linear-async-" + type)
+                .tasks(List.of(task("remote", type), mapped)).build();
+        TestWorkflowExecutor executor = new TestWorkflowExecutor(
+                boundedDecider(parameters, registry, Map.of(type, simpleMapper(type),
+                        TaskType.TASK_TYPE_MAPPING, simpleMapper(TaskType.TASK_TYPE_MAPPING))),
+                registry, executionDAOFacade(new AtomicReference<>()), metadataService(definition),
+                new IDGenerator(), parameters, new InMemoryExecutionLockService());
+        ExecutorService workers = Executors.newSingleThreadExecutor(
+                runnable -> new Thread(runnable, "linear-async-worker"));
+        executor.useTaskExecutor(workers);
+        try {
+            WorkflowModel result = executor.startWorkflowSync(
+                    StartWorkflowInput.builder().route(definition.getRoute()).build());
+            assertEquals(WorkflowModel.Status.COMPLETED, result.getStatus());
+            assertEquals("linear-async-worker", asyncThread.get());
+            assertEquals("linear-async-worker", mappingThread.get());
+            assertEquals("mapped", result.getOutput());
+            assertTrue(result.getTaskByRefName("remote").isExecuted());
+        } finally {
+            workers.shutdownNow();
+        }
+    }
+
+    private TaskMapper simpleMapper(String type) {
+        return new TaskMapper() {
+            @Override
+            public String getTaskType() {
+                return type;
+            }
+
+            @Override
+            public List<TaskModel> getMappedTasks(TaskMapperContext context) {
+                TaskModel task = context.createTaskModel();
+                task.setInputData(context.getTaskInput());
+                task.setTaskType(type);
+                task.setStatus(TaskModel.Status.SCHEDULED);
+                return List.of(task);
+            }
+        };
     }
 
     @Test
@@ -216,6 +296,11 @@ class WorkflowExecutorOpsThreadPoolTest {
         Set<String> mapperThreads = ConcurrentHashMap.newKeySet();
         WorkflowSystemTask noop =
                 new WorkflowSystemTask(TaskType.TASK_TYPE_NOOP) {
+                    @Override
+                    public boolean isAsync() {
+                        return true;
+                    }
+
                     @Override
                     public void start(
                             WorkflowModel workflow,
@@ -277,8 +362,8 @@ class WorkflowExecutorOpsThreadPoolTest {
                         .tasks(List.of(fork, join, afterJoin))
                         .build();
 
-        WorkflowExecutorOps executor =
-                new WorkflowExecutorOps(
+        TestWorkflowExecutor executor =
+                new TestWorkflowExecutor(
                         decider,
                         registry,
                         executionDAOFacade(new AtomicReference<>()),
@@ -292,13 +377,13 @@ class WorkflowExecutorOpsThreadPoolTest {
         ExecutorService caller =
                 Executors.newSingleThreadExecutor(
                         runnable -> new Thread(runnable, "test-workflow-caller"));
-        executor.setTaskScheduler(new CallerAndForkTaskScheduler(taskPool, registry));
+        executor.useTaskExecutor(taskPool);
 
         try {
             var resultFuture =
                     caller.submit(
                             () ->
-                                    executor.startWorkflow(
+                                    executor.startWorkflowSync(
                                             StartWorkflowInput.builder()
                                                     .route("fork-workflow")
                                                     .build()));
@@ -332,8 +417,10 @@ class WorkflowExecutorOpsThreadPoolTest {
             assertEquals("test-fork-pool", executionThreads.get("branch_a_1"));
             assertEquals("test-fork-pool", executionThreads.get("branch_a_2"));
             assertEquals("test-fork-pool", executionThreads.get("branch_b"));
-            assertEquals("test-workflow-caller", executionThreads.get("after_join"));
-            assertEquals(Set.of("test-workflow-caller"), mapperThreads);
+            assertEquals("test-fork-pool", executionThreads.get("after_join"));
+            assertTrue(mapperThreads.contains("test-workflow-caller"));
+            assertTrue(mapperThreads.stream().allMatch(thread ->
+                    thread.equals("test-workflow-caller") || thread.equals("test-fork-pool")));
         } finally {
             releaseBranches.countDown();
             caller.shutdownNow();
@@ -349,6 +436,11 @@ class WorkflowExecutorOpsThreadPoolTest {
         AtomicInteger nestedJoinEvaluations = new AtomicInteger();
         WorkflowSystemTask noop =
                 new WorkflowSystemTask(TaskType.TASK_TYPE_NOOP) {
+                    @Override
+                    public boolean isAsync() {
+                        return true;
+                    }
+
                     @Override
                     public void start(
                             WorkflowModel workflow,
@@ -416,8 +508,8 @@ class WorkflowExecutorOpsThreadPoolTest {
                         .tasks(List.of(outerFork, outerJoin, afterOuter))
                         .build();
 
-        WorkflowExecutorOps executor =
-                new WorkflowExecutorOps(
+        TestWorkflowExecutor executor =
+                new TestWorkflowExecutor(
                         decider,
                         registry,
                         executionDAOFacade(new AtomicReference<>()),
@@ -431,13 +523,13 @@ class WorkflowExecutorOpsThreadPoolTest {
         ExecutorService caller =
                 Executors.newSingleThreadExecutor(
                         runnable -> new Thread(runnable, "test-nested-caller"));
-        executor.setTaskScheduler(new CallerAndForkTaskScheduler(taskPool, registry));
+        executor.useTaskExecutor(taskPool);
 
         try {
             var resultFuture =
                     caller.submit(
                             () ->
-                                    executor.startWorkflow(
+                                    executor.startWorkflowSync(
                                             StartWorkflowInput.builder()
                                                     .route("nested-fork-workflow")
                                                     .build()));
@@ -471,7 +563,7 @@ class WorkflowExecutorOpsThreadPoolTest {
             assertEquals("test-nested-fork-pool", executionThreads.get("inner_a"));
             assertEquals("test-nested-fork-pool", executionThreads.get("inner_b"));
             assertEquals("test-nested-fork-pool", executionThreads.get("after_nested"));
-            assertEquals("test-nested-caller", executionThreads.get("after_outer"));
+            assertEquals("test-nested-fork-pool", executionThreads.get("after_outer"));
         } finally {
             releaseInnerBranches.countDown();
             caller.shutdownNow();
@@ -483,6 +575,11 @@ class WorkflowExecutorOpsThreadPoolTest {
     void failsWorkflowWhenForkBranchExecutorRejectsTask() {
         WorkflowSystemTask noop =
                 new WorkflowSystemTask(TaskType.TASK_TYPE_NOOP) {
+                    @Override
+                    public boolean isAsync() {
+                        return true;
+                    }
+
                     @Override
                     public void start(
                             WorkflowModel workflow,
@@ -513,8 +610,8 @@ class WorkflowExecutorOpsThreadPoolTest {
                         .build();
 
         AtomicReference<WorkflowModel> persistedWorkflow = new AtomicReference<>();
-        WorkflowExecutorOps executor =
-                new WorkflowExecutorOps(
+        TestWorkflowExecutor executor =
+                new TestWorkflowExecutor(
                         decider,
                         registry,
                         executionDAOFacade(new AtomicReference<>(), persistedWorkflow),
@@ -522,16 +619,11 @@ class WorkflowExecutorOpsThreadPoolTest {
                         new IDGenerator(),
                         new ParametersUtils(new ObjectMapper()),
                         new InMemoryExecutionLockService());
-        executor.setTaskScheduler(
-                new CallerAndForkTaskScheduler(
-                        command -> {
-                            throw new RejectedExecutionException("full");
-                        },
-                        registry));
+        executor.useTaskExecutor(command -> { throw new RejectedExecutionException("full"); });
 
         TerminateWorkflowException failure = assertThrows(
                 TerminateWorkflowException.class,
-                () -> executor.startWorkflow(
+                () -> executor.startWorkflowSync(
                         StartWorkflowInput.builder().route("rejected-fork-workflow").build()));
         WorkflowModel result = persistedWorkflow.get();
 
@@ -544,7 +636,8 @@ class WorkflowExecutorOpsThreadPoolTest {
         assertTrue(
                 result.getTaskByRefName("branch")
                         .getReasonForInCompletion()
-                        .contains("线程池已满"));
+                        .contains("内存队列提交失败"));
+        assertTrue(result.getTaskByRefName("branch").getReasonForInCompletion().contains("full"));
     }
 
     @Test
@@ -584,8 +677,8 @@ class WorkflowExecutorOpsThreadPoolTest {
                         .tasks(List.of(loop))
                         .build();
 
-        WorkflowExecutorOps executor =
-                new WorkflowExecutorOps(
+        TestWorkflowExecutor executor =
+                new TestWorkflowExecutor(
                         decider,
                         registry,
                         executionDAOFacade(new AtomicReference<>()),
@@ -596,7 +689,7 @@ class WorkflowExecutorOpsThreadPoolTest {
         String callerThread = Thread.currentThread().getName();
 
         WorkflowModel result =
-                executor.startWorkflow(
+                executor.startWorkflowSync(
                         StartWorkflowInput.builder().route("do-while-workflow").build());
 
         assertEquals(WorkflowModel.Status.COMPLETED, result.getStatus());
@@ -605,28 +698,6 @@ class WorkflowExecutorOpsThreadPoolTest {
                 TaskModel.Status.COMPLETED,
                 result.getTaskByRefName("loop_body__1").getStatus());
         assertEquals(callerThread, loopThread.get());
-    }
-
-    @Test
-    void failsWhenControlCannotProgressAndNoBranchCanWakeCaller() {
-        ParametersUtils parameters = new ParametersUtils(new ObjectMapper());
-        SystemTaskRegistry registry = new SystemTaskRegistry(Set.of(new Join()));
-        WorkflowTask join = task("join", TaskType.TASK_TYPE_JOIN);
-        join.setJoinOn(List.of("missing_branch"));
-        WorkflowDef definition = WorkflowDef.builder().route("stalled-workflow")
-                .tasks(List.of(join)).build();
-        AtomicReference<WorkflowModel> persisted = new AtomicReference<>();
-        WorkflowExecutorOps executor = new WorkflowExecutorOps(
-                boundedDecider(parameters, registry, Map.of(TaskType.TASK_TYPE_JOIN, new JoinTaskMapper())),
-                registry, executionDAOFacade(new AtomicReference<>(), persisted), metadataService(definition),
-                new IDGenerator(), parameters, new InMemoryExecutionLockService());
-
-        TerminateWorkflowException failure = assertThrows(TerminateWorkflowException.class,
-                () -> executor.startWorkflow(StartWorkflowInput.builder().route(definition.getRoute()).build()));
-
-        assertTrue(failure.getMessage().contains("无法推进"));
-        assertEquals(WorkflowModel.Status.FAILED, persisted.get().getStatus());
-        assertEquals(TaskModel.Status.CANCELED, persisted.get().getTaskByRefName("join").getStatus());
     }
 
     private DeciderService boundedDecider(
@@ -669,27 +740,56 @@ class WorkflowExecutorOpsThreadPoolTest {
 
     private ExecutionDAOFacade executionDAOFacade(
             AtomicReference<TaskModel> updatedTask, AtomicReference<WorkflowModel> updatedWorkflow) {
-        ExecutionDAO executionDAO =
-                (ExecutionDAO)
-                        Proxy.newProxyInstance(
-                                ExecutionDAO.class.getClassLoader(),
-                                new Class<?>[] {ExecutionDAO.class},
-                                (proxy, method, args) -> {
-                                    return switch (method.getName()) {
-                                        case "createTasks" -> args[0];
-                                        case "updateTask" -> {
-                                            updatedTask.set((TaskModel) args[0]);
-                                            yield null;
-                                        }
-                                        case "updateWorkflow" -> {
-                                            WorkflowModel workflow = (WorkflowModel) args[0];
-                                            updatedWorkflow.set(workflow);
-                                            yield workflow.getWorkflowId();
-                                        }
-                                        default -> defaultValue(method.getReturnType());
-                                    };
-                                });
+        Map<String, TaskModel> storedTasks = new ConcurrentHashMap<>();
+        AtomicReference<WorkflowModel> storedHeader = new AtomicReference<>();
+        ExecutionDAO executionDAO = (ExecutionDAO) Proxy.newProxyInstance(
+                ExecutionDAO.class.getClassLoader(), new Class<?>[] {ExecutionDAO.class},
+                (proxy, method, args) -> switch (method.getName()) {
+                    case "createTasks" -> {
+                        for (Object value : (List<?>) args[0]) {
+                            TaskModel task = (TaskModel) value;
+                            storedTasks.put(task.getTaskId(), copyTask(task));
+                        }
+                        yield args[0];
+                    }
+                    case "updateTask" -> {
+                        TaskModel task = (TaskModel) args[0];
+                        storedTasks.put(task.getTaskId(), copyTask(task));
+                        updatedTask.set(copyTask(task));
+                        WorkflowModel header = storedHeader.get();
+                        if (header != null) {
+                            updatedWorkflow.set(snapshot(header, storedTasks));
+                        }
+                        yield null;
+                    }
+                    case "createWorkflow", "updateWorkflow" -> {
+                        WorkflowModel workflow = (WorkflowModel) args[0];
+                        storedHeader.set(copyWorkflow(workflow));
+                        updatedWorkflow.set(snapshot(workflow, storedTasks));
+                        yield workflow.getWorkflowId();
+                    }
+                    case "getTask" -> Optional.ofNullable(storedTasks.get(args[0])).map(WorkflowExecutorOpsThreadPoolTest::copyTask);
+                    case "getWorkflow" -> Optional.ofNullable(storedHeader.get())
+                            .map(workflow -> snapshot(workflow, storedTasks));
+                    default -> defaultValue(method.getReturnType());
+                });
         return new ExecutionDAOFacade(executionDAO, new ObjectMapper());
+    }
+
+    private static WorkflowModel snapshot(WorkflowModel source, Map<String, TaskModel> tasks) {
+        WorkflowModel snapshot = copyWorkflow(source);
+        snapshot.setTasks(tasks.values().stream()
+                .sorted(java.util.Comparator.comparingInt(TaskModel::getSeq))
+                .map(WorkflowExecutorOpsThreadPoolTest::copyTask).toList());
+        return snapshot;
+    }
+
+    private static WorkflowModel copyWorkflow(WorkflowModel source) {
+        return WorkflowExecutionMapper.toModel(WorkflowExecutionMapper.toWorkflowHeader(source));
+    }
+
+    private static TaskModel copyTask(TaskModel source) {
+        return TaskModel.fromTask(source.toTask());
     }
 
     private Object defaultValue(Class<?> returnType) {

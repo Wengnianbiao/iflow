@@ -61,6 +61,11 @@ public class HttpTask extends WorkflowSystemTask {
     }
 
     @Override
+    public boolean isAsync() {
+        return true;
+    }
+
+    @Override
     public void start(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor) {
         Object request = task.getInputData();
 

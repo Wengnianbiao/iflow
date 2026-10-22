@@ -30,7 +30,7 @@ public class JarvisServiceImpl implements JarvisService {
         try {
             Map<String, Object> input = JsonUtils.fromBean(request);
             WorkflowModel executedWorkflow =
-                    workflowExecutionService.startWorkflow(
+                    workflowExecutionService.startWorkflowSync(
                             StartWorkflowRequest.builder()
                                     .route(workflowRoute)
                                     .input(input)

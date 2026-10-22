@@ -209,8 +209,8 @@ class WorkflowSweeperTest {
                                     }
                                     return defaultValue(method.getReturnType());
                                 });
-        WorkflowExecutorOps executor =
-                new WorkflowExecutorOps(
+        TestWorkflowExecutor executor =
+                new TestWorkflowExecutor(
                         deciderService,
                         registry,
                         new ExecutionDAOFacade(executionDAO, new ObjectMapper()),
@@ -219,7 +219,7 @@ class WorkflowSweeperTest {
                         parametersUtils,
                         new InMemoryExecutionLockService());
 
-        assertThrows(TerminateWorkflowException.class, () -> executor.startWorkflow(
+        assertThrows(TerminateWorkflowException.class, () -> executor.startWorkflowSync(
                 StartWorkflowInput.builder().route(workflowDefinition.getRoute()).build()));
         WorkflowModel result = drivenWorkflow.get();
 

@@ -6,11 +6,7 @@ import com.helianhealth.iflow.core.execution.WorkflowExecutor;
 import com.helianhealth.iflow.core.model.WorkflowModel;
 import org.springframework.stereotype.Service;
 
-/**
- * {@link WorkflowExecutionService} 默认实现：将请求转为引擎入参后委托 {@link WorkflowExecutor}。
- *
- * <p>工作流定义由引擎按 route/version 解析，本层不查询元数据。
- */
+/** 分别委托普通启动与等待终态两种引擎入口。 */
 @Service
 public class WorkflowExecutionServiceImpl implements WorkflowExecutionService {
 
@@ -21,7 +17,12 @@ public class WorkflowExecutionServiceImpl implements WorkflowExecutionService {
     }
 
     @Override
-    public WorkflowModel startWorkflow(StartWorkflowRequest request) {
+    public String startWorkflow(StartWorkflowRequest request) {
         return workflowExecutor.startWorkflow(StartWorkflowInput.from(request));
+    }
+
+    @Override
+    public WorkflowModel startWorkflowSync(StartWorkflowRequest request) {
+        return workflowExecutor.startWorkflowSync(StartWorkflowInput.from(request));
     }
 }

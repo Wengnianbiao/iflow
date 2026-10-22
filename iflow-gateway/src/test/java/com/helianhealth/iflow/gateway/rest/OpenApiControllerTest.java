@@ -3,6 +3,7 @@ package com.helianhealth.iflow.gateway.rest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.helianhealth.iflow.common.domain.run.StartWorkflowRequest;
 import com.helianhealth.iflow.core.model.WorkflowModel;
+import com.helianhealth.iflow.core.service.WorkflowExecutionService;
 import com.helianhealth.iflow.core.utils.ParametersUtils;
 import jakarta.servlet.Filter;
 import jakarta.servlet.http.HttpServletRequest;
@@ -54,16 +55,24 @@ class OpenApiControllerTest {
     }
 
     private MockMvc mvc(int limit, boolean raw, Filter... filters) {
-        OpenApiService service = new OpenApiServiceImpl(request -> {
-            started = request;
-            starts++;
-            if (executionFailure != null) {
-                throw executionFailure;
+        OpenApiService service = new OpenApiServiceImpl(new WorkflowExecutionService() {
+            @Override
+            public String startWorkflow(StartWorkflowRequest request) {
+                throw new AssertionError("Open API 必须同步等待工作流输出");
             }
-            WorkflowModel result = new WorkflowModel();
-            result.setStatus(WorkflowModel.Status.COMPLETED);
-            result.setOutput(Map.of("ok", true));
-            return result;
+
+            @Override
+            public WorkflowModel startWorkflowSync(StartWorkflowRequest request) {
+                started = request;
+                starts++;
+                if (executionFailure != null) {
+                    throw executionFailure;
+                }
+                WorkflowModel result = new WorkflowModel();
+                result.setStatus(WorkflowModel.Status.COMPLETED);
+                result.setOutput(Map.of("ok", true));
+                return result;
+            }
         });
         return MockMvcBuilders.standaloneSetup(new OpenApiController(service,
                 new OpenApiRequestReader(new ObjectMapper(), limit, raw)))

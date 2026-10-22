@@ -7,9 +7,8 @@ import com.helianhealth.iflow.core.model.WorkflowModel;
 /**
  * 系统任务基类
  *
- * <p>任务由 Decider 产出、Scheduler 调度：控制节点和根执行域任务使用工作流调用线程，
- * FORK 分支业务任务使用专用线程池。
- * 任务本身不选择执行线程，也不直接触发下一轮 Decider。
+ * <p>任务由 Decider 产出：同步任务在工作流推进线程执行，异步任务交给内存队列中的工作线程。
+ * 任务本身不创建线程，也不直接触发下一轮 Decider。
  */
 public abstract class WorkflowSystemTask {
 
@@ -19,11 +18,16 @@ public abstract class WorkflowSystemTask {
         this.taskType = taskType;
     }
 
-    /** 首次启动任务。业务任务返回时必须进入终态，控制任务可等待后续评估。 */
+    /** 是否通过内存队列异步执行；控制任务和纯计算任务默认同步执行。 */
+    public boolean isAsync() {
+        return false;
+    }
+
+    /** 首次启动任务。一次性业务任务返回时必须进入终态，控制任务可等待后续评估。 */
     public void start(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
     }
 
-    /** 主线程评估控制任务；状态、迭代或任务图有实际推进时返回 true，等待时返回 false。 */
+    /** 工作流推进线程评估控制任务；状态、迭代或任务图有实际推进时返回 true，等待时返回 false。 */
     public boolean execute(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
         return false;
     }

@@ -51,6 +51,7 @@
 
         <!-- 测试依赖版本 -->
         <mockito.version>5.14.2</mockito.version>
+        <!-- JS引擎 -->
         <graaljs.version>24.1.2</graaljs.version>
     </properties>
 

@@ -184,7 +184,9 @@ public class WorkflowSweeper {
         workflow.setStatus(WorkflowModel.Status.TIMED_OUT);
         workflow.setReasonForInCompletion(reason);
         workflow.setEndTime(now);
-        if (executionDAOFacade != null) {
+        if (workflowExecutor != null) {
+            workflowExecutor.updateWorkflow(workflow);
+        } else if (executionDAOFacade != null) {
             executionDAOFacade.updateWorkflow(workflow);
         }
     }

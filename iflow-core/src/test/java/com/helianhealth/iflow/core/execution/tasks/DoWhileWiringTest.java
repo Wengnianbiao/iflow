@@ -5,9 +5,10 @@ import com.helianhealth.iflow.common.domain.metadata.task.TaskType;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 import com.helianhealth.iflow.core.config.AgentCoreConfiguration;
+import com.helianhealth.iflow.core.config.InMemoryQueueConfiguration;
 import com.helianhealth.iflow.core.dal.ExecutionDAOFacade;
 import com.helianhealth.iflow.core.dao.ExecutionDAO;
-import com.helianhealth.iflow.core.execution.CallerAndForkTaskScheduler;
+import com.helianhealth.iflow.core.execution.WorkflowCompletionRegistry;
 import com.helianhealth.iflow.core.execution.DeciderService;
 import com.helianhealth.iflow.core.execution.WorkflowExecutor;
 import com.helianhealth.iflow.core.execution.WorkflowExecutorOps;
@@ -30,7 +31,6 @@ import java.util.Map;
 import java.util.concurrent.Executor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -44,13 +44,13 @@ import static org.mockito.Mockito.when;
 class DoWhileWiringTest {
 
     @Test
-    void wiresWithoutCircularReferencesOrProxiesAndRegistersEachIteration() {
+    void wiresWithoutCircularReferencesOrProxiesAndSchedulesEachIteration() {
         try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
             context.getDefaultListableBeanFactory().setAllowCircularReferences(false);
             context.register(TaskConfiguration.class, ParametersUtils.class, ExecutionDAOFacade.class,
                     IDGenerator.class, DoWhile.class, Noop.class, SystemTaskRegistry.class,
                     DeciderService.class, InMemoryExecutionLockService.class,
-                    CallerAndForkTaskScheduler.class, WorkflowExecutorOps.class);
+                    InMemoryQueueConfiguration.class, WorkflowCompletionRegistry.class, WorkflowExecutorOps.class);
             context.refresh();
 
             DoWhile doWhile = context.getBean(DoWhile.class);
@@ -82,24 +82,21 @@ class DoWhileWiringTest {
             assertTrue(doWhile.execute(workflow, loop, executor));
             TaskModel first = workflow.getTaskByRefName("body__1");
             assertNotNull(first);
-            assertEquals(TaskModel.Status.SCHEDULED, first.getStatus());
-            assertEquals(0, first.getStartTime());
+            assertEquals(TaskModel.Status.COMPLETED, first.getStatus());
+            assertTrue(first.getStartTime() > 0);
             assertEquals(1, first.getIteration());
             assertEquals(2, workflow.getTasks().size());
-            assertFalse(doWhile.execute(workflow, loop, executor));
-            assertEquals(2, workflow.getTasks().size());
-
-            first.setStatus(TaskModel.Status.COMPLETED);
             assertTrue(doWhile.execute(workflow, loop, executor));
             TaskModel second = workflow.getTaskByRefName("body__2");
             assertNotNull(second);
-            assertEquals(TaskModel.Status.SCHEDULED, second.getStatus());
-            assertEquals(0, second.getStartTime());
+            assertEquals(TaskModel.Status.COMPLETED, second.getStatus());
+            assertTrue(second.getStartTime() > 0);
             assertEquals(2, second.getIteration());
             assertEquals(3, workflow.getTasks().size());
             assertEquals(TaskModel.Status.IN_PROGRESS, loop.getStatus());
+            assertTrue(doWhile.execute(workflow, loop, executor));
+            assertEquals(TaskModel.Status.COMPLETED, loop.getStatus());
             verify(context.getBean(ExecutionDAO.class), times(3)).createTasks(anyList());
-            verify(context.getBean(ExecutionDAO.class), times(3)).updateWorkflow(workflow);
         }
     }
 
@@ -116,10 +113,10 @@ class DoWhileWiringTest {
             return mock(MetadataService.class);
         }
 
-        @Bean(name = AgentCoreConfiguration.FORK_BRANCH_TASK_EXECUTOR)
-        Executor forkBranchExecutor() {
+        @Bean(name = AgentCoreConfiguration.ASYNC_TASK_EXECUTOR)
+        Executor memoryExecutor() {
             return command -> {
-                throw new AssertionError("DO_WHILE 登记轮次任务时不应提交业务执行");
+                throw new AssertionError("同步循环体不应提交异步任务");
             };
         }
 

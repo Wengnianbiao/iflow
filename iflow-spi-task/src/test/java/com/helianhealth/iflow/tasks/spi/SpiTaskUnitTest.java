@@ -43,6 +43,11 @@ class SpiTaskUnitTest {
     }
 
     @Test
+    void executesAsynchronously() {
+        assertTrue(spiTask.isAsync());
+    }
+
+    @Test
     void extractSpiInputReadsOnlyNestedMap() {
         Map<String, Object> input = Map.of(
                 SpiTaskInput.REMOTE_EXTENSION, "my-invoker",

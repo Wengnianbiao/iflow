@@ -43,6 +43,11 @@ class WebServiceTaskUnitTest {
     }
 
     @Test
+    void executesAsynchronously() {
+        assertTrue(webServiceTask.isAsync());
+    }
+
+    @Test
     void deserializeInputParameters() {
         Map<String, Object> inputMap = new HashMap<>();
         inputMap.put("uri", "http://example.com/soap");

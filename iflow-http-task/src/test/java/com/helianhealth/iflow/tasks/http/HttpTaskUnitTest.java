@@ -47,6 +47,11 @@ class HttpTaskUnitTest {
     }
 
     @Test
+    void executesAsynchronously() {
+        assertTrue(httpTask.isAsync());
+    }
+
+    @Test
     void acceptDefaultValue() {
         HttpTask.Input input = new HttpTask.Input();
         assertEquals("application/json", input.getAccept());

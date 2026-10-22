@@ -83,11 +83,12 @@ class WorkflowExecutorOpsPersistenceTest {
                                                 persistedTask.set((TaskModel) args[0]);
                                                 yield null;
                                             }
-                                            case "updateWorkflow" -> {
+                                            case "createWorkflow", "updateWorkflow" -> {
                                                 WorkflowModel workflow = (WorkflowModel) args[0];
                                                 persistedWorkflow.set(workflow);
                                                 yield workflow.getWorkflowId();
                                             }
+                                            case "getWorkflow" -> Optional.ofNullable(persistedWorkflow.get());
                                             case "removeWorkflow" -> {
                                                 workflowRemoved.set(true);
                                                 yield null;
@@ -106,8 +107,8 @@ class WorkflowExecutorOpsPersistenceTest {
                                     return defaultValue(method.getReturnType());
                                 });
 
-        WorkflowExecutorOps executor =
-                new WorkflowExecutorOps(
+        TestWorkflowExecutor executor =
+                new TestWorkflowExecutor(
                         deciderService,
                         registry,
                         new ExecutionDAOFacade(executionDAO, new ObjectMapper()),
@@ -120,7 +121,7 @@ class WorkflowExecutorOpsPersistenceTest {
                 assertThrows(
                         TerminateWorkflowException.class,
                         () ->
-                                executor.startWorkflow(
+                                executor.startWorkflowSync(
                                         StartWorkflowInput.builder()
                                                 .route(workflowDefinition.getRoute())
                                                 .build()));

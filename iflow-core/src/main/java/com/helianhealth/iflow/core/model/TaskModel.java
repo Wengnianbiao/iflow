@@ -201,7 +201,7 @@ public class TaskModel {
      *
      * <p>嵌套 FORK 的控制节点自身保留外层 execution scope，子分支切换到新的 forkTaskId，
      * 对应 JOIN 再恢复控制节点原有 scope。
-     * 业务任务在分支线程池执行，控制节点仍由工作流调用线程推进。
+     * 执行域只表达图关系；HTTP/JDBC/SPI/WEBSERVICE 经异步任务池执行，MAPPING 和控制节点由驱动线程推进。
      */
     private String forkTaskId;
 

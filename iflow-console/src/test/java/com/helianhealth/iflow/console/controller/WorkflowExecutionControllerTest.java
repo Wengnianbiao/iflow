@@ -1,9 +1,11 @@
 package com.helianhealth.iflow.console.controller;
 
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
+import com.helianhealth.iflow.common.domain.run.StartWorkflowRequest;
 import com.helianhealth.iflow.console.model.response.WorkflowExecutionSummary;
 import com.helianhealth.iflow.core.dao.ExecutionDAO;
 import com.helianhealth.iflow.core.model.WorkflowModel;
+import com.helianhealth.iflow.core.service.WorkflowExecutionService;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
@@ -13,6 +15,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.*;
 
 class WorkflowExecutionControllerTest {
     private final Map<List<Object>, Object> answers = new HashMap<>();
@@ -29,6 +32,18 @@ class WorkflowExecutionControllerTest {
         answers.put(List.of(method, List.of(args)), value);
     }
     private final WorkflowExecutionController controller = new WorkflowExecutionController(dao, null, null, null);
+
+    @Test
+    void consoleStartReturnsSubmittedWorkflowIdUsingAsynchronousEntry() {
+        WorkflowExecutionService service = mock(WorkflowExecutionService.class);
+        StartWorkflowRequest request = StartWorkflowRequest.builder().route("pacs/apply").build();
+        when(service.startWorkflow(request)).thenReturn("submitted");
+        WorkflowExecutionController launchController = new WorkflowExecutionController(dao, null, service, null);
+
+        assertEquals("submitted", launchController.start(request).getData());
+        verify(service).startWorkflow(request);
+        verifyNoMoreInteractions(service);
+    }
 
     @Test
     void mergesSelectedWorkflowsBeforeSortingAndPagination() {

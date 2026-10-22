@@ -29,6 +29,11 @@ public class SpiTask extends WorkflowSystemTask {
     }
 
     @Override
+    public boolean isAsync() {
+        return true;
+    }
+
+    @Override
     public void start(WorkflowModel workflow, TaskModel task, WorkflowExecutor workflowExecutor) {
         try {
             Map<String, Object> inputData = task.getInputData();

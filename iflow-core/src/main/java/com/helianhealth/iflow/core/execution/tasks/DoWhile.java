@@ -114,9 +114,8 @@ public class DoWhile extends WorkflowSystemTask {
 
             // For list iteration, inject loopItem and loopIndex
             injectLoopVariables(workflow, doWhileTaskModel);
-            // DO_WHILE 只推进循环状态，注册本轮入口任务，由下一轮 Decider 统一调度。
-            // 避免在 FORK 线程池内递归调度并同步等待循环体，造成线程池饥饿死锁。
-            workflowExecutor.addNextIterationTasks(doWhileTaskModel, workflow);
+            // 当前线程调度本轮入口；同步任务直接启动，异步任务入队，不等待其完成。
+            workflowExecutor.scheduleNextIteration(doWhileTaskModel, workflow);
             return true;
         }
 
@@ -179,7 +178,7 @@ public class DoWhile extends WorkflowSystemTask {
                 // For list iteration, inject loopItem and loopIndex for next iteration
                 injectLoopVariables(workflow, doWhileTaskModel);
 
-                workflowExecutor.addNextIterationTasks(doWhileTaskModel, workflow);
+                workflowExecutor.scheduleNextIteration(doWhileTaskModel, workflow);
             } else {
                 LOGGER.debug(
                         "Task {} took {} iterations to complete",

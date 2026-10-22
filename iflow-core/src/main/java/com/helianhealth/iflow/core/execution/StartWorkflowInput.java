@@ -13,8 +13,11 @@ import java.util.Map;
  * 定义由引擎按 route/version 查询（version 为 null 取最新）。
  */
 @Getter
-@Builder
+@Builder(toBuilder = true)
 public class StartWorkflowInput {
+
+    /** 可选实例 ID；为 null 时由引擎生成。 */
+    private final String workflowId;
 
     private final String route;
 

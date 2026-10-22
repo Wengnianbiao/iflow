@@ -19,6 +19,7 @@ import com.helianhealth.iflow.core.execution.tasks.WorkflowSystemTask;
 import com.helianhealth.iflow.core.lock.InMemoryExecutionLockService;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
+import com.helianhealth.iflow.core.model.WorkflowExecutionMapper;
 import com.helianhealth.iflow.core.service.MetadataService;
 import com.helianhealth.iflow.core.utils.IDGenerator;
 import com.helianhealth.iflow.core.utils.ParametersUtils;
@@ -33,6 +34,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -75,8 +77,20 @@ class WorkflowExecutorOpsEndExecutionTest {
     @Test
     void cancelsNonTerminalTasksAfterTerminateFinalizesWorkflow() {
         AtomicBoolean cancelCalled = new AtomicBoolean();
+        AtomicBoolean startCalled = new AtomicBoolean();
         WorkflowSystemTask noop =
                 new WorkflowSystemTask(TaskType.TASK_TYPE_NOOP) {
+                    @Override
+                    public boolean isAsync() {
+                        return true;
+                    }
+
+                    @Override
+                    public void start(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor) {
+                        startCalled.set(true);
+                        task.setStatus(TaskModel.Status.COMPLETED);
+                    }
+
                     @Override
                     public void cancel(
                             WorkflowModel workflow,
@@ -98,21 +112,22 @@ class WorkflowExecutorOpsEndExecutionTest {
         WorkflowDef definition = WorkflowDef.builder().route("terminate-with-pending-task")
                 .tasks(List.of(fork, join)).build();
         ParametersUtils parameters = new ParametersUtils(new ObjectMapper());
-        WorkflowExecutorOps executor = newExecutor(registry, Map.of(
+        TestWorkflowExecutor executor = newExecutor(registry, Map.of(
                 TaskType.TASK_TYPE_FORK_JOIN, new ForkJoinTaskMapper(),
                 TaskType.TASK_TYPE_JOIN, new JoinTaskMapper(),
                 TaskType.TASK_TYPE_NOOP, new NoopTaskMapper(),
                 TaskType.TASK_TYPE_TERMINATE, new TerminateTaskMapper(parameters)), definition);
         List<Runnable> queued = new java.util.ArrayList<>();
-        executor.setTaskScheduler(new CallerAndForkTaskScheduler(queued::add, registry));
+        executor.useTaskExecutor(queued::add);
 
-        WorkflowModel result = executor.startWorkflow(StartWorkflowInput.builder().route(definition.getRoute()).build());
+        WorkflowModel result = executor.startWorkflowSync(StartWorkflowInput.builder().route(definition.getRoute()).build());
         TaskModel pendingTask = result.getTaskByRefName("pending_ref");
         assertEquals(WorkflowModel.Status.COMPLETED, result.getStatus());
         assertEquals(TaskModel.Status.CANCELED, pendingTask.getStatus());
         assertTrue(pendingTask.isExecuted());
         assertTrue(cancelCalled.get());
         queued.forEach(Runnable::run);
+        assertFalse(startCalled.get(), "a queued branch must not start after the workflow has terminated");
         assertEquals(TaskModel.Status.CANCELED, pendingTask.getStatus(), "late branch must not overwrite cancellation");
     }
 
@@ -146,34 +161,57 @@ class WorkflowExecutorOpsEndExecutionTest {
                         .tasks(List.of(terminateDefinition))
                         .build();
 
-        WorkflowExecutorOps executor = newExecutor(registry, mappers, definition);
+        TestWorkflowExecutor executor = newExecutor(registry, mappers, definition);
         WorkflowModel result =
-                executor.startWorkflow(
+                executor.startWorkflowSync(
                         StartWorkflowInput.builder().route(definition.getRoute()).build());
 
         assertNotNull(result.getTaskByRefName("terminate_ref"));
         return result;
     }
 
-    private WorkflowExecutorOps newExecutor(
+    private TestWorkflowExecutor newExecutor(
             SystemTaskRegistry registry,
             Map<String, TaskMapper> mappers,
             WorkflowDef definition) {
         ParametersUtils parametersUtils = new ParametersUtils(new ObjectMapper());
         DeciderService decider =
                 new DeciderService(new IDGenerator(), parametersUtils, registry, mappers);
-        ExecutionDAO executionDAO =
-                (ExecutionDAO)
-                        Proxy.newProxyInstance(
-                                ExecutionDAO.class.getClassLoader(),
-                                new Class<?>[] {ExecutionDAO.class},
-                                (proxy, method, args) ->
-                                        switch (method.getName()) {
-                                            case "createTasks" -> args[0];
-                                            case "updateWorkflow" ->
-                                                    ((WorkflowModel) args[0]).getWorkflowId();
-                                            default -> defaultValue(method.getReturnType());
-                                        });
+        java.util.concurrent.atomic.AtomicReference<WorkflowModel> storedWorkflow =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        Map<String, TaskModel> storedTasks = new HashMap<>();
+        ExecutionDAO executionDAO = (ExecutionDAO) Proxy.newProxyInstance(
+                ExecutionDAO.class.getClassLoader(), new Class<?>[] {ExecutionDAO.class},
+                (proxy, method, args) -> switch (method.getName()) {
+                    case "createTasks" -> {
+                        for (Object value : (List<?>) args[0]) {
+                            TaskModel task = (TaskModel) value;
+                            storedTasks.put(task.getTaskId(), TaskModel.fromTask(task.toTask()));
+                        }
+                        yield args[0];
+                    }
+                    case "updateTask" -> {
+                        TaskModel task = (TaskModel) args[0];
+                        storedTasks.put(task.getTaskId(), TaskModel.fromTask(task.toTask()));
+                        yield null;
+                    }
+                    case "createWorkflow", "updateWorkflow" -> {
+                        WorkflowModel workflow = (WorkflowModel) args[0];
+                        storedWorkflow.set(WorkflowExecutionMapper.toModel(
+                                WorkflowExecutionMapper.toWorkflowHeader(workflow)));
+                        yield workflow.getWorkflowId();
+                    }
+                    case "getTask" -> Optional.ofNullable(storedTasks.get(args[0]));
+                    case "getWorkflow" -> Optional.ofNullable(storedWorkflow.get()).map(source -> {
+                        WorkflowModel snapshot = WorkflowExecutionMapper.toModel(
+                                WorkflowExecutionMapper.toWorkflowHeader(source));
+                        snapshot.setTasks(storedTasks.values().stream()
+                                .sorted(java.util.Comparator.comparingInt(TaskModel::getSeq))
+                                .map(task -> TaskModel.fromTask(task.toTask())).toList());
+                        return snapshot;
+                    });
+                    default -> defaultValue(method.getReturnType());
+                });
         ExecutionDAOFacade executionDAOFacade =
                 new ExecutionDAOFacade(executionDAO, new ObjectMapper());
         MetadataService metadataService =
@@ -188,7 +226,7 @@ class WorkflowExecutorOpsEndExecutionTest {
                                     }
                                     return defaultValue(method.getReturnType());
                                 });
-        return new WorkflowExecutorOps(
+        return new TestWorkflowExecutor(
                 decider,
                 registry,
                 executionDAOFacade,

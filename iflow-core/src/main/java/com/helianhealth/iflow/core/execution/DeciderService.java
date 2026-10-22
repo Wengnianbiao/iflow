@@ -42,7 +42,7 @@ import static com.helianhealth.iflow.core.model.TaskModel.Status.SKIPPED;
  * <p>职责边界：
  * <ul>
  *   <li>占位符解析 → {@link TaskMapper} + {@link ParametersUtils}</li>
- *   <li>任务执行 → {@link TaskScheduler} 调用各系统任务的 {@code start()} 或 {@code execute()}</li>
+ *   <li>任务执行 → {@link WorkflowExecutorOps} 调用各系统任务的 {@code start()} 或 {@code execute()}</li>
  *   <li>持久化 → {@link ExecutionDAO}（由 {@link WorkflowExecutorOps} 调用）</li>
  * </ul>
  */
