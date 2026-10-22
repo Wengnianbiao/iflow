@@ -6,7 +6,7 @@ Instructions for AI coding agents working on this repository.
 
 iFlow is a Spring Boot–based pluggable workflow engine (Conductor-inspired) with a React console for visual orchestration. It can run standalone or as a Spring Boot Starter.
 
-Stack: Java 17, Maven multi-module, Spring Boot 3.4.x, React + Vite + TypeScript (`iflow-ui`).
+Stack: Java 21, Maven multi-module, Spring Boot 3.4.x, React + Vite + TypeScript (`iflow-ui`).
 
 ## Agent Doc Layout
 

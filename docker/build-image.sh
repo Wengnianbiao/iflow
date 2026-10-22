@@ -37,9 +37,9 @@ fi
 echo "==> docker build linux/amd64 $IMAGE_NAME"
 # Docker Hub is often unreachable in CN; try local tag first, then mirrors.
 BASE_CANDIDATES="${BASE_IMAGE:-}
-eclipse-temurin:17-jre-jammy
-docker.m.daocloud.io/library/eclipse-temurin:17-jre-jammy
-docker.1ms.run/library/eclipse-temurin:17-jre-jammy"
+eclipse-temurin:21-jdk-jammy
+docker.m.daocloud.io/library/eclipse-temurin:21-jdk-jammy
+docker.1ms.run/library/eclipse-temurin:21-jdk-jammy"
 
 build_image() {
   base=$1
@@ -79,8 +79,8 @@ if [ "$ok" -eq 0 ]; then
 fi
 
 if [ "$ok" -eq 0 ]; then
-  echo "failed to build image: cannot pull eclipse-temurin:17-jre-jammy" >&2
-  echo "set BASE_IMAGE to a reachable Java 17 JRE, or configure a Docker Hub mirror" >&2
+  echo "failed to build image: cannot pull eclipse-temurin:21-jdk-jammy" >&2
+  echo "set BASE_IMAGE to a reachable Java 21 JDK, or configure a Docker Hub mirror" >&2
   exit 1
 fi
 

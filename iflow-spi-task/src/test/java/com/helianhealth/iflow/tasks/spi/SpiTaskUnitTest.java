@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 class SpiTaskUnitTest {
 
-    private static final String ONLINE_EXTENSION_NAME = "node-online-java17-test";
+    private static final String ONLINE_EXTENSION_NAME = "node-online-java21-test";
 
     private RecordingSpiExtensionRouter extensionRouter;
     private SpiTask spiTask;
@@ -98,30 +98,33 @@ class SpiTaskUnitTest {
     }
 
     @Test
-    void compilesEmbeddedJava17ExtensionAtInvocationTime() {
+    void compilesEmbeddedJava21ExtensionAtInvocationTime() {
         String sourceCode =
                 "package com.helianhealth.agent.extension;\n"
                         + "import com.helianhealth.iflow.tasks.spi.InterfaceRemoteInvoker;\n"
+                        + "import java.util.List;\n"
                         + "import java.util.Map;\n"
-                        + "public class NodeOnlineJava17Invoker implements InterfaceRemoteInvoker {\n"
+                        + "public class NodeOnlineJava21Invoker implements InterfaceRemoteInvoker {\n"
                         + "  record Result(String value) {}\n"
                         + "  public Map<String,Object> remoteInvoke(Map<String,Object> input) {\n"
-                        + "    var result = new Result(String.valueOf(input.get(\"value\")));\n"
-                        + "    return Map.of(\"value\", result.value());\n"
+                        + "    var result = new Result(List.of(String.valueOf(input.get(\"value\"))).getFirst());\n"
+                        + "    return switch (result) {\n"
+                        + "      case Result(var value) -> Map.of(\"value\", value);\n"
+                        + "    };\n"
                         + "  }\n"
                         + "}\n";
         SpiTaskInput.ExtensionDefinition definition =
                 new SpiTaskInput.ExtensionDefinition(
                         ONLINE_EXTENSION_NAME,
                         SpiTaskInput.MODE_ONLINE,
-                        "com.helianhealth.agent.extension.NodeOnlineJava17Invoker",
+                        "com.helianhealth.agent.extension.NodeOnlineJava21Invoker",
                         sourceCode);
 
         Object result =
                 new SpiExtensionRouter()
-                        .invoke(ONLINE_EXTENSION_NAME, definition, Map.of("value", "java17"));
+                        .invoke(ONLINE_EXTENSION_NAME, definition, Map.of("value", "java21"));
 
-        assertEquals(Map.of("value", "java17"), result);
+        assertEquals(Map.of("value", "java21"), result);
     }
 
     private static final class RecordingSpiExtensionRouter extends SpiExtensionRouter {

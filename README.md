@@ -26,6 +26,12 @@ iflow/
 
 ## 🚀 快速开始
 
+### 环境要求
+
+- JDK 21（编译与运行）；SPI 在线扩展依赖 JDK 编译器，运行时也应使用完整 JDK。
+- 作为 Starter 集成时，宿主应用同样需要使用 Java 21 或更高版本。
+- Docker 默认使用 `eclipse-temurin:21-jdk-jammy`，自定义 `BASE_IMAGE` 时也需提供 JDK 21 或更高版本。
+
 ### 方式一：独立运行
 
 ```bash

@@ -54,9 +54,9 @@ public class DynamicCompiler {
     }
 
     private DynamicCompiler() {
-        // iFlow 的编译基线是 Java 17。使用 --release 同时约束语言特性、JDK API 与字节码版本，
-        // 即使应用由更高版本 JDK 启动，在线扩展仍保持 Java 17 兼容。
-        this(Arrays.asList("--release", "17", "-proc:none", "-parameters"));
+        // iFlow 的编译基线是 Java 21。使用 --release 同时约束语言特性、JDK API 与字节码版本，
+        // 即使应用由更高版本 JDK 启动，在线扩展仍保持 Java 21 兼容。
+        this(Arrays.asList("--release", "21", "-proc:none", "-parameters"));
 
     }
 
