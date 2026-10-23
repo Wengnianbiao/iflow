@@ -34,6 +34,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 class WorkflowSweeperTest {
 
@@ -62,9 +66,11 @@ class WorkflowSweeperTest {
 
         List<TaskModel> updated = new ArrayList<>();
         AtomicReference<WorkflowModel> persisted = new AtomicReference<>();
-        sweeper = sweeper(3600, recordingDao(workflow, updated, persisted), null);
+        ExecutionDAO dao = recordingDao(workflow, updated, persisted);
+        sweeper = sweeper(3600, dao, null);
+        WorkflowExecutor executor = recordingExecutor(dao);
 
-        assertTrue(sweeper.sweep(workflow, null));
+        assertTrue(sweeper.sweep(workflow, executor));
 
         assertEquals(WorkflowModel.Status.TIMED_OUT, workflow.getStatus());
         assertEquals(TaskModel.Status.COMPLETED, completed.getStatus());
@@ -77,6 +83,7 @@ class WorkflowSweeperTest {
         assertTrue(workflow.getReasonForInCompletion().contains("next_ref(IN_PROGRESS)"));
         assertEquals(List.of(waiting, queued), updated);
         assertEquals(WorkflowModel.Status.TIMED_OUT, persisted.get().getStatus());
+        verify(executor).updateWorkflow(workflow);
     }
 
     @Test
@@ -89,13 +96,15 @@ class WorkflowSweeperTest {
         TaskModel branch = inProgressTask("sync_lis_ref");
         workflow.setTasks(List.of(join, branch));
 
-        assertTrue(sweeper.sweep(workflow, null));
+        WorkflowExecutor executor = mock(WorkflowExecutor.class);
+        assertTrue(sweeper.sweep(workflow, executor));
         assertTrue(workflow.getReasonForInCompletion().startsWith("工作流执行超过 "));
         assertTrue(
                 workflow.getReasonForInCompletion()
                         .contains("等待 JOIN apply_join_ref；未完成任务：sync_lis_ref(IN_PROGRESS)"));
         assertEquals(TaskModel.Status.TIMED_OUT, join.getStatus());
         assertEquals(TaskModel.Status.TIMED_OUT, branch.getStatus());
+        verify(executor).updateWorkflow(workflow);
     }
 
     @Test
@@ -116,8 +125,9 @@ class WorkflowSweeperTest {
         workflow.setWorkflowId("wf-locked");
         workflow.setStartTime(System.currentTimeMillis() - 10_000);
         workflow.setTasks(List.of(inProgressTask("sync_lis_ref")));
-        WorkflowSweeper sweeper =
-                sweeper(3600, recordingDao(workflow, new ArrayList<>(), new AtomicReference<>()), lock);
+        ExecutionDAO dao = recordingDao(workflow, new ArrayList<>(), new AtomicReference<>());
+        WorkflowSweeper sweeper = sweeper(3600, dao, lock);
+        WorkflowExecutor executor = recordingExecutor(dao);
 
         CountDownLatch held = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
@@ -137,12 +147,12 @@ class WorkflowSweeperTest {
         holder.start();
         assertTrue(held.await(5, TimeUnit.SECONDS));
 
-        assertFalse(sweeper.sweepStored(workflow.getWorkflowId(), null));
+        assertFalse(sweeper.sweepStored(workflow.getWorkflowId(), executor));
         assertEquals(WorkflowModel.Status.RUNNING, workflow.getStatus());
 
         release.countDown();
         holder.join(5_000);
-        assertTrue(sweeper.sweepStored(workflow.getWorkflowId(), null));
+        assertTrue(sweeper.sweepStored(workflow.getWorkflowId(), executor));
         assertEquals(WorkflowModel.Status.TIMED_OUT, workflow.getStatus());
     }
 
@@ -219,8 +229,9 @@ class WorkflowSweeperTest {
                         parametersUtils,
                         new InMemoryExecutionLockService());
 
-        assertThrows(TerminateWorkflowException.class, () -> executor.startWorkflowSync(
-                StartWorkflowInput.builder().route(workflowDefinition.getRoute()).build()));
+        StartWorkflowInput startInput = new StartWorkflowInput();
+        startInput.setRoute(workflowDefinition.getRoute());
+        assertThrows(TerminateWorkflowException.class, () -> executor.startWorkflowSync(startInput));
         WorkflowModel result = drivenWorkflow.get();
 
         assertEquals(1, executions.get());
@@ -233,6 +244,15 @@ class WorkflowSweeperTest {
 
     private static WorkflowSweeper sweeper(long defaultTimeoutSeconds) {
         return sweeper(defaultTimeoutSeconds, null, null);
+    }
+
+    private static WorkflowExecutor recordingExecutor(ExecutionDAO dao) {
+        WorkflowExecutor executor = mock(WorkflowExecutor.class);
+        doAnswer(invocation -> {
+            dao.updateWorkflow(invocation.getArgument(0));
+            return null;
+        }).when(executor).updateWorkflow(any(WorkflowModel.class));
+        return executor;
     }
 
     private static WorkflowSweeper sweeper(

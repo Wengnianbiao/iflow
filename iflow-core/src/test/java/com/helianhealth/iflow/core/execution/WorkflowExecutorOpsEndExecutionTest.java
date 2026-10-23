@@ -17,6 +17,7 @@ import com.helianhealth.iflow.core.execution.tasks.SystemTaskRegistry;
 import com.helianhealth.iflow.core.execution.tasks.Terminate;
 import com.helianhealth.iflow.core.execution.tasks.WorkflowSystemTask;
 import com.helianhealth.iflow.core.lock.InMemoryExecutionLockService;
+import com.helianhealth.iflow.core.listener.WorkflowStatusListener;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
 import com.helianhealth.iflow.core.model.WorkflowExecutionMapper;
@@ -120,7 +121,9 @@ class WorkflowExecutorOpsEndExecutionTest {
         List<Runnable> queued = new java.util.ArrayList<>();
         executor.useTaskExecutor(queued::add);
 
-        WorkflowModel result = executor.startWorkflowSync(StartWorkflowInput.builder().route(definition.getRoute()).build());
+        StartWorkflowInput startInput = new StartWorkflowInput();
+        startInput.setRoute(definition.getRoute());
+        WorkflowModel result = executor.startWorkflowSync(startInput);
         TaskModel pendingTask = result.getTaskByRefName("pending_ref");
         assertEquals(WorkflowModel.Status.COMPLETED, result.getStatus());
         assertEquals(TaskModel.Status.CANCELED, pendingTask.getStatus());
@@ -161,19 +164,24 @@ class WorkflowExecutorOpsEndExecutionTest {
                         .tasks(List.of(terminateDefinition))
                         .build();
 
-        TestWorkflowExecutor executor = newExecutor(registry, mappers, definition);
-        WorkflowModel result =
-                executor.startWorkflowSync(
-                        StartWorkflowInput.builder().route(definition.getRoute()).build());
+        java.util.concurrent.atomic.AtomicReference<WorkflowModel.Status> notifiedStatus =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        TestWorkflowExecutor executor = newExecutor(registry, mappers, definition,
+                new TestWorkflowStatusListener((workflowId, status) -> notifiedStatus.set(status)));
+        StartWorkflowInput startInput = new StartWorkflowInput();
+        startInput.setRoute(definition.getRoute());
+        WorkflowModel result = executor.startWorkflowSync(startInput);
 
         assertNotNull(result.getTaskByRefName("terminate_ref"));
+        assertEquals(terminationStatus, notifiedStatus.get());
         return result;
     }
 
     private TestWorkflowExecutor newExecutor(
             SystemTaskRegistry registry,
             Map<String, TaskMapper> mappers,
-            WorkflowDef definition) {
+            WorkflowDef definition,
+            WorkflowStatusListener... listeners) {
         ParametersUtils parametersUtils = new ParametersUtils(new ObjectMapper());
         DeciderService decider =
                 new DeciderService(new IDGenerator(), parametersUtils, registry, mappers);
@@ -233,7 +241,7 @@ class WorkflowExecutorOpsEndExecutionTest {
                 metadataService,
                 new IDGenerator(),
                 parametersUtils,
-                new InMemoryExecutionLockService());
+                new InMemoryExecutionLockService(), listeners);
     }
 
     private Object defaultValue(Class<?> returnType) {

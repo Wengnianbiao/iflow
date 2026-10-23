@@ -18,8 +18,8 @@ import java.util.Set;
 /**
  * 执行态数据访问门面。
  *
- * <p>执行引擎通过本门面访问执行数据，避免直接依赖具体的 {@link ExecutionDAO}。后续引入索引、
- * 外部载荷存储或执行事件时，相关编排统一收口在这里，而不侵入工作流执行逻辑。
+ * <p>执行引擎通过本门面访问主执行数据。查询使用独立 IndexDAO；MySQL 实现在主记录写入事务中
+ * 原子维护本地索引。引擎推进及锁内读取不依赖查询索引。
  */
 @Component
 public class ExecutionDAOFacade {

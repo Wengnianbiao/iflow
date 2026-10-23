@@ -1,0 +1,48 @@
+-- 新安装及已有数据库均执行此脚本；先建表，再部署带执行索引的应用。
+CREATE TABLE IF NOT EXISTS workflow_index (
+    workflow_id VARCHAR(255) NOT NULL PRIMARY KEY,
+    workflow_route VARCHAR(255) NOT NULL,
+    workflow_name TEXT NULL,
+    workflow_version INT NOT NULL,
+    correlation_id VARCHAR(255) NULL,
+    update_time BIGINT NOT NULL,
+    reason_for_incompletion TEXT NULL,
+    failed_task_id VARCHAR(255) NULL,
+    status VARCHAR(64) NOT NULL,
+    terminal BOOLEAN NOT NULL,
+    successful BOOLEAN NOT NULL,
+    start_time BIGINT NOT NULL,
+    end_time BIGINT NOT NULL,
+    duration_ms BIGINT NULL,
+    KEY idx_workflow_index_time (start_time),
+    KEY idx_workflow_index_route_time (workflow_route, start_time),
+    KEY idx_workflow_index_correlation (correlation_id),
+    KEY idx_workflow_index_status_time (status, start_time)
+);
+
+CREATE TABLE IF NOT EXISTS task_index (
+    task_id VARCHAR(255) NOT NULL PRIMARY KEY,
+    workflow_id VARCHAR(255) NOT NULL,
+    workflow_route VARCHAR(255) NOT NULL,
+    node_ref VARCHAR(512) NOT NULL,
+    reference_task_name VARCHAR(512) NOT NULL,
+    task_name TEXT NULL,
+    task_type VARCHAR(255) NOT NULL,
+    async_task BOOLEAN NULL,
+    status VARCHAR(64) NOT NULL,
+    terminal BOOLEAN NOT NULL,
+    successful BOOLEAN NOT NULL,
+    retry_count INT NOT NULL,
+    scheduled_time BIGINT NOT NULL,
+    actual_start_time BIGINT NOT NULL,
+    update_time BIGINT NOT NULL,
+    start_time BIGINT NOT NULL,
+    end_time BIGINT NOT NULL,
+    duration_ms BIGINT NULL,
+    KEY idx_task_index_workflow (workflow_id),
+    KEY idx_task_index_time (start_time),
+    KEY idx_task_index_async_time (async_task, start_time),
+    KEY idx_task_index_route_time (workflow_route, start_time),
+    KEY idx_task_index_status_time (status, start_time),
+    KEY idx_task_index_type_time (task_type, start_time)
+);

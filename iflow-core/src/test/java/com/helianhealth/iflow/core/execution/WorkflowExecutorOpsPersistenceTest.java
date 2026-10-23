@@ -71,6 +71,7 @@ class WorkflowExecutorOpsPersistenceTest {
         AtomicReference<TaskModel> persistedTask = new AtomicReference<>();
         AtomicReference<WorkflowModel> persistedWorkflow = new AtomicReference<>();
         AtomicBoolean workflowRemoved = new AtomicBoolean();
+        AtomicReference<WorkflowModel.Status> notifiedStatus = new AtomicReference<>();
         ExecutionDAO executionDAO =
                 (ExecutionDAO)
                         Proxy.newProxyInstance(
@@ -115,16 +116,19 @@ class WorkflowExecutorOpsPersistenceTest {
                         metadataService,
                         new IDGenerator(),
                         parametersUtils,
-                        new InMemoryExecutionLockService());
+                        new InMemoryExecutionLockService(),
+                        new TestWorkflowStatusListener((workflowId, status) -> {
+                            assertEquals(status, persistedWorkflow.get().getStatus());
+                            assertEquals(TaskModel.Status.FAILED, persistedTask.get().getStatus());
+                            notifiedStatus.set(status);
+                        }));
 
+        StartWorkflowInput startInput = new StartWorkflowInput();
+        startInput.setRoute(workflowDefinition.getRoute());
         TerminateWorkflowException termination =
                 assertThrows(
                         TerminateWorkflowException.class,
-                        () ->
-                                executor.startWorkflowSync(
-                                        StartWorkflowInput.builder()
-                                                .route(workflowDefinition.getRoute())
-                                                .build()));
+                        () -> executor.startWorkflowSync(startInput));
 
         assertEquals(WorkflowModel.Status.FAILED, termination.getWorkflowStatus());
         assertNotNull(persistedTask.get());
@@ -139,6 +143,7 @@ class WorkflowExecutorOpsPersistenceTest {
                 termination.getMessage(),
                 persistedWorkflow.get().getReasonForInCompletion());
         assertFalse(workflowRemoved.get());
+        assertEquals(WorkflowModel.Status.FAILED, notifiedStatus.get());
     }
 
     private static Object defaultValue(Class<?> returnType) {

@@ -79,7 +79,6 @@ public class WorkflowDef extends Auditable {
     private long timeoutSeconds = 0;
 
     /**
-     * 与控制台草稿对齐的超时策略字段。到期后的 sweep 只终止当前运行实例，
      * 不按 Conductor 的 {@code ALERT_ONLY} 继续调度。
      */
     @Builder.Default

@@ -41,6 +41,7 @@ mvn clean package -Dmaven.test.skip=true
 # 初始化 MySQL 数据库
 mysql -u root -p < docs/init_mysql/01_create_database.sql
 mysql -u root -p iflow < docs/init_mysql/02_schema.sql
+mysql -u root -p iflow < docs/init_mysql/03_execution_index.sql
 
 # 运行应用
 java -jar iflow-web/target/iflow.jar

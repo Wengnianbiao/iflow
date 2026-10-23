@@ -1,6 +1,7 @@
 package com.helianhealth.iflow.console.model.response;
 
 import com.helianhealth.iflow.core.model.WorkflowModel;
+import com.helianhealth.iflow.common.domain.run.ExecutionSearch;
 import lombok.Builder;
 import lombok.Data;
 
@@ -20,6 +21,16 @@ public class WorkflowExecutionSummary {
     private Long durationMs;
     private String reasonForIncompletion;
     private String failedTaskId;
+
+    public static WorkflowExecutionSummary from(ExecutionSearch.WorkflowSummary workflow) {
+        Long duration = workflow.startTime() > 0
+                ? (workflow.endTime() > 0 ? workflow.endTime() : System.currentTimeMillis()) - workflow.startTime() : null;
+        return WorkflowExecutionSummary.builder().workflowId(workflow.workflowId()).workflowRoute(workflow.workflowRoute())
+                .workflowName(workflow.workflowName()).workflowVersion(workflow.workflowVersion()).status(workflow.status())
+                .correlationId(workflow.correlationId()).startTime(workflow.startTime()).endTime(workflow.endTime())
+                .updateTime(workflow.updateTime()).durationMs(duration).reasonForIncompletion(workflow.reasonForIncompletion())
+                .failedTaskId(workflow.failedTaskId()).build();
+    }
 
     public static WorkflowExecutionSummary from(WorkflowModel workflow) {
         long startTime = workflow.getStartTime();

@@ -10,6 +10,7 @@ Rules for `iflow-core`, the workflow runtime engine. See root `AGENTS.md` for re
 - Orchestration: `WorkflowExecutor`, `WorkflowExecutorOps`, `DeciderService`
 - System tasks: `WorkflowSystemTask` + built-ins under `execution/tasks/`
 - Registration: `SystemTaskRegistry`
+- Lifecycle callbacks: `WorkflowStatusListener` under `listener/`
 - Persistence port: `ExecutionDAO` (interface in core; implementations elsewhere)
 - Single-process execution with an optional synchronous wait. `QueueDAO` is the asynchronous task message queue; the default and only implementation is in-memory `InMemoryQueueDAO` (see `docs/synchronous-workflow-execution.md`)
 - Scripting: GraalJS evaluators under `execution/evaluators/` and `execution/script/`
@@ -30,8 +31,9 @@ Use `conductor-3.30.2` as the decide/execute algorithm reference. iFlow uses the
 
 ## Coding Conventions
 
+- Simple runtime input holders should follow Conductor's plain Java constructors and explicit getters/setters; do not add Lombok annotations or builders.
 - In drive and scheduling code, prefer explicit loops and named boolean results. Do not use boolean `|=` or indirect persistence through method references / `Consumer` callbacks.
-- Follow existing package layout (`execution/`, `execution/tasks/`, `execution/mapper/`, `service/`, `dao/`, `queue/`, `lock/`, `model/`).
+- Follow existing package layout (`execution/`, `execution/tasks/`, `execution/mapper/`, `listener/`, `service/`, `dao/`, `queue/`, `lock/`, `model/`).
 - New system tasks: extend `WorkflowSystemTask` and register in `SystemTaskRegistry`. One-shot business tasks implement `start()` and must reach a terminal status before returning; repeatedly evaluated control tasks implement boolean `execute()`. `isAsync()` defaults false; HTTP/JDBC/SPI/WEBSERVICE override true. MAPPING remains synchronous, including inside FORK.
 - Task `outputData` and workflow `output` are `Object`: preserve JSON-compatible objects, arrays, scalars, and null without adding `result` or `error` wrappers. INLINE and SPI return their value directly. HTTP/JDBC/WebService/MAPPING and control tasks own their object schemas; control tasks use `outputAsMap()` only when their output is known to be an object. Execution diagnostics belong in `reasonForInCompletion` (public view: `reasonForIncompletion`), never in business output. Explicit workflow `outputParameters` still builds an object; otherwise preserve the final task output. See `docs/task-output.md` at the repo root.
 - Follow Conductor directly: `decide()` calls Decider, registers candidates, calls `scheduleTask()`, evaluates nonterminal synchronous system tasks, persists changes and loops only while synchronous work progresses. It returns when async work is outstanding; it never waits on I/O or retains a per-invocation drive context. Do not reintroduce a Scheduler/context event layer.
@@ -39,6 +41,7 @@ Use `conductor-3.30.2` as the decide/execute algorithm reference. iFlow uses the
 - Async workers lock/load current task state, persist IN_PROGRESS, execute an isolated snapshot outside the lock, then lock/reload and persist complete results. Discard late results for terminal tasks/workflows. After saving, run a new workflow decision directly on the same worker. Acquire the instance lock and reload current state for every decision; do not drop concurrent completion triggers. Never persist a stale worker workflow snapshot.
 - `execute()` returns true only for real status, iteration or graph progress. JOIN may wait without progress. DO_WHILE schedules iteration entries by calling `scheduleNextIteration()` on the provided WorkflowExecutor; do not inject Decider into DO_WHILE or use `@Lazy` for a cycle.
 - Only startWorkflowSync waits: determine the instance ID, register a completion Semaphore before creating and deciding the instance, signal after normal completion/failure/termination/sweeper terminal persistence, and remove it on return or interruption. Interruption stops waiting without cancelling the workflow; cancellation requires explicit termination. Decision and I/O workers do not wait for workflow completion. Instance locks cover each decision and state update, not I/O or semaphore waits. Memory queues do not resume after process restart.
+- Keep `WorkflowStatusListener` in `listener/`, with default callbacks for STARTED, COMPLETED, FAILED, TIMED_OUT and TERMINATED. Notify STARTED after successful creation and before the first decision in both entry points; normal RUNNING updates do not emit it. Persist runtime workflow updates through `WorkflowExecutorOps.updateWorkflow()`, including sweeper timeouts, and dispatch the matching terminal callback only after a successful save. Invoke listeners on the saving thread and isolate each listener's runtime exceptions. `WorkflowCompletionRegistry` is an idempotent listener for all four terminal events; the executor uses it directly only for registration in `startWorkflowSync()`. Do not signal on terminal reads or put lifecycle callbacks in DAO code. Callbacks may hold the instance lock and must remain lightweight and read-only: no I/O, waits or scheduling. Manual assembly must include the same completion Registry in the listener list.
 - Prefer small, focused changes; keep executor/decider changes covered by tests under `src/test/java`.
 
 ## Commands

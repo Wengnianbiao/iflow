@@ -18,11 +18,11 @@ public class WorkflowExecutionServiceImpl implements WorkflowExecutionService {
 
     @Override
     public String startWorkflow(StartWorkflowRequest request) {
-        return workflowExecutor.startWorkflow(StartWorkflowInput.from(request));
+        return workflowExecutor.startWorkflow(new StartWorkflowInput(request));
     }
 
     @Override
     public WorkflowModel startWorkflowSync(StartWorkflowRequest request) {
-        return workflowExecutor.startWorkflowSync(StartWorkflowInput.from(request));
+        return workflowExecutor.startWorkflowSync(new StartWorkflowInput(request));
     }
 }

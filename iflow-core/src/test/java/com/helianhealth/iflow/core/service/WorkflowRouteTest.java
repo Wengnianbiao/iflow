@@ -28,7 +28,7 @@ class WorkflowRouteTest {
         when(dao.getWorkflowDef("first", 1)).thenReturn(Optional.of(first));
         when(dao.getLatestWorkflowDef("first")).thenReturn(Optional.of(latest));
         when(dao.getWorkflowDef("other", 1)).thenReturn(Optional.of(other));
-        var input = StartWorkflowInput.from(StartWorkflowRequest.builder().route("first").version(1).build());
+        var input = new StartWorkflowInput(StartWorkflowRequest.builder().route("first").version(1).build());
         assertEquals(first, service.getWorkflowDef(input.getRoute(), input.getVersion()));
         assertEquals(latest, service.getWorkflowDef("first", null));
         assertEquals(other, service.getWorkflowDef("other", 1));

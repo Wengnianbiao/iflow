@@ -40,13 +40,21 @@ public class MySqlExecutionDAO extends MySqlBaseDAO implements ExecutionDAO {
             "t.id, t.task_id, t.json_data";
 
     private final MySqlExecutionJsonSupport jsonSupport;
+    private final MySqlIndexDAO indexDAO;
 
     @Autowired
     public MySqlExecutionDAO(
             DataSource dataSource,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            MySqlIndexDAO indexDAO) {
         super(objectMapper, dataSource);
         this.jsonSupport = new MySqlExecutionJsonSupport(objectMapper);
+        this.indexDAO = indexDAO;
+    }
+
+    public MySqlExecutionDAO(DataSource dataSource, ObjectMapper objectMapper) {
+        this(dataSource, objectMapper, new MySqlIndexDAO(dataSource, objectMapper,
+                new com.helianhealth.iflow.core.execution.tasks.SystemTaskRegistry(java.util.Set.of())));
     }
 
     MySqlExecutionDAO(DataSource dataSource) {
@@ -89,6 +97,7 @@ public class MySqlExecutionDAO extends MySqlBaseDAO implements ExecutionDAO {
                         refreshTerminalTaskEndTime(task, now);
 
                         insertTaskInstance(tx, task);
+                        indexDAO.indexTask(tx, task);
                         insertWorkflowToTask(tx, task.getWorkflowInstanceId(), task.getTaskId());
                         syncTaskInProgress(tx, task);
                         created.add(task);
@@ -105,6 +114,7 @@ public class MySqlExecutionDAO extends MySqlBaseDAO implements ExecutionDAO {
                     task.setUpdateTime(now);
                     refreshTerminalTaskEndTime(task, now);
                     updateTaskInstance(tx, task);
+                    indexDAO.indexTask(tx, task);
                     syncTaskInProgress(tx, task);
                     return null;
                 });
@@ -143,7 +153,9 @@ public class MySqlExecutionDAO extends MySqlBaseDAO implements ExecutionDAO {
         return getWithTransaction(
                 tx -> {
                     deleteTaskInProgress(tx, taskId);
-                    return deleteTaskInstance(tx, taskId) > 0;
+                    boolean removed = deleteTaskInstance(tx, taskId) > 0;
+                    indexDAO.removeTask(tx, taskId);
+                    return removed;
                 });
     }
 
@@ -207,6 +219,7 @@ public class MySqlExecutionDAO extends MySqlBaseDAO implements ExecutionDAO {
                     refreshTerminalWorkflowEndTime(workflow, now);
 
                     insertWorkflowInstance(tx, workflow);
+                    indexDAO.indexWorkflow(tx, workflow);
                     if (workflow.getStatus() == WorkflowModel.Status.RUNNING) {
                         insertWorkflowPending(
                                 tx,
@@ -227,6 +240,7 @@ public class MySqlExecutionDAO extends MySqlBaseDAO implements ExecutionDAO {
                     refreshTerminalWorkflowEndTime(workflow, now);
 
                     updateWorkflowInstance(tx, workflow);
+                    indexDAO.indexWorkflow(tx, workflow);
                     if (workflow.getStatus() != null && workflow.getStatus().isTerminal()) {
                         deleteWorkflowPending(tx, workflow.getWorkflowId());
                     } else if (workflow.getStatus() == WorkflowModel.Status.RUNNING) {
@@ -277,7 +291,9 @@ public class MySqlExecutionDAO extends MySqlBaseDAO implements ExecutionDAO {
                         deleteTaskInProgress(tx, task.getTaskId());
                         deleteTaskInstance(tx, task.getTaskId());
                     }
-                    return deleteWorkflowInstance(tx, workflowId) > 0;
+                    boolean removed = deleteWorkflowInstance(tx, workflowId) > 0;
+                    indexDAO.removeWorkflow(tx, workflowId);
+                    return removed;
                 });
     }
 

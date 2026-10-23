@@ -37,11 +37,11 @@ class WorkflowExecutorOpsSyncTest {
             assertEquals(Map.of("id", 7), workflow.getInput());
             workflow.setStatus(WorkflowModel.Status.COMPLETED);
             completed.set(workflow);
-            fixture.completions.signal(completed.get());
+            fixture.executor.updateWorkflow(completed.get());
         };
 
         WorkflowModel result = fixture.executor.startWorkflowSync(
-                StartWorkflowInput.from(request()));
+                new StartWorkflowInput(request()));
 
         assertSame(completed.get(), result);
         verify(fixture.dao, never()).getWorkflowModel(any());
@@ -57,12 +57,12 @@ class WorkflowExecutorOpsSyncTest {
         fixture.start = workflow -> {
             completed.set(workflow(workflow.getWorkflowId(), WorkflowModel.Status.COMPLETED));
             when(fixture.dao.getWorkflowModel(workflow.getWorkflowId())).thenReturn(completed.get());
-            fixture.completions.signal(completed.get());
+            fixture.executor.updateWorkflow(completed.get());
         };
 
         WorkflowModel result = org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(
                 java.time.Duration.ofSeconds(2), () -> fixture.executor.startWorkflowSync(
-                        StartWorkflowInput.from(request())));
+                        new StartWorkflowInput(request())));
         assertSame(completed.get(), result);
     }
 
@@ -78,12 +78,12 @@ class WorkflowExecutorOpsSyncTest {
         var caller = Executors.newSingleThreadExecutor();
         try {
             var result = caller.submit(() -> fixture.executor.startWorkflowSync(
-                    StartWorkflowInput.from(request())));
+                    new StartWorkflowInput(request())));
             assertTrue(started.await(2, TimeUnit.SECONDS));
             assertThrows(TimeoutException.class, () -> result.get(50, TimeUnit.MILLISECONDS));
             WorkflowModel completed = workflow(id.get(), WorkflowModel.Status.COMPLETED);
             when(fixture.dao.getWorkflowModel(id.get())).thenReturn(completed);
-            fixture.completions.signal(completed);
+            fixture.executor.updateWorkflow(completed);
             assertSame(completed, result.get(2, TimeUnit.SECONDS));
         } finally {
             caller.shutdownNow();
@@ -106,7 +106,7 @@ class WorkflowExecutorOpsSyncTest {
         try {
             var result = caller.submit(() -> {
                 assertThrows(IllegalStateException.class, () -> fixture.executor.startWorkflowSync(
-                        StartWorkflowInput.from(request())));
+                        new StartWorkflowInput(request())));
                 interrupted.set(Thread.currentThread().isInterrupted());
             });
             assertTrue(started.await(2, TimeUnit.SECONDS));
@@ -125,7 +125,8 @@ class WorkflowExecutorOpsSyncTest {
         Fixture fixture = new Fixture();
         when(fixture.metadata.getWorkflowDef(any(), any()))
                 .thenThrow(new IllegalArgumentException("invalid definition"));
-        StartWorkflowInput input = StartWorkflowInput.from(request()).toBuilder().workflowId("invalid").build();
+        StartWorkflowInput input = new StartWorkflowInput(request());
+        input.setWorkflowId("invalid");
         assertThrows(IllegalArgumentException.class,
                 () -> fixture.executor.startWorkflowSync(input));
         try (var ignored = fixture.completions.register("invalid")) { }
@@ -153,7 +154,7 @@ class WorkflowExecutorOpsSyncTest {
         };
 
         String workflowId = fixture.executor.startWorkflow(
-                StartWorkflowInput.from(request()));
+                new StartWorkflowInput(request()));
 
         assertNotNull(workflowId);
         assertEquals(started.get().getWorkflowId(), workflowId);
@@ -164,7 +165,8 @@ class WorkflowExecutorOpsSyncTest {
     @Test
     void ordinaryEntryUsesProvidedWorkflowId() {
         Fixture fixture = new Fixture();
-        StartWorkflowInput input = StartWorkflowInput.from(request()).toBuilder().workflowId("provided-id").build();
+        StartWorkflowInput input = new StartWorkflowInput(request());
+        input.setWorkflowId("provided-id");
 
         assertEquals("provided-id", fixture.executor.startWorkflow(input));
         verify(fixture.dao).createWorkflow(argThat(workflow -> "provided-id".equals(workflow.getWorkflowId())));
@@ -175,7 +177,8 @@ class WorkflowExecutorOpsSyncTest {
         Fixture fixture = new Fixture();
         IllegalStateException failure = new IllegalStateException("persistence failed");
         when(fixture.dao.createWorkflow(any())).thenThrow(failure);
-        StartWorkflowInput input = StartWorkflowInput.from(request()).toBuilder().workflowId("partial").build();
+        StartWorkflowInput input = new StartWorkflowInput(request());
+        input.setWorkflowId("partial");
 
         assertSame(failure, assertThrows(IllegalStateException.class, () -> fixture.executor.startWorkflow(input)));
 
@@ -189,7 +192,8 @@ class WorkflowExecutorOpsSyncTest {
         IllegalStateException failure = new IllegalStateException("initial decision failed");
         fixture.start = workflow -> { throw failure; };
         doThrow(new IllegalStateException("cleanup failed")).when(fixture.dao).removeWorkflow("decision-error");
-        StartWorkflowInput input = StartWorkflowInput.from(request()).toBuilder().workflowId("decision-error").build();
+        StartWorkflowInput input = new StartWorkflowInput(request());
+        input.setWorkflowId("decision-error");
 
         assertSame(failure, assertThrows(IllegalStateException.class, () -> fixture.executor.startWorkflow(input)));
 
@@ -201,7 +205,8 @@ class WorkflowExecutorOpsSyncTest {
         Fixture fixture = new Fixture();
         IllegalStateException failure = new IllegalStateException("persistence failed");
         when(fixture.dao.createWorkflow(any())).thenThrow(failure);
-        StartWorkflowInput input = StartWorkflowInput.from(request()).toBuilder().workflowId("sync-create-error").build();
+        StartWorkflowInput input = new StartWorkflowInput(request());
+        input.setWorkflowId("sync-create-error");
 
         assertSame(failure, assertThrows(IllegalStateException.class, () -> fixture.executor.startWorkflowSync(input)));
 
@@ -218,7 +223,8 @@ class WorkflowExecutorOpsSyncTest {
         private Consumer<WorkflowModel> start = workflow -> { };
         private final WorkflowExecutorOps executor = new WorkflowExecutorOps(
                 decider, null, dao, metadata, new IDGenerator(), null, new InMemoryExecutionLockService(),
-                new InMemoryExecutionQueue(new InMemoryQueueDAO(), Runnable::run), completions);
+                new InMemoryExecutionQueue(new InMemoryQueueDAO(), Runnable::run), completions,
+                List.of(completions));
 
         private Fixture() {
             WorkflowDef definition = new WorkflowDef();

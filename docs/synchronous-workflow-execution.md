@@ -17,12 +17,30 @@ iFlow 按 Conductor 的编排顺序执行工作流：Decider 决策，当前线�
 
 同步只表示等待最终结果，不决定业务任务使用哪个线程。等待线程中断时恢复中断标志、结束等待并清理登记，不修改工作流状态；取消执行需要显式调用 `terminateWorkflow()`。等待本身不设置额外时限，工作流超时仍由既有 sweeper 处理。
 
+## 工作流生命周期回调
+
+`WorkflowStatusListener` 位于 `com.helianhealth.iflow.core.listener`，定义与 iFlow 当前生命周期对应的事件和默认空回调，监听器按需覆盖：
+
+| 事件 | 回调 | 触发位置 |
+| --- | --- | --- |
+| `STARTED` | `onWorkflowStarted(workflow)` | 实例创建成功后、首次决策前，对应 `RUNNING` |
+| `COMPLETED` | `onWorkflowCompleted(workflow)` | 成功终态保存后 |
+| `FAILED` | `onWorkflowFailed(workflow)` | 失败终态保存后 |
+| `TIMED_OUT` | `onWorkflowTimedOut(workflow)` | 超时终态保存后 |
+| `TERMINATED` | `onWorkflowTerminated(workflow)` | 终止终态保存后 |
+
+执行层统一通过 `WorkflowExecutorOps.updateWorkflow()` 保存工作流。正常完成、失败、TERMINATE、主动终止和 sweeper 超时均在终态保存成功后，依次分发对应回调；保存失败不触发回调，普通 `RUNNING` 更新不重复触发 `STARTED`。DAO 只负责存储，`decide()` 和异步 worker 读取到已有终态时不补发通知。
+
+`WorkflowCompletionRegistry` 实现此监听接口，通过四种终态回调唤醒已登记实例，每个等待者只释放一次 Semaphore，重复回调不会累积许可。启动回调不会唤醒等待者。执行器只在同步入口使用 Registry 登记和清理等待者；普通启动不登记，纯同步工作流在首次决策完成后直接返回。
+
+监听器由 Spring 按接口收集并注入，手动组装执行器时须将同一个 Registry 加入监听器列表。所有监听器均收到相应事件。回调在保存状态的当前线程执行，可能仍持有实例锁，因此实现只能做轻量通知，不修改工作流，不执行 I/O、等待或调度。每个监听器的运行时异常单独记录，其他监听器继续执行，不改变已持久化的执行结果，也不阻止首次决策。
+
 ## 决策与调度
 
 `WorkflowExecutorOps.decide()` 在触发它的线程直接执行：
 
 1. 调用 `DeciderService.decide()` 获取待调度、待更新任务与完成标记。
-2. 流程完成时，先持久化最后任务的修改，再保存工作流终态并通知等待者。
+2. 流程完成时，先持久化最后任务的修改，再通过统一保存入口保存工作流终态并触发生命周期回调。
 3. 使用 `dedupAndAddTasks()` 去重并加入新任务，将同一列表交给 `scheduleTask(workflow, tasks)` 持久化与调度：同步任务立即 `start()`，异步任务进入任务队列。
 4. 对同步系统任务调用 `execute()`，推进 JOIN、DO_WHILE 等控制逻辑。
 5. 保存变化；同步任务有进展则在当前线程继续决策，没有进展则返回。

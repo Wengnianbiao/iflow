@@ -7,6 +7,7 @@ import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 import com.helianhealth.iflow.core.dal.ExecutionDAOFacade;
 import com.helianhealth.iflow.core.queue.InMemoryQueueDAO;
 import com.helianhealth.iflow.core.dao.ExecutionDAO;
+import com.helianhealth.iflow.core.exception.TransientException;
 import com.helianhealth.iflow.core.execution.mapper.ForkJoinTaskMapper;
 import com.helianhealth.iflow.core.execution.mapper.HttpTaskMapper;
 import com.helianhealth.iflow.core.execution.mapper.JdbcTaskMapper;
@@ -20,6 +21,7 @@ import com.helianhealth.iflow.core.execution.tasks.Join;
 import com.helianhealth.iflow.core.execution.tasks.SystemTaskRegistry;
 import com.helianhealth.iflow.core.execution.tasks.WorkflowSystemTask;
 import com.helianhealth.iflow.core.lock.ExecutionLockService;
+import com.helianhealth.iflow.core.listener.WorkflowStatusListener;
 import com.helianhealth.iflow.core.lock.InMemoryExecutionLockService;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowExecutionMapper;
@@ -50,6 +52,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -89,8 +92,18 @@ class WorkflowExecutorOpsAsyncTasksTest {
         WorkflowDef definition = definition("linear-async-" + type, List.of(definitionTask));
         MemoryStore store = new MemoryStore();
         SystemTaskRegistry registry = new SystemTaskRegistry(Set.of(businessTask));
+        AtomicInteger terminalNotifications = new AtomicInteger();
         TestWorkflowExecutor executor = executor(definition, registry,
-                Map.of(type, businessMapper(type, parameters)), parameters, store);
+                Map.of(type, businessMapper(type, parameters)), parameters, store,
+                new TestWorkflowStatusListener((workflowId, status) -> {
+                    terminalNotifications.incrementAndGet();
+                    WorkflowModel persisted = store.facade().getWorkflowModel(workflowId);
+                    assertEquals(WorkflowModel.Status.COMPLETED, status);
+                    assertEquals(status, persisted.getStatus());
+                    assertEquals(List.of("complete", 42), persisted.getOutput());
+                    assertEquals("test-async-worker", Thread.currentThread().getName());
+                    throw new IllegalStateException("listener failure must not block synchronous return");
+                }));
         ExecutorService workers = Executors.newSingleThreadExecutor(
                 runnable -> new Thread(runnable, "test-async-worker"));
         ExecutorService caller = Executors.newSingleThreadExecutor(
@@ -133,6 +146,7 @@ class WorkflowExecutorOpsAsyncTasksTest {
             assertEquals(Map.of("request", Map.of("value", "rendered"),
                     "renderedBody", "<ready/>"), finished.getInputData());
             assertEquals(List.of("complete", 42), store.tasks.get("io").getOutputData());
+            assertEquals(1, terminalNotifications.get());
         } finally {
             releaseWorker.countDown();
             releaseTask.countDown();
@@ -239,8 +253,9 @@ class WorkflowExecutorOpsAsyncTasksTest {
         executor.useTaskExecutor(workers);
         List<Object> source = List.of(Map.of("id", 7), "raw");
         try {
-            WorkflowModel result = executor.startWorkflowSync(StartWorkflowInput.builder()
-                    .route(definition.getRoute()).workflowInput(Map.of("source", source)).build());
+            StartWorkflowInput startInput = input(definition);
+            startInput.setWorkflowInput(Map.of("source", source));
+            WorkflowModel result = executor.startWorkflowSync(startInput);
 
             assertEquals(WorkflowModel.Status.COMPLETED, result.getStatus());
             assertEquals(source, result.getTaskByRefName("http").getOutputData());
@@ -459,8 +474,9 @@ class WorkflowExecutorOpsAsyncTasksTest {
         assertFalse(executor.queue().containsMessage("HTTP", response.getTaskByRefName("http").getTaskId()));
     }
 
-    @Test
-    void retriesTransientlyBusyWorkflowLockOnCaller() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void handlesTransientlyBusyWorkflowLockAccordingToEntryPoint(boolean synchronous) {
         AtomicInteger executions = new AtomicInteger();
         ParametersUtils parameters = new ParametersUtils(new ObjectMapper());
         WorkflowDef definition = definition("temporarily-busy-lock", List.of(mappingTask("mapping", "value")));
@@ -477,13 +493,20 @@ class WorkflowExecutorOpsAsyncTasksTest {
                 new SystemTaskRegistry(Set.of(completedMapping(executions))),
                 Map.of(TaskType.TASK_TYPE_MAPPING, new ParamMappingTaskMapper(parameters)), parameters, store, locks);
 
-        String workflowId = executor.startWorkflow(input(definition));
-        WorkflowModel result = store.facade().getWorkflowModel(workflowId);
-
-        assertEquals(WorkflowModel.Status.COMPLETED, result.getStatus());
-        assertEquals(3, attempts.get());
-        assertEquals(1, releases.get());
-        assertEquals(Set.of(Thread.currentThread().getName()), store.taskWriteThreads);
+        if (synchronous) {
+            WorkflowModel result = executor.startWorkflowSync(input(definition));
+            assertEquals(WorkflowModel.Status.COMPLETED, result.getStatus());
+            assertEquals(3, attempts.get());
+            assertEquals(1, releases.get());
+            assertEquals(1, executions.get());
+            assertEquals(Set.of(Thread.currentThread().getName()), store.taskWriteThreads);
+        } else {
+            assertThrows(TransientException.class, () -> executor.startWorkflow(input(definition)));
+            assertEquals(1, attempts.get());
+            assertEquals(0, releases.get());
+            assertEquals(0, executions.get());
+            assertNull(store.workflow.get());
+        }
     }
 
     @Test
@@ -497,8 +520,9 @@ class WorkflowExecutorOpsAsyncTasksTest {
                 new SystemTaskRegistry(Set.of(completedMapping(executions))),
                 Map.of(TaskType.TASK_TYPE_MAPPING, new ParamMappingTaskMapper(parameters)), parameters, store);
         Map<String, Object> callerPayload = new HashMap<>(Map.of("value", "original"));
-        String workflowId = executor.startWorkflow(StartWorkflowInput.builder()
-                .route(definition.getRoute()).workflowInput(Map.of("payload", callerPayload)).build());
+        StartWorkflowInput startInput = input(definition);
+        startInput.setWorkflowInput(Map.of("payload", callerPayload));
+        String workflowId = executor.startWorkflow(startInput);
         callerPayload.put("value", "changed by caller");
 
         assertEquals(workflowId, store.workflow.get().getWorkflowId());
@@ -520,13 +544,15 @@ class WorkflowExecutorOpsAsyncTasksTest {
     }
 
     private static TestWorkflowExecutor executor(WorkflowDef definition, SystemTaskRegistry registry,
-            Map<String, TaskMapper> mappers, ParametersUtils parameters, MemoryStore store) {
-        return executor(definition, registry, mappers, parameters, store, new InMemoryExecutionLockService());
+            Map<String, TaskMapper> mappers, ParametersUtils parameters, MemoryStore store,
+            WorkflowStatusListener... listeners) {
+        return executor(definition, registry, mappers, parameters, store,
+                new InMemoryExecutionLockService(), listeners);
     }
 
     private static TestWorkflowExecutor executor(WorkflowDef definition, SystemTaskRegistry registry,
             Map<String, TaskMapper> mappers, ParametersUtils parameters, MemoryStore store,
-            ExecutionLockService executionLockService) {
+            ExecutionLockService executionLockService, WorkflowStatusListener... listeners) {
         MetadataService metadata = (MetadataService) Proxy.newProxyInstance(
                 MetadataService.class.getClassLoader(), new Class<?>[] {MetadataService.class},
                 (proxy, method, args) -> "getWorkflowDef".equals(method.getName())
@@ -541,7 +567,7 @@ class WorkflowExecutorOpsAsyncTasksTest {
             }
         };
         return new TestWorkflowExecutor(decider, registry, store.facade(), metadata,
-                new IDGenerator(), parameters, executionLockService);
+                new IDGenerator(), parameters, executionLockService, listeners);
     }
 
     private static TaskMapper businessMapper(String type, ParametersUtils parameters) {
@@ -584,7 +610,9 @@ class WorkflowExecutorOpsAsyncTasksTest {
     }
 
     private static StartWorkflowInput input(WorkflowDef definition) {
-        return StartWorkflowInput.builder().route(definition.getRoute()).build();
+        StartWorkflowInput input = new StartWorkflowInput();
+        input.setRoute(definition.getRoute());
+        return input;
     }
 
     private static void await(CountDownLatch signal) {

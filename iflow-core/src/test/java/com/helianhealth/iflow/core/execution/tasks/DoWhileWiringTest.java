@@ -12,6 +12,7 @@ import com.helianhealth.iflow.core.execution.WorkflowCompletionRegistry;
 import com.helianhealth.iflow.core.execution.DeciderService;
 import com.helianhealth.iflow.core.execution.WorkflowExecutor;
 import com.helianhealth.iflow.core.execution.WorkflowExecutorOps;
+import com.helianhealth.iflow.core.listener.WorkflowStatusListener;
 import com.helianhealth.iflow.core.execution.mapper.DoWhileTaskMapper;
 import com.helianhealth.iflow.core.execution.mapper.NoopTaskMapper;
 import com.helianhealth.iflow.core.execution.mapper.TaskMapper;
@@ -26,6 +27,7 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
@@ -34,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
@@ -97,11 +100,25 @@ class DoWhileWiringTest {
             assertTrue(doWhile.execute(workflow, loop, executor));
             assertEquals(TaskModel.Status.COMPLETED, loop.getStatus());
             verify(context.getBean(ExecutionDAO.class), times(3)).createTasks(anyList());
+
+            WorkflowCompletionRegistry completions = context.getBean(WorkflowCompletionRegistry.class);
+            try (var completion = completions.register(workflow.getWorkflowId())) {
+                workflow.setStatus(WorkflowModel.Status.COMPLETED);
+                executor.updateWorkflow(workflow);
+                assertTimeoutPreemptively(Duration.ofSeconds(2), completion::await);
+            }
+            verify(context.getBean("statusObserver", WorkflowStatusListener.class))
+                    .onWorkflowCompleted(workflow);
         }
     }
 
     @Configuration(proxyBeanMethods = false)
     static class TaskConfiguration {
+
+        @Bean
+        WorkflowStatusListener statusObserver() {
+            return mock(WorkflowStatusListener.class);
+        }
 
         @Bean
         ObjectMapper objectMapper() {

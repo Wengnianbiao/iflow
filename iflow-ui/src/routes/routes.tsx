@@ -4,6 +4,7 @@ import { WorkflowDefinitions } from '@/pages/definitions'
 import { Workflow } from '@/pages/definition'
 import { ExecutionDetailPage, WorkflowSearch } from '@/pages/executions'
 import { RunWorkflow } from '@/pages/runWorkflow'
+import { ExecutionStatisticsPage } from '@/pages/statistics/ExecutionStatisticsPage'
 
 export const routes: RouteObject[] = [
   {
@@ -15,6 +16,7 @@ export const routes: RouteObject[] = [
       { path: '/workflowDef/:route/:version?', element: <Workflow /> },
       { path: '/runWorkflow', element: <RunWorkflow /> },
       { path: '/executions', element: <WorkflowSearch /> },
+      { path: '/dashboard', element: <ExecutionStatisticsPage /> },
       { path: '/executions/:workflowId', element: <ExecutionDetailPage /> },
       { path: '/execution/:workflowId', element: <ExecutionDetailPage /> },
     ],

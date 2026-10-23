@@ -1,0 +1,17 @@
+.toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; padding: 16px 20px; }
+.filters { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 20px; border-top: 1px solid var(--iflow-color-border); }
+.cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin: 20px 0; }
+.card { padding: 20px; }
+.cardLabel { color: var(--iflow-color-text-muted); font-size: 13px; }
+.cardValue { margin-top: 12px; color: var(--iflow-color-text); font-size: 25px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cardNote { margin-top: 8px; color: var(--iflow-color-text-muted); font-size: 12px; }
+.tableHeading { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 20px; }
+.tableHeading h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.hint { margin: 0; color: var(--iflow-color-text-muted); font-size: 12px; }
+.subline { display: block; margin-top: 4px; color: var(--iflow-color-text-muted); font-size: 12px; overflow-wrap: anywhere; }
+.number { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.success { color: #16854a; }
+.failure { color: var(--iflow-color-danger); }
+.notice { margin-top: 16px; }
+@media (max-width: 1000px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .cards { grid-template-columns: 1fr; } .filters { align-items: stretch; flex-direction: column; } }

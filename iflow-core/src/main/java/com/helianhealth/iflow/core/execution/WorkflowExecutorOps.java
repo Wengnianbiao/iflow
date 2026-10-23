@@ -6,10 +6,13 @@ import com.helianhealth.iflow.common.exception.WorkFlowErrorCode;
 import com.helianhealth.iflow.common.exception.WorkFlowException;
 import com.helianhealth.iflow.core.dal.ExecutionDAOFacade;
 import com.helianhealth.iflow.core.exception.TerminateWorkflowException;
+import com.helianhealth.iflow.core.exception.TransientException;
 import com.helianhealth.iflow.core.execution.tasks.SystemTaskRegistry;
 import com.helianhealth.iflow.core.execution.tasks.Terminate;
 import com.helianhealth.iflow.core.execution.tasks.WorkflowSystemTask;
 import com.helianhealth.iflow.core.lock.ExecutionLockService;
+import com.helianhealth.iflow.core.listener.WorkflowStatusListener;
+import com.helianhealth.iflow.core.listener.WorkflowStatusListener.WorkflowEventType;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowExecutionMapper;
 import com.helianhealth.iflow.core.model.WorkflowModel;
@@ -44,7 +47,8 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
     private final IDGenerator idGenerator;
     private final ParametersUtils parametersUtils;
     private final ExecutionLockService executionLockService;
-    private final WorkflowCompletionRegistry completionSignals;
+    private final WorkflowCompletionRegistry completionRegistry;
+    private final List<WorkflowStatusListener> workflowStatusListeners;
     private final ExecutionQueue executionQueue;
 
     public WorkflowExecutorOps(
@@ -56,7 +60,8 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
             ParametersUtils parametersUtils,
             ExecutionLockService executionLockService,
             ExecutionQueue executionQueue,
-            WorkflowCompletionRegistry completionSignals) {
+            WorkflowCompletionRegistry completionRegistry,
+            List<WorkflowStatusListener> workflowStatusListeners) {
         this.deciderService = deciderService;
         this.systemTaskRegistry = systemTaskRegistry;
         this.executionDAOFacade = executionDAOFacade;
@@ -65,7 +70,8 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
         this.parametersUtils = parametersUtils;
         this.executionLockService = executionLockService;
         this.executionQueue = executionQueue;
-        this.completionSignals = completionSignals;
+        this.completionRegistry = completionRegistry;
+        this.workflowStatusListeners = List.copyOf(workflowStatusListeners);
     }
 
     @Override
@@ -88,14 +94,24 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
     }
 
     private void createAndEvaluate(WorkflowModel workflow) {
-        String workflowId = workflow.getWorkflowId();
-        lockWorkflow(workflowId);
-        try {
-            executionDAOFacade.createWorkflow(workflow);
-            decide(workflow);
-        } finally {
-            executionLockService.releaseLock(workflowId);
+        if (!executionLockService.acquireLock(workflow.getWorkflowId())) {
+            throw new TransientException("Error acquiring lock when creating workflow: {}");
         }
+        try {
+            createAndEvaluateWithLock(workflow);
+        } finally {
+            executionLockService.releaseLock(workflow.getWorkflowId());
+        }
+    }
+
+    private void createAndEvaluateWithLock(WorkflowModel workflow) {
+        executionDAOFacade.createWorkflow(workflow);
+        notifyWorkflowStatusListeners(workflow, WorkflowEventType.STARTED);
+        LOGGER.debug(
+                "A new instance of workflow: {} created with id: {}",
+                workflow.getWorkflowName(),
+                workflow.getWorkflowId());
+        decide(workflow);
     }
 
     @Override
@@ -105,10 +121,11 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
         WorkflowModel workflow = createWorkflowModel(input, workflowDefinition, workflowId);
         // 同步入口自行创建和推进实例，首次决策前登记通知，释放实例锁后再等待。
         try (WorkflowCompletionRegistry.Registration completion =
-                completionSignals.register(workflowId)) {
+                completionRegistry.register(workflowId)) {
             lockWorkflow(workflowId);
             try {
                 executionDAOFacade.createWorkflow(workflow);
+                notifyWorkflowStatusListeners(workflow, WorkflowEventType.STARTED);
                 try {
                     decide(workflow);
                 } catch (RuntimeException error) {
@@ -172,7 +189,6 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
 
     private WorkflowModel decide(WorkflowModel workflow) {
         if (workflow.getStatus().isTerminal()) {
-            signalCompletion(workflow);
             if (!workflow.getStatus().isSuccessful()) {
                 cancelNonTerminalTasks(workflow, workflow.getReasonForInCompletion());
             }
@@ -214,10 +230,11 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
 
                 if (stateChanged) {
                     continueLoop = true;
+                    continue;
                 }
 
                 if (!outcome.tasksToBeUpdated.isEmpty() || !tasksToBeScheduled.isEmpty()) {
-                    executionDAOFacade.updateWorkflow(workflow);
+                    updateWorkflow(workflow);
                 }
             }
             return workflow;
@@ -360,9 +377,6 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
             try {
                 workflow = executionDAOFacade.getWorkflowModel(workflowId);
                 if (workflow == null || workflow.getStatus().isTerminal()) {
-                    if (workflow != null) {
-                        signalCompletion(workflow);
-                    }
                     return;
                 }
                 TaskModel task = findTask(workflow, taskId);
@@ -383,9 +397,6 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
             try {
                 workflow = executionDAOFacade.getWorkflowModel(workflowId);
                 if (workflow == null || workflow.getStatus().isTerminal()) {
-                    if (workflow != null) {
-                        signalCompletion(workflow);
-                    }
                     return;
                 }
                 TaskModel task = findTask(workflow, taskId);
@@ -454,7 +465,6 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
             WorkflowModel stored = executionDAOFacade.getWorkflowModel(workflowId);
             WorkflowModel workflow = stored != null ? stored : fallback;
             if (workflow.getStatus().isTerminal()) {
-                signalCompletion(workflow);
                 return;
             }
             persistTerminatedWorkflow(workflow,
@@ -462,10 +472,6 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
         } finally {
             executionLockService.releaseLock(workflowId);
         }
-    }
-
-    private void signalCompletion(WorkflowModel workflow) {
-        completionSignals.signal(workflow);
     }
 
     private void lockWorkflow(String workflowId) {
@@ -573,7 +579,6 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
                 current.setEndTime(System.currentTimeMillis());
                 updateWorkflow(current);
             }
-            signalCompletion(current);
             if (current != workflow) {
                 applyTerminalSnapshot(workflow, current);
             }
@@ -632,10 +637,36 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
 
     @Override
     public void updateWorkflow(WorkflowModel workflow) {
-        if (executionDAOFacade != null) {
-            executionDAOFacade.updateWorkflow(workflow);
+        executionDAOFacade.updateWorkflow(workflow);
+        WorkflowModel.Status status = workflow.getStatus();
+        if (status == null || !status.isTerminal()) {
+            return;
         }
-        signalCompletion(workflow);
+        WorkflowEventType event = switch (status) {
+            case COMPLETED -> WorkflowEventType.COMPLETED;
+            case FAILED -> WorkflowEventType.FAILED;
+            case TIMED_OUT -> WorkflowEventType.TIMED_OUT;
+            case TERMINATED -> WorkflowEventType.TERMINATED;
+            default -> throw new IllegalStateException("Unsupported terminal workflow status: " + status);
+        };
+        notifyWorkflowStatusListeners(workflow, event);
+    }
+
+    private void notifyWorkflowStatusListeners(WorkflowModel workflow, WorkflowEventType event) {
+        for (WorkflowStatusListener listener : workflowStatusListeners) {
+            try {
+                switch (event) {
+                    case STARTED -> listener.onWorkflowStarted(workflow);
+                    case COMPLETED -> listener.onWorkflowCompleted(workflow);
+                    case FAILED -> listener.onWorkflowFailed(workflow);
+                    case TIMED_OUT -> listener.onWorkflowTimedOut(workflow);
+                    case TERMINATED -> listener.onWorkflowTerminated(workflow);
+                }
+            } catch (RuntimeException error) {
+                LOGGER.error("Error notifying workflow status listener {} for workflow: {}, event: {}",
+                        listener.getClass().getName(), workflow.getWorkflowId(), event, error);
+            }
+        }
     }
 
     private void endExecution(WorkflowModel workflow, TaskModel terminateTask) {

@@ -124,9 +124,10 @@ class WorkflowExecutorOpsThreadPoolTest {
         ExecutorService caller = Executors.newSingleThreadExecutor();
         executor.useTaskExecutor(branches);
         try {
-            var result = caller.submit(() -> executor.startWorkflowSync(
-                    StartWorkflowInput.builder().route(definition.getRoute())
-                            .workflowInput(Map.of("items", List.of("one", "two"))).build()));
+            StartWorkflowInput startInput = new StartWorkflowInput();
+            startInput.setRoute(definition.getRoute());
+            startInput.setWorkflowInput(Map.of("items", List.of("one", "two")));
+            var result = caller.submit(() -> executor.startWorkflowSync(startInput));
             assertTrue(successorStarted.await(2, TimeUnit.SECONDS));
             assertEquals(TaskModel.Status.IN_PROGRESS,
                     persistedWorkflow.get().getTaskByRefName("slow").getStatus());
@@ -199,9 +200,9 @@ class WorkflowExecutorOpsThreadPoolTest {
 
         try {
             String callerThread = Thread.currentThread().getName();
-            WorkflowModel result =
-                    executor.startWorkflowSync(
-                            StartWorkflowInput.builder().route("thread-pool-workflow").build());
+            StartWorkflowInput startInput = new StartWorkflowInput();
+            startInput.setRoute("thread-pool-workflow");
+            WorkflowModel result = executor.startWorkflowSync(startInput);
 
             assertEquals(WorkflowModel.Status.COMPLETED, result.getStatus());
             assertEquals(1, result.getTasks().size());
@@ -258,8 +259,9 @@ class WorkflowExecutorOpsThreadPoolTest {
                 runnable -> new Thread(runnable, "linear-async-worker"));
         executor.useTaskExecutor(workers);
         try {
-            WorkflowModel result = executor.startWorkflowSync(
-                    StartWorkflowInput.builder().route(definition.getRoute()).build());
+            StartWorkflowInput startInput = new StartWorkflowInput();
+            startInput.setRoute(definition.getRoute());
+            WorkflowModel result = executor.startWorkflowSync(startInput);
             assertEquals(WorkflowModel.Status.COMPLETED, result.getStatus());
             assertEquals("linear-async-worker", asyncThread.get());
             assertEquals("linear-async-worker", mappingThread.get());
@@ -362,6 +364,7 @@ class WorkflowExecutorOpsThreadPoolTest {
                         .tasks(List.of(fork, join, afterJoin))
                         .build();
 
+        AtomicInteger terminalNotifications = new AtomicInteger();
         TestWorkflowExecutor executor =
                 new TestWorkflowExecutor(
                         decider,
@@ -370,7 +373,11 @@ class WorkflowExecutorOpsThreadPoolTest {
                         metadataService(definition),
                         new IDGenerator(),
                         new ParametersUtils(new ObjectMapper()),
-                        new InMemoryExecutionLockService());
+                        new InMemoryExecutionLockService(),
+                        new TestWorkflowStatusListener((workflowId, status) -> {
+                            assertEquals(WorkflowModel.Status.COMPLETED, status);
+                            terminalNotifications.incrementAndGet();
+                        }));
         ExecutorService taskPool =
                 Executors.newFixedThreadPool(
                         4, runnable -> new Thread(runnable, "test-fork-pool"));
@@ -380,18 +387,15 @@ class WorkflowExecutorOpsThreadPoolTest {
         executor.useTaskExecutor(taskPool);
 
         try {
-            var resultFuture =
-                    caller.submit(
-                            () ->
-                                    executor.startWorkflowSync(
-                                            StartWorkflowInput.builder()
-                                                    .route("fork-workflow")
-                                                    .build()));
+            StartWorkflowInput startInput = new StartWorkflowInput();
+            startInput.setRoute("fork-workflow");
+            var resultFuture = caller.submit(() -> executor.startWorkflowSync(startInput));
             assertTrue(branchesStarted.await(2, TimeUnit.SECONDS));
             releaseBranches.countDown();
 
             WorkflowModel result = resultFuture.get(2, TimeUnit.SECONDS);
             assertEquals(WorkflowModel.Status.COMPLETED, result.getStatus());
+            assertEquals(1, terminalNotifications.get());
             assertEquals(
                     TaskModel.Status.COMPLETED,
                     result.getTaskByRefName("branch_a_1").getStatus());
@@ -526,13 +530,9 @@ class WorkflowExecutorOpsThreadPoolTest {
         executor.useTaskExecutor(taskPool);
 
         try {
-            var resultFuture =
-                    caller.submit(
-                            () ->
-                                    executor.startWorkflowSync(
-                                            StartWorkflowInput.builder()
-                                                    .route("nested-fork-workflow")
-                                                    .build()));
+            StartWorkflowInput startInput = new StartWorkflowInput();
+            startInput.setRoute("nested-fork-workflow");
+            var resultFuture = caller.submit(() -> executor.startWorkflowSync(startInput));
             assertTrue(innerBranchesStarted.await(2, TimeUnit.SECONDS));
             Thread.sleep(150);
             assertTrue(
@@ -621,10 +621,11 @@ class WorkflowExecutorOpsThreadPoolTest {
                         new InMemoryExecutionLockService());
         executor.useTaskExecutor(command -> { throw new RejectedExecutionException("full"); });
 
+        StartWorkflowInput startInput = new StartWorkflowInput();
+        startInput.setRoute("rejected-fork-workflow");
         TerminateWorkflowException failure = assertThrows(
                 TerminateWorkflowException.class,
-                () -> executor.startWorkflowSync(
-                        StartWorkflowInput.builder().route("rejected-fork-workflow").build()));
+                () -> executor.startWorkflowSync(startInput));
         WorkflowModel result = persistedWorkflow.get();
 
         assertEquals(WorkflowModel.Status.FAILED, failure.getWorkflowStatus());
@@ -688,9 +689,9 @@ class WorkflowExecutorOpsThreadPoolTest {
                         new InMemoryExecutionLockService());
         String callerThread = Thread.currentThread().getName();
 
-        WorkflowModel result =
-                executor.startWorkflowSync(
-                        StartWorkflowInput.builder().route("do-while-workflow").build());
+        StartWorkflowInput startInput = new StartWorkflowInput();
+        startInput.setRoute("do-while-workflow");
+        WorkflowModel result = executor.startWorkflowSync(startInput);
 
         assertEquals(WorkflowModel.Status.COMPLETED, result.getStatus());
         assertEquals(TaskModel.Status.COMPLETED, result.getTaskByRefName("loop").getStatus());

@@ -100,16 +100,26 @@ class WorkflowExecutorOpsCancellationTest {
         SnapshotStore store = new SnapshotStore();
         ExecutionDAOFacade dao = store.facade();
         InMemoryExecutionLockService locks = new InMemoryExecutionLockService();
+        AtomicInteger terminalNotifications = new AtomicInteger();
         TestWorkflowExecutor executor = new TestWorkflowExecutor(
                 new DeciderService(new IDGenerator(), parameters, registry,
                         Map.of(TaskType.TASK_TYPE_HTTP, mapper)),
-                registry, dao, metadata, new IDGenerator(), parameters, locks);
+                registry, dao, metadata, new IDGenerator(), parameters, locks,
+                new TestWorkflowStatusListener((workflowId, status) -> {
+                    WorkflowModel persisted = dao.getWorkflowModel(workflowId);
+                    assertEquals(timeout ? WorkflowModel.Status.TIMED_OUT : WorkflowModel.Status.TERMINATED,
+                            status);
+                    assertEquals(status, persisted.getStatus());
+                    assertTrue(persisted.getTasks().stream().allMatch(task -> task.getStatus().isTerminal()));
+                    terminalNotifications.incrementAndGet();
+                }));
         ExecutorService workers = Executors.newSingleThreadExecutor();
         ExecutorService caller = Executors.newSingleThreadExecutor();
         executor.useTaskExecutor(workers);
         try {
-            var result = caller.submit(() -> executor.startWorkflowSync(
-                    StartWorkflowInput.builder().route(definition.getRoute()).build()));
+            StartWorkflowInput startInput = new StartWorkflowInput();
+            startInput.setRoute(definition.getRoute());
+            var result = caller.submit(() -> executor.startWorkflowSync(startInput));
             assertTrue(executing.await(2, TimeUnit.SECONDS));
             assertTrue(store.inProgress.await(2, TimeUnit.SECONDS));
             WorkflowModel external = dao.getWorkflowModel(store.workflow.get().getWorkflowId());
@@ -135,6 +145,7 @@ class WorkflowExecutorOpsCancellationTest {
             assertEquals(1, cancellations.get());
             assertTrue(completed.getEndTime() > 0);
             assertEquals(Map.of(), completed.getTaskByRefName("remote").getOutputData());
+            assertEquals(1, terminalNotifications.get());
 
             releaseWorker.countDown();
             workers.shutdown();
@@ -143,6 +154,8 @@ class WorkflowExecutorOpsCancellationTest {
             assertEquals(expectedWorkflow, stored.getStatus());
             assertEquals(expectedTask, stored.getTaskByRefName("remote").getStatus());
             assertEquals(Map.of(), stored.getTaskByRefName("remote").getOutputData());
+            executor.terminateWorkflow(stored, "already terminal");
+            assertEquals(1, terminalNotifications.get(), "observing terminal state must not notify again");
         } finally {
             releaseWorker.countDown();
             caller.shutdownNow();

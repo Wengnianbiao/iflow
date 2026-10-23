@@ -149,6 +149,16 @@ export function ExecutionDetailPage() {
     () => new Map(taskRows.filter((task) => task.taskId).map((task) => [task.taskId, task])),
     [taskRows],
   )
+  const requestedTaskId = searchParams.get('taskId')
+  const appliedTaskLink = useRef('')
+  useEffect(() => {
+    if (!requestedTaskId) { appliedTaskLink.current = ''; return }
+    const link = `${workflowId}/${requestedTaskId}`
+    if (appliedTaskLink.current === link || !taskById.has(requestedTaskId)) return
+    appliedTaskLink.current = link
+    setSelectedTaskId(requestedTaskId)
+    setSelectedTaskRef(definitionRefByTaskId.get(requestedTaskId) || taskById.get(requestedTaskId)!.referenceTaskName)
+  }, [workflowId, requestedTaskId, taskById, definitionRefByTaskId])
   const taskStatuses = useMemo(() => {
     const result: Record<string, string | undefined> = {}
     latestTaskByRef.forEach((task, ref) => { result[ref] = task.status })

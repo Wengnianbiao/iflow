@@ -3,12 +3,15 @@ package com.helianhealth.iflow.core.execution;
 import com.helianhealth.iflow.core.dal.ExecutionDAOFacade;
 import com.helianhealth.iflow.core.execution.tasks.SystemTaskRegistry;
 import com.helianhealth.iflow.core.lock.ExecutionLockService;
+import com.helianhealth.iflow.core.listener.WorkflowStatusListener;
 import com.helianhealth.iflow.core.queue.InMemoryExecutionQueue;
 import com.helianhealth.iflow.core.queue.InMemoryQueueDAO;
 import com.helianhealth.iflow.core.service.MetadataService;
 import com.helianhealth.iflow.core.utils.IDGenerator;
 import com.helianhealth.iflow.core.utils.ParametersUtils;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 
@@ -18,8 +21,9 @@ public class TestWorkflowExecutor extends WorkflowExecutorOps {
 
     public TestWorkflowExecutor(DeciderService decider, SystemTaskRegistry registry,
             ExecutionDAOFacade dao, MetadataService metadata, IDGenerator idGenerator,
-            ParametersUtils parameters, ExecutionLockService locks) {
-        this(decider, registry, dao, metadata, idGenerator, parameters, locks, new Fixture());
+            ParametersUtils parameters, ExecutionLockService locks,
+            WorkflowStatusListener... listeners) {
+        this(decider, registry, dao, metadata, idGenerator, parameters, locks, new Fixture(listeners));
     }
 
     private TestWorkflowExecutor(DeciderService decider, SystemTaskRegistry registry,
@@ -27,7 +31,7 @@ public class TestWorkflowExecutor extends WorkflowExecutorOps {
             ParametersUtils parameters, ExecutionLockService locks, Fixture fixture) {
         super(decider, registry, dao, metadata, idGenerator, parameters, locks,
                 new InMemoryExecutionQueue(fixture.queue, action -> fixture.taskExecutor.execute(action)),
-                fixture.completions);
+                fixture.completions, fixture.listeners);
         this.fixture = fixture;
     }
 
@@ -42,6 +46,12 @@ public class TestWorkflowExecutor extends WorkflowExecutorOps {
     private static final class Fixture {
         private final InMemoryQueueDAO queue = new InMemoryQueueDAO();
         private final WorkflowCompletionRegistry completions = new WorkflowCompletionRegistry();
+        private final List<WorkflowStatusListener> listeners;
         private Executor taskExecutor = ForkJoinPool.commonPool();
+
+        private Fixture(WorkflowStatusListener... listeners) {
+            this.listeners = new ArrayList<>(List.of(listeners));
+            this.listeners.add(completions);
+        }
     }
 }

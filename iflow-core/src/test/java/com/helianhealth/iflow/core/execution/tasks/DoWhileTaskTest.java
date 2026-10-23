@@ -940,8 +940,10 @@ class DoWhileTaskTest {
             java.util.Queue<Runnable> workers = new java.util.ArrayDeque<>();
             fixture.executor.useTaskExecutor(workers::add);
 
-            String workflowId = fixture.executor.startWorkflow(StartWorkflowInput.builder()
-                    .route(fixture.definition.getRoute()).workflowInput(Map.of("items", List.of("one", "two"))).build());
+            StartWorkflowInput startInput = new StartWorkflowInput();
+            startInput.setRoute(fixture.definition.getRoute());
+            startInput.setWorkflowInput(Map.of("items", List.of("one", "two")));
+            String workflowId = fixture.executor.startWorkflow(startInput);
             WorkflowModel running = fixture.dao.getWorkflowModel(workflowId);
 
             TaskModel entry = running.getTaskByRefName("body__1");
@@ -1190,8 +1192,10 @@ class DoWhileTaskTest {
                 ExecutorService caller = Executors.newSingleThreadExecutor(runnable -> new Thread(runnable, "iteration-caller"));
                 useForkPool(pool);
                 try {
-                    return caller.submit(() -> executor.startWorkflowSync(StartWorkflowInput.builder()
-                            .route(definition.getRoute()).workflowInput(Map.of("items", List.of("one", "two"))).build()))
+                    StartWorkflowInput startInput = new StartWorkflowInput();
+                    startInput.setRoute(definition.getRoute());
+                    startInput.setWorkflowInput(Map.of("items", List.of("one", "two")));
+                    return caller.submit(() -> executor.startWorkflowSync(startInput))
                             .get(5, TimeUnit.SECONDS);
                 } finally {
                     caller.shutdownNow();

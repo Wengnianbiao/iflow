@@ -22,5 +22,6 @@ public interface WorkflowExecutor {
 
     void terminateWorkflow(WorkflowModel workflow, String reason);
 
+    /** 保存工作流，终态保存成功后在当前线程通知生命周期监听器；调用方负责实例锁。 */
     void updateWorkflow(WorkflowModel workflow);
 }

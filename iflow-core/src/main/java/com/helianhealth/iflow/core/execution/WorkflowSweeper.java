@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -98,6 +99,7 @@ public class WorkflowSweeper {
     /**
      * 检查当前运行实例是否已经超过执行期限。未到期时不改状态。
      *
+     * @param workflowExecutor 保存超时终态并触发生命周期回调的执行器，超时处理时不能为空
      * @return 本次是否把工作流终止
      */
     public boolean sweep(WorkflowModel workflow, WorkflowExecutor workflowExecutor) {
@@ -145,14 +147,14 @@ public class WorkflowSweeper {
             WorkflowExecutor workflowExecutor,
             String reason,
             long now) {
+        Objects.requireNonNull(workflowExecutor, "workflowExecutor");
         String failedTaskId = null;
         for (TaskModel task : workflow.getTasks()) {
             if (task.getStatus() != null && task.getStatus().isTerminal()) {
                 continue;
             }
             boolean inProgress = task.getStatus() == TaskModel.Status.IN_PROGRESS;
-            if (workflowExecutor != null
-                    && systemTaskRegistry.isSystemTask(task.getTaskType())) {
+            if (systemTaskRegistry.isSystemTask(task.getTaskType())) {
                 try {
                     systemTaskRegistry
                             .get(task.getTaskType())
@@ -184,11 +186,7 @@ public class WorkflowSweeper {
         workflow.setStatus(WorkflowModel.Status.TIMED_OUT);
         workflow.setReasonForInCompletion(reason);
         workflow.setEndTime(now);
-        if (workflowExecutor != null) {
-            workflowExecutor.updateWorkflow(workflow);
-        } else if (executionDAOFacade != null) {
-            executionDAOFacade.updateWorkflow(workflow);
-        }
+        workflowExecutor.updateWorkflow(workflow);
     }
 
     private String timeoutReason(

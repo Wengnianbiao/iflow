@@ -253,6 +253,14 @@ public class DeciderService {
                     workflow.getReasonForInCompletion());
             return outcome;
         }
+//
+//        // 检查超时时间
+//        checkWorkflowTimeout(workflow);
+//        // 外部io设置的状态，真正被暂停的workflow处理
+//        if (workflow.getStatus().equals(WorkflowModel.Status.PAUSED)) {
+//            LOGGER.debug("Workflow " + workflow.getWorkflowId() + " is paused");
+//            return outcome;
+//        }
 
         // 1、收集当前工作流运行时
         // decide本轮pending的task
