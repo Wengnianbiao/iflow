@@ -10,8 +10,8 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>iflow-web</artifactId>
-    <description>Web应用模块：应用入口、资源配置</description>
+    <artifactId>iflow-demo</artifactId>
+    <description>本地调试与演示应用：应用入口、资源配置</description>
 
     <dependencies>
         <dependency>
@@ -106,7 +106,7 @@
         </dependency>
     </dependencies>
 
-    <!-- iflow-web 作为可执行应用入口 -->
+    <!-- iflow-demo 作为本地调试与演示的可执行应用入口 -->
     <build>
         <finalName>iflow</finalName>
         <plugins>

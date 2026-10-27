@@ -131,6 +131,9 @@ public interface ExecutionDAO {
      */
     List<String> getRunningWorkflowIds();
 
+    /** 取全部尚未结束的 RUNNING 实例，供超时检查和进程重启收尾使用。 */
+    List<String> getUnfinishedWorkflowIds();
+
     /**
      * 取指定工作流定义当前处于运行中的实例（含任务列表）。
      */

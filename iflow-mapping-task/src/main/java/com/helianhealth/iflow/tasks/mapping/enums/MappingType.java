@@ -1,11 +1,8 @@
 package com.helianhealth.iflow.tasks.mapping.enums;
 
-import lombok.Getter;
-
 /**
  * 映射规则类型枚举
  */
-@Getter
 public enum MappingType {
 
     /**

@@ -36,7 +36,7 @@ function createWorkflow(attributes: WorkflowRouteAttributes): WorkflowDef {
     outputParameters: {},
     workflowStatusListenerEnabled: false,
     timeoutSeconds: 0,
-    timeoutPolicy: 'ALERT_ONLY',
+    timeoutPolicy: 'TIME_OUT_WF',
     tasks: [],
   }
 }

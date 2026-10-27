@@ -1,0 +1,112 @@
+.requestLine {
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+}
+.requestLine strong {
+  padding: 0 16px;
+  color: #ad7600;
+  font-size: 13px;
+  border-right: 1px solid #e5e5e5;
+}
+.requestLine code {
+  padding: 8px 12px;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  color: #555;
+}
+.bodyHeading {
+  margin-top: 12px;
+  border-bottom: 1px solid #e5e5e5;
+}
+.bodyHeading span {
+  display: inline-block;
+  border-bottom: 2px solid #ef5b3f;
+  padding: 9px 12px;
+  font-size: 13px;
+}
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 16px;
+  padding: 6px 0 10px;
+}
+.toolbar :global(.MuiFormControlLabel-root) {
+  margin-right: 14px;
+  margin-left: -5px;
+}
+.toolbar :global(.MuiFormControlLabel-label) {
+  font-size: 12px;
+}
+.toolbar :global(.MuiRadio-root) {
+  padding: 6px;
+}
+.toolbar :global(.MuiInputBase-root) {
+  min-width: 64px;
+  font-size: 13px;
+}
+.rawControls {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.fields {
+  min-height: 400px;
+  border: 1px solid #e5e5e5;
+  overflow-x: auto;
+}
+.fields table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 420px;
+  table-layout: fixed;
+}
+.fields th {
+  text-align: left;
+  color: #666;
+  background: #fafafa;
+  font-size: 12px;
+  font-weight: 500;
+}
+.fields td,
+.fields th {
+  border-bottom: 1px solid #e5e5e5;
+  border-right: 1px solid #e5e5e5;
+  padding: 6px 10px;
+}
+.fields th:first-child {
+  width: 36px;
+}
+.fields td:first-child {
+  padding: 0;
+}
+.fields th:last-child {
+  width: 36px;
+}
+.fields td:last-child {
+  padding: 0 2px;
+}
+.fields :global(.MuiInputBase-root) {
+  font-size: 13px;
+}
+.fields :global(.MuiInput-root)::before,
+.fields :global(.MuiInput-root)::after {
+  border: 0;
+}
+.fileButton {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-transform: none;
+}
+.empty {
+  min-height: 400px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #777;
+  border: 1px solid #e5e5e5;
+  font-size: 13px;
+}

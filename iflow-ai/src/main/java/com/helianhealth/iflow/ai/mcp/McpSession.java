@@ -1,13 +1,10 @@
 package com.helianhealth.iflow.ai.mcp;
 
-import lombok.Getter;
-
 import java.time.Instant;
 
 /**
  * MCP Streamable HTTP 会话状态。
  */
-@Getter
 public class McpSession {
 
     private final String sessionId;
@@ -31,5 +28,25 @@ public class McpSession {
     public void markInitialized() {
         this.initialized = true;
         touch();
+    }
+
+    public String getSessionId() {
+        return this.sessionId;
+    }
+
+    public String getProtocolVersion() {
+        return this.protocolVersion;
+    }
+
+    public Instant getCreatedAt() {
+        return this.createdAt;
+    }
+
+    public Instant getLastAccessAt() {
+        return this.lastAccessAt;
+    }
+
+    public boolean isInitialized() {
+        return this.initialized;
     }
 }

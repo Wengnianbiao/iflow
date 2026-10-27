@@ -16,7 +16,9 @@ import {
   EyeIcon,
   GridFourIcon,
   ListIcon,
+  MinusSquareIcon,
   PlayCircleIcon,
+  PlusSquareIcon,
   StopCircleIcon,
   XIcon,
 } from '@phosphor-icons/react'
@@ -25,6 +27,8 @@ import { getWorkflowExecution, terminateWorkflow } from '@/api/workflowExecution
 import { ConductorFlowCanvas } from '@/components/flow/ConductorFlowCanvas'
 import { useMessageContext } from '@/components/providers/messageContext'
 import { JsonViewer, serializeJson } from '@/components/ui/JsonViewer'
+import { xmlDocuments } from '@/components/ui/jsonViewerContent'
+import type { OnMount } from '@monaco-editor/react'
 import type { WorkflowTask } from '@/types/workflow'
 import type { TaskExecution, WorkflowExecution } from '@/types/workflowExecution'
 import { formatDuration, formatTime, statusText } from './ExecutionExplorerPage'
@@ -53,7 +57,7 @@ const TASK_TABS: Array<[TaskTab, string]> = [
   ['definition', '定义'],
 ]
 
-const TERMINAL_WORKFLOW_STATUSES = new Set(['COMPLETED', 'FAILED', 'TIMED_OUT', 'TERMINATED'])
+const TERMINAL_WORKFLOW_STATUSES = new Set(['COMPLETED', 'FAILED', 'TIMED_OUT', 'TERMINATED', 'INTERRUPTED'])
 
 export function ExecutionDetailPage() {
   const { workflowId = '' } = useParams()
@@ -725,7 +729,13 @@ function JsonCard({
   fullScreen?: boolean
   compact?: boolean
 }) {
-  const content = serializeJson(value)
+  const documents = useMemo(() => xmlDocuments(value), [value])
+  const [selectedPath, setSelectedPath] = useState('')
+  const xmlDocument = documents.find((item) => item.path === (selectedPath || '$'))
+  const content = xmlDocument?.content ?? serializeJson(value)
+  const language = xmlDocument ? 'xml' : 'json'
+  const editorRef = useRef<Parameters<OnMount>[0] | null>(null)
+  const [editorReady, setEditorReady] = useState(false)
   const [copied, setCopied] = useState(false)
   const copy = async () => {
     const ok = await onCopy(content, title)
@@ -738,6 +748,23 @@ function JsonCard({
       <header>
         <h3>{title}</h3>
         <div>
+          {documents.length ? (
+            <select
+              className={styles.documentSelector}
+              aria-label={`${title}查看内容`}
+              value={xmlDocument?.path ?? 'json'}
+              onChange={(event) => setSelectedPath(event.target.value)}
+            >
+              <option value="json">完整 JSON</option>
+              {documents.map((item) => <option key={item.path} value={item.path}>{item.path === '$' ? 'XML' : `XML · ${item.path}`}</option>)}
+            </select>
+          ) : null}
+          <button type="button" aria-label={`折叠全部${title}`} title="折叠全部" disabled={!editorReady} onClick={() => editorRef.current?.trigger('toolbar', 'editor.foldAll', undefined)}>
+            <MinusSquareIcon size={16} />
+          </button>
+          <button type="button" aria-label={`展开全部${title}`} title="展开全部" disabled={!editorReady} onClick={() => editorRef.current?.trigger('toolbar', 'editor.unfoldAll', undefined)}>
+            <PlusSquareIcon size={16} />
+          </button>
           <button type="button" aria-label={`复制${title}`} title={`复制${title}`} onClick={() => void copy()}>
             {copied ? <CheckIcon size={16} /> : <CopyIcon size={16} />}
           </button>
@@ -748,7 +775,16 @@ function JsonCard({
           ) : null}
         </div>
       </header>
-      <JsonViewer value={value} ariaLabel={`${title} JSON`} />
+      <JsonViewer key={`${title}-${xmlDocument?.path ?? 'json'}`} content={content} language={language} ariaLabel={`${title} ${language.toUpperCase()}`} onMount={(editor) => {
+        editorRef.current = editor
+        setEditorReady(true)
+        editor.onDidDispose(() => {
+          if (editorRef.current === editor) {
+            editorRef.current = null
+            setEditorReady(false)
+          }
+        })
+      }} />
     </section>
   )
 }
@@ -886,11 +922,11 @@ function statusTone(status?: string) {
   if (status === 'COMPLETED') return 'statusCompleted'
   if (status === 'COMPLETED_WITH_ERRORS') return 'statusWarning'
   if (status === 'RUNNING' || status === 'IN_PROGRESS') return 'statusRunning'
-  if (status === 'FAILED' || status === 'FAILED_WITH_TERMINAL_ERROR' || status === 'TIMED_OUT') return 'statusFailed'
+  if (status === 'FAILED' || status === 'FAILED_WITH_TERMINAL_ERROR' || status === 'TIMED_OUT' || status === 'INTERRUPTED') return 'statusFailed'
   if (status === 'TERMINATED' || status === 'CANCELED' || status === 'SKIPPED') return 'statusStopped'
   return 'statusPending'
 }
 
 function isFailedStatus(status?: string) {
-  return status?.includes('FAILED') || status === 'TIMED_OUT'
+  return status?.includes('FAILED') || status === 'TIMED_OUT' || status === 'INTERRUPTED'
 }

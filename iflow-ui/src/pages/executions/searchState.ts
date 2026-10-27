@@ -6,6 +6,7 @@ export const WORKFLOW_STATUS_OPTIONS: { value: WorkflowExecutionStatus; label: s
   { value: 'FAILED', label: '失败' },
   { value: 'TIMED_OUT', label: '已超时' },
   { value: 'TERMINATED', label: '已终止' },
+  { value: 'INTERRUPTED', label: '执行中断' },
 ]
 
 export type WorkflowSearchFilters = {

@@ -26,12 +26,17 @@ const built = await esbuild.build({
     export { default as axios } from 'axios';
     export * from './src/utils/workflowDraft';
     export * from './src/utils/workflowTags';
+    export { TaskInspector } from './src/pages/definition/EditorPanel/TaskInspector';
+    export { renderToStaticMarkup } from 'react-dom/server';
+    export { createElement } from 'react';
     export * from './src/pages/definitions/workflowTemplates';
     export * from './src/pages/runWorkflow/gatewayInput';
   `, resolveDir: root, sourcefile: 'workflow-definition-test.ts' },
   bundle: true, platform: 'node', format: 'cjs', write: false, tsconfig: `${root}/tsconfig.json`, logLevel: 'silent',
   plugins: [{ name: 'headless-task-catalog', setup(build) {
     build.onResolve({ filter: /^@\/tasks$/ }, () => ({ path: `${root}/src/tasks/taskPluginRegistry.ts` }))
+    build.onResolve({ filter: /^\.\/TaskFormTab\/forms$/ }, () => ({ path: 'task-form', namespace: 'headless-task-form' }))
+    build.onLoad({ filter: /.*/, namespace: 'headless-task-form' }, () => ({ contents: 'export const UnknownTaskForm = () => null', loader: 'js' }))
   } }],
 })
 const compiled = new Module(`${root}/workflow-definition-test.cjs`)
@@ -1144,7 +1149,7 @@ test('definition and start APIs send route identities; updates use the saved tar
   lib.axios.defaults.adapter = async config => {
     requests.push(config)
     if (failUpdate && config.method === 'put') throw new Error('保存失败')
-    return { data: { code: 200, data: config.url.endsWith('/start') ? 'instance-1' : wf() }, status: 200, statusText: 'OK', headers: {}, config }
+    return { data: { code: 200, data: config.url.endsWith('/start-http') ? 'instance-1' : wf() }, status: 200, statusText: 'OK', headers: {}, config }
   }
   await lib.getWorkflowDefinition('review', 1)
   assert.deepEqual(requests.at(-1).params, { route: 'review', version: 1 })
@@ -1166,8 +1171,17 @@ test('definition and start APIs send route identities; updates use the saved tar
   assert.deepEqual(JSON.parse(creation.data), { ...original, route: 'another' })
   assert.equal(requests.filter(r => r.method === 'put').length, 2)
   assert.equal(original.route, 'review')
-  assert.equal(await lib.startWorkflow('review', 1, { body: {} }), 'instance-1')
-  assert.deepEqual(JSON.parse(requests.at(-1).data), { route: 'review', version: 1, input: { body: {} } })
+  for (const [contentType, body] of [
+    ['application/xml', '<root><patientCode id="56">患者编号</patientCode></root>\n'],
+    ['application/json', '  {"id":1234567890123456789}\n'],
+    ['text/plain', '  原始文本\n'],
+  ]) {
+    assert.equal(await lib.startWorkflow('review', 1, body, contentType), 'instance-1')
+    assert.equal(requests.at(-1).url, '/api/workflow/execution/start-http')
+    assert.deepEqual(requests.at(-1).params, { route: 'review', version: 1 })
+    assert.equal(requests.at(-1).headers.get('Content-Type'), `${contentType};charset=UTF-8`)
+    assert.equal(requests.at(-1).data, body)
+  }
   await lib.deleteWorkflowDefinition('review', 1)
   assert.deepEqual(requests.at(-1).params, { route: 'review', version: 1 })
 })
@@ -1183,7 +1197,65 @@ test('imports and templates preserve route, business names and task names indepe
     assert.equal(Object.hasOwn(definition, 'displayName'), false)
     assert.ok(definition.tasks.some(task => task.name))
   }
-  assert.equal(lib.toGatewayWorkflowInput('hl-open-api/GetItemResult', {}).path, '/hl-open-api/GetItemResult')
+})
+
+test('execution body editor restores raw XML, JSON and text with their formats', () => {
+  const rawXml = '<root>\n  <patientCode id="56">患者编号</patientCode>\n</root>\n'
+  for (const [contentType, format, rawBody] of [
+    ['application/soap+xml;charset=UTF-8', 'xml', rawXml],
+    ['text/xml', 'xml', rawXml],
+    ['application/json', 'json', '  {"id":1234567890123456789}\n'],
+    ['text/plain', 'text', '  原始文本\n'],
+    ['application/json', 'json', 'null'],
+    ['application/json', 'json', ''],
+  ]) {
+    const restored = lib.requestBodyFromWorkflowInput({
+      body: { parsed: true }, rawBody, query: {}, headers: { 'content-type': contentType }, method: 'POST', path: '/test',
+    })
+    assert.equal(restored.mode, 'raw')
+    assert.equal(restored.text, rawBody)
+    assert.equal(restored.format, format)
+  }
+  for (const [input, text, format] of [
+    [{ body: { BusinessMethod: 'apply' }, rawBody: '{"BusinessMethod":"apply"}' }, '{"BusinessMethod":"apply"}', 'json'],
+    [{ patientCode: '001' }, '{\n  "patientCode": "001"\n}', 'json'],
+    [{ body: [1, 2], query: {}, headers: {}, method: 'POST', path: '/test' }, '[\n  1,\n  2\n]', 'json'],
+    ['<root><patientCode>001</patientCode></root>', '<root><patientCode>001</patientCode></root>', 'xml'],
+    ['{"patientCode":"001"}', '{"patientCode":"001"}', 'json'],
+    ['原始文本', '原始文本', 'text'],
+  ]) {
+    const restored = lib.requestBodyFromWorkflowInput(input)
+    assert.equal(restored.text, text)
+    assert.equal(restored.format, format)
+  }
+  const oldXml = lib.requestBodyFromWorkflowInput({
+    body: { root: { patientCode: { '@id': '56', '#text': '患者 & 编号' }, item: ['a', 'b'] } },
+    query: {}, headers: { 'content-type': 'application/xml' }, method: 'POST', path: '/test',
+  })
+  assert.equal(oldXml.format, 'xml')
+  assert.equal(oldXml.text, '<root><patientCode id="56">患者 &amp; 编号</patientCode><item>a</item><item>b</item></root>')
+})
+
+test('body editor restores form fields, empty requests and saved file bytes for resubmission', async () => {
+  const gatewayInput = (body, rawBody, contentType, files = {}) => ({ body, rawBody, files, query: {}, headers: { 'content-type': contentType }, method: 'POST', path: '/test' })
+  const form = lib.requestBodyFromWorkflowInput(gatewayInput({ tag: ['a', 'b'], name: '张三' }, 'tag=a&tag=b&name=%E5%BC%A0%E4%B8%89', 'application/x-www-form-urlencoded'))
+  assert.equal(form.mode, 'urlencoded')
+  assert.deepEqual(form.fields.filter(field => field.name).map(field => [field.name, field.value]), [['tag', 'a'], ['tag', 'b'], ['name', '张三']])
+  assert.deepEqual(lib.toHttpRequestBody(form), { body: 'tag=a&tag=b&name=%E5%BC%A0%E4%B8%89', contentType: 'application/x-www-form-urlencoded' })
+  const multipart = lib.requestBodyFromWorkflowInput(gatewayInput({ name: '张三' }, null, 'multipart/form-data;boundary=test', {
+    file: [{ fileName: 'raw.bin', contentType: 'application/octet-stream', contentBase64: 'AAH/', size: 3 }],
+  }))
+  assert.equal(multipart.mode, 'form-data')
+  const payload = lib.toHttpRequestBody(multipart)
+  assert.equal(payload.contentType, undefined)
+  assert.equal(payload.body.get('name'), '张三')
+  assert.equal(payload.body.get('file').name, 'raw.bin')
+  assert.deepEqual([...new Uint8Array(await payload.body.get('file').arrayBuffer())], [0, 1, 255])
+  const empty = lib.requestBodyFromWorkflowInput(gatewayInput(null, '', ''))
+  assert.equal(empty.mode, 'none')
+  assert.deepEqual(lib.toHttpRequestBody(empty), { body: '' })
+  form.fields.push({ ...lib.emptyBodyField(), enabled: false, name: 'ignored', value: 'x' })
+  assert.equal(new URLSearchParams(lib.toHttpRequestBody(form).body).has('ignored'), false)
 })
 
 
@@ -1285,4 +1357,107 @@ test('creating an edited route reports duplicate keys without updating the desti
   assert.equal(requests.length, 1)
   assert.equal(requests[0].method, 'post')
   assert.equal(requests[0].url, '/api/workflow/metadata/create')
+})
+
+test('workflow timeouts default to termination and preserve explicit alert-only imports', () => {
+  assert.equal(lib.normalizeWorkflowDraft(wf()).timeoutPolicy, 'TIME_OUT_WF')
+  assert.equal(lib.normalizeWorkflowDraft({ ...wf(), timeoutPolicy: null }).timeoutPolicy, 'TIME_OUT_WF')
+  assert.equal(lib.normalizeWorkflowDraft({ ...wf(), timeoutPolicy: 'ALERT_ONLY', timeoutSeconds: 180 }).timeoutPolicy, 'ALERT_ONLY')
+  for (const template of lib.workflowTemplates) {
+    const definition = template.create('timeout-test')
+    assert.equal(definition.timeoutSeconds, 0)
+    assert.equal(definition.timeoutPolicy, 'TIME_OUT_WF')
+  }
+})
+
+test('task policies distinguish inheritance and explicit zero, and validate nested fields', () => {
+  for (const field of ['retryCount', 'retryDelaySeconds', 'startDelay']) {
+    for (const value of [undefined, null, 0, 1, 30]) {
+      assert.equal(lib.validateWorkflow(wf([{ ...task('a'), [field]: value }])).problems.length, 0)
+    }
+    for (const value of [-1, 0.5, Infinity, NaN, '1', true, []]) {
+      const definition = wf([doWhile({ loopCondition: 'false', loopOver: [{ ...task('a'), [field]: value }] })])
+      const problem = lib.validateWorkflow(definition).problems.find(problem => problem.path === `/tasks/0/loopOver/0/${field}`)
+      assert.ok(problem, `${field} should reject ${JSON.stringify(value)}`)
+      assert.equal(problem.taskPath, '/tasks/0/loopOver/0')
+      assert.equal(problem.taskReferenceName, 'a')
+    }
+  }
+  for (const field of ['retryCount', 'retryDelaySeconds', 'startDelay']) {
+    assert.ok(lib.validateWorkflow(wf([{ ...task('a'), [field]: 2147483648 }])).problems.some(problem => problem.path === `/tasks/0/${field}`))
+  }
+  for (const [field, values] of [
+    ['retryLogic', ['FIXED', 'LINEAR_BACKOFF', 'EXPONENTIAL_BACKOFF']],
+  ]) {
+    for (const value of [undefined, null, ...values]) {
+      assert.equal(lib.validateWorkflow(wf([{ ...task('a'), [field]: value }])).problems.length, 0)
+    }
+    for (const value of ['', 'UNKNOWN', 0, true, []]) {
+      assert.ok(lib.validateWorkflow(wf([{ ...task('a'), [field]: value }])).problems.some(problem => problem.path === `/tasks/0/${field}`))
+    }
+  }
+})
+
+test('task policy forms exclude built-in control flow from failure retries', () => {
+  const render = type => lib.renderToStaticMarkup(lib.createElement(lib.TaskInspector, {
+    task: { ...task('a'), type }, variableOptions: [], onChange: () => {},
+  }))
+  for (const type of ['HTTP', 'JDBC', 'WEBSERVICE', 'SPI', 'INLINE', 'MAPPING', 'CUSTOM',
+    'DECISION', 'SWITCH', 'FORK', 'FORK_JOIN', 'JOIN', 'EXCLUSIVE_JOIN', 'DO_WHILE']) {
+    const html = render(type)
+    const canRetry = ['HTTP', 'JDBC', 'WEBSERVICE', 'SPI', 'INLINE', 'MAPPING', 'CUSTOM'].includes(type)
+    assert.equal(html.includes('aria-label="重试次数"'), canRetry, type)
+    assert.equal(html.includes('aria-label="重试间隔（秒）"'), canRetry, type)
+    assert.equal(html.includes('aria-label="重试方式"'), canRetry, type)
+    assert.ok(html.includes('aria-label="启动延迟（秒）"'), type)
+    assert.ok(html.includes('aria-label="可选任务"'), type)
+    assert.ok(html.includes('role="switch"'), type)
+    assert.equal(html.includes('任务超时'), false, type)
+    assert.ok(html.includes('暂未生效'), type)
+  }
+  const unregister = lib.registerTaskPlugin({ type: 'SWITCH', label: '自定义分支表单' })
+  assert.equal(render('SWITCH').includes('aria-label="重试次数"'), false)
+  unregister()
+  assert.ok(render('CUSTOM').includes('aria-label="重试次数"'))
+})
+
+test('task policies survive imports, source edits, unrelated form edits and save reloads', async () => {
+  const policies = { retryCount: 0, retryDelaySeconds: 0, retryLogic: 'EXPONENTIAL_BACKOFF', startDelay: 5 }
+  const definition = wf([doWhile({ loopCondition: 'false', loopOver: [{ ...task('a'), ...policies }] })])
+  const imported = lib.normalizeWorkflowDraft(JSON.parse(JSON.stringify(definition)))
+  assert.deepEqual(imported.tasks, definition.tasks)
+  let saved
+  const actor = await actorFor(imported, { saveWorkflowDefinition: async context => {
+    saved = structuredClone(context.workflow)
+    return saved
+  } })
+  const edited = lib.updateTask(imported, 'a', current => ({ ...current, description: '仅修改描述' }))
+  actor.send({ type: 'SOURCE_CHANGED', source: JSON.stringify(edited, null, 2) })
+  actor.send({ type: 'TASK_SELECTED', task: actor.state.context.workflow.tasks[0].loopOver[0] })
+  actor.send({ type: 'TASK_UPDATED', task: { ...actor.state.context.workflow.tasks[0].loopOver[0], optional: true } })
+  actor.send({ type: 'REQUEST_SAVE' })
+  actor.send({ type: 'CONFIRM_SAVE' })
+  await tick()
+  assert.ok(saved)
+  for (const [key, value] of Object.entries(policies)) assert.equal(saved.tasks[0].loopOver[0][key], value)
+  assert.equal(saved.tasks[0].loopOver[0].optional, true)
+  assert.equal(saved.tasks[0].loopOver[0].description, '仅修改描述')
+  assert.equal(saved.tasks[0].retryCount, undefined)
+  assert.equal(saved.tasks[0].startDelay, undefined)
+  assert.deepEqual(lib.normalizeWorkflowDraft(JSON.parse(JSON.stringify(saved))).tasks, saved.tasks)
+  assert.deepEqual(actor.state.context.baseline.tasks, saved.tasks)
+  actor.stop()
+})
+
+test('workflow timeout validation rejects fractions, negatives and unsupported policies', () => {
+  for (const timeoutSeconds of [-1, 1.5, Infinity, NaN, '60']) {
+    const result = lib.validateWorkflow({ ...wf(), timeoutSeconds })
+    assert.ok(result.problems.some(problem => problem.path === '/timeoutSeconds'))
+  }
+  assert.ok(lib.validateWorkflow({ ...wf(), timeoutPolicy: 'RETRY' }).problems.some(problem => problem.path === '/timeoutPolicy'))
+  for (const timeoutSeconds of [0, 60, 120]) {
+    for (const timeoutPolicy of [undefined, null, 'TIME_OUT_WF', 'ALERT_ONLY']) {
+      assert.equal(lib.validateWorkflow({ ...wf(), timeoutSeconds, timeoutPolicy }).problems.length, 0)
+    }
+  }
 })

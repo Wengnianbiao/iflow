@@ -2,6 +2,7 @@ package com.helianhealth.iflow.web.mysql.dao;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
+import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,11 +17,13 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Timestamp;
 import java.util.List;
+import java.util.Map;
 
 import com.helianhealth.iflow.common.exception.WorkFlowConfigException;
 import com.helianhealth.iflow.common.exception.WorkFlowErrorCode;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.startsWith;
@@ -73,6 +76,20 @@ class MySqlMetadataDAOTest {
         dao = new MySqlMetadataDAO(dataSource, OBJECT_MAPPER);
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void negativeTimeoutIsRejectedForCreationAndUpdate(boolean create) throws Exception {
+        org.mockito.Mockito.reset(dataSource, connection);
+        WorkflowDef definition = workflowDef();
+        definition.setTimeoutSeconds(-1);
+        var error = assertThrows(WorkFlowConfigException.class, () -> {
+            if (create) dao.createWorkflowDef(definition);
+            else dao.updateWorkflowDef(definition);
+        });
+        assertEquals(true, error.getMessage().contains("timeoutSeconds"));
+        verify(connection, never()).prepareStatement(startsWith("INSERT"));
+    }
+
     @Test
     void createWorkflowDefInsertsJsonAndRefreshesLatestVersion() throws Exception {
         when(connection.prepareStatement(contains("SELECT COUNT"))).thenReturn(countStatement);
@@ -102,6 +119,33 @@ class MySqlMetadataDAOTest {
         verify(latestVersionStatement).setInt(1, 1);
         verify(latestVersionStatement).setString(2, "demo");
         verify(connection).commit();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"retryCount", "retryDelaySeconds", "startDelay"})
+    void rejectsNegativePoliciesInsideNestedTasksBeforeAccessingDatabase(String field) {
+        org.mockito.Mockito.reset(dataSource, connection);
+        WorkflowTask invalid = WorkflowTask.builder().name("invalid").taskReferenceName("nested").build();
+        switch (field) {
+            case "retryCount" -> invalid.setRetryCount(-1);
+            case "retryDelaySeconds" -> invalid.setRetryDelaySeconds(-1);
+            case "startDelay" -> invalid.setStartDelay(-1);
+        }
+        WorkflowTask loop = WorkflowTask.builder().type("DO_WHILE").loopOver(List.of(invalid)).build();
+        WorkflowTask fork = WorkflowTask.builder().type("FORK_JOIN").forkTasks(List.of(List.of(loop))).build();
+        WorkflowTask branch = WorkflowTask.builder().type("SWITCH")
+                .decisionCases(Map.of("yes", List.of(fork))).build();
+        WorkflowDef definition = workflowDef();
+        definition.setTasks(List.of(branch));
+        for (boolean create : List.of(false, true)) {
+            var error = assertThrows(WorkFlowConfigException.class, () -> {
+                if (create) dao.createWorkflowDef(definition);
+                else dao.updateWorkflowDef(definition);
+            });
+            assertEquals(true, error.getMessage().contains(field));
+            assertEquals(true, error.getMessage().contains("nested"));
+        }
+        org.mockito.Mockito.verifyNoInteractions(dataSource);
     }
 
     @ParameterizedTest
@@ -227,10 +271,21 @@ class MySqlMetadataDAOTest {
         when(insertStatement.executeUpdate()).thenReturn(1);
         WorkflowDef definition = workflowDef();
         definition.setName("修改后的业务名称");
+        WorkflowTask inherited = WorkflowTask.builder().name("inherit").taskReferenceName("inherit").build();
+        WorkflowTask explicit = WorkflowTask.builder().name("explicit").taskReferenceName("explicit")
+                .retryCount(0).retryDelaySeconds(0).retryLogic(WorkflowTask.RetryLogic.FIXED)
+                .startDelay(0).build();
+        definition.setTasks(List.of(WorkflowTask.builder().name("fork").taskReferenceName("fork").type("FORK_JOIN")
+                .forkTasks(List.of(List.of(inherited), List.of(explicit))).build()));
 
         dao.updateWorkflowDef(definition);
 
         verify(insertStatement).setString(1, OBJECT_MAPPER.writeValueAsString(definition));
+        WorkflowDef restored = OBJECT_MAPPER.readValue(OBJECT_MAPPER.writeValueAsString(definition), WorkflowDef.class);
+        assertEquals(definition.getTasks(), restored.getTasks());
+        assertNull(restored.getTaskByRefName("inherit").getRetryCount());
+        assertNull(restored.getTaskByRefName("inherit").getStartDelay());
+        assertEquals(0, restored.getTaskByRefName("explicit").getStartDelay());
         verify(insertStatement).setString(2, "demo");
         verify(insertStatement).setInt(3, 1);
         verify(connection, never()).prepareStatement(startsWith("INSERT"));

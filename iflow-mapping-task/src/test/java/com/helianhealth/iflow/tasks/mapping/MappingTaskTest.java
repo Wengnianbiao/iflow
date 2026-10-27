@@ -407,7 +407,8 @@ class MappingTaskTest {
                 MappingTask.INPUT_PAYLOAD, Map.of("value", "not-a-number"),
                 MappingTask.INPUT_PARAMS_CONFIG, config));
 
-        assertEquals(TaskModel.Status.FAILED, task.getStatus());
+        assertEquals(TaskModel.Status.FAILED_WITH_TERMINAL_ERROR, task.getStatus());
+        assertFalse(task.getStatus().isRetriable());
         assertTrue(task.getReasonForInCompletion().contains(expectedDiagnostic),
                 task.getReasonForInCompletion());
         assertEquals(Map.of(), task.getOutputData());
@@ -569,7 +570,8 @@ class MappingTaskTest {
 
         strictTask.start(newWorkflow(), task, null);
 
-        assertEquals(TaskModel.Status.FAILED, task.getStatus());
+        assertEquals(TaskModel.Status.FAILED_WITH_TERMINAL_ERROR, task.getStatus());
+        assertFalse(task.getStatus().isRetriable());
         assertTrue(task.getReasonForInCompletion().contains("unknownField"));
         assertFalse(sharedMapper.isEnabled(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES));
         assertEquals(Map.of(), task.getOutputData());
@@ -596,7 +598,8 @@ class MappingTaskTest {
     }
 
     private static void assertFailedWithoutOutput(TaskModel task, String diagnostic) {
-        assertEquals(TaskModel.Status.FAILED, task.getStatus());
+        assertEquals(TaskModel.Status.FAILED_WITH_TERMINAL_ERROR, task.getStatus());
+        assertFalse(task.getStatus().isRetriable());
         assertTrue(task.getReasonForInCompletion().contains(diagnostic), task.getReasonForInCompletion());
         assertEquals(Map.of(), task.getOutputData());
     }

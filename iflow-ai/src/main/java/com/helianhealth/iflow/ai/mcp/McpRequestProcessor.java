@@ -11,7 +11,6 @@ import com.helianhealth.iflow.ai.mcp.protocol.ToolCallParams;
 import com.helianhealth.iflow.ai.mcp.protocol.ToolCallResult;
 import com.helianhealth.iflow.ai.mcp.protocol.ToolDefinition;
 import com.helianhealth.iflow.common.exception.WorkFlowException;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -215,7 +214,6 @@ public class McpRequestProcessor {
         }
     }
 
-    @Getter
     public static final class ProcessResult {
 
         private final JsonRpcResponse response;
@@ -243,6 +241,22 @@ public class McpRequestProcessor {
 
         static ProcessResult notification() {
             return new ProcessResult(null, true, null, null);
+        }
+
+        public JsonRpcResponse getResponse() {
+            return this.response;
+        }
+
+        public boolean isNotification() {
+            return this.notification;
+        }
+
+        public String getNegotiatedProtocolVersion() {
+            return this.negotiatedProtocolVersion;
+        }
+
+        public String getNewSessionId() {
+            return this.newSessionId;
         }
     }
 }

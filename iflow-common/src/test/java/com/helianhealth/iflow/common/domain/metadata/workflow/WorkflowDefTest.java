@@ -1,7 +1,10 @@
 package com.helianhealth.iflow.common.domain.metadata.workflow;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -12,12 +15,30 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WorkflowDefTest {
+
+    @Test
+    void timeoutDefaultsAndPoliciesRoundTripAndRejectInvalidJson() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        WorkflowDef missing = mapper.readValue("{}", WorkflowDef.class);
+        WorkflowDef explicitNull = mapper.readValue("{\"timeoutPolicy\":null}", WorkflowDef.class);
+        assertEquals(0, missing.getTimeoutSeconds());
+        assertEquals(WorkflowDef.TimeoutPolicy.TIME_OUT_WF, missing.getTimeoutPolicy());
+        assertEquals(WorkflowDef.TimeoutPolicy.TIME_OUT_WF, explicitNull.getTimeoutPolicy());
+        assertEquals(WorkflowDef.TimeoutPolicy.ALERT_ONLY,
+                mapper.readValue("{\"timeoutSeconds\":120,\"timeoutPolicy\":\"ALERT_ONLY\"}", WorkflowDef.class).getTimeoutPolicy());
+        for (String json : List.of("{\"timeoutSeconds\":1.5}", "{\"timeoutSeconds\":\"60\"}", "{\"timeoutPolicy\":\"UNKNOWN\"}")) {
+            assertThrows(com.fasterxml.jackson.core.JsonProcessingException.class, () -> mapper.readValue(json, WorkflowDef.class));
+        }
+        assertEquals(-1, mapper.readValue("{\"timeoutSeconds\":-1}", WorkflowDef.class).getTimeoutSeconds(),
+                "historical nonpositive budgets remain readable");
+    }
 
     @Test
     void tagsTravelWithDefinitionJsonAndLegacyDefinitionsNeedNoMigration() throws Exception {
@@ -253,7 +274,7 @@ class WorkflowDefTest {
     }
 
     @Test
-    void deserializesLoopOverFalseAsEmptyList() throws Exception {
+    void roundTripsLoopOverTaskArray() throws Exception {
         ObjectMapper mapper = new ObjectMapper();
         String json =
                 """
@@ -264,15 +285,41 @@ class WorkflowDefTest {
                   "tasks": [{
                     "name": "t1",
                     "taskReferenceName": "t1",
-                    "type": "HTTP",
-                    "loopOver": false
+                    "type": "DO_WHILE",
+                    "loopCondition": "false",
+                    "loopOver": [{
+                      "name": "body",
+                      "taskReferenceName": "body",
+                      "type": "INLINE"
+                    }]
                   }]
                 }
                 """;
         WorkflowDef def = mapper.readValue(json, WorkflowDef.class);
         assertNotNull(def.getTasks());
         assertEquals(1, def.getTasks().size());
-        assertTrue(def.getTasks().get(0).getLoopOver().isEmpty());
+        WorkflowTask loop = def.getTasks().get(0);
+        assertEquals("false", loop.getLoopCondition());
+        assertEquals(1, loop.getLoopOver().size());
+        assertEquals("body", loop.getLoopOver().get(0).getTaskReferenceName());
+        assertEquals("INLINE", loop.getLoopOver().get(0).getType());
+        assertEquals(def, mapper.readValue(mapper.writeValueAsString(def), WorkflowDef.class));
+    }
+
+    @Test
+    void loopOverDefaultsToEmptyAndPreservesExplicitNull() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        assertTrue(mapper.readValue("{}", WorkflowTask.class).getLoopOver().isEmpty());
+        assertTrue(mapper.readValue("{\"loopOver\":[]}", WorkflowTask.class).getLoopOver().isEmpty());
+        assertNull(mapper.readValue("{\"loopOver\":null}", WorkflowTask.class).getLoopOver());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"false", "true", "{}", "123", "\"invalid\""})
+    void rejectsNonArrayLoopOver(String loopOver) {
+        ObjectMapper mapper = new ObjectMapper();
+        String json = "{\"tasks\":[{\"type\":\"DO_WHILE\",\"loopOver\":" + loopOver + "}]}";
+        assertThrows(MismatchedInputException.class, () -> mapper.readValue(json, WorkflowDef.class));
     }
 
     private static WorkflowTask createWorkflowTask(String name) {

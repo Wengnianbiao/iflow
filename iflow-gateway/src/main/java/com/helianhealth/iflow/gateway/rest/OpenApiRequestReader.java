@@ -35,37 +35,27 @@ import java.util.Map;
 public class OpenApiRequestReader {
 
     public static final int DEFAULT_MAX_BODY_BYTES = 10 * 1024 * 1024;
-    public static final String BODY_MODE_HEADER = "X-iFlow-Body-Mode";
-
-    private static final String MODE_AUTO = "auto";
-    private static final String MODE_RAW = "raw";
-
     private final JsonValueCodec jsonCodec;
     private final int maxBodyBytes;
-    private final boolean includeRawBody;
 
     public OpenApiRequestReader(
             ObjectMapper mapper,
-            @Value("${iflow.open-api.max-body-bytes:10485760}") int maxBodyBytes,
-            @Value("${iflow.open-api.include-raw-body:false}") boolean includeRawBody) {
+            @Value("${iflow.open-api.max-body-bytes:10485760}") int maxBodyBytes) {
         if (maxBodyBytes <= 0) {
             throw new IllegalArgumentException("iflow.open-api.max-body-bytes must be positive");
         }
         this.jsonCodec = new JsonValueCodec(mapper);
         this.maxBodyBytes = maxBodyBytes;
-        this.includeRawBody = includeRawBody;
     }
 
     public OpenApiRequest read(HttpServletRequest request) {
-        String mode = bodyMode(request);
         Map<String, Object> query = parseUrlEncoded(request.getQueryString(), StandardCharsets.UTF_8);
         Map<String, Object> headers = headers(request);
         try {
             if ("GET".equalsIgnoreCase(request.getMethod())) {
                 // GET 不把请求体交给工作流，但仍读取并执行实际字节大小限制。
                 readLimited(request.getInputStream(), request.getContentLengthLong(), 0);
-                return result(request, null, query, headers, Map.of(),
-                        includeRawBody ? "" : null);
+                return result(request, null, query, headers, Map.of(), "");
             }
 
             String contentType = request.getContentType();
@@ -84,8 +74,7 @@ public class OpenApiRequestReader {
 
             byte[] bytes = readLimited(request.getInputStream(), request.getContentLengthLong(), 0);
             if (bytes.length == 0) {
-                return result(request, null, query, headers, Map.of(),
-                        includeRawBody ? "" : null);
+                return result(request, null, query, headers, Map.of(), "");
             }
             if (mediaType == null) {
                 mediaType = optionalContentType(contentType);
@@ -93,9 +82,8 @@ public class OpenApiRequestReader {
             if (mediaType == null) {
                 throw unsupportedMediaType();
             }
-            ParsedBody parsed = readTextBody(bytes, mediaType, mode);
-            return result(request, parsed.body(), query, headers, Map.of(),
-                    includeRawBody ? parsed.rawText() : null);
+            ParsedBody parsed = readTextBody(bytes, mediaType);
+            return result(request, parsed.body(), query, headers, Map.of(), parsed.rawText());
         } catch (OpenApiPayloadTooLargeException e) {
             throw tooLarge();
         } catch (IOException e) {
@@ -145,7 +133,7 @@ public class OpenApiRequestReader {
         return result(request, compact(fields), query, headers, files, null);
     }
 
-    private ParsedBody readTextBody(byte[] bytes, MediaType mediaType, String mode) {
+    private ParsedBody readTextBody(byte[] bytes, MediaType mediaType) {
         String type = mediaType.getType();
         String subtype = mediaType.getSubtype();
         boolean json = "application".equals(type)
@@ -165,7 +153,7 @@ public class OpenApiRequestReader {
                     ? XmlMapParser.decodeBytes(bytes,
                             explicitCharset == null ? null : explicitCharset.name())
                     : decode(bytes, explicitCharset == null ? StandardCharsets.UTF_8 : explicitCharset);
-            if (MODE_RAW.equals(mode) || text) {
+            if (text) {
                 return new ParsedBody(decoded, decoded);
             }
             if (form) {
@@ -214,21 +202,6 @@ public class OpenApiRequestReader {
             output.write(buffer, 0, read);
         }
         return output.toByteArray();
-    }
-
-    private String bodyMode(HttpServletRequest request) {
-        List<String> values = Collections.list(request.getHeaders(BODY_MODE_HEADER));
-        if (values.isEmpty()) {
-            return MODE_AUTO;
-        }
-        if (values.size() != 1) {
-            throw invalidBodyMode();
-        }
-        String mode = values.get(0) == null ? "" : values.get(0).trim().toLowerCase(Locale.ROOT);
-        if (!MODE_AUTO.equals(mode) && !MODE_RAW.equals(mode)) {
-            throw invalidBodyMode();
-        }
-        return mode;
     }
 
     private MediaType optionalContentType(String value) {
@@ -318,11 +291,6 @@ public class OpenApiRequestReader {
                 .onMalformedInput(CodingErrorAction.REPORT)
                 .onUnmappableCharacter(CodingErrorAction.REPORT)
                 .decode(ByteBuffer.wrap(bytes)).toString();
-    }
-
-    private static ResponseStatusException invalidBodyMode() {
-        return new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                BODY_MODE_HEADER + " 只允许单个 auto 或 raw 值");
     }
 
     private static ResponseStatusException unsupportedMediaType() {

@@ -6,6 +6,7 @@ export type WorkflowExecutionStatus =
   | 'FAILED'
   | 'TIMED_OUT'
   | 'TERMINATED'
+  | 'INTERRUPTED'
 
 export type TaskExecutionStatus =
   | 'SCHEDULED'

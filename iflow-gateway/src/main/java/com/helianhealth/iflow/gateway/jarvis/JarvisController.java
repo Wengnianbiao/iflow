@@ -1,21 +1,23 @@
 package com.helianhealth.iflow.gateway.jarvis;
 
-import com.helianhealth.iflow.gateway.jarvis.model.JarvisRequest;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class JarvisController {
 
     private final JarvisService jarvisService;
+    private final JarvisRequestReader requestReader;
 
-    public JarvisController(JarvisService jarvisService) {
+    public JarvisController(JarvisService jarvisService, JarvisRequestReader requestReader) {
         this.jarvisService = jarvisService;
+        this.requestReader = requestReader;
     }
 
-    @PostMapping("/HLOpenApi/Hjk")
-    public Object invokeJarvisApi(@RequestBody JarvisRequest request) {
-        return jarvisService.invoke(request);
+    @PostMapping(value = "/HLOpenApi/Hjk", consumes = {MediaType.APPLICATION_JSON_VALUE, "application/*+json"})
+    public Object invokeJarvisApi(HttpServletRequest request) {
+        return jarvisService.invoke(requestReader.read(request));
     }
 }

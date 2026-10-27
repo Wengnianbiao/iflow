@@ -13,9 +13,9 @@ iFlow 按 Conductor 的编排顺序执行工作流：Decider 决策，当前线�
 
 普通启动按 Conductor 的顺序解析定义、确定实例 ID、构建运行时模型，再持有实例锁创建实例并执行首次决策，释放锁后返回 ID。纯同步工作流可在首次决策中完成；遇到异步任务时，首次决策登记任务并入队后返回，后续状态与输出通过实例查询获取。启动阶段的持久化或决策异常会记录日志，尝试删除未成功启动的实例并重新抛出原异常；清理异常单独记录，不覆盖原异常。业务任务失败仍由决策逻辑保存工作流失败状态。
 
-同步入口独立解析定义、确定实例 ID 并构建运行时模型，先向 `WorkflowCompletionRegistry` 登记 `Semaphore(0)`，再持有实例锁创建实例和执行首次决策，释放锁后等待终态。正常完成、失败、主动终止和 sweeper 超时均在持久化终态后通知；完成早于等待也不会丢失通知。同步入口在收到通知后重新读取持久化终态，退出或启动异常时移除等待记录。保留原有协议契约：必选任务失败抛出 `TerminateWorkflowException`，TERMINATE 指定的终态直接返回。
+同步入口独立解析定义、确定实例 ID 并构建运行时模型，先向 `WorkflowCompletionRegistry` 登记 `Semaphore(0)`，再持有实例锁创建实例和执行首次决策，释放锁后等待终态。正常完成、失败、主动终止、sweeper 超时和重启中断均在持久化终态后通知；完成早于等待也不会丢失通知。同步入口在收到通知后重新读取持久化终态，退出或启动异常时移除等待记录。保留原有协议契约：必选任务失败抛出 `TerminateWorkflowException`，TERMINATE 指定的终态直接返回。
 
-同步只表示等待最终结果，不决定业务任务使用哪个线程。等待线程中断时恢复中断标志、结束等待并清理登记，不修改工作流状态；取消执行需要显式调用 `terminateWorkflow()`。等待本身不设置额外时限，工作流超时仍由既有 sweeper 处理。
+同步只表示等待最终结果，不决定业务任务使用哪个线程。等待线程中断时恢复中断标志、结束等待并清理登记，不修改工作流状态；取消执行需要显式调用 `terminateWorkflow()`。等待本身不设置额外时限，工作流超时由每轮 Decider 检查和 sweeper 兜底处理，默认期限为 60 秒；超时策略及重启收尾见 [工作流超时与进程重启收尾](workflow-timeout.md)。
 
 ## 工作流生命周期回调
 
@@ -28,10 +28,11 @@ iFlow 按 Conductor 的编排顺序执行工作流：Decider 决策，当前线�
 | `FAILED` | `onWorkflowFailed(workflow)` | 失败终态保存后 |
 | `TIMED_OUT` | `onWorkflowTimedOut(workflow)` | 超时终态保存后 |
 | `TERMINATED` | `onWorkflowTerminated(workflow)` | 终止终态保存后 |
+| `INTERRUPTED` | `onWorkflowInterrupted(workflow)` | 进程遗留实例中断终态保存后 |
 
-执行层统一通过 `WorkflowExecutorOps.updateWorkflow()` 保存工作流。正常完成、失败、TERMINATE、主动终止和 sweeper 超时均在终态保存成功后，依次分发对应回调；保存失败不触发回调，普通 `RUNNING` 更新不重复触发 `STARTED`。DAO 只负责存储，`decide()` 和异步 worker 读取到已有终态时不补发通知。
+执行层统一通过 `WorkflowExecutorOps.updateWorkflow()` 保存工作流。正常完成、失败、TERMINATE、主动终止、sweeper 超时和重启中断均在终态保存成功后，依次分发对应回调；保存失败不触发回调，普通 `RUNNING` 更新不重复触发 `STARTED`。DAO 只负责存储，`decide()` 和异步 worker 读取到已有终态时不补发通知。
 
-`WorkflowCompletionRegistry` 实现此监听接口，通过四种终态回调唤醒已登记实例，每个等待者只释放一次 Semaphore，重复回调不会累积许可。启动回调不会唤醒等待者。执行器只在同步入口使用 Registry 登记和清理等待者；普通启动不登记，纯同步工作流在首次决策完成后直接返回。
+`WorkflowCompletionRegistry` 实现此监听接口，通过五种终态回调唤醒已登记实例，每个等待者只释放一次 Semaphore，重复回调不会累积许可。启动回调不会唤醒等待者。执行器只在同步入口使用 Registry 登记和清理等待者；普通启动不登记，纯同步工作流在首次决策完成后直接返回。
 
 监听器由 Spring 按接口收集并注入，手动组装执行器时须将同一个 Registry 加入监听器列表。所有监听器均收到相应事件。回调在保存状态的当前线程执行，可能仍持有实例锁，因此实现只能做轻量通知，不修改工作流，不执行 I/O、等待或调度。每个监听器的运行时异常单独记录，其他监听器继续执行，不改变已持久化的执行结果，也不阻止首次决策。
 
@@ -107,6 +108,10 @@ iflow:
   queue:
     type: memory  # 默认值，可省略
   workflow-execution:
+    default-timeout-seconds: 60
+    sweeper:
+      enabled: true
+      interval-seconds: 1
     task-thread-count: 32
     task-queue-capacity: 256
 ```

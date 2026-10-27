@@ -16,7 +16,6 @@
         <module>iflow-console</module>
         <module>iflow-gateway</module>
         <module>iflow-spring-boot-starter</module>
-        <module>iflow-web</module>
         <module>iflow-ai</module>
         <module>iflow-http-task</module>
         <module>iflow-jdbc-task</module>
@@ -24,6 +23,15 @@
         <module>iflow-mapping-task</module>
         <module>iflow-spi-task</module>
     </modules>
+
+    <profiles>
+        <profile>
+            <id>demo</id>
+            <modules>
+                <module>iflow-demo</module>
+            </modules>
+        </profile>
+    </profiles>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

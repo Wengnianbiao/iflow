@@ -28,6 +28,16 @@ class MySqlExecutionJsonSupportTest {
     private final MySqlExecutionJsonSupport support =
             new MySqlExecutionJsonSupport(objectMapper);
 
+    @ParameterizedTest
+    @EnumSource(value = WorkflowModel.Status.class, names = {"TERMINATED", "INTERRUPTED"})
+    void persistsNewStatusesWithoutSchemaMigration(WorkflowModel.Status status) {
+        WorkflowModel workflow = new WorkflowModel();
+        workflow.setWorkflowId("wf-status");
+        workflow.setStatus(status);
+        WorkflowModel restored = support.fromWorkflowPayload(support.toWorkflowPayload(workflow));
+        assertEquals(status, restored.getStatus());
+    }
+
     @Test
     void workflowPayloadOmitsTasks() {
         WorkflowModel workflow = new WorkflowModel();

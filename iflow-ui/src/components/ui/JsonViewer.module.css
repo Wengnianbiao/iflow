@@ -1,58 +1,12 @@
 .viewer {
+  position: relative;
   min-width: 0;
-  min-height: 0;
+  min-height: 200px;
   flex: 1;
-  padding: 14px;
-  margin: 0;
-  overflow: auto;
-  color: #24292f;
-  background: #f8fafc;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 12px;
-  line-height: 1.6;
-  tab-size: 2;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+  overflow: hidden;
 }
 
-.viewer code {
-  color: inherit;
-  font: inherit;
-}
-
-.key {
-  color: #a31515;
-}
-
-.string {
-  color: #0451a5;
-}
-
-.number {
-  color: #098658;
-}
-
-.literal {
-  color: #0000ff;
-}
-
-:global(html[data-color-mode='dark']) .viewer {
-  color: #d4d4d4;
-  background: #111111;
-}
-
-:global(html[data-color-mode='dark']) .key {
-  color: #9cdcfe;
-}
-
-:global(html[data-color-mode='dark']) .string {
-  color: #ce9178;
-}
-
-:global(html[data-color-mode='dark']) .number {
-  color: #b5cea8;
-}
-
-:global(html[data-color-mode='dark']) .literal {
-  color: #569cd6;
+.viewer > section {
+  position: absolute !important;
+  inset: 0;
 }

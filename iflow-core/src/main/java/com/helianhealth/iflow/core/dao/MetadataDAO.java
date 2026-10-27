@@ -1,6 +1,5 @@
 package com.helianhealth.iflow.core.dao;
 
-import com.helianhealth.iflow.common.domain.metadata.task.TaskDef;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
 
 import java.util.List;
@@ -9,44 +8,13 @@ import java.util.Optional;
 /**
  * 元数据 DAO
  *
- * <p>承载工作流定义（{@link WorkflowDef}）与任务定义（{@link TaskDef}）的持久化访问。
+ * <p>承载完整工作流定义（{@link WorkflowDef}，包含节点策略）的持久化访问。
  * 接口定义在 {@code iflow-core}，具体实现由各数据库厂商 DAO 分别提供，引擎只依赖接口。
  *
  * <p>{@code latest_version} 维护是实现内部职责，不在接口上暴露。
  * Gateway 按 {@link #getLatestWorkflowDef(String) route} 取最新版本调度。
  */
 public interface MetadataDAO {
-
-    /**
-     * 创建任务定义。
-     *
-     * @param taskDef 待创建的任务定义
-     * @return 创建后的任务定义（含可能由实现回填的字段）
-     */
-    TaskDef createTaskDef(TaskDef taskDef);
-
-    /**
-     * 更新任务定义。
-     *
-     * @param taskDef 待更新的任务定义（以 {@link TaskDef#getName()} 为键）
-     * @return 更新后的任务定义
-     */
-    TaskDef updateTaskDef(TaskDef taskDef);
-
-    /**
-     * 按名称取任务定义。
-     */
-    Optional<TaskDef> getTaskDef(String name);
-
-    /**
-     * 取全部任务定义。
-     */
-    List<TaskDef> getAllTaskDefs();
-
-    /**
-     * 按名称删除任务定义。
-     */
-    void removeTaskDef(String name);
 
     // ===== WorkflowDef =====
 

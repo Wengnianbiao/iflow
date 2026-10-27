@@ -1,4 +1,4 @@
-# linux/amd64 image for openEuler x86_64 + Docker 20.10.x
+# Demo linux/amd64 image for openEuler x86_64 + Docker 20.10.x
 # Base is Ubuntu 22.04 (glibc). Container OS does not need to match the Euler host.
 # Override when Docker Hub is unreachable, e.g.:
 #   --build-arg BASE_IMAGE=docker.m.daocloud.io/library/eclipse-temurin:21-jdk-jammy
@@ -16,7 +16,7 @@ ENV TZ=Asia/Shanghai \
 
 WORKDIR /app
 
-COPY iflow-web/target/iflow.jar /app/iflow.jar
+COPY iflow-demo/target/iflow.jar /app/iflow.jar
 COPY docs/init_mysql /app/sql
 
 EXPOSE 8099

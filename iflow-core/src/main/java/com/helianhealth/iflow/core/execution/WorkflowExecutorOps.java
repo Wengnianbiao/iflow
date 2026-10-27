@@ -1,9 +1,12 @@
 package com.helianhealth.iflow.core.execution;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.helianhealth.iflow.common.domain.metadata.task.TaskType;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
+import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 import com.helianhealth.iflow.common.exception.WorkFlowErrorCode;
 import com.helianhealth.iflow.common.exception.WorkFlowException;
+import com.helianhealth.iflow.core.config.IflowProperties;
 import com.helianhealth.iflow.core.dal.ExecutionDAOFacade;
 import com.helianhealth.iflow.core.exception.TerminateWorkflowException;
 import com.helianhealth.iflow.core.exception.TransientException;
@@ -25,6 +28,7 @@ import com.helianhealth.iflow.core.utils.TaskUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
@@ -50,6 +54,9 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
     private final WorkflowCompletionRegistry completionRegistry;
     private final List<WorkflowStatusListener> workflowStatusListeners;
     private final ExecutionQueue executionQueue;
+    private final IflowProperties properties;
+    private final ObjectMapper objectMapper;
+    private final WorkflowTermination termination;
 
     public WorkflowExecutorOps(
             DeciderService deciderService,
@@ -62,7 +69,29 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
             ExecutionQueue executionQueue,
             WorkflowCompletionRegistry completionRegistry,
             List<WorkflowStatusListener> workflowStatusListeners) {
+        this(deciderService, systemTaskRegistry, executionDAOFacade, metadataService, idGenerator,
+                parametersUtils, executionLockService, executionQueue, completionRegistry,
+                workflowStatusListeners, new IflowProperties(), new ObjectMapper());
+    }
+
+    @Autowired
+    public WorkflowExecutorOps(
+            DeciderService deciderService,
+            SystemTaskRegistry systemTaskRegistry,
+            ExecutionDAOFacade executionDAOFacade,
+            MetadataService metadataService,
+            IDGenerator idGenerator,
+            ParametersUtils parametersUtils,
+            ExecutionLockService executionLockService,
+            ExecutionQueue executionQueue,
+            WorkflowCompletionRegistry completionRegistry,
+            List<WorkflowStatusListener> workflowStatusListeners,
+            IflowProperties properties,
+            ObjectMapper objectMapper) {
         this.deciderService = deciderService;
+        this.properties = properties;
+        this.objectMapper = objectMapper;
+        this.termination = new WorkflowTermination(systemTaskRegistry, executionDAOFacade);
         this.systemTaskRegistry = systemTaskRegistry;
         this.executionDAOFacade = executionDAOFacade;
         this.metadataService = metadataService;
@@ -162,7 +191,29 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
             throw new WorkFlowException(
                     WorkFlowErrorCode.REPOSITORY_SAVE_ERROR, "工作流 route 不能为空");
         }
-        return metadataService.getWorkflowDef(input.getRoute(), input.getVersion());
+        WorkflowDef definition = objectMapper.convertValue(
+                metadataService.getWorkflowDef(input.getRoute(), input.getVersion()), WorkflowDef.class);
+        IflowProperties.TaskExecution defaults = properties.getTaskExecution();
+        for (WorkflowTask task : definition.collectTasks()) {
+            // FORK_JOIN 定义由 Mapper 展开为运行时 FORK，按同一控制任务分类解析。
+            String taskType = TaskType.TASK_TYPE_FORK_JOIN.equals(task.getType())
+                    ? TaskType.TASK_TYPE_FORK : task.getType();
+            if (!TaskType.isBuiltIn(taskType)) {
+                if (task.getRetryCount() == null) {
+                    task.setRetryCount(defaults.getDefaultRetryCount());
+                }
+                if (task.getRetryDelaySeconds() == null) {
+                    task.setRetryDelaySeconds(defaults.getDefaultRetryDelaySeconds());
+                }
+                if (task.getRetryLogic() == null) {
+                    task.setRetryLogic(defaults.getDefaultRetryLogic());
+                }
+            }
+            if (task.getStartDelay() == null) {
+                task.setStartDelay(defaults.getDefaultStartDelay());
+            }
+        }
+        return definition;
     }
 
     /** 决策由触发它的线程直接执行，持锁后重新加载，避免丢失并发完成通知。 */
@@ -549,17 +600,7 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
 
     private void persistTerminatedWorkflow(
             WorkflowModel workflow, TerminateWorkflowException termination) {
-        WorkflowModel.Status terminalStatus = termination.getWorkflowStatus();
-        workflow.setStatus(
-                terminalStatus != null ? terminalStatus : WorkflowModel.Status.FAILED);
-        workflow.setReasonForInCompletion(termination.getMessage());
-        if (termination.getTask() != null) {
-            workflow.setFailedTaskId(termination.getTask().getTaskId());
-            executionDAOFacade.updateTask(termination.getTask());
-        }
-        workflow.setEndTime(System.currentTimeMillis());
-        cancelNonTerminalTasks(workflow, termination.getMessage());
-        updateWorkflow(workflow);
+        this.termination.terminate(workflow, termination, this);
     }
 
     @Override
@@ -573,11 +614,8 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
                 current = workflow;
             }
             if (!current.getStatus().isTerminal()) {
-                cancelNonTerminalTasks(current, reason);
-                current.setStatus(WorkflowModel.Status.TERMINATED);
-                current.setReasonForInCompletion(reason);
-                current.setEndTime(System.currentTimeMillis());
-                updateWorkflow(current);
+                persistTerminatedWorkflow(current,
+                        new TerminateWorkflowException(reason, WorkflowModel.Status.TERMINATED));
             }
             if (current != workflow) {
                 applyTerminalSnapshot(workflow, current);
@@ -588,31 +626,7 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
     }
 
     private void cancelNonTerminalTasks(WorkflowModel workflow, String reason) {
-        long now = System.currentTimeMillis();
-        for (TaskModel task : workflow.getTasks()) {
-            if (task.getStatus() == null || task.getStatus().isTerminal()) {
-                continue;
-            }
-            if (systemTaskRegistry.isSystemTask(task.getTaskType())) {
-                try {
-                    systemTaskRegistry.get(task.getTaskType()).cancel(workflow, task, this);
-                } catch (RuntimeException e) {
-                    LOGGER.warn(
-                            "Error cancelling system task {} for workflow {}",
-                            task.getTaskId(),
-                            workflow.getWorkflowId(),
-                            e);
-                }
-            }
-            task.setStatus(TaskModel.Status.CANCELED);
-            task.setExecuted(true);
-            task.setReasonForInCompletion(reason);
-            task.setEndTime(now);
-            task.setUpdateTime(now);
-            if (executionDAOFacade != null) {
-                executionDAOFacade.updateTask(task);
-            }
-        }
+        termination.cancelNonTerminalTasks(workflow, reason, this);
     }
 
     List<TaskModel> dedupAndAddTasks(WorkflowModel workflow, List<TaskModel> tasks) {
@@ -647,6 +661,7 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
             case FAILED -> WorkflowEventType.FAILED;
             case TIMED_OUT -> WorkflowEventType.TIMED_OUT;
             case TERMINATED -> WorkflowEventType.TERMINATED;
+            case INTERRUPTED -> WorkflowEventType.INTERRUPTED;
             default -> throw new IllegalStateException("Unsupported terminal workflow status: " + status);
         };
         notifyWorkflowStatusListeners(workflow, event);
@@ -661,6 +676,7 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
                     case FAILED -> listener.onWorkflowFailed(workflow);
                     case TIMED_OUT -> listener.onWorkflowTimedOut(workflow);
                     case TERMINATED -> listener.onWorkflowTerminated(workflow);
+                    case INTERRUPTED -> listener.onWorkflowInterrupted(workflow);
                 }
             } catch (RuntimeException error) {
                 LOGGER.error("Error notifying workflow status listener {} for workflow: {}, event: {}",
@@ -712,6 +728,12 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
 
         WorkflowModel workflow = new WorkflowModel();
         workflow.setWorkflowId(workflowId);
+        if (workflowDefinition.getTimeoutSeconds() <= 0) {
+            workflowDefinition.setTimeoutSeconds(properties.getWorkflowExecution().getDefaultTimeoutSeconds());
+        }
+        if (workflowDefinition.getTimeoutPolicy() == null) {
+            workflowDefinition.setTimeoutPolicy(WorkflowDef.TimeoutPolicy.TIME_OUT_WF);
+        }
         workflow.setWorkflowDefinition(workflowDefinition);
         workflow.setStatus(WorkflowModel.Status.RUNNING);
         workflow.setStartTime(now);

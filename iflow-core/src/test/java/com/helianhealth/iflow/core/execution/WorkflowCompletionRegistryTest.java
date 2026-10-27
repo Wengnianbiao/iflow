@@ -26,6 +26,7 @@ class WorkflowCompletionRegistryTest {
                 case FAILED -> registry.onWorkflowFailed(workflow);
                 case TIMED_OUT -> registry.onWorkflowTimedOut(workflow);
                 case TERMINATED -> registry.onWorkflowTerminated(workflow);
+                case INTERRUPTED -> registry.onWorkflowInterrupted(workflow);
                 default -> throw new AssertionError(status);
             }
             assertTimeoutPreemptively(Duration.ofSeconds(2), registration::await);

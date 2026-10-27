@@ -18,7 +18,7 @@ import com.helianhealth.iflow.core.service.MetadataService;
 import com.helianhealth.iflow.core.utils.IDGenerator;
 import com.helianhealth.iflow.core.utils.ParametersUtils;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import java.lang.reflect.Proxy;
 import java.util.Comparator;
@@ -41,9 +41,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class WorkflowExecutorOpsCancellationTest {
 
     @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    void observesExternalTerminalSnapshotWhileWaitingAndDiscardsLateWorker(boolean timeout)
+    @EnumSource(value = WorkflowModel.Status.class, names = {"TIMED_OUT", "TERMINATED", "INTERRUPTED"})
+    void observesExternalStatusWhileWaitingAndProtectsWorkerResults(WorkflowModel.Status terminalStatus)
             throws Exception {
+        WorkflowModel.Status expectedWorkflow = terminalStatus;
         CountDownLatch releaseWorker = new CountDownLatch(1);
         CountDownLatch executing = new CountDownLatch(1);
         AtomicInteger cancellations = new AtomicInteger();
@@ -76,7 +77,8 @@ class WorkflowExecutorOpsCancellationTest {
         SystemTaskRegistry registry = new SystemTaskRegistry(Set.of(remote));
         WorkflowDef definition = WorkflowDef.builder().route("external-termination")
                 .tasks(List.of(WorkflowTask.builder().name("remote").taskReferenceName("remote")
-                        .type(TaskType.TASK_TYPE_HTTP).build())).build();
+                        .type(TaskType.TASK_TYPE_HTTP).build(), WorkflowTask.builder().name("after")
+                        .taskReferenceName("after").type(TaskType.TASK_TYPE_HTTP).build())).build();
         definition.setTimeoutSeconds(1);
         ParametersUtils parameters = new ParametersUtils(new ObjectMapper());
         TaskMapper mapper = new TaskMapper() {
@@ -101,14 +103,13 @@ class WorkflowExecutorOpsCancellationTest {
         ExecutionDAOFacade dao = store.facade();
         InMemoryExecutionLockService locks = new InMemoryExecutionLockService();
         AtomicInteger terminalNotifications = new AtomicInteger();
-        TestWorkflowExecutor executor = new TestWorkflowExecutor(
-                new DeciderService(new IDGenerator(), parameters, registry,
-                        Map.of(TaskType.TASK_TYPE_HTTP, mapper)),
+        DeciderService decider = new DeciderService(new IDGenerator(), parameters, registry,
+                Map.of(TaskType.TASK_TYPE_HTTP, mapper));
+        TestWorkflowExecutor executor = new TestWorkflowExecutor(decider,
                 registry, dao, metadata, new IDGenerator(), parameters, locks,
                 new TestWorkflowStatusListener((workflowId, status) -> {
                     WorkflowModel persisted = dao.getWorkflowModel(workflowId);
-                    assertEquals(timeout ? WorkflowModel.Status.TIMED_OUT : WorkflowModel.Status.TERMINATED,
-                            status);
+                    assertEquals(expectedWorkflow, status);
                     assertEquals(status, persisted.getStatus());
                     assertTrue(persisted.getTasks().stream().allMatch(task -> task.getStatus().isTerminal()));
                     terminalNotifications.incrementAndGet();
@@ -125,26 +126,29 @@ class WorkflowExecutorOpsCancellationTest {
             WorkflowModel external = dao.getWorkflowModel(store.workflow.get().getWorkflowId());
             assertNotSame(workerWorkflow.get(), external,
                     "cancellation must use an independent persisted snapshot");
-            if (timeout) {
+            if (terminalStatus != WorkflowModel.Status.TERMINATED) {
                 // Expire the stored snapshot without delaying the test for the execution deadline.
                 external.setStartTime(System.currentTimeMillis() - 5_000);
                 dao.updateWorkflow(external);
-                assertTrue(new WorkflowSweeper(registry, dao, locks, 1)
+                assertTrue(new WorkflowSweeper(registry, dao, locks,
+                        decider,
+                        terminalStatus == WorkflowModel.Status.INTERRUPTED ? System.currentTimeMillis() : 0)
                         .sweepStored(external.getWorkflowId(), executor));
             } else {
                 executor.terminateWorkflow(external, "external cancellation");
             }
 
             WorkflowModel completed = result.get(2, TimeUnit.SECONDS);
-            WorkflowModel.Status expectedWorkflow = timeout
-                    ? WorkflowModel.Status.TIMED_OUT : WorkflowModel.Status.TERMINATED;
-            TaskModel.Status expectedTask = timeout
+            TaskModel.Status expectedTask = terminalStatus == WorkflowModel.Status.TIMED_OUT
                     ? TaskModel.Status.TIMED_OUT : TaskModel.Status.CANCELED;
             assertEquals(expectedWorkflow, completed.getStatus());
             assertEquals(expectedTask, completed.getTaskByRefName("remote").getStatus());
             assertEquals(1, cancellations.get());
             assertTrue(completed.getEndTime() > 0);
             assertEquals(Map.of(), completed.getTaskByRefName("remote").getOutputData());
+            assertTrue(completed.getStatus().isTerminal());
+            assertEquals(false, completed.getStatus().isSuccessful());
+            assertEquals(1, completed.getTasks().size(), "termination must not schedule the successor");
             assertEquals(1, terminalNotifications.get());
 
             releaseWorker.countDown();

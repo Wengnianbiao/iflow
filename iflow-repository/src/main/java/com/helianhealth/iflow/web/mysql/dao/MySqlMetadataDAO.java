@@ -1,8 +1,8 @@
 package com.helianhealth.iflow.web.mysql.dao;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.helianhealth.iflow.common.domain.metadata.task.TaskDef;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
+import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 import com.helianhealth.iflow.common.exception.WorkFlowConfigException;
 import com.helianhealth.iflow.common.exception.WorkFlowErrorCode;
 import com.helianhealth.iflow.core.dao.MetadataDAO;
@@ -32,31 +32,6 @@ public class MySqlMetadataDAO extends MySqlBaseDAO implements MetadataDAO {
             DataSource dataSource,
             ObjectMapper objectMapper) {
         super(objectMapper, dataSource);
-    }
-
-    @Override
-    public TaskDef createTaskDef(TaskDef taskDef) {
-        throw new UnsupportedOperationException("TaskDef registry not implemented yet");
-    }
-
-    @Override
-    public TaskDef updateTaskDef(TaskDef taskDef) {
-        throw new UnsupportedOperationException("TaskDef registry not implemented yet");
-    }
-
-    @Override
-    public Optional<TaskDef> getTaskDef(String name) {
-        return Optional.empty();
-    }
-
-    @Override
-    public List<TaskDef> getAllTaskDefs() {
-        return List.of();
-    }
-
-    @Override
-    public void removeTaskDef(String name) {
-        throw new UnsupportedOperationException("TaskDef registry not implemented yet");
     }
 
     @Override
@@ -256,10 +231,30 @@ public class MySqlMetadataDAO extends MySqlBaseDAO implements MetadataDAO {
         }
         def.setName(def.getName().trim());
         def.setTags(WorkflowDef.normalizeTags(def.getTags()));
+        if (def.getTimeoutSeconds() < 0) {
+            throw new WorkFlowConfigException(
+                    WorkFlowErrorCode.REPOSITORY_SAVE_ERROR, "timeoutSeconds 必须是非负整数秒");
+        }
+        if (def.getTimeoutPolicy() == null) {
+            def.setTimeoutPolicy(WorkflowDef.TimeoutPolicy.TIME_OUT_WF);
+        }
+        for (WorkflowTask task : def.collectTasks()) {
+            validateTaskPolicyNumber(task, "retryCount", task.getRetryCount());
+            validateTaskPolicyNumber(task, "retryDelaySeconds", task.getRetryDelaySeconds());
+            validateTaskPolicyNumber(task, "startDelay", task.getStartDelay());
+        }
         if (def.getVersion() <= 0) {
             throw new WorkFlowConfigException(
                     WorkFlowErrorCode.REPOSITORY_SAVE_ERROR,
                     "工作流定义 version 必须为正整数: " + def.getRoute());
+        }
+    }
+
+    private void validateTaskPolicyNumber(WorkflowTask task, String field, Integer value) {
+        if (value != null && value < 0) {
+            throw new WorkFlowConfigException(
+                    WorkFlowErrorCode.REPOSITORY_SAVE_ERROR,
+                    "任务 " + task.getTaskReferenceName() + " 的 " + field + " 必须是非负整数");
         }
     }
 }

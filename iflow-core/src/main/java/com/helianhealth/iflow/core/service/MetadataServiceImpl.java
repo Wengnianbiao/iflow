@@ -1,6 +1,5 @@
 package com.helianhealth.iflow.core.service;
 
-import com.helianhealth.iflow.common.domain.metadata.task.TaskDef;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
 import com.helianhealth.iflow.common.exception.WorkFlowConfigException;
 import com.helianhealth.iflow.common.exception.WorkFlowErrorCode;
@@ -20,40 +19,6 @@ public class MetadataServiceImpl implements MetadataService {
 
     public MetadataServiceImpl(MetadataDAO metadataDAO) {
         this.metadataDAO = metadataDAO;
-    }
-
-    @Override
-    public TaskDef registerTaskDef(TaskDef taskDef) {
-        return metadataDAO.createTaskDef(taskDef);
-    }
-
-    @Override
-    public TaskDef updateTaskDef(TaskDef taskDef) {
-        if (metadataDAO.getTaskDef(taskDef.getName()).isEmpty()) {
-            throw new WorkFlowConfigException(
-                    WorkFlowErrorCode.WORKFLOW_NOT_FOUND, "任务定义不存在: " + taskDef.getName());
-        }
-        return metadataDAO.updateTaskDef(taskDef);
-    }
-
-    @Override
-    public TaskDef getTaskDef(String name) {
-        return metadataDAO
-                .getTaskDef(name)
-                .orElseThrow(
-                        () ->
-                                new WorkFlowConfigException(
-                                        WorkFlowErrorCode.WORKFLOW_NOT_FOUND, "任务定义不存在: " + name));
-    }
-
-    @Override
-    public List<TaskDef> getAllTaskDefs() {
-        return metadataDAO.getAllTaskDefs();
-    }
-
-    @Override
-    public void unregisterTaskDef(String name) {
-        metadataDAO.removeTaskDef(name);
     }
 
     @Override

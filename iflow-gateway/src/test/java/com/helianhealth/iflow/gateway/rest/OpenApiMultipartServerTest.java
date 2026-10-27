@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.helianhealth.iflow.common.domain.run.StartWorkflowRequest;
 import com.helianhealth.iflow.core.model.WorkflowModel;
 import com.helianhealth.iflow.core.service.WorkflowExecutionService;
+import com.helianhealth.iflow.core.utils.ParametersUtils;
 import com.helianhealth.iflow.gateway.jarvis.JarvisController;
+import com.helianhealth.iflow.gateway.jarvis.JarvisRequestReader;
 import com.helianhealth.iflow.gateway.jarvis.JarvisServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,15 +44,13 @@ import static org.junit.jupiter.api.Assertions.*;
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
                 "iflow.open-api.max-body-bytes=1024",
-                "iflow.open-api.include-raw-body=true",
                 "spring.servlet.multipart.max-file-size=1KB",
                 "spring.servlet.multipart.max-request-size=1KB"
         })
 class OpenApiMultipartServerTest {
 
     private static final AtomicInteger STARTS = new AtomicInteger();
-    private static volatile Object capturedBody;
-    private static volatile Map<String, Object> capturedFiles;
+    private static volatile Map<String, Object> capturedInput;
     private static volatile StartWorkflowRequest jarvisRequest;
 
     @LocalServerPort
@@ -63,8 +63,7 @@ class OpenApiMultipartServerTest {
     @BeforeEach
     void reset() {
         STARTS.set(0);
-        capturedBody = null;
-        capturedFiles = null;
+        capturedInput = null;
         jarvisRequest = null;
     }
 
@@ -82,8 +81,11 @@ class OpenApiMultipartServerTest {
 
         assertEquals(200, response.statusCode());
         assertEquals(1, STARTS.get());
-        assertEquals(Map.of("name", "张三"), capturedBody);
-        List<Map<String, Object>> descriptors = (List<Map<String, Object>>) capturedFiles.get("file");
+        assertEquals(Map.of("name", "张三"), capturedInput.get("body"));
+        assertTrue(capturedInput.containsKey("rawBody"));
+        assertNull(capturedInput.get("rawBody"));
+        List<Map<String, Object>> descriptors = (List<Map<String, Object>>)
+                ((Map<String, Object>) capturedInput.get("files")).get("file");
         assertEquals(1, descriptors.size());
         assertEquals("raw.bin", descriptors.get(0).get("fileName"));
         assertEquals("application/octet-stream", descriptors.get(0).get("contentType"));
@@ -122,17 +124,57 @@ class OpenApiMultipartServerTest {
         assertEquals(0, STARTS.get());
     }
 
-    @Test
-    void jarvisStillRoutesByBusinessMethodAndKeepsItsInputContract() throws Exception {
-        HttpResponse<String> response = send("/HLOpenApi/Hjk", "application/json",
-                HttpRequest.BodyPublishers.ofString(
-                        "{\"BusinessMethod\":\"AddPacsApply\",\"BusinessCode\":\"PACS\",\"data\":{\"id\":1}}"));
+    @ParameterizedTest
+    @ValueSource(strings = {"application/json", "application/vnd.iflow+json"})
+    void jarvisRoutesByBusinessMethodAndPassesItsJsonBody(String contentType) throws Exception {
+        String json = """
+                {"BusinessMethod":"AddPacsApply","BusinessCode":"PACS","data":{"id":"001","name":"张三"},
+                 "ServiceProviderType":"HIS","PatientCode":"0001","OutFeeItemIdList":["01"],
+                 "ApplyNoList":["02"],"BarCodeList":["03"],"AuditTime":"2026-10-27","QueryType":1,
+                 "extra":null,"body":"business-value"}
+                """;
+        HttpResponse<String> response = send("/HLOpenApi/Hjk?trace=001", contentType,
+                HttpRequest.BodyPublishers.ofString(json));
         assertEquals(200, response.statusCode());
+        assertEquals(Map.of("ok", true), new ObjectMapper().readValue(response.body(), Map.class));
         assertEquals("AddPacsApply", jarvisRequest.getRoute());
-        assertEquals("PACS", jarvisRequest.getInput().get("BusinessCode"));
-        assertEquals(Map.of("id", 1), jarvisRequest.getInput().get("data"));
-        assertFalse(jarvisRequest.getInput().containsKey("body"));
+        Map<String, Object> input = jarvisRequest.getInput();
+        assertEquals(Map.of("body", new ObjectMapper().readValue(json, Map.class), "rawBody", json), input);
         assertEquals(0, STARTS.get());
+
+        WorkflowModel workflow = new WorkflowModel();
+        workflow.setInput(input);
+        assertEquals(Map.of("code", "PACS", "id", "001"),
+                new ParametersUtils(new ObjectMapper()).getTaskInput(Map.of(
+                        "code", "${workflow.input.body.BusinessCode}",
+                        "id", "${workflow.input.body.data.id}"), workflow, "test"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"{invalid}", "[]", "\"text\"", "null", ""})
+    void jarvisRejectsInvalidJsonBodyWithoutStartingWorkflow(String body) throws Exception {
+        HttpResponse<String> response = send("/HLOpenApi/Hjk", "application/json",
+                HttpRequest.BodyPublishers.ofString(body));
+        assertEquals(400, response.statusCode());
+        assertNull(jarvisRequest);
+        assertEquals(0, STARTS.get());
+    }
+
+    @Test
+    void jarvisJsonBodyIsIndependentOfOpenApiBodyLimit() throws Exception {
+        byte[] json = ("{\"BusinessMethod\":\"AddPacsApply\",\"data\":{\"text\":\"" + "x".repeat(2048) + "\"}}")
+                .getBytes(StandardCharsets.UTF_8);
+        for (HttpRequest.BodyPublisher publisher : List.of(
+                HttpRequest.BodyPublishers.ofByteArray(json),
+                HttpRequest.BodyPublishers.ofInputStream(() -> new ByteArrayInputStream(json)))) {
+            HttpResponse<String> response = send("/HLOpenApi/Hjk", "application/json", publisher);
+            assertEquals(200, response.statusCode());
+            assertEquals("AddPacsApply", jarvisRequest.getRoute());
+            assertEquals(Map.of("text", "x".repeat(2048)),
+                    ((Map<?, ?>) jarvisRequest.getInput().get("body")).get("data"));
+            assertEquals(new String(json, StandardCharsets.UTF_8), jarvisRequest.getInput().get("rawBody"));
+            assertEquals(0, STARTS.get());
+        }
     }
 
     @ParameterizedTest
@@ -205,6 +247,7 @@ class OpenApiMultipartServerTest {
             OpenApiBodyLimitFilter.class,
             OpenApiMultipartExceptionHandler.class,
             JarvisController.class,
+            JarvisRequestReader.class,
             JarvisServiceImpl.class,
             ProbeController.class
     })
@@ -218,8 +261,7 @@ class OpenApiMultipartServerTest {
         OpenApiService openApiService() {
             return request -> {
                 STARTS.incrementAndGet();
-                capturedBody = request.body();
-                capturedFiles = request.files();
+                capturedInput = request.toWorkflowInput();
                 return "{}";
             };
         }

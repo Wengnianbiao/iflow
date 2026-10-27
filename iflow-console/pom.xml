@@ -33,6 +33,12 @@
 
         <dependency>
             <groupId>com.helianhealth</groupId>
+            <artifactId>iflow-gateway</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.helianhealth</groupId>
             <artifactId>iflow-repository</artifactId>
             <version>${project.version}</version>
         </dependency>

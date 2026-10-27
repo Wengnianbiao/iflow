@@ -58,6 +58,25 @@ class ExecutionIndexIntegrationTest {
     }
 
     @Test
+    void manualAndRestartTerminationsLeavePendingAndCountAsFailures() {
+        for (var status : List.of(WorkflowModel.Status.TERMINATED, WorkflowModel.Status.INTERRUPTED)) {
+            String id = status.name();
+            var workflow = workflow(id, "test", WorkflowModel.Status.RUNNING, 100, 0);
+            executions.createWorkflow(workflow);
+            assertEquals(List.of(id), executions.getUnfinishedWorkflowIds());
+            assertEquals(List.of(id), executions.getRunningWorkflowIds());
+            assertEquals(List.of(id), executions.getRunningWorkflowIds("test", 1));
+            workflow.setStatus(status);
+            executions.updateWorkflow(workflow);
+            assertTrue(executions.getUnfinishedWorkflowIds().isEmpty());
+            assertTrue(executions.getRunningWorkflowIds("test", 1).isEmpty());
+        }
+        var summary = statistics.workflows(query(false, "totalCount", 1, 20)).summary();
+        assertEquals(2, summary.failureCount());
+        assertEquals(0, summary.runningCount());
+    }
+
+    @Test
     void wiresWithDoWhileWithoutCircularReferencesAndClassifiesTaskWrites() {
         try (var context = new AnnotationConfigApplicationContext()) {
             context.getDefaultListableBeanFactory().setAllowCircularReferences(false);

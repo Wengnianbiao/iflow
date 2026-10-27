@@ -12,6 +12,9 @@ import com.helianhealth.iflow.core.dao.ExecutionDAO;
 import com.helianhealth.iflow.core.execution.WorkflowExecutor;
 import com.helianhealth.iflow.core.model.WorkflowModel;
 import com.helianhealth.iflow.core.service.WorkflowExecutionService;
+import com.helianhealth.iflow.gateway.rest.OpenApiRequest;
+import com.helianhealth.iflow.gateway.rest.OpenApiRequestReader;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,6 +29,7 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -42,6 +46,7 @@ public class WorkflowExecutionController {
     private final WorkflowExecutionService workflowExecutionService;
     private final WorkflowExecutor workflowExecutor;
     private final IndexDAO indexDAO;
+    private final OpenApiRequestReader requestReader;
 
     @GetMapping("/instances")
     public ResultData<List<WorkflowExecutionSummary>> listInstances(
@@ -88,6 +93,25 @@ public class WorkflowExecutionController {
     @PostMapping("/start")
     public ResultData<String> start(@RequestBody StartWorkflowRequest request) {
         return ResultData.ok(workflowExecutionService.startWorkflow(request));
+    }
+
+    @PostMapping("/start-http")
+    public ResultData<String> startHttp(HttpServletRequest request) {
+        OpenApiRequest parsed = requestReader.read(request);
+        if (!(parsed.query().get("route") instanceof String route) || !StringUtils.hasText(route)) {
+            throw new IllegalArgumentException("route 必须为非空字符串");
+        }
+        Object versionValue = parsed.query().get("version");
+        if (versionValue != null && !(versionValue instanceof String)) {
+            throw new IllegalArgumentException("version 必须为整数");
+        }
+        Integer version = versionValue == null ? null : Integer.valueOf((String) versionValue);
+        Map<String, Object> input = parsed.toWorkflowInput();
+        // route/version 是控制台启动参数；业务请求路径使用选中的工作流路由。
+        input.put("query", Map.of());
+        input.put("path", "/" + route);
+        return ResultData.ok(workflowExecutionService.startWorkflow(
+                StartWorkflowRequest.builder().route(route).version(version).input(input).build()));
     }
 
     @GetMapping("/tasks/search")

@@ -8,6 +8,7 @@ import java.util.Set;
  */
 public enum TaskType {
 
+    DECISION,
     SWITCH,
     FORK_JOIN,
     FORK,
@@ -25,6 +26,7 @@ public enum TaskType {
     SPI,
     USER_DEFINED;
 
+    public static final String TASK_TYPE_DECISION = "DECISION";
     public static final String TASK_TYPE_SWITCH = "SWITCH";
     public static final String TASK_TYPE_FORK_JOIN = "FORK_JOIN";
     public static final String TASK_TYPE_FORK = "FORK";
@@ -44,6 +46,7 @@ public enum TaskType {
     private static final Set<String> BUILT_IN_TASKS = new HashSet<>();
 
     static {
+        BUILT_IN_TASKS.add(TASK_TYPE_DECISION);
         BUILT_IN_TASKS.add(TASK_TYPE_SWITCH);
         BUILT_IN_TASKS.add(TASK_TYPE_FORK);
         BUILT_IN_TASKS.add(TASK_TYPE_JOIN);

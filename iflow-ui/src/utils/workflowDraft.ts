@@ -62,7 +62,7 @@ export function normalizeWorkflowDraft(value: unknown): WorkflowDef {
     outputParameters: isRecord(raw.outputParameters) ? raw.outputParameters : {},
     workflowStatusListenerEnabled: raw.workflowStatusListenerEnabled === true,
     timeoutSeconds: typeof raw.timeoutSeconds === 'number' ? raw.timeoutSeconds : 0,
-    timeoutPolicy: typeof raw.timeoutPolicy === 'string' ? raw.timeoutPolicy : 'ALERT_ONLY',
+    timeoutPolicy: typeof raw.timeoutPolicy === 'string' ? raw.timeoutPolicy : 'TIME_OUT_WF',
   }
 }
 

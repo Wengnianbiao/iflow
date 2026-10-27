@@ -3,6 +3,7 @@ package com.helianhealth.iflow.core.config;
 import com.helianhealth.iflow.core.execution.mapper.TaskMapper;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -17,6 +18,7 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 
 @Configuration
+@EnableConfigurationProperties(IflowProperties.class)
 @ComponentScan(basePackages = "com.helianhealth.iflow.core")
 public class AgentCoreConfiguration {
 

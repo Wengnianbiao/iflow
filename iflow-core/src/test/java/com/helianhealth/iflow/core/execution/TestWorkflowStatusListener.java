@@ -33,4 +33,9 @@ class TestWorkflowStatusListener implements WorkflowStatusListener {
     public void onWorkflowTerminated(WorkflowModel workflow) {
         terminalCallback.accept(workflow.getWorkflowId(), WorkflowModel.Status.TERMINATED);
     }
+    @Override
+    public void onWorkflowInterrupted(WorkflowModel workflow) {
+        terminalCallback.accept(workflow.getWorkflowId(), WorkflowModel.Status.INTERRUPTED);
+    }
+
 }

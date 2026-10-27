@@ -1,11 +1,10 @@
 package com.helianhealth.iflow.core.model;
 
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
-import lombok.Getter;
-import lombok.Setter;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -22,8 +21,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
  *   <li>数据：{@link #input}、{@link #output}</li>
  * </ul>
  */
-@Getter
-@Setter
 public class WorkflowModel {
 
     /**
@@ -34,7 +31,8 @@ public class WorkflowModel {
         COMPLETED(true, true),
         FAILED(true, false),
         TIMED_OUT(true, false),
-        TERMINATED(true, false);
+        TERMINATED(true, false),
+        INTERRUPTED(true, false);
 
         private final boolean terminal;
         private final boolean successful;
@@ -77,13 +75,10 @@ public class WorkflowModel {
     /**
      * 已调度的全部任务实例（按 seq 排序，含已完成 / 进行中 / 失败）
      */
-    private List<TaskModel> tasks = new CopyOnWriteArrayList<>();
+    private List<TaskModel> tasks = new LinkedList<>();
 
     public void setTasks(List<TaskModel> tasks) {
-        this.tasks =
-                tasks == null
-                        ? new CopyOnWriteArrayList<>()
-                        : new CopyOnWriteArrayList<>(tasks);
+        this.tasks = tasks;
     }
 
     /**
@@ -234,5 +229,125 @@ public class WorkflowModel {
         String route = workflowDefinition != null ? workflowDefinition.getRoute() : null;
         Integer version = workflowDefinition != null ? workflowDefinition.getVersion() : null;
         return String.format("%s.%s/%s.%s", route, version, workflowId, status);
+    }
+
+    public String getWorkflowId() {
+        return this.workflowId;
+    }
+
+    public Status getStatus() {
+        return this.status;
+    }
+
+    public Status getPreviousStatus() {
+        return this.previousStatus;
+    }
+
+    public String getCorrelationId() {
+        return this.correlationId;
+    }
+
+    public List<TaskModel> getTasks() {
+        return this.tasks;
+    }
+
+    public Map<String, Object> getInput() {
+        return this.input;
+    }
+
+    public Object getOutput() {
+        return this.output;
+    }
+
+    public WorkflowDef getWorkflowDefinition() {
+        return this.workflowDefinition;
+    }
+
+    public long getStartTime() {
+        return this.startTime;
+    }
+
+    public long getEndTime() {
+        return this.endTime;
+    }
+
+    public long getUpdateTime() {
+        return this.updateTime;
+    }
+
+    public long getLastRetriedTime() {
+        return this.lastRetriedTime;
+    }
+
+    public String getReasonForInCompletion() {
+        return this.reasonForInCompletion;
+    }
+
+    public String getFailedTaskId() {
+        return this.failedTaskId;
+    }
+
+    public Set<String> getFailedReferenceTaskNames() {
+        return this.failedReferenceTaskNames;
+    }
+
+    public Set<String> getFailedTaskNames() {
+        return this.failedTaskNames;
+    }
+
+    public void setWorkflowId(String workflowId) {
+        this.workflowId = workflowId;
+    }
+
+    public void setPreviousStatus(Status previousStatus) {
+        this.previousStatus = previousStatus;
+    }
+
+    public void setCorrelationId(String correlationId) {
+        this.correlationId = correlationId;
+    }
+
+    public void setInput(Map<String, Object> input) {
+        this.input = input;
+    }
+
+    public void setOutput(Object output) {
+        this.output = output;
+    }
+
+    public void setWorkflowDefinition(WorkflowDef workflowDefinition) {
+        this.workflowDefinition = workflowDefinition;
+    }
+
+    public void setStartTime(long startTime) {
+        this.startTime = startTime;
+    }
+
+    public void setEndTime(long endTime) {
+        this.endTime = endTime;
+    }
+
+    public void setUpdateTime(long updateTime) {
+        this.updateTime = updateTime;
+    }
+
+    public void setLastRetriedTime(long lastRetriedTime) {
+        this.lastRetriedTime = lastRetriedTime;
+    }
+
+    public void setReasonForInCompletion(String reasonForInCompletion) {
+        this.reasonForInCompletion = reasonForInCompletion;
+    }
+
+    public void setFailedTaskId(String failedTaskId) {
+        this.failedTaskId = failedTaskId;
+    }
+
+    public void setFailedReferenceTaskNames(Set<String> failedReferenceTaskNames) {
+        this.failedReferenceTaskNames = failedReferenceTaskNames;
+    }
+
+    public void setFailedTaskNames(Set<String> failedTaskNames) {
+        this.failedTaskNames = failedTaskNames;
     }
 }

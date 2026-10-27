@@ -3,8 +3,6 @@ package com.helianhealth.iflow.core.model;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 import com.helianhealth.iflow.common.domain.run.Task;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
-import lombok.Getter;
-import lombok.Setter;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -23,8 +21,6 @@ import java.util.Map;
  * <p>对外 API 层直接使用 {@link WorkflowTask}（定义层）与 {@link TaskModel}（运行时层），
  * 不再引入传输层 DTO —— 同进程同构架构下，多一层映射只会增加漏字段的风险。
  */
-@Getter
-@Setter
 public class TaskModel {
 
     /**
@@ -94,7 +90,7 @@ public class TaskModel {
     private String taskType;
 
     /**
-     * 任务定义名（{@code TaskDef.name}；为空时退化为 {@link #taskType}）
+     * 节点任务名称（{@code WorkflowTask.name}；为空时退化为 {@link #taskType}）
      */
     private String taskDefName;
 
@@ -282,5 +278,205 @@ public class TaskModel {
 
     public static TaskModel fromTask(Task task) {
         return WorkflowExecutionMapper.toTaskModel(task);
+    }
+
+    public String getTaskId() {
+        return this.taskId;
+    }
+
+    public String getWorkflowInstanceId() {
+        return this.workflowInstanceId;
+    }
+
+    public String getWorkflowType() {
+        return this.workflowType;
+    }
+
+    public String getTaskType() {
+        return this.taskType;
+    }
+
+    public String getReferenceTaskName() {
+        return this.referenceTaskName;
+    }
+
+    public Status getStatus() {
+        return this.status;
+    }
+
+    public Status getPreviousStatus() {
+        return this.previousStatus;
+    }
+
+    public Map<String, Object> getInputData() {
+        return this.inputData;
+    }
+
+    public Object getOutputData() {
+        return this.outputData;
+    }
+
+    public int getRetryCount() {
+        return this.retryCount;
+    }
+
+    public int getSeq() {
+        return this.seq;
+    }
+
+    public String getRetriedTaskId() {
+        return this.retriedTaskId;
+    }
+
+    public boolean isRetried() {
+        return this.retried;
+    }
+
+    public boolean isExecuted() {
+        return this.executed;
+    }
+
+    public String getCorrelationId() {
+        return this.correlationId;
+    }
+
+    public long getScheduledTime() {
+        return this.scheduledTime;
+    }
+
+    public long getFirstScheduledTime() {
+        return this.firstScheduledTime;
+    }
+
+    public long getStartTime() {
+        return this.startTime;
+    }
+
+    public long getEndTime() {
+        return this.endTime;
+    }
+
+    public long getUpdateTime() {
+        return this.updateTime;
+    }
+
+    public String getReasonForInCompletion() {
+        return this.reasonForInCompletion;
+    }
+
+    public WorkflowTask getWorkflowTask() {
+        return this.workflowTask;
+    }
+
+    public String getParentTaskId() {
+        return this.parentTaskId;
+    }
+
+    public String getForkTaskId() {
+        return this.forkTaskId;
+    }
+
+    public int getIteration() {
+        return this.iteration;
+    }
+
+    public void setTaskId(String taskId) {
+        this.taskId = taskId;
+    }
+
+    public void setWorkflowInstanceId(String workflowInstanceId) {
+        this.workflowInstanceId = workflowInstanceId;
+    }
+
+    public void setWorkflowType(String workflowType) {
+        this.workflowType = workflowType;
+    }
+
+    public void setTaskType(String taskType) {
+        this.taskType = taskType;
+    }
+
+    public void setTaskDefName(String taskDefName) {
+        this.taskDefName = taskDefName;
+    }
+
+    public void setReferenceTaskName(String referenceTaskName) {
+        this.referenceTaskName = referenceTaskName;
+    }
+
+    public void setPreviousStatus(Status previousStatus) {
+        this.previousStatus = previousStatus;
+    }
+
+    public void setInputData(Map<String, Object> inputData) {
+        this.inputData = inputData;
+    }
+
+    public void setOutputData(Object outputData) {
+        this.outputData = outputData;
+    }
+
+    public void setRetryCount(int retryCount) {
+        this.retryCount = retryCount;
+    }
+
+    public void setSeq(int seq) {
+        this.seq = seq;
+    }
+
+    public void setRetriedTaskId(String retriedTaskId) {
+        this.retriedTaskId = retriedTaskId;
+    }
+
+    public void setRetried(boolean retried) {
+        this.retried = retried;
+    }
+
+    public void setExecuted(boolean executed) {
+        this.executed = executed;
+    }
+
+    public void setCorrelationId(String correlationId) {
+        this.correlationId = correlationId;
+    }
+
+    public void setScheduledTime(long scheduledTime) {
+        this.scheduledTime = scheduledTime;
+    }
+
+    public void setFirstScheduledTime(long firstScheduledTime) {
+        this.firstScheduledTime = firstScheduledTime;
+    }
+
+    public void setStartTime(long startTime) {
+        this.startTime = startTime;
+    }
+
+    public void setEndTime(long endTime) {
+        this.endTime = endTime;
+    }
+
+    public void setUpdateTime(long updateTime) {
+        this.updateTime = updateTime;
+    }
+
+    public void setReasonForInCompletion(String reasonForInCompletion) {
+        this.reasonForInCompletion = reasonForInCompletion;
+    }
+
+    public void setWorkflowTask(WorkflowTask workflowTask) {
+        this.workflowTask = workflowTask;
+    }
+
+    public void setParentTaskId(String parentTaskId) {
+        this.parentTaskId = parentTaskId;
+    }
+
+    public void setForkTaskId(String forkTaskId) {
+        this.forkTaskId = forkTaskId;
+    }
+
+    public void setIteration(int iteration) {
+        this.iteration = iteration;
     }
 }

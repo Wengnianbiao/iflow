@@ -51,10 +51,10 @@ class OpenApiControllerTest {
         started = null;
         starts = 0;
         executionFailure = null;
-        mvc = mvc(OpenApiRequestReader.DEFAULT_MAX_BODY_BYTES, false);
+        mvc = mvc(OpenApiRequestReader.DEFAULT_MAX_BODY_BYTES);
     }
 
-    private MockMvc mvc(int limit, boolean raw, Filter... filters) {
+    private MockMvc mvc(int limit, Filter... filters) {
         OpenApiService service = new OpenApiServiceImpl(new WorkflowExecutionService() {
             @Override
             public String startWorkflow(StartWorkflowRequest request) {
@@ -75,7 +75,7 @@ class OpenApiControllerTest {
             }
         });
         return MockMvcBuilders.standaloneSetup(new OpenApiController(service,
-                new OpenApiRequestReader(new ObjectMapper(), limit, raw)))
+                new OpenApiRequestReader(new ObjectMapper(), limit)))
                 .addFilters(filters).build();
     }
 
@@ -142,7 +142,7 @@ class OpenApiControllerTest {
         assertEquals(Map.of(), started.getInput().get("query"));
         assertEquals(Map.of(), started.getInput().get("files"));
         assertFalse(started.getInput().containsKey("request"));
-        assertFalse(started.getInput().containsKey("rawBody"));
+        assertEquals(json, started.getInput().get("rawBody"));
     }
 
     @Test
@@ -173,13 +173,13 @@ class OpenApiControllerTest {
         mvc.perform(get(PATH).queryParam("barCode", "00123").queryParam("tag", "a", "b"))
                 .andExpect(status().isOk());
         assertNull(started.getInput().get("body"));
+        assertEquals("", started.getInput().get("rawBody"));
         assertEquals("GET", started.getInput().get("method"));
         assertEquals(Map.of("barCode", "00123", "tag", List.of("a", "b")), started.getInput().get("query"));
     }
 
     @Test
-    void plainTextIsNotGuessedAndRawBodyIsOptional() throws Exception {
-        mvc = mvc(1024, true);
+    void plainTextIsNotGuessedAndRawBodyIsAlwaysPresent() throws Exception {
         String text = "  {\"barCode\":\"00123\"}\n";
         mvc.perform(post(PATH).contentType("text/plain").content(text)).andExpect(status().isOk());
         assertEquals(text, started.getInput().get("body"));
@@ -194,10 +194,12 @@ class OpenApiControllerTest {
         for (String contentType : List.of("application/json", "application/xml", "text/plain", "image/png")) {
             mvc.perform(post(PATH).contentType(contentType)).andExpect(status().isOk());
             assertNull(started.getInput().get("body"));
+            assertEquals("", started.getInput().get("rawBody"));
         }
         mvc.perform(post(PATH)).andExpect(status().isOk());
         assertTrue(started.getInput().containsKey("body"));
         assertNull(started.getInput().get("body"));
+        assertEquals("", started.getInput().get("rawBody"));
     }
 
     static Stream<Arguments> xmlEncodings() {
@@ -210,7 +212,6 @@ class OpenApiControllerTest {
     @ParameterizedTest
     @MethodSource("xmlEncodings")
     void xmlRetainsShapeAndDetectsDeclaredEncoding(String type, String encoding) throws Exception {
-        mvc = mvc(4096, true);
         String xml = "<?xml version=\"1.0\" encoding=\"" + encoding + "\"?>"
                 + "<r:request xmlns:r=\"urn:test\" id=\"01\">说明<item>00123</item><item>张三</item><empty/></r:request>";
         mvc.perform(post(PATH).contentType(type).content(xml.getBytes(Charset.forName(encoding))))
@@ -223,7 +224,6 @@ class OpenApiControllerTest {
 
     @Test
     void explicitCharsetIsHonored() throws Exception {
-        mvc = mvc(1024, true);
         for (String type : List.of("application/json", "application/xml", "text/plain")) {
             String text = type.endsWith("json") ? "{\"name\":\"张三\"}"
                     : type.endsWith("xml") ? "<?xml version=\"1.0\" encoding=\"UTF-8\"?><name>张三</name>" : "张三";
@@ -268,36 +268,39 @@ class OpenApiControllerTest {
         assertEquals(0, starts);
     }
 
-    @Test
-    void bodyModeRawSkipsJsonAndXmlDocumentParsing() throws Exception {
-        mvc = mvc(4096, true);
-        String invalidJson = " {not-json} ";
-        mvc.perform(post(PATH).contentType("application/json")
-                        .header(OpenApiRequestReader.BODY_MODE_HEADER, " RAW ")
-                        .content(invalidJson))
-                .andExpect(status().isOk());
-        assertEquals(invalidJson, started.getInput().get("body"));
-        assertEquals(invalidJson, started.getInput().get("rawBody"));
+    static Stream<Arguments> bodiesWithRawText() {
+        return Stream.of(
+                Arguments.of("application/json", " {\"name\":\"张三\"}\n", Map.of("name", "张三")),
+                Arguments.of("application/xml", "<request><name>张三</name></request>",
+                        Map.of("request", Map.of("name", "张三"))),
+                Arguments.of("application/x-www-form-urlencoded", "name=%E5%BC%A0%E4%B8%89&tag=a&tag=b",
+                        Map.of("name", "张三", "tag", List.of("a", "b"))));
+    }
 
-        String xmlWithDtd = "<!DOCTYPE r [<!ENTITY x 'value'>]><r>&x;</r>";
-        mvc.perform(post(PATH).contentType("application/xml")
-                        .header(OpenApiRequestReader.BODY_MODE_HEADER, "raw")
-                        .content(xmlWithDtd))
+    @ParameterizedTest
+    @MethodSource("bodiesWithRawText")
+    void savesRawTextAlongsideParsedBodyRegardlessOfLegacyHeader(
+            String contentType, String rawBody, Object parsedBody) throws Exception {
+        mvc.perform(post(PATH).contentType(contentType)
+                        .header("X-iFlow-Body-Mode", "raw", "unused")
+                        .content(rawBody.getBytes(StandardCharsets.UTF_8)))
                 .andExpect(status().isOk());
-        assertEquals(xmlWithDtd, started.getInput().get("body"));
+        assertEquals(parsedBody, started.getInput().get("body"));
+        assertEquals(rawBody, started.getInput().get("rawBody"));
     }
 
     @Test
-    void rejectsEmptyUnknownAndDuplicateBodyModes() throws Exception {
-        for (String mode : List.of("", "guess")) {
-            mvc.perform(post(PATH).contentType("application/json")
-                            .header(OpenApiRequestReader.BODY_MODE_HEADER, mode)
-                            .content("{}"))
-                    .andExpect(status().isBadRequest());
-        }
+    void legacyRawHeaderCannotBypassDocumentValidation() throws Exception {
+        String invalidJson = " {not-json} ";
         mvc.perform(post(PATH).contentType("application/json")
-                        .header(OpenApiRequestReader.BODY_MODE_HEADER, "auto", "raw")
-                        .content("{}"))
+                        .header("X-iFlow-Body-Mode", "raw")
+                        .content(invalidJson))
+                .andExpect(status().isBadRequest());
+
+        String xmlWithDtd = "<!DOCTYPE r [<!ENTITY x 'value'>]><r>&x;</r>";
+        mvc.perform(post(PATH).contentType("application/xml")
+                        .header("X-iFlow-Body-Mode", "raw")
+                        .content(xmlWithDtd))
                 .andExpect(status().isBadRequest());
         assertEquals(0, starts);
     }
@@ -323,21 +326,9 @@ class OpenApiControllerTest {
     }
 
     @Test
-    void urlEncodedRawModeKeepsOriginalText() throws Exception {
-        mvc = mvc(4096, true);
-        String encoded = "name=%E5%BC%A0%E4%B8%89&tag=a&tag=b";
-        mvc.perform(post(PATH).contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                        .header(OpenApiRequestReader.BODY_MODE_HEADER, "raw")
-                        .content(encoded))
-                .andExpect(status().isOk());
-        assertEquals(encoded, started.getInput().get("body"));
-        assertEquals(encoded, started.getInput().get("rawBody"));
-    }
-
-    @Test
     @SuppressWarnings("unchecked")
     void multipartSplitsFieldsAndPassesUploadedBytesAsBase64() throws Exception {
-        mvc = mvc(8192, true);
+        mvc = mvc(8192);
         MockPart examNo = textPart("examNo", "00123");
         String itemJson = "[{\"examElementId\":\"3837\"}]";
         MockPart itemResults = textPart("itemResults", itemJson);
@@ -353,14 +344,14 @@ class OpenApiControllerTest {
 
         mvc.perform(multipart(PATH + "?examNo=query")
                         .part(examNo, itemResults, repeated, firstFile, secondFile, thirdFile, zeroFile, placeholder)
-                        .contentType("multipart/form-data; boundary=mock-boundary")
-                        .header(OpenApiRequestReader.BODY_MODE_HEADER, "raw"))
+                        .contentType("multipart/form-data; boundary=mock-boundary"))
                 .andExpect(status().isOk());
 
         assertEquals(Map.of("examNo", List.of("00123", "00456"), "itemResults", itemJson),
                 started.getInput().get("body"));
         assertEquals(Map.of("examNo", "query"), started.getInput().get("query"));
-        assertFalse(started.getInput().containsKey("rawBody"));
+        assertTrue(started.getInput().containsKey("rawBody"));
+        assertNull(started.getInput().get("rawBody"));
         List<Map<String, Object>> descriptors = (List<Map<String, Object>>)
                 ((Map<String, Object>) started.getInput().get("files")).get("file");
         assertEquals(4, descriptors.size());
@@ -372,7 +363,7 @@ class OpenApiControllerTest {
 
     @Test
     void multipartPayloadBytesAreCheckedBeforeWorkflowStart() throws Exception {
-        mvc = mvc(3, false);
+        mvc = mvc(3);
         mvc.perform(multipart(PATH)
                         .part(filePart("file", "four.bin", "application/octet-stream",
                                 new byte[] {1, 2, 3, 4}))
@@ -426,7 +417,7 @@ class OpenApiControllerTest {
     @Test
     void countsActualBytesEvenWithoutAnAccurateContentLength() throws Exception {
         for (long reportedLength : new long[] {-1, 1}) {
-            mvc = mvc(4, false, (request, response, chain) -> chain.doFilter(
+            mvc = mvc(4, (request, response, chain) -> chain.doFilter(
                     new HttpServletRequestWrapper((HttpServletRequest) request) {
                         @Override public long getContentLengthLong() { return reportedLength; }
                         @Override public int getContentLength() { return (int) reportedLength; }
@@ -444,7 +435,7 @@ class OpenApiControllerTest {
         mvc.perform(post(PATH).contentType("text/plain")
                         .content(new byte[OpenApiRequestReader.DEFAULT_MAX_BODY_BYTES + 1]))
                 .andExpect(status().isPayloadTooLarge());
-        mvc = mvc(4, false);
+        mvc = mvc(4);
         mvc.perform(post(PATH).contentType("text/plain").content("张三".getBytes(StandardCharsets.UTF_8)))
                 .andExpect(status().isPayloadTooLarge());
         assertEquals(0, starts);
@@ -453,7 +444,7 @@ class OpenApiControllerTest {
     @Test
     void bindsOpenApiConfiguration() {
         new ApplicationContextRunner().withUserConfiguration(ReaderConfiguration.class)
-                .withPropertyValues("iflow.open-api.max-body-bytes=4", "iflow.open-api.include-raw-body=true")
+                .withPropertyValues("iflow.open-api.max-body-bytes=4")
                 .run(context -> {
                     OpenApiRequestReader reader = context.getBean(OpenApiRequestReader.class);
                     MockHttpServletRequest request = new MockHttpServletRequest("POST", PATH);
@@ -463,7 +454,7 @@ class OpenApiControllerTest {
                     request.setContent("12345".getBytes(StandardCharsets.UTF_8));
                     assertThrows(org.springframework.web.server.ResponseStatusException.class, () -> reader.read(request));
                 });
-        assertThrows(IllegalArgumentException.class, () -> new OpenApiRequestReader(new ObjectMapper(), 0, false));
+        assertThrows(IllegalArgumentException.class, () -> new OpenApiRequestReader(new ObjectMapper(), 0));
     }
 
     @Configuration(proxyBeanMethods = false)

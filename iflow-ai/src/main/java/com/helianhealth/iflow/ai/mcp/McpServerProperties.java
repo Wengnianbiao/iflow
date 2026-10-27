@@ -1,10 +1,10 @@
 package com.helianhealth.iflow.ai.mcp;
 
-import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * MCP Server 配置项。
@@ -29,7 +29,6 @@ import java.util.List;
  *     schema-location: classpath:mcp/tool-schemas.json
  * }</pre>
  */
-@Data
 @ConfigurationProperties(prefix = "iflow.mcp")
 public class McpServerProperties {
 
@@ -93,4 +92,165 @@ public class McpServerProperties {
      * Tool schema 资源位置（Spring Resource 表达式）
      */
     private String schemaLocation = "classpath:mcp/tool-schemas.json";
+
+    public McpServerProperties() {
+    }
+
+    public boolean isEnabled() {
+        return this.enabled;
+    }
+
+    public String getBasePath() {
+        return this.basePath;
+    }
+
+    public String getServerName() {
+        return this.serverName;
+    }
+
+    public String getServerVersion() {
+        return this.serverVersion;
+    }
+
+    public String getProtocolVersion() {
+        return this.protocolVersion;
+    }
+
+    public boolean isSessionEnabled() {
+        return this.sessionEnabled;
+    }
+
+    public boolean isStrictSession() {
+        return this.strictSession;
+    }
+
+    public long getSessionTtlMinutes() {
+        return this.sessionTtlMinutes;
+    }
+
+    public boolean isValidateOrigin() {
+        return this.validateOrigin;
+    }
+
+    public List<String> getAllowedOrigins() {
+        return this.allowedOrigins;
+    }
+
+    public String getInstructions() {
+        return this.instructions;
+    }
+
+    public String getSchemaLocation() {
+        return this.schemaLocation;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    public void setBasePath(String basePath) {
+        this.basePath = basePath;
+    }
+
+    public void setServerName(String serverName) {
+        this.serverName = serverName;
+    }
+
+    public void setServerVersion(String serverVersion) {
+        this.serverVersion = serverVersion;
+    }
+
+    public void setProtocolVersion(String protocolVersion) {
+        this.protocolVersion = protocolVersion;
+    }
+
+    public void setSessionEnabled(boolean sessionEnabled) {
+        this.sessionEnabled = sessionEnabled;
+    }
+
+    public void setStrictSession(boolean strictSession) {
+        this.strictSession = strictSession;
+    }
+
+    public void setSessionTtlMinutes(long sessionTtlMinutes) {
+        this.sessionTtlMinutes = sessionTtlMinutes;
+    }
+
+    public void setValidateOrigin(boolean validateOrigin) {
+        this.validateOrigin = validateOrigin;
+    }
+
+    public void setAllowedOrigins(List<String> allowedOrigins) {
+        this.allowedOrigins = allowedOrigins;
+    }
+
+    public void setInstructions(String instructions) {
+        this.instructions = instructions;
+    }
+
+    public void setSchemaLocation(String schemaLocation) {
+        this.schemaLocation = schemaLocation;
+    }
+
+    protected boolean canEqual(Object other) {
+        return other instanceof McpServerProperties;
+    }
+
+    @Override
+    public boolean equals(Object object) {
+        if (this == object) {
+            return true;
+        }
+        if (!(object instanceof McpServerProperties other)) {
+            return false;
+        }
+        if (!other.canEqual(this)) {
+            return false;
+        }
+        return isEnabled() == other.isEnabled()
+                && Objects.equals(getBasePath(), other.getBasePath())
+                && Objects.equals(getServerName(), other.getServerName())
+                && Objects.equals(getServerVersion(), other.getServerVersion())
+                && Objects.equals(getProtocolVersion(), other.getProtocolVersion())
+                && isSessionEnabled() == other.isSessionEnabled()
+                && isStrictSession() == other.isStrictSession()
+                && getSessionTtlMinutes() == other.getSessionTtlMinutes()
+                && isValidateOrigin() == other.isValidateOrigin()
+                && Objects.equals(getAllowedOrigins(), other.getAllowedOrigins())
+                && Objects.equals(getInstructions(), other.getInstructions())
+                && Objects.equals(getSchemaLocation(), other.getSchemaLocation());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(
+                isEnabled(),
+                getBasePath(),
+                getServerName(),
+                getServerVersion(),
+                getProtocolVersion(),
+                isSessionEnabled(),
+                isStrictSession(),
+                getSessionTtlMinutes(),
+                isValidateOrigin(),
+                getAllowedOrigins(),
+                getInstructions(),
+                getSchemaLocation());
+    }
+
+    @Override
+    public String toString() {
+        return "McpServerProperties(enabled=" + isEnabled()
+                + ", basePath=" + getBasePath()
+                + ", serverName=" + getServerName()
+                + ", serverVersion=" + getServerVersion()
+                + ", protocolVersion=" + getProtocolVersion()
+                + ", sessionEnabled=" + isSessionEnabled()
+                + ", strictSession=" + isStrictSession()
+                + ", sessionTtlMinutes=" + getSessionTtlMinutes()
+                + ", validateOrigin=" + isValidateOrigin()
+                + ", allowedOrigins=" + getAllowedOrigins()
+                + ", instructions=" + getInstructions()
+                + ", schemaLocation=" + getSchemaLocation() + ")";
+    }
 }

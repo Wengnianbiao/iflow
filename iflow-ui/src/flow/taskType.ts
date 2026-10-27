@@ -18,3 +18,14 @@ export const TaskType = {
 } as const
 
 export type TaskTypeValue = (typeof TaskType)[keyof typeof TaskType]
+
+/** 与后端 TaskType.isBuiltIn 一致；FORK_JOIN 定义对应运行时 FORK。 */
+export function isBuiltInTask(type: string) {
+  return type === TaskType.DECISION
+    || type === TaskType.SWITCH
+    || type === 'FORK'
+    || type === TaskType.FORK_JOIN
+    || type === TaskType.JOIN
+    || type === TaskType.EXCLUSIVE_JOIN
+    || type === TaskType.DO_WHILE
+}

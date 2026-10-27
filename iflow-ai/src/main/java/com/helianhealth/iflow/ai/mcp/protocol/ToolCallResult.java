@@ -1,12 +1,10 @@
 package com.helianhealth.iflow.ai.mcp.protocol;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * MCP {@code tools/call} 返回结构。
@@ -19,9 +17,6 @@ import java.util.List;
  *       便于客户端在不解析 content 时也能把原因传给大模型。</li>
  * </ul>
  */
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ToolCallResult {
 
@@ -40,5 +35,73 @@ public class ToolCallResult {
 
     public static ToolCallResult error(String text, String errorSummary) {
         return new ToolCallResult(Collections.singletonList(ToolContent.text(text)), Boolean.TRUE, errorSummary);
+    }
+
+    public List<ToolContent> getContent() {
+        return this.content;
+    }
+
+    public Boolean getIsError() {
+        return this.isError;
+    }
+
+    public String getError() {
+        return this.error;
+    }
+
+    public void setContent(List<ToolContent> content) {
+        this.content = content;
+    }
+
+    public void setIsError(Boolean isError) {
+        this.isError = isError;
+    }
+
+    public void setError(String error) {
+        this.error = error;
+    }
+
+    protected boolean canEqual(Object other) {
+        return other instanceof ToolCallResult;
+    }
+
+    public ToolCallResult() {
+    }
+
+    public ToolCallResult(List<ToolContent> content, Boolean isError, String error) {
+        this.content = content;
+        this.isError = isError;
+        this.error = error;
+    }
+
+    @Override
+    public boolean equals(Object object) {
+        if (this == object) {
+            return true;
+        }
+        if (!(object instanceof ToolCallResult other)) {
+            return false;
+        }
+        if (!other.canEqual(this)) {
+            return false;
+        }
+        return Objects.equals(getContent(), other.getContent())
+                && Objects.equals(getIsError(), other.getIsError())
+                && Objects.equals(getError(), other.getError());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(
+                getContent(),
+                getIsError(),
+                getError());
+    }
+
+    @Override
+    public String toString() {
+        return "ToolCallResult(content=" + getContent()
+                + ", isError=" + getIsError()
+                + ", error=" + getError() + ")";
     }
 }

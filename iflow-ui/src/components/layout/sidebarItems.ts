@@ -17,13 +17,13 @@ export type SidebarNavGroup = {
   items: SidebarNavItem[]
 }
 
-export const sidebarNavGroups: SidebarNavGroup[] = [
+export const sidebarNavItems: (SidebarNavItem | SidebarNavGroup)[] = [
+  { label: '调度看板', to: '/dashboard', icon: ChartBarIcon },
   {
     id: 'scheduling',
     label: '调度日志',
     icon: ClockCountdownIcon,
     items: [
-      { label: '调用看板', to: '/dashboard', icon: ChartBarIcon },
       { label: '工作流调度', to: '/executions', icon: PlayCircleIcon },
     ],
   },

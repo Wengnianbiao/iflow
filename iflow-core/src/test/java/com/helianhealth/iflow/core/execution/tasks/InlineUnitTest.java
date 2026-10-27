@@ -59,7 +59,8 @@ class InlineUnitTest {
         input.put(Inline.INPUT_EXPRESSION, expression);
         TaskModel task = executeWithInput(input, Map.of(GraalJSEvaluator.NAME, (script, values) -> "unused"));
 
-        assertEquals(TaskModel.Status.FAILED, task.getStatus());
+        assertEquals(TaskModel.Status.FAILED_WITH_TERMINAL_ERROR, task.getStatus());
+        assertFalse(task.getStatus().isRetriable());
         assertTrue(task.getReasonForInCompletion().contains("expression"));
         assertNull(task.getOutputData());
     }
@@ -73,7 +74,8 @@ class InlineUnitTest {
         input.put(Inline.INPUT_EVALUATOR_TYPE, evaluatorType);
         TaskModel task = executeWithInput(input, Map.of(GraalJSEvaluator.NAME, (script, values) -> 42));
 
-        assertEquals(TaskModel.Status.FAILED, task.getStatus());
+        assertEquals(TaskModel.Status.FAILED_WITH_TERMINAL_ERROR, task.getStatus());
+        assertFalse(task.getStatus().isRetriable());
         assertNotNull(task.getReasonForInCompletion());
         assertNull(task.getOutputData());
     }
@@ -103,7 +105,8 @@ class InlineUnitTest {
         TaskModel task = executeWithInput(Map.of(Inline.INPUT_EXPRESSION, "ignored"),
                 Map.of(GraalJSEvaluator.NAME, failure));
 
-        assertEquals(TaskModel.Status.FAILED, task.getStatus());
+        assertEquals(TaskModel.Status.FAILED_WITH_TERMINAL_ERROR, task.getStatus());
+        assertFalse(task.getStatus().isRetriable());
         assertEquals("script failed", task.getReasonForInCompletion());
         assertNull(task.getOutputData());
     }

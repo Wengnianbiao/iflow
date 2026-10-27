@@ -36,7 +36,7 @@ export const workflowTemplates: WorkflowTemplate[] = [
       },
       workflowStatusListenerEnabled: false,
       timeoutSeconds: 0,
-      timeoutPolicy: 'ALERT_ONLY',
+      timeoutPolicy: 'TIME_OUT_WF',
       tasks: [
         {
           name: '请求 API',
@@ -73,7 +73,7 @@ export const workflowTemplates: WorkflowTemplate[] = [
       outputParameters: {},
       workflowStatusListenerEnabled: false,
       timeoutSeconds: 0,
-      timeoutPolicy: 'ALERT_ONLY',
+      timeoutPolicy: 'TIME_OUT_WF',
       tasks: [
         {
           name: '状态路由',
@@ -137,7 +137,7 @@ export const workflowTemplates: WorkflowTemplate[] = [
       outputParameters: {},
       workflowStatusListenerEnabled: false,
       timeoutSeconds: 0,
-      timeoutPolicy: 'ALERT_ONLY',
+      timeoutPolicy: 'TIME_OUT_WF',
       tasks: [
         {
           name: '并行调用服务',

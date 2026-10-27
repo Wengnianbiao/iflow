@@ -1,5 +1,6 @@
 package com.helianhealth.iflow.starter;
 
+import com.helianhealth.iflow.core.config.IflowProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;

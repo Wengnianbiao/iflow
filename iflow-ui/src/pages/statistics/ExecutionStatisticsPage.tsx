@@ -96,8 +96,8 @@ export function ExecutionStatisticsPage() {
   )
 
   return <>
-    <Helmet><title>调用看板</title></Helmet>
-    <SectionHeader title="调用看板" actions={
+    <Helmet><title>调度看板</title></Helmet>
+    <SectionHeader title="调度看板" actions={
       <Button variant="outlined" startIcon={<ArrowClockwiseIcon size={16} />} disabled={query.isFetching || !validRange}
         onClick={() => void query.refetch()}>刷新</Button>
     } />

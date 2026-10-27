@@ -1,11 +1,8 @@
 package com.helianhealth.iflow.tasks.mapping.enums;
 
-import lombok.Getter;
-
 /**
  * 参数类型枚举
  */
-@Getter
 public enum ParamType {
 
     /**

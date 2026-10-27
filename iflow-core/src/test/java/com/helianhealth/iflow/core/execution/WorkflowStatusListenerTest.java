@@ -54,6 +54,7 @@ class WorkflowStatusListenerTest {
             case FAILED -> order.verify(listener).onWorkflowFailed(workflow);
             case TIMED_OUT -> order.verify(listener).onWorkflowTimedOut(workflow);
             case TERMINATED -> order.verify(listener).onWorkflowTerminated(workflow);
+            case INTERRUPTED -> order.verify(listener).onWorkflowInterrupted(workflow);
             default -> throw new AssertionError(status);
         }
         order.verifyNoMoreInteractions();

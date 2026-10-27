@@ -2,10 +2,8 @@ package com.helianhealth.iflow.gateway.jarvis;
 
 import com.helianhealth.iflow.common.domain.run.StartWorkflowRequest;
 import com.helianhealth.iflow.common.exception.WorkFlowException;
-import com.helianhealth.iflow.common.utils.JsonUtils;
 import com.helianhealth.iflow.core.model.WorkflowModel;
 import com.helianhealth.iflow.core.service.WorkflowExecutionService;
-import com.helianhealth.iflow.gateway.jarvis.model.JarvisRequest;
 import com.helianhealth.iflow.gateway.jarvis.model.JarvisResultData;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,11 +22,13 @@ public class JarvisServiceImpl implements JarvisService {
     }
 
     @Override
-    public Object invoke(JarvisRequest request) {
-
-        String workflowRoute = request.getBusinessMethod();
+    public Object invoke(Map<String, Object> input) {
+        if (!(input.get("body") instanceof Map<?, ?> body)
+                || !(body.get("BusinessMethod") instanceof String workflowRoute)
+                || !StringUtils.hasText(workflowRoute)) {
+            return JarvisResultData.error("BusinessMethod 必须为非空字符串");
+        }
         try {
-            Map<String, Object> input = JsonUtils.fromBean(request);
             WorkflowModel executedWorkflow =
                     workflowExecutionService.startWorkflowSync(
                             StartWorkflowRequest.builder()

@@ -3,7 +3,7 @@ package com.helianhealth.iflow.gateway.rest;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/** 已解析的 HTTP 入站数据。files 包含文件元信息及 contentBase64；rawBody 为 null 表示未启用原文保存。 */
+/** 已解析的 HTTP 入站数据。files 包含文件元信息及 contentBase64；multipart 的 rawBody 为 null。 */
 public record OpenApiRequest(
         Object body,
         Map<String, Object> query,
@@ -31,9 +31,7 @@ public record OpenApiRequest(
         input.put("files", files);
         input.put("method", method);
         input.put("path", path);
-        if (rawBody != null) {
-            input.put("rawBody", rawBody);
-        }
+        input.put("rawBody", rawBody);
         return input;
     }
 }

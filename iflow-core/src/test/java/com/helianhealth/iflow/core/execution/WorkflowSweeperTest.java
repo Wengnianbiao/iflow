@@ -43,7 +43,7 @@ class WorkflowSweeperTest {
 
     @Test
     void leavesWorkflowRunningBeforeDeadline() {
-        WorkflowSweeper sweeper = sweeper(3600);
+        WorkflowSweeper sweeper = sweeper();
         WorkflowModel workflow = runningWorkflow(1);
         workflow.setStartTime(System.currentTimeMillis());
         TaskModel task = inProgressTask("sync_lis_ref");
@@ -56,7 +56,7 @@ class WorkflowSweeperTest {
 
     @Test
     void terminatesTimedOutWorkflowAndOnlyOpenTasks() {
-        WorkflowSweeper sweeper = sweeper(3600);
+        WorkflowSweeper sweeper = sweeper();
         WorkflowModel workflow = runningWorkflow(1);
         workflow.setStartTime(System.currentTimeMillis() - 5_000);
         TaskModel completed = task("done_ref", TaskModel.Status.COMPLETED);
@@ -67,7 +67,7 @@ class WorkflowSweeperTest {
         List<TaskModel> updated = new ArrayList<>();
         AtomicReference<WorkflowModel> persisted = new AtomicReference<>();
         ExecutionDAO dao = recordingDao(workflow, updated, persisted);
-        sweeper = sweeper(3600, dao, null);
+        sweeper = sweeper(dao, null);
         WorkflowExecutor executor = recordingExecutor(dao);
 
         assertTrue(sweeper.sweep(workflow, executor));
@@ -88,8 +88,8 @@ class WorkflowSweeperTest {
 
     @Test
     void mentionsWaitingJoinInTimeoutReason() {
-        WorkflowSweeper sweeper = sweeper(60);
-        WorkflowModel workflow = runningWorkflow(0);
+        WorkflowSweeper sweeper = sweeper();
+        WorkflowModel workflow = runningWorkflow(60);
         workflow.setStartTime(System.currentTimeMillis() - 120_000);
         TaskModel join = inProgressTask("apply_join_ref");
         join.setTaskType(TaskType.TASK_TYPE_JOIN);
@@ -107,16 +107,6 @@ class WorkflowSweeperTest {
         verify(executor).updateWorkflow(workflow);
     }
 
-    @Test
-    void disabledWhenWorkflowAndDefaultTimeoutAreUnset() {
-        WorkflowSweeper sweeper = sweeper(0);
-        WorkflowModel workflow = runningWorkflow(0);
-        workflow.setStartTime(1);
-        workflow.setTasks(List.of(inProgressTask("sync_lis_ref")));
-
-        assertFalse(sweeper.sweep(workflow, null));
-        assertEquals(WorkflowModel.Status.RUNNING, workflow.getStatus());
-    }
 
     @Test
     void sweepStoredSkipsWorkflowHeldByExecutionLock() throws Exception {
@@ -126,7 +116,7 @@ class WorkflowSweeperTest {
         workflow.setStartTime(System.currentTimeMillis() - 10_000);
         workflow.setTasks(List.of(inProgressTask("sync_lis_ref")));
         ExecutionDAO dao = recordingDao(workflow, new ArrayList<>(), new AtomicReference<>());
-        WorkflowSweeper sweeper = sweeper(3600, dao, lock);
+        WorkflowSweeper sweeper = sweeper(dao, lock);
         WorkflowExecutor executor = recordingExecutor(dao);
 
         CountDownLatch held = new CountDownLatch(1);
@@ -242,8 +232,8 @@ class WorkflowSweeperTest {
         assertTrue(result.getReasonForInCompletion().contains("必须进入终态"));
     }
 
-    private static WorkflowSweeper sweeper(long defaultTimeoutSeconds) {
-        return sweeper(defaultTimeoutSeconds, null, null);
+    private static WorkflowSweeper sweeper() {
+        return sweeper(null, null);
     }
 
     private static WorkflowExecutor recordingExecutor(ExecutionDAO dao) {
@@ -256,12 +246,15 @@ class WorkflowSweeperTest {
     }
 
     private static WorkflowSweeper sweeper(
-            long defaultTimeoutSeconds, ExecutionDAO executionDAO, InMemoryExecutionLockService lock) {
+            ExecutionDAO executionDAO, InMemoryExecutionLockService lock) {
         ExecutionDAOFacade facade =
                 executionDAO == null
                         ? null
                         : new ExecutionDAOFacade(executionDAO, new ObjectMapper());
-        return new WorkflowSweeper(new SystemTaskRegistry(Set.of()), facade, lock, defaultTimeoutSeconds);
+        SystemTaskRegistry registry = new SystemTaskRegistry(Set.of());
+        DeciderService decider = new DeciderService(new IDGenerator(), new ParametersUtils(new ObjectMapper()),
+                registry, Map.of());
+        return new WorkflowSweeper(registry, facade, lock, decider, 0);
     }
 
     private static ExecutionDAO recordingDao(

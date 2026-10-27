@@ -1,16 +1,16 @@
 package com.helianhealth.iflow.core.execution;
 
+import com.helianhealth.iflow.core.config.IflowProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * 周期性扫描仍处于 RUNNING 的工作流，把已经超过执行期限的实例交给 {@link WorkflowSweeper} 终止。
+ * 启动时清理进程遗留实例，随后周期性检查运行实例的超时。
  */
 @Component
 public class WorkflowSweepRunner implements InitializingBean, DisposableBean {
@@ -27,14 +27,11 @@ public class WorkflowSweepRunner implements InitializingBean, DisposableBean {
     public WorkflowSweepRunner(
             WorkflowSweeper workflowSweeper,
             WorkflowExecutor workflowExecutor,
-            @Value("${iflow.workflow-execution.sweeper.enabled:true}") boolean enabled,
-            @Value("${iflow.workflow-execution.sweeper.interval-seconds:30}")
-                    long intervalSeconds) {
+            IflowProperties properties) {
         this.workflowSweeper = workflowSweeper;
         this.workflowExecutor = workflowExecutor;
-        this.enabled = enabled;
-        long seconds = intervalSeconds > 0 ? intervalSeconds : 30L;
-        this.intervalMillis = seconds * 1000L;
+        this.enabled = properties.getWorkflowExecution().getSweeper().isEnabled();
+        this.intervalMillis = properties.getWorkflowExecution().getSweeper().getIntervalSeconds() * 1000L;
     }
 
     @Override
@@ -43,6 +40,7 @@ public class WorkflowSweepRunner implements InitializingBean, DisposableBean {
             LOGGER.info("Workflow sweeper is disabled");
             return;
         }
+        sweep();
         running.set(true);
         thread = new Thread(this::loop, "iflow-workflow-sweeper");
         thread.setDaemon(true);
@@ -61,16 +59,22 @@ public class WorkflowSweepRunner implements InitializingBean, DisposableBean {
     private void loop() {
         while (running.get() && !Thread.currentThread().isInterrupted()) {
             try {
-                workflowSweeper.sweepRunningWorkflows(workflowExecutor);
-            } catch (RuntimeException e) {
-                LOGGER.error("Workflow sweep failed", e);
-            }
-            try {
                 Thread.sleep(intervalMillis);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 return;
             }
+            if (running.get()) {
+                sweep();
+            }
+        }
+    }
+
+    private void sweep() {
+        try {
+            workflowSweeper.sweepRunningWorkflows(workflowExecutor);
+        } catch (RuntimeException error) {
+            LOGGER.error("Workflow sweep failed", error);
         }
     }
 }

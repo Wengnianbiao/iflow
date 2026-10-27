@@ -1,5 +1,5 @@
 #!/bin/sh
-# One-shot: package iflow.jar, build linux/amd64 image, export Docker 20.10 tar.gz
+# Demo: package iflow.jar, build linux/amd64 image, export Docker 20.10 tar.gz
 # Usage (from repo root or this directory):
 #   ./docker/build-image.sh
 
@@ -27,10 +27,10 @@ fi
 )
 
 echo "==> maven package"
-mvn -pl iflow-web -am clean package -Dmaven.test.skip=true
+mvn -Pdemo -pl iflow-demo -am clean package -Dmaven.test.skip=true
 
-if [ ! -f "$ROOT_DIR/iflow-web/target/iflow.jar" ]; then
-  echo "missing iflow-web/target/iflow.jar" >&2
+if [ ! -f "$ROOT_DIR/iflow-demo/target/iflow.jar" ]; then
+  echo "missing iflow-demo/target/iflow.jar" >&2
   exit 1
 fi
 

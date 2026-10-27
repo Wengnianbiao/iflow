@@ -15,6 +15,10 @@ export interface WorkflowTask {
   expression?: string | null
   evaluatorType?: string | null
   optional?: boolean
+  retryCount?: number | null
+  retryDelaySeconds?: number | null
+  retryLogic?: 'FIXED' | 'LINEAR_BACKOFF' | 'EXPONENTIAL_BACKOFF' | null
+  startDelay?: number | null
 }
 
 export interface WorkflowDef {

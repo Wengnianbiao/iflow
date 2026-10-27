@@ -1,9 +1,8 @@
 package com.helianhealth.iflow.ai.mcp.jsonrpc;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+
+import java.util.Objects;
 
 /**
  * JSON-RPC 2.0 错误对象。
@@ -18,9 +17,6 @@ import lombok.NoArgsConstructor;
  *   <li>-32000 ~ -32099 Server error（MCP 实现可在该区段自定义）</li>
  * </ul>
  */
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class JsonRpcError {
 
@@ -42,5 +38,73 @@ public class JsonRpcError {
 
     public static JsonRpcError of(int code, String message, Object data) {
         return new JsonRpcError(code, message, data);
+    }
+
+    public int getCode() {
+        return this.code;
+    }
+
+    public String getMessage() {
+        return this.message;
+    }
+
+    public Object getData() {
+        return this.data;
+    }
+
+    public void setCode(int code) {
+        this.code = code;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
+    }
+
+    public void setData(Object data) {
+        this.data = data;
+    }
+
+    protected boolean canEqual(Object other) {
+        return other instanceof JsonRpcError;
+    }
+
+    public JsonRpcError() {
+    }
+
+    public JsonRpcError(int code, String message, Object data) {
+        this.code = code;
+        this.message = message;
+        this.data = data;
+    }
+
+    @Override
+    public boolean equals(Object object) {
+        if (this == object) {
+            return true;
+        }
+        if (!(object instanceof JsonRpcError other)) {
+            return false;
+        }
+        if (!other.canEqual(this)) {
+            return false;
+        }
+        return getCode() == other.getCode()
+                && Objects.equals(getMessage(), other.getMessage())
+                && Objects.equals(getData(), other.getData());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(
+                getCode(),
+                getMessage(),
+                getData());
+    }
+
+    @Override
+    public String toString() {
+        return "JsonRpcError(code=" + getCode()
+                + ", message=" + getMessage()
+                + ", data=" + getData() + ")";
     }
 }

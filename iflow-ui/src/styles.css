@@ -2935,6 +2935,102 @@ textarea {
   grid-column: 1 / -1;
 }
 
+.task-policy-optional {
+  margin-top: 16px;
+  color: #767676;
+  font-size: 12px;
+}
+
+.task-policy-optional label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.task-policy-optional .MuiSwitch-root {
+  flex-shrink: 0;
+  width: 40px;
+  height: 20px;
+  padding: 0;
+  overflow: visible;
+}
+
+.task-policy-optional .MuiSwitch-switchBase {
+  padding: 2px;
+}
+
+.task-policy-optional .MuiSwitch-switchBase.Mui-checked {
+  transform: translateX(20px);
+}
+
+.task-policy-optional .MuiSwitch-thumb {
+  width: 16px;
+  height: 16px;
+  color: #fff;
+}
+
+.task-policy-optional .MuiSwitch-track {
+  border-radius: 10px;
+  background-color: #767676;
+  opacity: 1;
+}
+
+.task-policy-optional .Mui-checked + .MuiSwitch-track {
+  background-color: #2e7d32;
+  opacity: 1;
+}
+
+.task-policy-optional .Mui-disabled + .MuiSwitch-track {
+  opacity: 0.45;
+}
+
+.task-policy-optional .Mui-focusVisible .MuiSwitch-thumb {
+  outline: 2px solid #1976d2;
+  outline-offset: 2px;
+}
+
+.task-policy-optional label:has(input:disabled) {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.task-policy-optional small {
+  display: block;
+  margin-top: 4px;
+}
+
+.task-policy-optional small,
+.task-policy-note {
+  color: #7b8797;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.task-retry-settings {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e9f0;
+}
+
+.task-retry-settings h3 {
+  margin: 0;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.task-retry-settings .field-help {
+  margin: 0;
+}
+
+.task-policy-note {
+  margin: 16px 0 0;
+}
+
 .workflow-tags-field {
   grid-column: 1 / -1;
   min-width: 0;

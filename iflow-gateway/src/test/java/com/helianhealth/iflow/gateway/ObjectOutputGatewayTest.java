@@ -3,10 +3,10 @@ package com.helianhealth.iflow.gateway;
 import com.helianhealth.iflow.common.exception.WorkFlowConfigException;
 import com.helianhealth.iflow.common.exception.WorkFlowErrorCode;
 import com.helianhealth.iflow.common.domain.run.StartWorkflowRequest;
+import com.helianhealth.iflow.common.utils.JsonUtils;
 import com.helianhealth.iflow.core.model.WorkflowModel;
 import com.helianhealth.iflow.core.service.WorkflowExecutionService;
 import com.helianhealth.iflow.gateway.jarvis.JarvisServiceImpl;
-import com.helianhealth.iflow.gateway.jarvis.model.JarvisRequest;
 import com.helianhealth.iflow.gateway.jarvis.model.JarvisResultData;
 import com.helianhealth.iflow.gateway.rest.OpenApiServiceImpl;
 import com.helianhealth.iflow.gateway.rest.OpenApiRequest;
@@ -56,13 +56,13 @@ class ObjectOutputGatewayTest {
     @MethodSource("jarvisResponses")
     void jarvisReturnsRawWorkflowValues(Object output) {
         JarvisServiceImpl gateway = new JarvisServiceImpl(syncService(request -> completed(output)));
-        assertEquals(output, gateway.invoke(new JarvisRequest()));
+        assertEquals(output, gateway.invoke(jarvisRequest("test")));
     }
 
     @Test
     void jarvisReturnsNullWorkflowOutput() {
         JarvisServiceImpl gateway = new JarvisServiceImpl(syncService(request -> completed(null)));
-        assertNull(gateway.invoke(new JarvisRequest()));
+        assertNull(gateway.invoke(jarvisRequest("test")));
     }
 
     @Test
@@ -73,7 +73,7 @@ class ObjectOutputGatewayTest {
         JarvisServiceImpl gateway = new JarvisServiceImpl(syncService(request -> workflow));
 
         JarvisResultData<?> response = assertInstanceOf(
-                JarvisResultData.class, gateway.invoke(new JarvisRequest()));
+                JarvisResultData.class, gateway.invoke(jarvisRequest("test")));
         assertEquals("-1", response.getCode());
         assertEquals("task failed", response.getMessage());
     }
@@ -83,13 +83,32 @@ class ObjectOutputGatewayTest {
         JarvisServiceImpl gateway = new JarvisServiceImpl(syncService(request -> {
             throw new WorkFlowConfigException(WorkFlowErrorCode.WORKFLOW_NOT_FOUND);
         }));
-        JarvisRequest request = new JarvisRequest();
-        request.setBusinessMethod("missingWorkflow");
-
         JarvisResultData<?> response = assertInstanceOf(
-                JarvisResultData.class, gateway.invoke(request));
+                JarvisResultData.class, gateway.invoke(jarvisRequest("missingWorkflow")));
         assertEquals("-1", response.getCode());
         assertTrue(response.getMessage().contains("missingWorkflow"));
+    }
+
+    static Stream<Map<String, Object>> invalidJarvisBodies() {
+        return Stream.of(Map.of(), Map.of("BusinessMethod", ""),
+                Map.of("BusinessMethod", " "), Map.of("BusinessMethod", 123));
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidJarvisBodies")
+    void jarvisRejectsMissingOrInvalidBusinessMethodWithoutStarting(Map<String, Object> body) {
+        JarvisServiceImpl gateway = new JarvisServiceImpl(syncService(request -> {
+            throw new AssertionError("非法 Jarvis 路由不应启动工作流");
+        }));
+        JarvisResultData<?> response = assertInstanceOf(JarvisResultData.class,
+                gateway.invoke(Map.of("body", body, "rawBody", JsonUtils.toJsonString(body))));
+        assertEquals("-1", response.getCode());
+        assertEquals("BusinessMethod 必须为非空字符串", response.getMessage());
+    }
+
+    private Map<String, Object> jarvisRequest(String route) {
+        Map<String, Object> body = Map.of("BusinessMethod", route);
+        return Map.of("body", body, "rawBody", JsonUtils.toJsonString(body));
     }
 
     private WorkflowExecutionService syncService(Function<StartWorkflowRequest, WorkflowModel> execute) {

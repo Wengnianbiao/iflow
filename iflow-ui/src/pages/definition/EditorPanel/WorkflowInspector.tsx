@@ -84,6 +84,26 @@ export function WorkflowInspector({
           + 添加输出参数
         </button>
       </WorkflowCollapsibleSection>
+
+      <WorkflowCollapsibleSection title="超时设置">
+        <div className="inspector-form-grid">
+          <ValidationField path="/timeoutSeconds"><label className="inspector-field">
+            <span>超时时间（秒）</span>
+            <input type="number" min={0} step={1} value={workflow.timeoutSeconds ?? 0}
+              onChange={(event) => onChange({ ...workflow, timeoutSeconds: event.target.value === '' ? 0 : Number(event.target.value) })} />
+            <small>0 表示继承系统配置</small>
+          </label></ValidationField>
+          <ValidationField path="/timeoutPolicy"><label className="inspector-field">
+            <span>超时策略</span>
+            <select value={workflow.timeoutPolicy ?? 'TIME_OUT_WF'}
+              onChange={(event) => onChange({ ...workflow, timeoutPolicy: event.target.value })}>
+              <option value="TIME_OUT_WF">超时终止</option>
+              <option value="ALERT_ONLY">仅告警</option>
+            </select>
+            {workflow.timeoutPolicy === 'ALERT_ONLY' ? <small>超时仅记录告警，工作流继续执行，同步调用继续等待。</small> : null}
+          </label></ValidationField>
+        </div>
+      </WorkflowCollapsibleSection>
     </div>
   )
 }

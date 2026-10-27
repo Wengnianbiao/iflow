@@ -141,6 +141,80 @@ public class DeciderService {
                         .collect(Collectors.toList());
     }
 
+
+    void checkWorkflowTimeout(WorkflowModel workflow) {
+        if (workflow == null || workflow.getStatus() == null || workflow.getStatus().isTerminal()) {
+            return;
+        }
+        WorkflowDef definition = workflow.getWorkflowDefinition();
+        if (definition == null || definition.getTimeoutSeconds() <= 0) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        long origin = workflow.getLastRetriedTime() > 0
+                ? workflow.getLastRetriedTime() : workflow.getStartTime();
+        long elapsedMillis = now - origin;
+        long timeoutSeconds = definition.getTimeoutSeconds();
+        // 用除法比较，避免超大秒数乘 1000 溢出。
+        if (origin <= 0 || elapsedMillis < 0 || elapsedMillis / 1000 < timeoutSeconds) {
+            return;
+        }
+        String reason = timeoutReason(workflow, elapsedMillis / 1000, timeoutSeconds);
+        switch (definition.getTimeoutPolicy()) {
+            case ALERT_ONLY:
+                LOGGER.info("{} {}，超时策略为 ALERT_ONLY，工作流继续执行", workflow.getWorkflowId(), reason);
+                return;
+            case TIME_OUT_WF:
+                throw new TerminateWorkflowException(reason, WorkflowModel.Status.TIMED_OUT);
+        }
+    }
+
+    private String timeoutReason(
+            WorkflowModel workflow, long elapsedSeconds, long timeoutSeconds) {
+        List<TaskModel> openTasks =
+                workflow.getTasks().stream()
+                        .filter(task -> task.getStatus() == null || !task.getStatus().isTerminal())
+                        .toList();
+        TaskModel joinTask =
+                openTasks.stream().filter(task -> isJoin(task.getTaskType())).findFirst().orElse(null);
+        String pending =
+                openTasks.stream()
+                        .filter(task -> joinTask == null || task != joinTask)
+                        .map(
+                                task ->
+                                        task.getReferenceTaskName()
+                                                + "("
+                                                + (task.getStatus() == null
+                                                        ? "UNKNOWN"
+                                                        : task.getStatus().name())
+                                                + ")")
+                        .collect(Collectors.joining(", "));
+        if (joinTask != null) {
+            String joinRef =
+                    joinTask.getReferenceTaskName() == null
+                            ? joinTask.getTaskId()
+                            : joinTask.getReferenceTaskName();
+            if (pending.isEmpty()) {
+                return String.format("工作流执行超过 %d 秒，等待 JOIN %s", elapsedSeconds, joinRef);
+            }
+            return String.format(
+                    "工作流执行超过 %d 秒，等待 JOIN %s；未完成任务：%s",
+                    elapsedSeconds, joinRef, pending);
+        }
+        if (pending.isEmpty()) {
+            return String.format(
+                    "工作流执行超过 %d 秒，超时配置为 %d 秒", elapsedSeconds, timeoutSeconds);
+        }
+        return String.format(
+                "工作流执行超过 %d 秒，超时配置为 %d 秒；未完成任务：%s",
+                elapsedSeconds, timeoutSeconds, pending);
+    }
+
+    private boolean isJoin(String taskType) {
+        return TaskType.TASK_TYPE_JOIN.equals(taskType)
+                || TaskType.TASK_TYPE_EXCLUSIVE_JOIN.equals(taskType);
+    }
+
     public boolean checkForWorkflowCompletion(WorkflowModel workflow) {
         List<TaskModel> tasks = workflow.getTasks();
         if (tasks.isEmpty()) {
@@ -245,22 +319,14 @@ public class DeciderService {
      * 单次决策：根据当前工作流运行时decide出待scheduled的task、待updated的task、更新工作流状态
      */
     private DeciderOutcome decide(WorkflowModel workflow, List<TaskModel> preScheduledTasks) {
-        DeciderOutcome outcome = new DeciderOutcome();
 
+        DeciderOutcome outcome = new DeciderOutcome();
         if (workflow.getStatus().isTerminal()) {
-            LOGGER.debug("Workflow {} already finished. Reason: {}",
-                    workflow,
-                    workflow.getReasonForInCompletion());
             return outcome;
         }
-//
-//        // 检查超时时间
-//        checkWorkflowTimeout(workflow);
-//        // 外部io设置的状态，真正被暂停的workflow处理
-//        if (workflow.getStatus().equals(WorkflowModel.Status.PAUSED)) {
-//            LOGGER.debug("Workflow " + workflow.getWorkflowId() + " is paused");
-//            return outcome;
-//        }
+
+        // 工作流超时时间check
+        checkWorkflowTimeout(workflow);
 
         // 1、收集当前工作流运行时
         // decide本轮pending的task

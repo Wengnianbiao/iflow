@@ -9,6 +9,7 @@ const backgrounds: Record<WorkflowExecutionStatus, string> = {
   FAILED: '#FBB4C6',
   TIMED_OUT: '#FBB4C6',
   TERMINATED: '#FBB4C6',
+  INTERRUPTED: '#FBB4C6',
 }
 
 export default function WorkflowStatusBadge({ status }: { status: WorkflowExecutionStatus }) {

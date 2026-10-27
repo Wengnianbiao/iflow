@@ -43,4 +43,18 @@ REST 网关支持任意业务路径的 GET / POST 请求，不要求 `hl-open-ap
 
 Jarvis 兼容入口仍为 `POST /HLOpenApi/Hjk`，按请求体中的 `BusinessMethod` 匹配工作流 route，默认使用最新版本；不按该 URL 查找工作流。
 
+## HTTP 工作流入参
+
+通用 REST 的工作流输入包含 `body`、`rawBody`、`query`、`headers`、`files`、`method`、`path`。`body` 保存解析后的请求体，业务字段不再直接放在工作流输入顶层。
+
+Jarvis 的 Controller 接收 `HttpServletRequest`，使用独立的 `JarvisRequestReader` 读取固定 JSON 对象请求体，工作流输入包含 `body` 和 `rawBody`，保留 `BusinessMethod`、`BusinessCode`、`data` 等字段的原始名称和层级，不只提取 `data`。
+
+例如 Jarvis 请求 `{"BusinessMethod":"AddPacsApply","BusinessCode":"PACS","data":{"id":"001"}}`，工作流统一使用 `${workflow.input.body.BusinessCode}`、`${workflow.input.body.data.id}`。已有 Jarvis 工作流需将 `${workflow.input.BusinessCode}`、`${workflow.input.data.id}` 等引用改为 `body` 下的路径；本次不保留顶层业务字段副本。
+
+通用 REST 请求体始终按 `Content-Type` 解析：JSON 保留原生值，XML 解析为对象，URL 编码表单解析为字段，`text/plain` 保留字符串。`X-iFlow-Body-Mode` 不再控制解析，也不能跳过 JSON / XML 格式校验。Jarvis 直接将请求流解析为 JSON 对象，只校验 JSON 对象格式和非空字符串 `BusinessMethod`，不使用通用 REST 的请求读取和体积限制配置。
+
+通用 REST 和 Jarvis 始终提供 `rawBody`，无需配置开关。`rawBody` 为按请求字符编码解码的原始文本，保留换行、空格和引号；它不替换解析后的 `body`，也不参与路由。GET 和空请求体的 `rawBody` 为空字符串。multipart 继续使用 `body` 保存表单字段、`files` 保存文件数据，`rawBody` 为 `null`，不保存整个 multipart 原文。
+
+控制台“执行工作流”页面的 Body 区域采用 Postman 的交互方式，支持无请求体、`form-data`、`x-www-form-urlencoded` 和 `raw`；`raw` 可选择 JSON、XML 或纯文本，表单以键值行编辑，`form-data` 可选择文本或文件。页面通过 `POST /api/workflow/execution/start-http?route=...&version=...` 发送请求体及对应的 `Content-Type`，复用网关读取器生成 `body`、`rawBody` 等入参，再异步启动所选路由和版本并返回实例 ID。`path` 使用 `/<route>`，`query` 为空，启动参数不混入业务查询参数。恢复历史入参时优先使用保存的 `Content-Type` 和 `rawBody` 自动选择编辑模式；缺少请求头时识别报文格式，表单恢复键值行，文件从保存的 `contentBase64` 恢复。原 `/start` 接口继续接收完整工作流 JSON 入参。
+
 项目未上线，接口及初始化建表脚本直接采用新格式。旧 `name/displayName` 协议和既有开发数据的迁移不在本次范围内。

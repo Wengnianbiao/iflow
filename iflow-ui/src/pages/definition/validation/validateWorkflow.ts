@@ -76,6 +76,16 @@ export function validateWorkflow(value: unknown): { workflow?: WorkflowDef; prob
       stringArray(item, 'joinOn', taskPath, taskPath)
       stringArray(item, 'defaultExclusiveJoinTask', taskPath, taskPath)
       if (item.optional !== undefined && typeof item.optional !== 'boolean') add(`${taskPath}/optional`, 'BOOLEAN', 'optional 必须是布尔值', true, taskPath)
+      for (const key of ['retryCount', 'retryDelaySeconds', 'startDelay']) {
+        const value = item[key]
+        if (value == null) continue
+        if (!Number.isSafeInteger(value) || Number(value) < 0 || Number(value) > 2147483647) {
+          add(`${taskPath}/${key}`, 'TASK_POLICY_NUMBER', `${key} 必须是有效范围内的非负整数`, false, taskPath)
+        }
+      }
+      if (item.retryLogic != null && !['FIXED', 'LINEAR_BACKOFF', 'EXPONENTIAL_BACKOFF'].includes(item.retryLogic as string)) {
+        add(`${taskPath}/retryLogic`, 'TASK_RETRY_LOGIC', '重试方式必须是 FIXED、LINEAR_BACKOFF 或 EXPONENTIAL_BACKOFF', false, taskPath)
+      }
       if (item.decisionCases != null) {
         if (!record(item.decisionCases)) add(`${taskPath}/decisionCases`, 'OBJECT', 'decisionCases 必须是分支对象', true, taskPath)
         else Object.entries(item.decisionCases).forEach(([key, branch]) => walk(branch, `${taskPath}/decisionCases/${pointerKey(key)}`))
@@ -94,11 +104,12 @@ export function validateWorkflow(value: unknown): { workflow?: WorkflowDef; prob
   string(value, 'description', '', true)
   string(value, 'correlationExpression', '')
   string(value, 'timeoutPolicy', '')
+  if (value.timeoutPolicy != null && !['TIME_OUT_WF', 'ALERT_ONLY'].includes(String(value.timeoutPolicy))) add('/timeoutPolicy', 'TIMEOUT_POLICY', '超时策略必须是 TIME_OUT_WF 或 ALERT_ONLY')
   if (!Number.isInteger(value.version) || Number(value.version) < 1) add('/version', 'VERSION', 'version 必须是大于 0 的整数')
   stringArray(value, 'inputParameters', '')
   stringArray(value, 'tags', '')
   objectField(value, 'outputParameters', '')
-  if (value.timeoutSeconds !== undefined && (typeof value.timeoutSeconds !== 'number' || value.timeoutSeconds < 0)) add('/timeoutSeconds', 'TIMEOUT', 'timeoutSeconds 必须是非负数字')
+  if (value.timeoutSeconds !== undefined && (!Number.isSafeInteger(value.timeoutSeconds) || Number(value.timeoutSeconds) < 0)) add('/timeoutSeconds', 'TIMEOUT', 'timeoutSeconds 必须是非负整数秒')
   walk(value.tasks, '/tasks')
   if (problems.some((problem) => problem.structural)) return { problems, diagramSafe: false }
 

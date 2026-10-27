@@ -10,6 +10,9 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @Slf4j
@@ -60,6 +63,22 @@ public class ConsoleExceptionHandler {
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<Void> handleNoResourceFoundException(NoResourceFoundException ex) {
         return ResponseEntity.notFound().build();
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ResultData<?>> handleResponseStatusException(ResponseStatusException ex) {
+        return ResponseEntity.status(ex.getStatusCode())
+                .body(new ResultData<>(ex.getStatusCode().value(), ex.getReason(), null));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ResultData<?>> handleMaxUploadSizeExceededException(MaxUploadSizeExceededException ex) {
+        return buildResponse(HttpStatus.PAYLOAD_TOO_LARGE, HttpStatus.PAYLOAD_TOO_LARGE.value(), "请求体超过大小限制");
+    }
+
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<ResultData<?>> handleMultipartException(MultipartException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, HttpStatus.BAD_REQUEST.value(), "multipart/form-data 请求不合法");
     }
 
     @ExceptionHandler(Exception.class)

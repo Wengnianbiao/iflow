@@ -5,6 +5,7 @@ import com.helianhealth.iflow.common.domain.metadata.task.TaskType;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 import com.helianhealth.iflow.core.config.AgentCoreConfiguration;
+import com.helianhealth.iflow.core.config.IflowProperties;
 import com.helianhealth.iflow.core.config.InMemoryQueueConfiguration;
 import com.helianhealth.iflow.core.dal.ExecutionDAOFacade;
 import com.helianhealth.iflow.core.dao.ExecutionDAO;
@@ -51,7 +52,7 @@ class DoWhileWiringTest {
         try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
             context.getDefaultListableBeanFactory().setAllowCircularReferences(false);
             context.register(TaskConfiguration.class, ParametersUtils.class, ExecutionDAOFacade.class,
-                    IDGenerator.class, DoWhile.class, Noop.class, SystemTaskRegistry.class,
+                    IflowProperties.class, IDGenerator.class, DoWhile.class, Noop.class, SystemTaskRegistry.class,
                     DeciderService.class, InMemoryExecutionLockService.class,
                     InMemoryQueueConfiguration.class, WorkflowCompletionRegistry.class, WorkflowExecutorOps.class);
             context.refresh();

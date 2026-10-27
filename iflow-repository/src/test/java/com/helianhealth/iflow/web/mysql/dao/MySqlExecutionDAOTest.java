@@ -59,6 +59,31 @@ class MySqlExecutionDAOTest {
         jsonSupport = new MySqlExecutionJsonSupport(new com.fasterxml.jackson.databind.ObjectMapper());
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void runningInstancesRemainPendingOnCreationAndUpdate(boolean create) throws Exception {
+        WorkflowModel workflow = new WorkflowModel();
+        workflow.setWorkflowId("running");
+        workflow.setStatus(WorkflowModel.Status.RUNNING);
+        workflow.setWorkflowDefinition(WorkflowDef.builder().route("demo").build());
+        if (create) {
+            dao.createWorkflow(workflow);
+        } else {
+            dao.updateWorkflow(workflow);
+        }
+        verify(connection).prepareStatement(contains("INSERT IGNORE INTO workflow_pending"));
+        verify(connection, never()).prepareStatement(contains("DELETE FROM workflow_pending"));
+    }
+
+    @Test
+    void unfinishedAndRunningScansUsePendingRecords() throws Exception {
+        when(statement.executeQuery()).thenReturn(resultSet);
+        when(resultSet.next()).thenReturn(false);
+        assertTrue(dao.getUnfinishedWorkflowIds().isEmpty());
+        assertTrue(dao.getRunningWorkflowIds().isEmpty());
+        verify(connection, times(2)).prepareStatement("SELECT workflow_id FROM workflow_pending");
+    }
+
     @Test
     void updateTaskStampsTerminalEndTimeBeforePersistingPayload() throws Exception {
         TaskModel task = new TaskModel();

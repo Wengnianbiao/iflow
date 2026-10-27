@@ -64,7 +64,7 @@ public class Inline extends WorkflowSystemTask {
             String msg = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
             LOGGER.error("INLINE task evaluation failed: workflow={}, task={}",
                     workflow.getWorkflowId(), task.getTaskId(), e);
-            task.setStatus(TaskModel.Status.FAILED);
+            task.setStatus(TaskModel.Status.FAILED_WITH_TERMINAL_ERROR);
             task.setOutputData(null);
             task.setReasonForInCompletion(msg);
             addError(task, msg);

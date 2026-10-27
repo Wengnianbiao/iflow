@@ -18,7 +18,8 @@ public interface WorkflowStatusListener {
         COMPLETED,
         FAILED,
         TIMED_OUT,
-        TERMINATED;
+        TERMINATED,
+        INTERRUPTED;
 
         @JsonValue
         @Override
@@ -37,4 +38,6 @@ public interface WorkflowStatusListener {
     default void onWorkflowTimedOut(WorkflowModel workflow) {}
 
     default void onWorkflowTerminated(WorkflowModel workflow) {}
+
+    default void onWorkflowInterrupted(WorkflowModel workflow) {}
 }

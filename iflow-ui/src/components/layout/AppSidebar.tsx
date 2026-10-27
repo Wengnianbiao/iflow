@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { CaretDownIcon, CaretLeftIcon, CaretRightIcon } from '@phosphor-icons/react'
 import { NavLink } from 'react-router-dom'
 import {
-  sidebarNavGroups,
+  sidebarNavItems,
   type SidebarNavGroupId,
 } from './sidebarItems'
 import styles from './AppSidebar.module.css'
@@ -45,8 +45,27 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
       </div>
 
       <nav className={styles.navigation} aria-label="主导航">
-        {sidebarNavGroups.map((group) => {
+        {sidebarNavItems.map((group) => {
           const Icon = group.icon
+
+          if ('to' in group) {
+            return (
+              <NavLink
+                key={group.to}
+                to={group.to}
+                end={group.end}
+                aria-label={group.label}
+                title={group.label}
+                className={({ isActive }) => `${styles.groupTitle} ${styles.topLevelItem} ${isActive ? styles.active : ''}`}
+              >
+                <span className={styles.groupIcon} aria-hidden="true">
+                  <Icon size={22} weight="duotone" />
+                </span>
+                <span>{group.label}</span>
+              </NavLink>
+            )
+          }
+
           const isOpen = openGroups[group.id]
 
           return (

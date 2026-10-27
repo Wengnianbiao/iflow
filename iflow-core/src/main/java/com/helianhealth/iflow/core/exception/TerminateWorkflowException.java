@@ -2,14 +2,12 @@ package com.helianhealth.iflow.core.exception;
 
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
-import lombok.Getter;
 
 /**
  * 工作流应被终止的异常。
  *
  * <p>由 TaskMapper / Decider 在定义不合法、必选任务失败或无法继续调度时抛出。
  */
-@Getter
 public class TerminateWorkflowException extends RuntimeException {
 
     private final WorkflowModel.Status workflowStatus;
@@ -34,5 +32,13 @@ public class TerminateWorkflowException extends RuntimeException {
         super(message);
         this.workflowStatus = workflowStatus != null ? workflowStatus : WorkflowModel.Status.FAILED;
         this.task = task;
+    }
+
+    public WorkflowModel.Status getWorkflowStatus() {
+        return this.workflowStatus;
+    }
+
+    public TaskModel getTask() {
+        return this.task;
     }
 }

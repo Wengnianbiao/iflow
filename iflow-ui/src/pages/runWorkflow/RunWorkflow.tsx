@@ -9,14 +9,12 @@ import { getWorkflowExecution, startWorkflow } from '@/api/workflowExecution'
 import { SectionContainer } from '@/components/layout/SectionContainer'
 import { SectionHeader } from '@/components/layout/SectionHeader'
 import { NavLink } from '@/components/ui/NavLink'
-import { InlineScriptEditor } from '@/pages/definition/EditorPanel/TaskFormTab/forms/InlineScriptEditor'
 import type { WorkflowDef } from '@/types/workflow'
 import type { WorkflowExecutionSummary } from '@/types/workflowExecution'
 import { useWorkflowDefs } from '@/utils/query'
-import { bodyFromWorkflowInput, formatEditorJson, parseEditorJson, toGatewayWorkflowInput, workflowPath } from './gatewayInput'
+import { emptyRequestBody, requestBodyFromWorkflowInput, toHttpRequestBody } from './gatewayInput'
 import { RunWorkflowHistoryTable } from './RunWorkflowHistoryTable'
-
-const EMPTY_BODY = '{\n}'
+import { RequestBodyEditor } from './RequestBodyEditor'
 
 type WorkflowChoice = {
   route: string
@@ -59,10 +57,9 @@ export function RunWorkflow() {
   const choices = useMemo(() => workflowChoices(workflowDefs.data ?? []), [workflowDefs.data])
   const [selectedRoute, setSelectedRoute] = useState<string | null>(latestExecution?.workflowRoute ?? null)
   const [version, setVersion] = useState<number | null>(latestExecution?.workflowVersion ?? null)
-  const [bodyText, setBodyText] = useState(() => latestExecution
-    ? formatEditorJson(bodyFromWorkflowInput(latestExecution.input))
-    : EMPTY_BODY)
-  const [bodyError, setBodyError] = useState<string | null>(null)
+  const [requestBody, setRequestBody] = useState(() => latestExecution
+    ? requestBodyFromWorkflowInput(latestExecution.input)
+    : emptyRequestBody())
   const [busy, setBusy] = useState(false)
   const [restoringId, setRestoringId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -88,8 +85,7 @@ export function RunWorkflow() {
   const selectWorkflow = (choice: WorkflowChoice | null) => {
     setSelectedRoute(choice?.route ?? null)
     setVersion(choice?.versions[0] ?? null)
-    setBodyText(EMPTY_BODY)
-    setBodyError(null)
+    setRequestBody(emptyRequestBody())
     setError(null)
     setWorkflowId(null)
   }
@@ -100,20 +96,12 @@ export function RunWorkflow() {
 
   const submit = async () => {
     if (!selected || version == null || !validVersion || workflowVersions.isError) return
-    let body: unknown
-    try {
-      body = parseEditorJson(bodyText)
-      setBodyError(null)
-    } catch {
-      setBodyError('入参不是合法 JSON')
-      return
-    }
-
     setBusy(true)
     setError(null)
     setWorkflowId(null)
     try {
-      const startedId = await startWorkflow(selected.route, version, toGatewayWorkflowInput(selected.route, body))
+      const payload = toHttpRequestBody(requestBody)
+      const startedId = await startWorkflow(selected.route, version, payload.body, payload.contentType)
       setWorkflowId(startedId)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '启动工作流失败')
@@ -128,8 +116,7 @@ export function RunWorkflow() {
     setError(null)
     try {
       const detail = await getWorkflowExecution(execution.workflowId, false)
-      setBodyText(formatEditorJson(bodyFromWorkflowInput(detail.input)))
-      setBodyError(null)
+      setRequestBody(requestBodyFromWorkflowInput(detail.input))
       setWorkflowId(null)
       if (availableVersions.includes(execution.workflowVersion)) {
         setVersion(execution.workflowVersion)
@@ -261,28 +248,10 @@ export function RunWorkflow() {
                   {description}
                 </Typography>
               ) : null}
-              <Box sx={bodyError ? { '& .conductor-code-input::before': { borderColor: '#d32f2f' } } : undefined}>
-                <InlineScriptEditor
-                  value={bodyText}
-                  language="json"
-                  languageLabel="JSON"
-                  codeLabel="入参"
-                  modalTitle="入参"
-                  minHeight={440}
-                  autoSize={false}
-                  onChange={(value) => {
-                    setBodyText(value)
-                    setBodyError(null)
-                  }}
-                />
-              </Box>
-              <Typography variant="caption" color={bodyError ? 'error' : 'text.secondary'} sx={{ display: 'block', mt: 1 }}>
-                {bodyError ?? (
-                  selected
-                    ? `只需填写 body。执行时按 REST 网关入参提交 POST ${workflowPath(selected.route)}，并附带空的 query、files 以及 content-type 请求头。`
-                    : '选择工作流后，在这里填写业务报文 body'
-                )}
-              </Typography>
+              <RequestBodyEditor value={requestBody} path={selectedRoute ?? undefined} onChange={(value) => {
+                setRequestBody(value)
+                setError(null)
+              }} />
             </Paper>
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>

@@ -49,12 +49,18 @@ export async function searchWorkflowExecutions(
 export async function startWorkflow(
   route: string,
   version: number,
-  input: Record<string, unknown>,
+  body: string | FormData,
+  contentType?: string,
 ): Promise<string> {
   try {
     const { data } = await axios.post<ApiResult<string> | { workflowId?: string }>(
-      `${BASE}/start`,
-      { route, version, input },
+      `${BASE}/start-http`,
+      body,
+      {
+        params: { route, version },
+        headers: { 'Content-Type': contentType ? `${contentType};charset=UTF-8` : false },
+        transformRequest: [(value: string | FormData) => value],
+      },
     )
     if ('code' in data && data.code != null && data.code !== 200) {
       throw new Error(data.message || '启动工作流失败')

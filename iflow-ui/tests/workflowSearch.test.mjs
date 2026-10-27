@@ -102,3 +102,19 @@ test('presets use local calendar boundaries and relative ranges preserve or roun
   assert.deepEqual(relativeTimeRange(15, 'minutes', true, now), { from: String(new Date(2026, 8, 22, 12, 19).getTime()), to: '' })
   for (const value of [0, -1, NaN, Infinity, 1e20]) assert.equal(relativeTimeRange(value, 'hours', false, now), null)
 })
+
+test('manual and restart termination filters survive shared URLs and reach the API', () => {
+  for (const status of ['TERMINATED', 'INTERRUPTED']) {
+    const state = readSearchState(new URLSearchParams({ status }), PAGE_SIZES)
+    assert.equal(state.filters.status, status)
+    assert.deepEqual(buildSearchParams(state).status, [status])
+    assert.equal(writeSearchState(new URLSearchParams(), state).get('status'), status)
+  }
+})
+
+
+test('unsupported pause status cannot reach the workflow search API', () => {
+  const state = readSearchState(new URLSearchParams({ status: 'PAUSED' }), PAGE_SIZES)
+  assert.equal(state.filters.status, '')
+  assert.equal(buildSearchParams(state).status, undefined)
+})

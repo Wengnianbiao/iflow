@@ -5,7 +5,7 @@
 ## ✨ 核心价值
 
 - 🤖 **AI 协作配置**：通过 AI Agent 自动理解接口文档，生成工作流配置
-- 🔌 **可插拔设计**：既可独立部署，也可作为 Spring Boot Starter 集成
+- 🔌 **可插拔设计**：作为 Spring Boot Starter 集成，提供本地 demo 用于调试和演示
 - 🎨 **可视化编排**：无需编码，通过配置页面即可完成接口集成
 - 🔄 **多协议支持**：HTTP、数据库、WebService 等多种调用方式
 - 🧪 **Mock 仿真**：内置 Mock 功能，支持接口测试与联调
@@ -21,7 +21,7 @@ iflow/
 ├── iflow-console             # 控制台服务层（后台管理接口）
 ├── iflow-ai                  # AI智能代理层（MCP接口、AI配置专家）
 ├── iflow-spring-boot-starter # Spring Boot Starter（自动配置、属性绑定）
-└── iflow-web                 # Web应用入口（主启动类、静态资源配置）
+└── iflow-demo                # 本地调试与演示应用（通过 -Pdemo 按需构建）
 ```
 
 ## 🚀 快速开始
@@ -32,23 +32,34 @@ iflow/
 - 作为 Starter 集成时，宿主应用同样需要使用 Java 21 或更高版本。
 - Docker 默认使用 `eclipse-temurin:21-jdk-jammy`，自定义 `BASE_IMAGE` 时也需提供 JDK 21 或更高版本。
 
-### 方式一：独立运行
+### 默认项目构建
 
 ```bash
-# 编译打包
+# 构建正式模块，不包含 demo
 mvn clean package -Dmaven.test.skip=true
+```
+
+`iflow-demo` 的源码、配置和 POM 正常纳入 Git 管理，通过 Maven `demo` profile 按需加入构建，demo 制品不发布到 Maven 仓库。
+
+### 方式一：本地 demo 调试
+
+```bash
+# 编译打包 demo 及其依赖模块
+mvn -Pdemo -pl iflow-demo -am clean package -Dmaven.test.skip=true
 
 # 初始化 MySQL 数据库
 mysql -u root -p < docs/init_mysql/01_create_database.sql
 mysql -u root -p iflow < docs/init_mysql/02_schema.sql
 mysql -u root -p iflow < docs/init_mysql/03_execution_index.sql
 
-# 运行应用
-java -jar iflow-web/target/iflow.jar
+# 运行 demo（默认使用 Spring local profile）
+java -jar iflow-demo/target/iflow.jar
 
 # 访问配置页面
-http://localhost:8080
+http://localhost:8099
 ```
+
+在 IDEA 的 Maven 面板启用 `demo` profile 并重新加载项目后，即可运行或调试 `com.helianhealth.iflow.web.IflowApplication`。Maven `demo` profile 只控制模块是否加入构建，与 Spring 运行环境 profile 独立。
 
 ### 方式二：作为 Starter 集成
 
@@ -77,6 +88,16 @@ spring:
 
 启动你的 Spring Boot 应用，工作流引擎会自动初始化，访问 `http://localhost:8080` 即可使用配置页面。
 
+### Docker 演示
+
+手动执行以下命令，按需构建 demo 镜像和导出包：
+
+```bash
+./docker/build-image.sh
+```
+
+该脚本显式启用 Maven `demo` profile，普通 Maven 构建不会构建 demo 镜像。
+
 ## 🏗️ 架构设计
 
 ### 模块依赖关系
@@ -90,13 +111,13 @@ iflow-common (基础层)
     ├── iflow-console
     ├── iflow-ai
     └── iflow-spring-boot-starter
-            ↑
-            └── iflow-web (应用层)
 ```
+
+`iflow-demo` 按需装配运行所需模块，作为本地调试与演示入口，不属于默认构建模块。
 
 ### 核心特性
 
-- **模块化分层架构**：基础层（common）→ 数据层（repository）→ 核心层（core）→ 服务层（gateway、console、ai）→ 应用层（web）
+- **模块化分层架构**：基础层（common）→ 数据层（repository）→ 核心层（core）→ 服务层（gateway、console、ai）→ 自动配置（starter）
 - **SPI动态扩展机制**：支持SPI动态注册扩展，可插拔调用客户端，支持 HTTP、WebService、JDBC 等协议，详见 [SPI 扩展接入与命名迁移](docs/spi-extensions.md)
 - **配置化驱动**：工作流配置存储在数据库，支持动态修改无需重启，参数映射支持 SpEL 表达式
 - **AI智能协作**：内置MCP接口，支持AI Agent自动理解接口文档并生成配置

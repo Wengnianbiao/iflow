@@ -59,7 +59,7 @@ public class MappingTask extends WorkflowSystemTask {
                     workflow.getWorkflowId(),
                     task.getTaskId(),
                     e);
-            task.setStatus(TaskModel.Status.FAILED);
+            task.setStatus(TaskModel.Status.FAILED_WITH_TERMINAL_ERROR);
             task.setReasonForInCompletion("Failed to invoke " + getTaskType() + " task due to: " + e);
         }
     }

@@ -43,6 +43,11 @@ public class WorkflowCompletionRegistry implements WorkflowStatusListener {
         signal(workflow.getWorkflowId());
     }
 
+    @Override
+    public void onWorkflowInterrupted(WorkflowModel workflow) {
+        signal(workflow.getWorkflowId());
+    }
+
     private void signal(String workflowId) {
         Registration registration = waiters.get(workflowId);
         if (registration != null && registration.notified.compareAndSet(false, true)) {

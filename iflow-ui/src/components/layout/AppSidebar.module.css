@@ -110,6 +110,12 @@
   background: var(--iflow-color-primary-muted);
 }
 
+.topLevelItem {
+  grid-template-columns: 30px 1fr;
+  margin-bottom: 20px;
+  text-decoration: none;
+}
+
 .groupIcon {
   display: grid;
   width: 30px;
@@ -177,7 +183,8 @@
   background: var(--iflow-color-primary-muted);
 }
 
-.navItem.active {
+.navItem.active,
+.topLevelItem.active {
   color: var(--iflow-color-primary);
   background: var(--iflow-color-primary-soft);
 }

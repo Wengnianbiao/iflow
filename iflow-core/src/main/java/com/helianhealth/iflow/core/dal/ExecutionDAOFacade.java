@@ -65,6 +65,10 @@ public class ExecutionDAOFacade {
         return executionDAO.getRunningWorkflowIds();
     }
 
+    public List<String> getUnfinishedWorkflowIds() {
+        return executionDAO.getUnfinishedWorkflowIds();
+    }
+
     public List<WorkflowModel> getPendingWorkflowsByType(String workflowRoute, int version) {
         return executionDAO.getPendingWorkflowsByType(workflowRoute, version);
     }
