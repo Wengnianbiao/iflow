@@ -22,12 +22,13 @@ public final class ExecutionSearch {
         public long offset() { return ((long) pageNum - 1) * pageSize; }
     }
 
-    public record TaskQuery(String workflowRoute, String workflowId, String taskId, String nodeRef,
+    public record TaskQuery(List<String> workflowRoutes, String workflowId, String correlationId, String taskId, String nodeRef,
                             String taskType, List<String> statuses, boolean asyncOnly,
                             Long startTime, Long endTime, int pageNum, int pageSize) {
         public TaskQuery {
-            workflowRoute = text(workflowRoute);
+            workflowRoutes = strings(workflowRoutes);
             workflowId = text(workflowId);
+            correlationId = text(correlationId);
             taskId = text(taskId);
             nodeRef = text(nodeRef);
             taskType = text(taskType);
@@ -47,7 +48,8 @@ public final class ExecutionSearch {
     public record TaskSummary(String taskId, String workflowId, String workflowRoute, String nodeRef,
                               String referenceTaskName, String taskName, String taskType,
                               Boolean async, String status, int retryCount, long scheduledTime,
-                              long startTime, long endTime, long updateTime, Long durationMs) {}
+                              long startTime, long endTime, long updateTime, Long durationMs,
+                              String workflowName, String correlationId) {}
 
     private static String text(String value) { return value == null ? "" : value.trim(); }
     private static List<String> strings(List<String> values) {

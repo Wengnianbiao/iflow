@@ -1,6 +1,8 @@
 import axios from 'axios'
 import type {
   PageResult,
+  TaskExecutionSearchParams,
+  TaskExecutionSummary,
   WorkflowExecution,
   WorkflowExecutionSearchParams,
   WorkflowExecutionSummary,
@@ -43,6 +45,23 @@ export async function searchWorkflowExecutions(
     return unwrap(data, '搜索执行记录失败')
   } catch (error) {
     throw normalizeError(error, '搜索执行记录失败')
+  }
+}
+
+export async function searchTaskExecutions(
+  params: TaskExecutionSearchParams,
+): Promise<PageResult<TaskExecutionSummary>> {
+  try {
+    const { data } = await axios.get<ApiResult<PageResult<TaskExecutionSummary>>>(`${BASE}/tasks/search`, {
+      paramsSerializer: { indexes: null },
+      params: {
+        ...params,
+        status: params.status?.length ? params.status.join(',') : undefined,
+      },
+    })
+    return unwrap(data, '搜索任务执行记录失败')
+  } catch (error) {
+    throw normalizeError(error, '搜索任务执行记录失败')
   }
 }
 

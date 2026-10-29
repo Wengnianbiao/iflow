@@ -83,6 +83,37 @@ export interface WorkflowExecutionSearchParams {
   pageSize?: number
 }
 
+export interface TaskExecutionSummary {
+  taskId: string
+  workflowId: string
+  workflowRoute: string
+  workflowName?: string
+  correlationId?: string
+  nodeRef: string
+  referenceTaskName: string
+  taskName?: string
+  taskType: string
+  async: boolean | null
+  status: TaskExecutionStatus
+  retryCount: number
+  scheduledTime: number
+  startTime: number
+  endTime: number
+  updateTime: number
+  durationMs?: number | null
+}
+
+export interface TaskExecutionSearchParams {
+  workflowRoutes?: string[]
+  correlationId?: string
+  status?: string[]
+  asyncOnly: boolean
+  startTime?: number
+  endTime?: number
+  pageNum: number
+  pageSize: number
+}
+
 export interface PageResult<T> {
   total: number
   pageNum: number

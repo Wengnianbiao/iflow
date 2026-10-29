@@ -23,7 +23,7 @@ export type WorkflowProblem = TaskValidationProblem & {
 
 export type FieldDraft = {
   path: string
-  taskPath: string
+  taskPath?: string
   taskReferenceName: string
   value: string
   message: string

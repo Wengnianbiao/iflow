@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { searchTaskExecutions } from '@/api/workflowExecution'
 import { DEFAULT_PAGE_SIZE_OPTIONS } from '@/components/ui/DataTable'
-import { useSearchWorkflowExecutions } from '@/utils/query'
+import { DEFAULT_STALE_TIME, useSearchWorkflowExecutions } from '@/utils/query'
 import {
   buildSearchParams,
+  buildTaskSearchParams,
   emptySearchFilters,
   hasSearchFilters,
   normalizeSearchFilters,
   readSearchState,
   writeSearchState,
+  type ExecutionSearchMode,
   type WorkflowSearchState,
 } from '../searchState'
 
@@ -21,15 +25,22 @@ export function useWorkflowSearch() {
     [searchKey],
   )
   const [filters, setFilters] = useState(applied.filters)
-  const { workflowRoutes, keyword, status, startFrom, startTo } = applied.filters
 
   // Restore searches on back/forward navigation, without submitting drafts on pagination.
   useEffect(() => {
-    setFilters({ workflowRoutes, keyword, status, startFrom, startTo })
-  }, [workflowRoutes, keyword, status, startFrom, startTo])
+    setFilters(applied.filters)
+  }, [applied.filters])
 
   const params = useMemo(() => buildSearchParams(applied), [applied])
-  const query = useSearchWorkflowExecutions(params)
+  const workflowQuery = useSearchWorkflowExecutions(params, { enabled: applied.mode === 'workflow' })
+  const taskParams = useMemo(() => buildTaskSearchParams(applied), [applied])
+  const taskQuery = useQuery({
+    queryKey: ['taskExecutions', taskParams],
+    queryFn: () => searchTaskExecutions(taskParams),
+    staleTime: DEFAULT_STALE_TIME,
+    enabled: applied.mode === 'task',
+  })
+  const query = applied.mode === 'task' ? taskQuery : workflowQuery
 
   // A refreshed result set may have fewer pages than the URL previously requested.
   useEffect(() => {
@@ -46,13 +57,15 @@ export function useWorkflowSearch() {
   const commitSearch = (next: WorkflowSearchState) => {
     setSearchParams(writeSearchState(searchParams, next))
     // Conductor also refreshes when Search is clicked with the same query.
-    if (JSON.stringify(buildSearchParams(next)) === JSON.stringify(params)) {
+    const nextParams = next.mode === 'task' ? buildTaskSearchParams(next) : buildSearchParams(next)
+    const currentParams = applied.mode === 'task' ? taskParams : params
+    if (next.mode === applied.mode && JSON.stringify(nextParams) === JSON.stringify(currentParams)) {
       void query.refetch()
     }
   }
 
   const search = () => {
-    const normalized = normalizeSearchFilters(filters)
+    const normalized = normalizeSearchFilters(filters, applied.mode)
     setFilters(normalized)
     commitSearch({ ...applied, filters: normalized, page: 1 })
   }
@@ -71,14 +84,27 @@ export function useWorkflowSearch() {
     }))
   }
 
+  const changeMode = (mode: ExecutionSearchMode) => {
+    commitSearch({ ...applied, mode, filters: normalizeSearchFilters(applied.filters, mode), page: 1 })
+  }
+
+  const changeTaskScope = (asyncOnly: boolean) => {
+    commitSearch({ ...applied, asyncOnly, page: 1 })
+  }
+
   return {
+    mode: applied.mode,
+    asyncOnly: applied.asyncOnly,
+    changeMode,
+    changeTaskScope,
     filters,
     setFilters,
     search,
     reset,
     changePage,
     refresh: () => { void query.refetch() },
-    resultObj: query.data,
+    resultObj: workflowQuery.data,
+    taskResultObj: taskQuery.data,
     error: query.error,
     busy: query.isFetching,
     page: applied.page,

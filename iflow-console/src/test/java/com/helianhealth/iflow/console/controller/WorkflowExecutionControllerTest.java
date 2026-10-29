@@ -23,6 +23,7 @@ import java.nio.charset.StandardCharsets;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 
 class WorkflowExecutionControllerTest {
@@ -213,13 +214,37 @@ class WorkflowExecutionControllerTest {
     @Test
     void taskSearchQueriesIndexWithoutAnInitializationGate() {
         when(indexDAO.searchTasks(any())).thenReturn(new PageList<>(0, 1, 20, List.of()));
-        assertEquals(0, controller.searchTasks("first", "wf", null, "call", "HTTP", "failed",
+        assertEquals(0, controller.searchTasks("first", null, "wf", null, null, "call", "HTTP", "failed",
                 true, 0L, 100L, 1, 20).getData().getTotal());
         var captured = ArgumentCaptor.forClass(ExecutionSearch.TaskQuery.class);
         verify(indexDAO).searchTasks(captured.capture());
         assertTrue(captured.getValue().asyncOnly());
         assertEquals("wf", captured.getValue().workflowId());
+        assertEquals(List.of("first"), captured.getValue().workflowRoutes());
         assertEquals(List.of("FAILED"), captured.getValue().statuses());
+        verifyNoInteractions(dao);
+    }
+
+    @Test
+    void taskKeywordSearchUsesWorkflowCorrelationWithoutImplicitTimeBounds() throws Exception {
+        when(indexDAO.searchTasks(any())).thenReturn(new PageList<>(0, 1, 20, List.of()));
+        var result = launchMvc(null).perform(get("/api/workflow/execution/tasks/search")
+                .param("workflowRoutes", " first ", "second", "first")
+                .param("correlationId", " order & 1 ").param("asyncOnly", "true")
+                .param("status", "scheduled").param("pageNum", "0").param("pageSize", "1000"))
+                .andReturn();
+        assertEquals(200, result.getResponse().getStatus());
+        var captured = ArgumentCaptor.forClass(ExecutionSearch.TaskQuery.class);
+        verify(indexDAO).searchTasks(captured.capture());
+        var query = captured.getValue();
+        assertEquals(List.of("first", "second"), query.workflowRoutes());
+        assertEquals("order & 1", query.correlationId());
+        assertTrue(query.asyncOnly());
+        assertEquals(List.of("SCHEDULED"), query.statuses());
+        assertNull(query.startTime());
+        assertNull(query.endTime());
+        assertEquals(1, query.pageNum());
+        assertEquals(100, query.pageSize());
         verifyNoInteractions(dao);
     }
 

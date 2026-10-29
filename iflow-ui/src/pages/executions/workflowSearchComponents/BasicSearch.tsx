@@ -1,18 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Autocomplete, Box, Button, MenuItem, Paper, TextField, Typography } from '@mui/material'
+import { Autocomplete, Box, Button, MenuItem, Paper, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import { ArrowCounterClockwiseIcon, MagnifyingGlassIcon } from '@phosphor-icons/react'
 import { useWorkflowDefs } from '@/utils/query'
 import DateControl from './DateControl'
 import WorkflowStatusBadge from '../WorkflowStatusBadge'
 import ResultsTable from '../ResultsTable'
 import executionsStyles from '../executionsStyles'
-import { WORKFLOW_STATUS_OPTIONS } from '../searchState'
+import { TASK_STATUS_OPTIONS, WORKFLOW_STATUS_OPTIONS, type ExecutionSearchMode } from '../searchState'
 import { useWorkflowSearch } from './useWorkflowSearch'
 
 /** Like Conductor BasicSearch, composes the search form and the results table. */
 export default function BasicSearch() {
   const search = useWorkflowSearch()
   const { filters, setFilters } = search
+  const statusOptions = search.mode === 'task' ? TASK_STATUS_OPTIONS : WORKFLOW_STATUS_OPTIONS
   const workflowDefs = useWorkflowDefs()
   const [nameInput, setNameInput] = useState('')
   const workflowLabels = useMemo(() => {
@@ -38,9 +39,23 @@ export default function BasicSearch() {
   return (
     <>
       <Paper variant="outlined" sx={executionsStyles.searchPaper}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, px: '24px', pt: '24px' }}>
+          <ToggleButtonGroup exclusive size="small" value={search.mode} aria-label="查询对象"
+            onChange={(_event, value: ExecutionSearchMode | null) => value && search.changeMode(value)}>
+            <ToggleButton value="workflow">工作流</ToggleButton>
+            <ToggleButton value="task">工作流任务</ToggleButton>
+          </ToggleButtonGroup>
+          {search.mode === 'task' && (
+            <ToggleButtonGroup exclusive size="small" value={search.asyncOnly ? 'async' : 'all'} aria-label="任务范围"
+              onChange={(_event, value: string | null) => value && search.changeTaskScope(value === 'async')}>
+              <ToggleButton value="all">全部任务</ToggleButton>
+              <ToggleButton value="async">外部调用</ToggleButton>
+            </ToggleButtonGroup>
+          )}
+        </Box>
         <Box
           component="form"
-          aria-label="搜索工作流执行记录"
+          aria-label={search.mode === 'task' ? '搜索工作流任务执行记录' : '搜索工作流执行记录'}
           sx={executionsStyles.searchForm}
           onSubmit={(event) => {
             event.preventDefault()
@@ -97,6 +112,7 @@ export default function BasicSearch() {
               size="small"
               slotProps={{ inputLabel: { shrink: true } }}
               value={filters.keyword}
+              helperText={search.mode === 'task' ? '沿用所属工作流的关键字' : undefined}
               onChange={(event) => setFilters({ ...filters, keyword: event.target.value })}
             />
             <TextField
@@ -115,11 +131,11 @@ export default function BasicSearch() {
               value={filters.status}
               onChange={(event) => setFilters({
                 ...filters,
-                status: WORKFLOW_STATUS_OPTIONS.find((option) => option.value === event.target.value)?.value ?? '',
+                status: statusOptions.find((option) => option.value === event.target.value)?.value ?? '',
               })}
             >
               <MenuItem value="">全部状态</MenuItem>
-              {WORKFLOW_STATUS_OPTIONS.map((option) => (
+              {statusOptions.map((option) => (
                 <MenuItem key={option.value} value={option.value} sx={{ py: 1 }}><WorkflowStatusBadge status={option.value} /></MenuItem>
               ))}
             </TextField>
@@ -149,7 +165,9 @@ export default function BasicSearch() {
         </Box>
       </Paper>
       <ResultsTable
+        mode={search.mode}
         resultObj={search.resultObj}
+        taskResultObj={search.taskResultObj}
         error={search.error}
         busy={search.busy}
         page={search.page}

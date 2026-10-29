@@ -27,6 +27,9 @@ const built = await esbuild.build({
     export * from './src/utils/workflowDraft';
     export * from './src/utils/workflowTags';
     export { TaskInspector } from './src/pages/definition/EditorPanel/TaskInspector';
+    export { WorkflowInspector } from './src/pages/definition/EditorPanel/WorkflowInspector';
+    export { ValidationScope } from './src/pages/definition/validation/ValidationScope';
+    export { QueryClient, QueryClientProvider } from '@tanstack/react-query';
     export { renderToStaticMarkup } from 'react-dom/server';
     export { createElement } from 'react';
     export * from './src/pages/definitions/workflowTemplates';
@@ -1398,10 +1401,13 @@ test('task policies distinguish inheritance and explicit zero, and validate nest
   }
 })
 
-test('task policy forms exclude built-in control flow from failure retries', () => {
-  const render = type => lib.renderToStaticMarkup(lib.createElement(lib.TaskInspector, {
+test('task policy forms exclude built-in control flow from failure retries', async () => {
+  const actor = await actorFor()
+  const render = type => lib.renderToStaticMarkup(lib.createElement(lib.ValidationScope, {
+    value: { actor, basePath: '/tasks/0', taskReferenceName: 'a' },
+  }, lib.createElement(lib.TaskInspector, {
     task: { ...task('a'), type }, variableOptions: [], onChange: () => {},
-  }))
+  })))
   for (const type of ['HTTP', 'JDBC', 'WEBSERVICE', 'SPI', 'INLINE', 'MAPPING', 'CUSTOM',
     'DECISION', 'SWITCH', 'FORK', 'FORK_JOIN', 'JOIN', 'EXCLUSIVE_JOIN', 'DO_WHILE']) {
     const html = render(type)
@@ -1419,6 +1425,47 @@ test('task policy forms exclude built-in control flow from failure retries', () 
   assert.equal(render('SWITCH').includes('aria-label="重试次数"'), false)
   unregister()
   assert.ok(render('CUSTOM').includes('aria-label="重试次数"'))
+  actor.stop()
+})
+
+test('task policy switches expose required inputs only for configured values, including zero', async () => {
+  const actor = await actorFor()
+  const render = (policies, readOnly = false) => lib.renderToStaticMarkup(lib.createElement(lib.ValidationScope, {
+    value: { actor, basePath: '/tasks/0', taskReferenceName: 'a', readOnly },
+  }, lib.createElement(lib.TaskInspector, {
+    task: { ...task('a'), ...policies }, variableOptions: [], onChange: () => {},
+  })))
+  for (const value of [undefined, null]) {
+    const html = render({ startDelay: value, retryCount: value, retryDelaySeconds: value, retryLogic: value })
+    assert.equal((html.match(/role="switch"/g) ?? []).length, 5)
+    assert.equal(html.includes('type="number"'), false)
+    assert.equal(html.includes('<select'), false)
+    assert.equal(html.includes('checked=""'), false)
+  }
+  const policies = { startDelay: 0, retryCount: 0, retryDelaySeconds: 0, retryLogic: 'FIXED' }
+  const html = render(policies)
+  assert.equal((html.match(/checked=""/g) ?? []).length, 4)
+  assert.equal((html.match(/required=""/g) ?? []).length, 4)
+  assert.equal((html.match(/value="0"/g) ?? []).length, 3)
+  assert.ok(html.includes('value="FIXED" selected=""'))
+  const readOnly = render(policies, true)
+  assert.equal((readOnly.match(/disabled=""/g) ?? []).length, 10) // five switches, four fields, placeholder option
+  for (const field of ['startDelay', 'retryCount', 'retryDelaySeconds', 'retryLogic']) {
+    const path = `/tasks/0/${field}`
+    actor.send({ type: 'FIELD_DRAFT_CHANGED', path, draft: {
+      path, taskPath: '/tasks/0', taskReferenceName: 'a', value: '', message: '请完成策略配置',
+    } })
+    actor.send({ type: 'TASK_SELECTED', task: actor.state.context.workflow.tasks[0] })
+    const pending = render({})
+    assert.equal((pending.match(/checked=""/g) ?? []).length, 1, field)
+    assert.equal((pending.match(/required=""/g) ?? []).length, 1, field)
+    assert.ok(pending.includes('请完成策略配置'), field)
+    actor.send({ type: 'REQUEST_SAVE' })
+    assert.ok(actor.state.matches('ready.lifecycle.editing'), field)
+    actor.send({ type: 'FIELD_DRAFT_CHANGED', path, draft: null })
+    assert.equal(render({}).includes('required=""'), false, field)
+  }
+  actor.stop()
 })
 
 test('task policies survive imports, source edits, unrelated form edits and save reloads', async () => {
@@ -1446,6 +1493,84 @@ test('task policies survive imports, source edits, unrelated form edits and save
   assert.equal(saved.tasks[0].startDelay, undefined)
   assert.deepEqual(lib.normalizeWorkflowDraft(JSON.parse(JSON.stringify(saved))).tasks, saved.tasks)
   assert.deepEqual(actor.state.context.baseline.tasks, saved.tasks)
+  actor.stop()
+})
+
+test('workflow execution policies hide inherited timeouts and retain existing overrides', async () => {
+  const actor = await actorFor()
+  const queryClient = new lib.QueryClient()
+  const render = (timeout, readOnly = false) => lib.renderToStaticMarkup(lib.createElement(lib.QueryClientProvider, {
+    client: queryClient,
+  }, lib.createElement(lib.ValidationScope, {
+    value: { actor, basePath: '', readOnly },
+  }, lib.createElement(lib.WorkflowInspector, {
+    workflow: { ...wf(), ...timeout }, variableOptions: [], onChange: () => {},
+  }))))
+  for (const timeout of [{}, { timeoutSeconds: 0, timeoutPolicy: 'TIME_OUT_WF' }]) {
+    const html = render(timeout)
+    assert.ok(html.includes('执行策略'))
+    assert.ok(html.includes('aria-label="工作流超时"'))
+    assert.equal(html.includes('超时设置'), false)
+    assert.equal(html.includes('checked=""'), false)
+    assert.equal(html.includes('aria-label="超时时间（秒）"'), false)
+    assert.equal(html.includes('aria-label="超时策略"'), false)
+  }
+  for (const timeout of [
+    { timeoutSeconds: 60, timeoutPolicy: 'TIME_OUT_WF' },
+    { timeoutSeconds: 120, timeoutPolicy: 'ALERT_ONLY' },
+    { timeoutSeconds: 0, timeoutPolicy: 'ALERT_ONLY' },
+  ]) {
+    const html = render(timeout)
+    assert.ok(html.includes('checked=""'))
+    assert.ok(html.includes('aria-label="超时时间（秒）"'))
+    assert.ok(html.includes('aria-label="超时策略"'))
+    assert.ok(html.includes(`value="${timeout.timeoutSeconds}"`))
+    assert.ok(html.includes(`value="${timeout.timeoutPolicy}" selected=""`))
+    assert.equal((html.match(/required=""/g) ?? []).length, 5) // name, route, description, time, policy
+    assert.equal((render(timeout, true).match(/disabled=""/g) ?? []).length, 4) // switch, time, policy, placeholder
+  }
+  for (const path of ['/timeoutSeconds', '/timeoutPolicy']) {
+    actor.send({ type: 'FIELD_DRAFT_CHANGED', path, draft: { path, value: '', taskReferenceName: '', message: '请完成超时配置' } })
+  }
+  const pending = render({ timeoutSeconds: 0, timeoutPolicy: 'TIME_OUT_WF' })
+  assert.ok(pending.includes('checked=""'))
+  assert.ok(pending.includes('请完成超时配置'))
+  assert.ok(pending.includes('value="" disabled="" selected=""'))
+  actor.stop()
+  queryClient.clear()
+})
+
+test('unfinished workflow timeouts survive tab changes and focus workflow fields before save', async () => {
+  let saved
+  const actor = await actorFor(wf(), { saveWorkflowDefinition: async context => {
+    saved = structuredClone(context.workflow)
+    return saved
+  } })
+  const path = '/timeoutSeconds'
+  const draft = { path, value: '', taskReferenceName: '', message: '请填写超时时间（秒）' }
+  actor.send({ type: 'FIELD_DRAFT_CHANGED', path, draft })
+  actor.send({ type: 'TASK_SELECTED', task: actor.state.context.workflow.tasks[0] })
+  actor.send({ type: 'TASK_UPDATED', task: { ...task('a'), optional: true } })
+  assert.equal(actor.state.context.workflow.tasks[0].optional, undefined)
+  actor.send({ type: 'CHANGE_TAB', tab: 'code' })
+  actor.send({ type: 'SOURCE_CHANGED', source: JSON.stringify(wf([])) })
+  assert.equal(actor.state.context.workflow.tasks.length, 1)
+  assert.deepEqual(actor.state.context.fieldDrafts[path], draft)
+  actor.send({ type: 'REQUEST_SAVE' })
+  assert.ok(actor.state.matches('ready.lifecycle.editing'))
+  assert.equal(actor.state.context.activeTab, 'workflow')
+  assert.equal(actor.state.context.problemFocus.problem.path, path)
+  assert.equal(actor.state.context.problemFocus.problem.taskPath, undefined)
+  assert.equal(actor.state.context.problemFocus.problem.taskReferenceName, undefined)
+  actor.send({ type: 'WORKFLOW_CHANGED', workflow: { ...actor.state.context.workflow, timeoutSeconds: 90, timeoutPolicy: 'ALERT_ONLY' } })
+  actor.send({ type: 'FIELD_DRAFT_CHANGED', path, draft: null })
+  actor.send({ type: 'REQUEST_SAVE' })
+  assert.ok(actor.state.matches('ready.lifecycle.confirmSave'))
+  actor.send({ type: 'CONFIRM_SAVE' })
+  await tick()
+  assert.equal(saved.timeoutSeconds, 90)
+  assert.equal(saved.timeoutPolicy, 'ALERT_ONLY')
+  assert.deepEqual(saved.tasks, wf().tasks)
   actor.stop()
 })
 

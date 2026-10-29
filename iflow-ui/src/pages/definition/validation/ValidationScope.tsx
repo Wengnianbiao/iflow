@@ -30,17 +30,21 @@ export function ValidationField(props: { path: string; children: ReactNode }) {
   return scope ? <ScopedField {...props} /> : <>{props.children}</>
 }
 
-/** Invalid JSON lives in the parent actor and survives form unmounts. */
-export function useTaskFieldDraft(relativePath: string, canonical: string) {
+/** Unfinished field values live in the parent actor and survive form unmounts. */
+export function useFieldDraft(relativePath: string, canonical: string) {
   const scope = useContext(Scope)
-  if (!scope) throw new Error('任务草稿需要 ValidationScope')
+  if (!scope) throw new Error('字段草稿需要 ValidationScope')
   const path = `${scope.basePath}${relativePath}`
+  const taskPath = scope.basePath || undefined
+  const taskReferenceName = taskPath ? scope.taskReferenceName ?? '' : ''
   const draft = useSelector(scope.actor, (state) => state.context.fieldDrafts[path])
   return {
     value: draft?.value ?? canonical,
     error: draft?.message ?? '',
-    invalid: (value: string, message: string) => scope.actor.send({ type: 'FIELD_DRAFT_CHANGED', path, draft: { path, taskPath: scope.basePath, taskReferenceName: scope.taskReferenceName ?? '', value, message } }),
-    applied: (value: string) => scope.actor.send({ type: 'FIELD_DRAFT_CHANGED', path, draft: { path, taskPath: scope.basePath, taskReferenceName: scope.taskReferenceName ?? '', value, message: '' } }),
+    invalid: (value: string, message: string) => scope.actor.send({ type: 'FIELD_DRAFT_CHANGED', path, draft: { path, taskPath, taskReferenceName, value, message } }),
+    applied: (value: string) => scope.actor.send({ type: 'FIELD_DRAFT_CHANGED', path, draft: { path, taskPath, taskReferenceName, value, message: '' } }),
     clear: () => scope.actor.send({ type: 'FIELD_DRAFT_CHANGED', path, draft: null }),
   }
 }
+
+export const useTaskFieldDraft = useFieldDraft

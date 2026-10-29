@@ -117,7 +117,9 @@ public class WorkflowExecutionController {
     @GetMapping("/tasks/search")
     public ResultData<PageList<ExecutionSearch.TaskSummary>> searchTasks(
             @RequestParam(value = "workflowRoute", required = false) String workflowRoute,
+            @RequestParam(value = "workflowRoutes", required = false) List<String> workflowRoutes,
             @RequestParam(value = "workflowId", required = false) String workflowId,
+            @RequestParam(value = "correlationId", required = false) String correlationId,
             @RequestParam(value = "taskId", required = false) String taskId,
             @RequestParam(value = "nodeRef", required = false) String nodeRef,
             @RequestParam(value = "taskType", required = false) String taskType,
@@ -129,11 +131,16 @@ public class WorkflowExecutionController {
             @RequestParam(value = "pageSize", defaultValue = "20") int pageSize) {
         Long to = endTime;
         Long from = startTime;
-        if (!StringUtils.hasText(taskId) && !StringUtils.hasText(workflowId)) {
+        List<String> routes = workflowRoutes == null ? List.of() : workflowRoutes.stream()
+                .filter(StringUtils::hasText).map(String::trim).distinct().toList();
+        if (routes.isEmpty() && StringUtils.hasText(workflowRoute)) {
+            routes = List.of(workflowRoute.trim());
+        }
+        if (!StringUtils.hasText(taskId) && !StringUtils.hasText(workflowId) && !StringUtils.hasText(correlationId)) {
             to = to != null ? to : System.currentTimeMillis();
             from = from != null ? from : Math.max(0L, to - DEFAULT_SEARCH_WINDOW_MS);
         }
-        return ResultData.ok(indexDAO.searchTasks(new ExecutionSearch.TaskQuery(workflowRoute, workflowId,
+        return ResultData.ok(indexDAO.searchTasks(new ExecutionSearch.TaskQuery(routes, workflowId, correlationId,
                 taskId, nodeRef, taskType, List.copyOf(parseStatuses(status)), asyncOnly, from, to, pageNum, pageSize)));
     }
 

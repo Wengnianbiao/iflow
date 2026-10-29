@@ -2935,13 +2935,23 @@ textarea {
   grid-column: 1 / -1;
 }
 
+.task-policy-field {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 10px;
+}
+
 .task-policy-optional {
   margin-top: 16px;
+}
+
+.task-policy-toggle {
   color: #767676;
   font-size: 12px;
 }
 
-.task-policy-optional label {
+.task-policy-toggle > label {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -2949,7 +2959,7 @@ textarea {
   cursor: pointer;
 }
 
-.task-policy-optional .MuiSwitch-root {
+.task-policy-toggle .MuiSwitch-root {
   flex-shrink: 0;
   width: 40px;
   height: 20px;
@@ -2957,51 +2967,51 @@ textarea {
   overflow: visible;
 }
 
-.task-policy-optional .MuiSwitch-switchBase {
+.task-policy-toggle .MuiSwitch-switchBase {
   padding: 2px;
 }
 
-.task-policy-optional .MuiSwitch-switchBase.Mui-checked {
+.task-policy-toggle .MuiSwitch-switchBase.Mui-checked {
   transform: translateX(20px);
 }
 
-.task-policy-optional .MuiSwitch-thumb {
+.task-policy-toggle .MuiSwitch-thumb {
   width: 16px;
   height: 16px;
   color: #fff;
 }
 
-.task-policy-optional .MuiSwitch-track {
+.task-policy-toggle .MuiSwitch-track {
   border-radius: 10px;
   background-color: #767676;
   opacity: 1;
 }
 
-.task-policy-optional .Mui-checked + .MuiSwitch-track {
+.task-policy-toggle .Mui-checked + .MuiSwitch-track {
   background-color: #2e7d32;
   opacity: 1;
 }
 
-.task-policy-optional .Mui-disabled + .MuiSwitch-track {
+.task-policy-toggle .Mui-disabled + .MuiSwitch-track {
   opacity: 0.45;
 }
 
-.task-policy-optional .Mui-focusVisible .MuiSwitch-thumb {
+.task-policy-toggle .Mui-focusVisible .MuiSwitch-thumb {
   outline: 2px solid #1976d2;
   outline-offset: 2px;
 }
 
-.task-policy-optional label:has(input:disabled) {
+.task-policy-toggle label:has(input:disabled) {
   cursor: default;
   opacity: 0.6;
 }
 
-.task-policy-optional small {
+.task-policy-toggle small {
   display: block;
   margin-top: 4px;
 }
 
-.task-policy-optional small,
+.task-policy-toggle small,
 .task-policy-note {
   color: #7b8797;
   font-size: 11px;

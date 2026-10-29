@@ -1,10 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildSearchParams, emptySearchFilters, readSearchState, writeSearchState } from '../src/pages/executions/searchState.ts'
+import { buildSearchParams, buildTaskSearchParams, emptySearchFilters, normalizeSearchFilters, readSearchState, writeSearchState } from '../src/pages/executions/searchState.ts'
 import { formatExecutionDuration, formatExecutionTime } from '../src/pages/executions/formatters.ts'
 import { presetTimeRange, relativeTimeRange } from '../src/pages/executions/timeRange.ts'
 
 const PAGE_SIZES = [15, 25, 50]
+const WORKFLOW_VIEW = { mode: 'workflow', asyncOnly: false }
 
 test('workflowRoute links map to the iFlow search API', () => {
   const state = readSearchState(new URLSearchParams('workflowRoute=hl-open-api%2Flis-status&correlationId=order-1&status=FAILED'), PAGE_SIZES)
@@ -15,6 +16,7 @@ test('workflowRoute links map to the iFlow search API', () => {
 
 test('a shared URL restores submitted filters, page and page size', () => {
   const expected = {
+    ...WORKFLOW_VIEW,
     filters: { ...emptySearchFilters(), workflowRoutes: ['hl-open-api/申请单', 'GetItemResult'], keyword: 'A&B=1', status: 'COMPLETED' },
     page: 3, rowsPerPage: 25,
   }
@@ -32,11 +34,13 @@ test('malformed URL pagination and unknown status cannot reach the API', () => {
 })
 
 test('reset clears workflow routes and preserves page size and unrelated URL state', () => {
-  const url = writeSearchState(new URLSearchParams('workflowRoute=first&workflowRoute=old&correlationId=x&status=FAILED&startFrom=1000&startTo=2000&page=3&rowsPerPage=25&view=compact'), {
+  const url = writeSearchState(new URLSearchParams('workflowRoute=first&workflowRoute=old&correlationId=x&status=FAILED&startFrom=1000&startTo=2000&page=3&rowsPerPage=25&tab=compact'), {
+    ...WORKFLOW_VIEW,
     filters: emptySearchFilters(), page: 1, rowsPerPage: 25,
   })
-  assert.equal(url.get('view'), 'compact')
+  assert.equal(url.get('tab'), 'compact')
   assert.deepEqual(readSearchState(url, PAGE_SIZES), {
+    ...WORKFLOW_VIEW,
     filters: emptySearchFilters(), page: 1, rowsPerPage: 25,
   })
   for (const key of ['workflowRoute', 'correlationId', 'status', 'startFrom', 'startTo']) assert.equal(url.has(key), false)
@@ -117,4 +121,36 @@ test('unsupported pause status cannot reach the workflow search API', () => {
   const state = readSearchState(new URLSearchParams({ status: 'PAUSED' }), PAGE_SIZES)
   assert.equal(state.filters.status, '')
   assert.equal(buildSearchParams(state).status, undefined)
+})
+
+test('task view shares workflow keywords, multiple routes, time bounds and async scope through URLs', () => {
+  const state = readSearchState(new URLSearchParams('view=task&asyncOnly=true&workflowRoute=first&workflowRoute=second&correlationId=A%26B%3D1&status=SCHEDULED&startFrom=0&startTo=1000&page=2&rowsPerPage=25'), PAGE_SIZES)
+  assert.deepEqual(buildTaskSearchParams(state), {
+    workflowRoutes: ['first', 'second'], correlationId: 'A&B=1', status: ['SCHEDULED'],
+    asyncOnly: true, startTime: 0, endTime: 1000, pageNum: 2, pageSize: 25,
+  })
+  assert.deepEqual(readSearchState(writeSearchState(new URLSearchParams(), state), PAGE_SIZES), state)
+})
+
+test('task statuses are validated per view and common filters survive switching back to workflows', () => {
+  for (const status of ['SCHEDULED', 'IN_PROGRESS', 'CANCELED', 'FAILED_WITH_TERMINAL_ERROR', 'COMPLETED_WITH_ERRORS', 'SKIPPED']) {
+    const taskState = readSearchState(new URLSearchParams({ view: 'task', status, correlationId: 'order', workflowRoute: 'first' }), PAGE_SIZES)
+    assert.deepEqual(buildTaskSearchParams(taskState).status, [status])
+    const workflowFilters = normalizeSearchFilters(taskState.filters, 'workflow')
+    assert.equal(workflowFilters.status, '')
+    assert.equal(workflowFilters.keyword, 'order')
+    assert.deepEqual(workflowFilters.workflowRoutes, ['first'])
+  }
+  for (const status of ['RUNNING', 'TERMINATED', 'INTERRUPTED', 'UNKNOWN']) {
+    assert.equal(readSearchState(new URLSearchParams({ view: 'task', status }), PAGE_SIZES).filters.status, '')
+  }
+})
+
+test('task scope defaults to all tasks and reset preserves the selected view and scope', () => {
+  const state = readSearchState(new URLSearchParams('view=task&asyncOnly=true&correlationId=order&page=3'), PAGE_SIZES)
+  const reset = { ...state, filters: emptySearchFilters(), page: 1 }
+  const restored = readSearchState(writeSearchState(new URLSearchParams(), reset), PAGE_SIZES)
+  assert.deepEqual(restored, reset)
+  assert.equal(readSearchState(new URLSearchParams('view=task'), PAGE_SIZES).asyncOnly, false)
+  assert.equal(readSearchState(new URLSearchParams('view=unknown&asyncOnly=invalid'), PAGE_SIZES).mode, 'workflow')
 })

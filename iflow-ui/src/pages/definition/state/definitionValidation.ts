@@ -6,7 +6,7 @@ import { findTaskPath, pointerValue, validateSource } from '../validation/valida
 export function draftProblems(context: WorkflowDefinitionMachineContext): WorkflowProblem[] {
   return Object.values(context.fieldDrafts).filter((draft) => draft.message).map((draft) => ({
     id: `DRAFT:${draft.path}`, code: 'FIELD_DRAFT', source: 'draft', severity: 'error',
-    path: draft.path, taskPath: draft.taskPath, taskReferenceName: String(pointerValue(context.workflow, `${draft.taskPath}/taskReferenceName`) ?? draft.taskReferenceName), message: draft.message,
+    path: draft.path, taskPath: draft.taskPath, taskReferenceName: draft.taskPath ? String(pointerValue(context.workflow, `${draft.taskPath}/taskReferenceName`) ?? draft.taskReferenceName) : undefined, message: draft.message,
   }))
 }
 

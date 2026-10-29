@@ -135,7 +135,7 @@ public class MySqlIndexDAO extends MySqlBaseDAO implements IndexDAO {
             conditions.in("status", filter.statuses());
             conditions.equal("workflow_id", filter.workflowId());
             conditions.equal("correlation_id", filter.correlationId());
-            conditions.time(filter.startTime(), filter.endTime());
+            conditions.time("start_time", filter.startTime(), filter.endTime());
             String from = " FROM workflow_index" + conditions.sql;
             long total = select(tx, "SELECT COUNT(*)" + from, conditions.params, rs -> { rs.next(); return rs.getLong(1); });
             var params = new ArrayList<>(conditions.params);
@@ -158,27 +158,29 @@ public class MySqlIndexDAO extends MySqlBaseDAO implements IndexDAO {
     public PageList<ExecutionSearch.TaskSummary> searchTasks(ExecutionSearch.TaskQuery filter) {
         return getWithTransaction(tx -> {
             var conditions = new Conditions();
-            conditions.equal("workflow_route", filter.workflowRoute());
-            conditions.equal("workflow_id", filter.workflowId());
-            conditions.equal("task_id", filter.taskId());
-            conditions.equal("node_ref", filter.nodeRef());
-            conditions.equal("task_type", filter.taskType());
-            conditions.in("status", filter.statuses());
-            if (filter.asyncOnly()) conditions.equal("async_task", true);
-            conditions.time(filter.startTime(), filter.endTime());
-            String from = " FROM task_index" + conditions.sql;
+            conditions.in("s.workflow_route", filter.workflowRoutes());
+            conditions.equal("s.workflow_id", filter.workflowId());
+            conditions.equal("w.correlation_id", filter.correlationId());
+            conditions.equal("s.task_id", filter.taskId());
+            conditions.equal("s.node_ref", filter.nodeRef());
+            conditions.equal("s.task_type", filter.taskType());
+            conditions.in("s.status", filter.statuses());
+            if (filter.asyncOnly()) conditions.equal("s.async_task", true);
+            conditions.time("s.start_time", filter.startTime(), filter.endTime());
+            String from = " FROM task_index s LEFT JOIN workflow_index w ON w.workflow_id = s.workflow_id" + conditions.sql;
             long total = select(tx, "SELECT COUNT(*)" + from, conditions.params, rs -> { rs.next(); return rs.getLong(1); });
             var params = new ArrayList<>(conditions.params);
             params.add(filter.pageSize()); params.add(filter.offset());
-            List<ExecutionSearch.TaskSummary> rows = select(tx, "SELECT *" + from
-                    + " ORDER BY start_time DESC, task_id LIMIT ? OFFSET ?", params, rs -> {
+            List<ExecutionSearch.TaskSummary> rows = select(tx, "SELECT s.*, w.workflow_name, w.correlation_id" + from
+                    + " ORDER BY s.start_time DESC, s.task_id LIMIT ? OFFSET ?", params, rs -> {
                 List<ExecutionSearch.TaskSummary> result = new ArrayList<>();
                 while (rs.next()) result.add(new ExecutionSearch.TaskSummary(rs.getString("task_id"),
                         rs.getString("workflow_id"), rs.getString("workflow_route"), rs.getString("node_ref"),
                         rs.getString("reference_task_name"), rs.getString("task_name"), rs.getString("task_type"),
                         rs.getObject("async_task") == null ? null : rs.getBoolean("async_task"), rs.getString("status"),
                         rs.getInt("retry_count"), rs.getLong("scheduled_time"), rs.getLong("actual_start_time"),
-                        rs.getLong("end_time"), rs.getLong("update_time"), nullableLong(rs, "duration_ms")));
+                        rs.getLong("end_time"), rs.getLong("update_time"), nullableLong(rs, "duration_ms"),
+                        rs.getString("workflow_name"), rs.getString("correlation_id")));
                 return result;
             });
             return new PageList<>(total, filter.pageNum(), filter.pageSize(), rows);
@@ -198,9 +200,9 @@ public class MySqlIndexDAO extends MySqlBaseDAO implements IndexDAO {
                     .append(String.join(",", java.util.Collections.nCopies(values.size(), "?"))).append(")");
             params.addAll(values);
         }
-        void time(Long start, Long end) {
-            if (start != null) { sql.append(" AND start_time >= ?"); params.add(start); }
-            if (end != null) { sql.append(" AND start_time <= ?"); params.add(end); }
+        void time(String column, Long start, Long end) {
+            if (start != null) { sql.append(" AND ").append(column).append(" >= ?"); params.add(start); }
+            if (end != null) { sql.append(" AND ").append(column).append(" <= ?"); params.add(end); }
         }
     }
 

@@ -233,7 +233,7 @@ class ExecutionIndexIntegrationTest {
         queued.setStartTime(0);
         statistics.indexTask(queued);
         save(task("sync", "wf", "a", "INLINE", "map", TaskModel.Status.COMPLETED, 100, 105));
-        var query = new ExecutionSearch.TaskQuery("a", "wf", null, "call", "HTTP", List.of("scheduled"),
+        var query = new ExecutionSearch.TaskQuery(List.of("a"), "wf", null, null, "call", "HTTP", List.of("scheduled"),
                 true, 100L, 100L, 1, 20);
         var page = statistics.searchTasks(query);
         assertEquals(1, page.getTotal());
@@ -243,6 +243,51 @@ class ExecutionIndexIntegrationTest {
         assertTrue(page.getRows().getFirst().async());
         statistics.removeTask("queued");
         assertEquals(0, statistics.searchTasks(query).getTotal());
+    }
+
+    @Test
+    void taskSearchJoinsWorkflowKeywordsAndCombinesAsyncRoutesStatusTimeAndPagination() throws Exception {
+        var first = workflow("wf-first", "a", WorkflowModel.Status.FAILED, 1, 10);
+        first.setCorrelationId("order & 1");
+        var second = workflow("wf-second", "b", WorkflowModel.Status.COMPLETED, 2, 20);
+        second.setCorrelationId("order & 1");
+        var other = workflow("wf-other", "a", WorkflowModel.Status.COMPLETED, 3, 30);
+        other.setCorrelationId("other");
+        save(first); save(second); save(other);
+        save(task("failed", "wf-first", "a", "HTTP", "call", TaskModel.Status.FAILED, 100, 110));
+        var retry = task("retry", "wf-first", "a", "HTTP", "call", TaskModel.Status.COMPLETED, 120, 150);
+        retry.setRetryCount(1);
+        save(retry);
+        save(task("second", "wf-second", "b", "HTTP", "call", TaskModel.Status.COMPLETED, 130, 160));
+        save(task("sync", "wf-first", "a", "INLINE", "map", TaskModel.Status.COMPLETED, 140, 150));
+        save(task("unknown", "wf-first", "a", "OLD_TYPE", "old", TaskModel.Status.SKIPPED, 150, 160));
+        save(task("other", "wf-other", "a", "HTTP", "call", TaskModel.Status.COMPLETED, 160, 170));
+
+        var query = new ExecutionSearch.TaskQuery(List.of("a", "b"), null, "order & 1", null, null,
+                null, List.of("completed"), true, 120L, 130L, 1, 1);
+        var page = statistics.searchTasks(query);
+        assertEquals(2, page.getTotal());
+        assertEquals("second", page.getRows().getFirst().taskId());
+        assertEquals("工作流 b", page.getRows().getFirst().workflowName());
+        assertEquals("order & 1", page.getRows().getFirst().correlationId());
+        var next = statistics.searchTasks(new ExecutionSearch.TaskQuery(query.workflowRoutes(), null,
+                query.correlationId(), null, null, null, query.statuses(), true, 120L, 130L, 2, 1));
+        assertEquals(2, next.getTotal());
+        assertEquals("retry", next.getRows().getFirst().taskId());
+        assertEquals(1, next.getRows().getFirst().retryCount());
+        assertEquals(5, statistics.searchTasks(new ExecutionSearch.TaskQuery(List.of(), null,
+                "order & 1", null, null, null, List.of(), false, null, null, 1, 20)).getTotal());
+        assertEquals(0, statistics.searchTasks(new ExecutionSearch.TaskQuery(List.of("b"), null,
+                "other", null, null, null, List.of(), false, null, null, 1, 20)).getTotal());
+        assertEquals(0, statistics.searchTasks(new ExecutionSearch.TaskQuery(List.of(), null,
+                "' OR 1=1 --", null, null, null, List.of(), false, null, null, 1, 20)).getTotal());
+
+        first.setCorrelationId("updated");
+        save(first);
+        var updated = statistics.searchTasks(new ExecutionSearch.TaskQuery(List.of(), null,
+                "updated", null, null, null, List.of(), true, null, null, 1, 20));
+        assertEquals(2, updated.getTotal());
+        assertTrue(updated.getRows().stream().allMatch(row -> "updated".equals(row.correlationId())));
     }
 
     @Test
