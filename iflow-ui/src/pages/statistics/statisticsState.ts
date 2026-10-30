@@ -1,3 +1,5 @@
+import type { StatisticsMetrics } from '../../types/executionStatistics'
+
 export type TimePreset = 'today' | 'yesterday' | 'last7Days' | 'custom'
 
 /** 使用本地日历边界，不用固定的 24 小时推算，兼容夏令时。 */
@@ -24,4 +26,25 @@ export function statisticsDuration(value: number | null | undefined) {
 
 export function statisticsRate(value: number | null | undefined) {
   return value == null ? '—' : `${(value * 100).toFixed(1)}%`
+}
+
+const PRESETS: TimePreset[] = ['today', 'yesterday', 'last7Days', 'custom']
+
+export function statisticsSelection(url: URLSearchParams, now = new Date()) {
+  const preset = PRESETS.find((item) => item === url.get('range')) ?? 'today'
+  const today = presetRange('today', now)
+  const range = preset === 'custom'
+    ? { startTime: Number(url.get('startTime') ?? today.startTime), endTime: Number(url.get('endTime') ?? today.endTime) }
+    : presetRange(preset, now)
+  const validRange = Number.isSafeInteger(range.startTime) && Number.isSafeInteger(range.endTime)
+    && range.startTime >= 0 && range.endTime >= range.startTime
+  return { preset, range, validRange, workflowRoute: url.get('workflowRoute')?.trim() || undefined }
+}
+
+export function statisticsDistribution(metrics: StatisticsMetrics) {
+  return [
+    { name: '成功', value: metrics.successCount },
+    { name: '失败', value: metrics.failureCount },
+    { name: '未结束', value: metrics.runningCount },
+  ]
 }

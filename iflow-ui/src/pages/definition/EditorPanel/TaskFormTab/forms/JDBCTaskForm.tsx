@@ -13,7 +13,16 @@ import { InlineScriptEditor } from './InlineScriptEditor'
 import { TaskPanelHeader } from './TaskPanelHeader'
 import { isRecord } from './formUtils'
 
-const JDBC_VENDOR_OPTIONS = ['MYSQL', 'POSTGRES', 'SQLSERVER', 'ORACLE', 'OPENGAUSS', 'KINGBASE']
+const JDBC_URL_TEMPLATES: Record<string, string> = {
+  MYSQL: 'jdbc:mysql://localhost:3306/demo',
+  POSTGRES: 'jdbc:postgresql://localhost:5432/demo',
+  SQLSERVER: 'jdbc:sqlserver://localhost:1433;databaseName=demo',
+  ORACLE: 'jdbc:oracle:thin:@//localhost:1521/orcl',
+  OPENGAUSS: 'jdbc:opengauss://localhost:5432/demo',
+  KINGBASE: 'jdbc:kingbase8://localhost:54321/demo',
+}
+
+const JDBC_VENDOR_OPTIONS = Object.keys(JDBC_URL_TEMPLATES)
   .map((vendor) => ({ value: vendor, label: vendor }))
 
 export function JDBCTaskForm({ task, variableOptions, onChange }: { task: WorkflowTask; variableOptions: string[]; onChange: (task: WorkflowTask) => void }) {
@@ -73,7 +82,10 @@ export function JDBCTaskForm({ task, variableOptions, onChange }: { task: Workfl
               value={String(request.vendor ?? 'MYSQL')}
               options={JDBC_VENDOR_OPTIONS}
               ariaLabel="数据库厂商"
-              onChange={(vendor) => updateJdbcRequest({ vendor })}
+              onChange={(vendor) => {
+                if (vendor === request.vendor) return
+                updateJdbcRequest({ vendor, url: JDBC_URL_TEMPLATES[vendor] })
+              }}
             />
           </div>
           <label className="inspector-field">

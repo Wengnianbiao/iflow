@@ -3,7 +3,7 @@ package com.helianhealth.iflow.tasks.jdbc;
 import com.fasterxml.jackson.annotation.JsonCreator;
 
 /**
- * 常见 JDBC 厂商与默认驱动类名（驱动 JAR 由宿主应用 classpath 提供）。
+ * JDBC 任务支持的厂商与驱动类名，驱动 JAR 由本模块的运行时依赖提供。
  */
 public enum JdbcVendor {
 

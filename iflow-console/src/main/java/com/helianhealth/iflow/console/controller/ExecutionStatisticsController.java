@@ -3,6 +3,8 @@ package com.helianhealth.iflow.console.controller;
 import com.helianhealth.iflow.common.base.ResultData;
 import com.helianhealth.iflow.common.domain.statistics.ExecutionStatistics;
 import com.helianhealth.iflow.core.dao.IndexDAO;
+import com.helianhealth.iflow.core.service.MetadataService;
+import com.helianhealth.iflow.console.model.response.ExecutionStatisticsOverview;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,6 +16,22 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class ExecutionStatisticsController {
     private final IndexDAO statisticsDAO;
+    private final MetadataService metadataService;
+
+    @GetMapping("/overview")
+    public ResultData<ExecutionStatisticsOverview> overview(
+            @RequestParam("startTime") long startTime, @RequestParam("endTime") long endTime,
+            @RequestParam("timeZone") String timeZone,
+            @RequestParam(value = "workflowRoute", defaultValue = "") String workflowRoute) {
+        var query = new ExecutionStatistics.OverviewQuery(startTime, endTime, workflowRoute, timeZone);
+        var definitions = metadataService.getAllLatest();
+        long taskCount = 0;
+        for (var definition : definitions) {
+            taskCount += definition.collectTasks().size();
+        }
+        var runtime = statisticsDAO.overview(query);
+        return ResultData.ok(new ExecutionStatisticsOverview(definitions.size(), taskCount, runtime));
+    }
 
     @GetMapping({"/workflows", "/tasks"})
     public ResultData<ExecutionStatistics.Page> statistics(

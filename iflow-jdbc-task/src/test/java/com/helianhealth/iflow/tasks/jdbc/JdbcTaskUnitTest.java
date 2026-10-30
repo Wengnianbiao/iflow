@@ -7,8 +7,11 @@ import com.helianhealth.iflow.tasks.jdbc.providers.DefaultJdbcConnectionProvider
 import com.helianhealth.iflow.tasks.jdbc.providers.JdbcConnectionProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
@@ -203,6 +206,21 @@ class JdbcTaskUnitTest {
         assertEquals("oracle.jdbc.OracleDriver", JdbcVendor.resolveDriverClassName(JdbcVendor.ORACLE));
         assertEquals("org.opengauss.Driver", JdbcVendor.resolveDriverClassName(JdbcVendor.OPENGAUSS));
         assertEquals("com.kingbase8.Driver", JdbcVendor.resolveDriverClassName(JdbcVendor.KINGBASE));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "MYSQL, jdbc:mysql://localhost:3306/demo",
+            "POSTGRES, jdbc:postgresql://localhost:5432/demo",
+            "SQLSERVER, jdbc:sqlserver://localhost:1433;databaseName=demo",
+            "ORACLE, jdbc:oracle:thin:@//localhost:1521/orcl",
+            "OPENGAUSS, jdbc:opengauss://localhost:5432/demo",
+            "KINGBASE, jdbc:kingbase8://localhost:54321/demo"
+    })
+    void bundledDriverHandlesVendorUrl(JdbcVendor vendor, String url) throws Exception {
+        String driverClassName = JdbcVendor.resolveDriverClassName(vendor);
+        Class.forName(driverClassName);
+        assertEquals(driverClassName, DriverManager.getDriver(url).getClass().getName());
     }
 
     @Test

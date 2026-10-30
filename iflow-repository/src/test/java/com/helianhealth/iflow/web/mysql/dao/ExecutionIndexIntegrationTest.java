@@ -26,6 +26,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.List;
 import java.util.UUID;
+import java.time.Duration;
+import java.time.ZonedDateTime;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -55,6 +57,112 @@ class ExecutionIndexIntegrationTest {
                 if (!statement.isBlank()) sql.execute(statement);
             }
         }
+    }
+
+    @Test
+    void overviewMergesVersionsAndAllTaskTypesWithWeightedValidDurations() throws Exception {
+        save(workflow("a1", "a", WorkflowModel.Status.COMPLETED, 100, 110));
+        var second = workflow("a2", "a", WorkflowModel.Status.FAILED, 100, 130);
+        second.getWorkflowDefinition().setVersion(2);
+        save(second);
+        save(workflow("b1", "b", WorkflowModel.Status.TIMED_OUT, 100, 300));
+        save(workflow("b2", "b", WorkflowModel.Status.RUNNING, 100, 0));
+        save(workflow("invalid", "a", WorkflowModel.Status.TERMINATED, 200, 100));
+        save(task("http", "a1", "a", "HTTP", "call", TaskModel.Status.FAILED, 100, 120));
+        var retry = task("retry", "a1", "a", "HTTP", "call", TaskModel.Status.COMPLETED, 150, 180);
+        retry.setRetryCount(1);
+        retry.setIteration(2);
+        save(retry);
+        save(task("inline", "a1", "a", "INLINE", "script", TaskModel.Status.COMPLETED_WITH_ERRORS, 100, 105));
+        save(task("unknown", "a1", "a", "OLD_TYPE", "old", TaskModel.Status.SKIPPED, 100, 100));
+        var queued = task("queued", "a1", "a", "HTTP", "wait", TaskModel.Status.SCHEDULED, 100, 0);
+        queued.setStartTime(0);
+        save(queued);
+
+        var result = statistics.overview(new ExecutionStatistics.OverviewQuery(0, 1000, "", "UTC"));
+        assertEquals(5, result.getWorkflows().totalCount());
+        assertEquals(1, result.getWorkflows().runningCount());
+        assertEquals(3, result.getWorkflows().failureCount());
+        assertEquals(3, result.getWorkflows().durationCount());
+        assertEquals(80.0, result.getWorkflows().avgDurationMs());
+        assertEquals(0.25, result.getWorkflows().successRate());
+        assertEquals(5, result.getTasks().totalCount());
+        assertEquals(1, result.getTasks().runningCount());
+        assertEquals(3, result.getTasks().successCount());
+        assertEquals(0.75, result.getTasks().successRate());
+        assertEquals(13.75, result.getTasks().avgDurationMs());
+        assertEquals(5, result.getTrend().getFirst().getTaskCount());
+
+        var filtered = statistics.overview(new ExecutionStatistics.OverviewQuery(0, 1000, "a", "UTC"));
+        assertEquals(3, filtered.getWorkflows().totalCount());
+        assertEquals(20.0, filtered.getWorkflows().avgDurationMs());
+        assertEquals(5, filtered.getTasks().totalCount());
+        assertEquals(3, filtered.getTrend().getFirst().getWorkflowCount());
+    }
+
+    @Test
+    void overviewClipsPartialHoursIncludesEndpointsAndFillsMissingBuckets() throws Exception {
+        var start = ZonedDateTime.parse("2026-10-30T09:30:00+08:00[Asia/Shanghai]");
+        long from = start.toInstant().toEpochMilli();
+        long boundary = start.withHour(11).withMinute(0).toInstant().toEpochMilli();
+        long to = start.withHour(12).withMinute(15).toInstant().toEpochMilli();
+        save(workflow("first", "a", WorkflowModel.Status.RUNNING, from, 0));
+        save(workflow("boundary", "a", WorkflowModel.Status.RUNNING, boundary, 0));
+        save(workflow("last", "a", WorkflowModel.Status.RUNNING, to, 0));
+        save(workflow("before", "a", WorkflowModel.Status.RUNNING, from - 1, 0));
+        save(workflow("after", "a", WorkflowModel.Status.RUNNING, to + 1, 0));
+        save(task("last-task", "last", "a", "INLINE", "script", TaskModel.Status.COMPLETED, to, to));
+        var overview = statistics.overview(new ExecutionStatistics.OverviewQuery(from, to, "a", "Asia/Shanghai"));
+        assertEquals("hour", overview.getGranularity());
+        assertEquals(3, overview.getWorkflows().totalCount());
+        assertEquals(4, overview.getTrend().size());
+        assertEquals(start.withMinute(0).toInstant().toEpochMilli(), overview.getTrend().getFirst().getStartTime());
+        assertEquals(List.of(1L, 0L, 1L, 1L), overview.getTrend().stream()
+                .map(ExecutionStatistics.TrendPoint::getWorkflowCount).toList());
+        assertEquals(List.of(0L, 0L, 0L, 1L), overview.getTrend().stream()
+                .map(ExecutionStatistics.TrendPoint::getTaskCount).toList());
+    }
+
+    @Test
+    void overviewUsesLocalCalendarDaysAndMonthsAndReturnsEmptyMetrics() {
+        var start = ZonedDateTime.parse("2026-03-07T00:00:00-05:00[America/New_York]");
+        var daily = statistics.overview(new ExecutionStatistics.OverviewQuery(start.toInstant().toEpochMilli(),
+                start.plusDays(3).toInstant().toEpochMilli() - 1, "", "America/New_York"));
+        assertEquals("day", daily.getGranularity());
+        assertEquals(3, daily.getTrend().size());
+        for (int i = 0; i < 3; i++) {
+            assertEquals(start.plusDays(i).toInstant().toEpochMilli(), daily.getTrend().get(i).getStartTime());
+            assertEquals(0, daily.getTrend().get(i).getWorkflowCount());
+            assertEquals(0, daily.getTrend().get(i).getTaskCount());
+        }
+        assertNull(daily.getWorkflows().avgDurationMs());
+        assertNull(daily.getTasks().successRate());
+        assertEquals(0, daily.getWorkflows().totalCount());
+        var monthly = statistics.overview(new ExecutionStatistics.OverviewQuery(start.toInstant().toEpochMilli(),
+                start.plusMonths(4).toInstant().toEpochMilli(), "", "America/New_York"));
+        assertEquals("month", monthly.getGranularity());
+        assertEquals(5, monthly.getTrend().size());
+        assertEquals(start.withDayOfMonth(1).toInstant().toEpochMilli(), monthly.getTrend().getFirst().getStartTime());
+        assertEquals("hour", statistics.overview(new ExecutionStatistics.OverviewQuery(0,
+                Duration.ofDays(2).toMillis() - 1, "", "UTC")).getGranularity());
+        assertEquals("day", statistics.overview(new ExecutionStatistics.OverviewQuery(0,
+                Duration.ofDays(90).toMillis() - 1, "", "UTC")).getGranularity());
+    }
+
+    @Test
+    void overviewKeepsBothHoursWhenDaylightSavingTimeEnds() throws Exception {
+        var start = ZonedDateTime.parse("2026-11-01T00:00:00-04:00[America/New_York]");
+        long firstHour = start.plusHours(1).toInstant().toEpochMilli();
+        long secondHour = start.plusHours(2).toInstant().toEpochMilli();
+        save(workflow("first-hour", "a", WorkflowModel.Status.RUNNING, firstHour, 0));
+        save(workflow("second-hour", "a", WorkflowModel.Status.RUNNING, secondHour, 0));
+        var result = statistics.overview(new ExecutionStatistics.OverviewQuery(start.toInstant().toEpochMilli(),
+                start.plusDays(1).toInstant().toEpochMilli() - 1, "", "America/New_York"));
+        assertEquals(25, result.getTrend().size());
+        assertEquals(firstHour, result.getTrend().get(1).getStartTime());
+        assertEquals(secondHour, result.getTrend().get(2).getStartTime());
+        assertEquals(1, result.getTrend().get(1).getWorkflowCount());
+        assertEquals(1, result.getTrend().get(2).getWorkflowCount());
     }
 
     @Test

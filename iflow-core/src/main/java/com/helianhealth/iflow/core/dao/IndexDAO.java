@@ -16,5 +16,6 @@ public interface IndexDAO {
     PageList<ExecutionSearch.TaskSummary> searchTasks(ExecutionSearch.TaskQuery query);
     ExecutionStatistics.Page workflows(ExecutionStatistics.Query query);
     ExecutionStatistics.Page tasks(ExecutionStatistics.Query query);
+    ExecutionStatistics.RuntimeOverview overview(ExecutionStatistics.OverviewQuery query);
     ExecutionStatistics.Instances taskInstances(ExecutionStatistics.Query query, String nodeRef, String taskType);
 }

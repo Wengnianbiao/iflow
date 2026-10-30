@@ -1,6 +1,3 @@
-export type StatisticsMode = 'workflow' | 'task'
-export type StatisticsSort = 'totalCount' | 'avgDurationMs' | 'minDurationMs' | 'maxDurationMs' | 'successRate'
-
 export interface StatisticsMetrics {
   totalCount: number
   runningCount: number
@@ -13,48 +10,28 @@ export interface StatisticsMetrics {
   successRate: number | null
 }
 
-export interface StatisticsRow {
-  workflowRoute: string
-  workflowName: string | null
-  nodeRef: string | null
-  taskName: string | null
-  taskType: string | null
-  metrics: StatisticsMetrics
-}
-
-export interface StatisticsParams {
+export interface StatisticsOverviewParams {
   startTime: number
   endTime: number
+  timeZone: string
   workflowRoute?: string
-  asyncOnly: boolean
-  sort: StatisticsSort
-  descending: boolean
-  pageNum: number
-  pageSize: number
 }
 
-export interface StatisticsPage {
-  summary: StatisticsMetrics
-  rows: StatisticsRow[]
-  total: number
-  pageNum: number
-  pageSize: number
-}
+export type StatisticsGranularity = 'hour' | 'day' | 'month'
 
-export interface TaskStatisticsInstance {
-  taskId: string
-  workflowId: string
-  referenceTaskName: string
-  status: string
-  retryCount: number
+export interface StatisticsTrendPoint {
   startTime: number
-  endTime: number
-  durationMs: number | null
+  workflowCount: number
+  taskCount: number
 }
 
-export interface TaskStatisticsInstances {
-  rows: TaskStatisticsInstance[]
-  total: number
-  pageNum: number
-  pageSize: number
+export interface StatisticsOverview {
+  workflowCount: number
+  taskCount: number
+  runtime: {
+    workflows: StatisticsMetrics
+    tasks: StatisticsMetrics
+    granularity: StatisticsGranularity
+    trend: StatisticsTrendPoint[]
+  }
 }

@@ -18,6 +18,10 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -211,6 +215,76 @@ public class MySqlIndexDAO extends MySqlBaseDAO implements IndexDAO {
 
     @Override
     public ExecutionStatistics.Page tasks(ExecutionStatistics.Query query) { return aggregate(query, true); }
+
+    @Override
+    public ExecutionStatistics.RuntimeOverview overview(ExecutionStatistics.OverviewQuery filter) {
+        long span = filter.getEndTime() - filter.getStartTime();
+        String granularity = span < Duration.ofDays(2).toMillis() ? "hour"
+                : span < Duration.ofDays(90).toMillis() ? "day" : "month";
+        ZonedDateTime start = Instant.ofEpochMilli(filter.getStartTime()).atZone(filter.getTimeZone());
+        ZonedDateTime bucket = switch (granularity) {
+            case "hour" -> start.truncatedTo(ChronoUnit.HOURS);
+            case "day" -> start.toLocalDate().atStartOfDay(filter.getTimeZone());
+            default -> start.toLocalDate().withDayOfMonth(1).atStartOfDay(filter.getTimeZone());
+        };
+        List<Long> boundaries = new ArrayList<>();
+        while (bucket.toInstant().toEpochMilli() <= filter.getEndTime()) {
+            boundaries.add(bucket.toInstant().toEpochMilli());
+            bucket = switch (granularity) {
+                case "hour" -> bucket.plusHours(1);
+                case "day" -> bucket.toLocalDate().plusDays(1).atStartOfDay(filter.getTimeZone());
+                default -> bucket.toLocalDate().plusMonths(1).atStartOfDay(filter.getTimeZone());
+            };
+        }
+
+        return getWithTransaction(tx -> {
+            List<Object> params = new ArrayList<>(List.of(filter.getStartTime(), filter.getEndTime()));
+            String where = " WHERE s.start_time >= ? AND s.start_time <= ?";
+            if (!filter.getWorkflowRoute().isEmpty()) {
+                where += " AND s.workflow_route = ?";
+                params.add(filter.getWorkflowRoute());
+            }
+            var workflows = select(tx, "SELECT " + AGGREGATES + " FROM workflow_index s" + where, params, rs -> {
+                rs.next();
+                return metrics(rs);
+            });
+            var tasks = select(tx, "SELECT " + AGGREGATES + " FROM task_index s" + where, params, rs -> {
+                rs.next();
+                return metrics(rs);
+            });
+            long[] workflowCounts = trendCounts(tx, "workflow_index", where, params, boundaries);
+            long[] taskCounts = trendCounts(tx, "task_index", where, params, boundaries);
+            List<ExecutionStatistics.TrendPoint> trend = new ArrayList<>();
+            for (int i = 0; i < boundaries.size(); i++) {
+                trend.add(new ExecutionStatistics.TrendPoint(boundaries.get(i), workflowCounts[i], taskCounts[i]));
+            }
+            return new ExecutionStatistics.RuntimeOverview(workflows, tasks, granularity, trend);
+        });
+    }
+
+    private long[] trendCounts(Connection tx, String table, String where, List<Object> filterParams,
+            List<Long> boundaries) throws SQLException {
+        // Java 计算浏览器时区的日历边界，避免依赖 MySQL 时区表；SQL 仅聚合计数，不读取实例报文。
+        StringBuilder bucket = new StringBuilder();
+        List<Object> params = new ArrayList<>();
+        if (boundaries.size() == 1) {
+            bucket.append('0');
+        } else {
+            bucket.append("CASE");
+            for (int i = 1; i < boundaries.size(); i++) {
+                bucket.append(" WHEN s.start_time < ? THEN ").append(i - 1);
+                params.add(boundaries.get(i));
+            }
+            bucket.append(" ELSE ").append(boundaries.size() - 1).append(" END");
+        }
+        params.addAll(filterParams);
+        return select(tx, "SELECT " + bucket + " AS time_bucket, COUNT(*) AS calls FROM " + table
+                + " s" + where + " GROUP BY time_bucket", params, rs -> {
+            long[] counts = new long[boundaries.size()];
+            while (rs.next()) counts[rs.getInt("time_bucket")] = rs.getLong("calls");
+            return counts;
+        });
+    }
 
     private ExecutionStatistics.Page aggregate(ExecutionStatistics.Query filter, boolean tasks) {
         return getWithTransaction(tx -> {
