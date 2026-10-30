@@ -388,8 +388,7 @@
   font-size: 11px;
 }
 
-.attemptSelector select,
-.tableToolbar select {
+.attemptSelector select {
   height: 30px;
   min-width: 150px;
   padding: 0 28px 0 9px;
@@ -520,18 +519,10 @@
   min-height: 48px;
   flex: 0 0 48px;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
   padding: 0 16px;
   color: var(--iflow-color-text-muted);
   border-bottom: 1px solid var(--iflow-color-border);
   font-size: 11px;
-}
-
-.tableToolbar label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .tableScroll {
@@ -542,7 +533,7 @@
 
 .taskTable {
   width: 100%;
-  min-width: 1480px;
+  min-width: 1200px;
   border-collapse: collapse;
   table-layout: fixed;
 }
@@ -586,22 +577,13 @@
 }
 
 .taskTable th:nth-child(1), .taskTable td:nth-child(1) { width: 62px; }
-.taskTable th:nth-child(2), .taskTable td:nth-child(2) { width: 150px; }
-.taskTable th:nth-child(3), .taskTable td:nth-child(3) { width: 180px; }
-.taskTable th:nth-child(4), .taskTable td:nth-child(4) { width: 230px; }
-.taskTable th:nth-child(5), .taskTable td:nth-child(5) { width: 110px; }
-.taskTable th:nth-child(6), .taskTable td:nth-child(6),
-.taskTable th:nth-child(7), .taskTable td:nth-child(7),
-.taskTable th:nth-child(8), .taskTable td:nth-child(8) { width: 175px; }
-.taskTable th:nth-child(9), .taskTable td:nth-child(9) { width: 120px; }
-.taskTable th:nth-child(10), .taskTable td:nth-child(10) { width: 120px; }
-
-.taskIdCell {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-}
+.taskTable th:nth-child(2), .taskTable td:nth-child(2) { width: 180px; }
+.taskTable th:nth-child(3), .taskTable td:nth-child(3) { width: 110px; }
+.taskTable th:nth-child(4), .taskTable td:nth-child(4),
+.taskTable th:nth-child(5), .taskTable td:nth-child(5),
+.taskTable th:nth-child(6), .taskTable td:nth-child(6) { width: 200px; }
+.taskTable th:nth-child(7), .taskTable td:nth-child(7) { width: 120px; }
+.taskTable th:nth-child(8), .taskTable td:nth-child(8) { width: 120px; }
 
 .emptyTable {
   height: 160px !important;

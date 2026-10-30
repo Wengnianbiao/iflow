@@ -45,7 +45,7 @@ const MAIN_TABS: Array<[MainTab, string]> = [
   ['timeline', '时间线'],
   ['summary', '摘要'],
   ['io', '工作流输入/输出'],
-  ['json', 'JSON'],
+  ['json', '运行时数据'],
 ]
 
 const TASK_TABS: Array<[TaskTab, string]> = [
@@ -73,7 +73,6 @@ export function ExecutionDetailPage() {
   const [taskTab, setTaskTab] = useState<TaskTab>('summary')
   const [selectedTaskRef, setSelectedTaskRef] = useState('')
   const [selectedTaskId, setSelectedTaskId] = useState('')
-  const [taskStatusFilter, setTaskStatusFilter] = useState('ALL')
   const [leftPanePercent, setLeftPanePercent] = useState(50)
   const [resizing, setResizing] = useState(false)
   const splitRef = useRef<HTMLDivElement>(null)
@@ -103,7 +102,6 @@ export function ExecutionDetailPage() {
     setSelectedTaskRef('')
     setSelectedTaskId('')
     setTaskTab('summary')
-    setTaskStatusFilter('ALL')
     setLeftPanePercent(50)
     void load()
   }, [load, workflowId])
@@ -184,13 +182,6 @@ export function ExecutionDetailPage() {
   const selectedDefinition = activeTaskRef ? taskDefinitionByRef.get(activeTaskRef) : undefined
   const taskAttempts = taskAttemptsByRef.get(activeTaskRef) ?? []
   const selectedIteration = selectedRuntime ? iterationByTaskId.get(selectedRuntime.taskId) : undefined
-  const availableStatuses = useMemo(
-    () => Array.from(new Set(taskRows.map((task) => task.status).filter(Boolean))).sort(),
-    [taskRows],
-  )
-  const visibleTaskRows = taskStatusFilter === 'ALL'
-    ? taskRows
-    : taskRows.filter((task) => task.status === taskStatusFilter)
 
   const displayName = execution?.workflowDefinition?.name?.trim() || '工作流实例'
   const duration = execution?.startTime
@@ -386,21 +377,22 @@ export function ExecutionDetailPage() {
 
           {mainTab === 'tasks' ? (
             <TaskListView
-              rows={visibleTaskRows}
-              allRowsCount={taskRows.length}
+              rows={taskRows}
               selectedTaskId={selectedRuntime?.taskId}
               definitionByRef={taskDefinitionByRef}
               definitionRefByTaskId={definitionRefByTaskId}
-              statusFilter={taskStatusFilter}
-              availableStatuses={availableStatuses}
-              onStatusFilterChange={setTaskStatusFilter}
               onSelect={selectTaskExecution}
-              onCopy={(taskId) => void copyText(taskId, '任务 ID')}
             />
           ) : null}
 
           {mainTab === 'timeline' ? (
-            <TimelineView rows={taskRows} selectedTaskId={selectedRuntime?.taskId} onSelect={selectTaskExecution} />
+            <TimelineView
+              rows={taskRows}
+              selectedTaskId={selectedRuntime?.taskId}
+              definitionByRef={taskDefinitionByRef}
+              definitionRefByTaskId={definitionRefByTaskId}
+              onSelect={selectTaskExecution}
+            />
           ) : null}
 
           {mainTab === 'summary' ? (
@@ -420,7 +412,7 @@ export function ExecutionDetailPage() {
 
           {mainTab === 'json' ? (
             <div className={styles.jsonSinglePane}>
-              <JsonCard title="完整工作流 JSON" value={execution} onCopy={copyText} />
+              <JsonCard title="工作流运行时数据" value={execution} onCopy={copyText} />
             </div>
           ) : null}
         </section>
@@ -517,48 +509,29 @@ export function ExecutionDetailPage() {
 
 function TaskListView({
   rows,
-  allRowsCount,
   selectedTaskId,
   definitionByRef,
   definitionRefByTaskId,
-  statusFilter,
-  availableStatuses,
-  onStatusFilterChange,
   onSelect,
-  onCopy,
 }: {
   rows: TaskExecution[]
-  allRowsCount: number
   selectedTaskId?: string
   definitionByRef: Map<string, WorkflowTask>
   definitionRefByTaskId: Map<string, string>
-  statusFilter: string
-  availableStatuses: string[]
-  onStatusFilterChange: (status: string) => void
   onSelect: (task: TaskExecution) => void
-  onCopy: (taskId: string) => void
 }) {
   return (
     <div className={styles.tablePane}>
       <div className={styles.tableToolbar}>
-        <span>共 {allRowsCount} 个任务{rows.length !== allRowsCount ? `，当前显示 ${rows.length} 个` : ''}</span>
-        <label>
-          <span>状态</span>
-          <select value={statusFilter} onChange={(event) => onStatusFilterChange(event.target.value)}>
-            <option value="ALL">全部状态</option>
-            {availableStatuses.map((status) => <option key={status} value={status}>{statusText(status)}</option>)}
-          </select>
-        </label>
+        <span>共 {rows.length} 个任务</span>
       </div>
       <div className={styles.tableScroll}>
         <table className={styles.taskTable}>
           <thead>
             <tr>
-              <th title="任务的执行序号">Seq.</th>
-              <th title="任务执行的唯一标识">任务 ID</th>
+              <th title="任务的执行序号">序号</th>
               <th>任务名称</th>
-              <th title="任务引用名称">Ref</th>
-              <th>Type</th>
+              <th>任务类型</th>
               <th>调度时间</th>
               <th>开始时间</th>
               <th>结束时间</th>
@@ -574,25 +547,16 @@ function TaskListView({
                 onClick={() => onSelect(task)}
               >
                 <td>{task.seq ?? '-'}</td>
-                <td>
-                  <span className={styles.taskIdCell}>
-                    <button type="button" className={styles.inlineLink} title={task.taskId}>{shortId(task.taskId)}</button>
-                    {task.taskId ? (
-                      <CopyButton label="复制任务 ID" onClick={(event) => { event.stopPropagation(); onCopy(task.taskId) }} />
-                    ) : null}
-                  </span>
-                </td>
                 <td>{task.taskDefName || definitionByRef.get(definitionRefByTaskId.get(task.taskId) || task.referenceTaskName)?.name || '-'}</td>
-                <td title={task.referenceTaskName}>{task.referenceTaskName || '-'}</td>
                 <td>{task.taskType || definitionByRef.get(definitionRefByTaskId.get(task.taskId) || task.referenceTaskName)?.type || '-'}</td>
-                <td>{formatTime(task.scheduledTime)}</td>
-                <td>{formatTime(task.startTime)}</td>
-                <td>{formatTime(task.endTime)}</td>
+                <td>{formatTime(task.scheduledTime, true)}</td>
+                <td>{formatTime(task.startTime, true)}</td>
+                <td>{formatTime(task.endTime, true)}</td>
                 <td>{taskDuration(task)}</td>
                 <td><StatusBadge status={task.status} /></td>
               </tr>
             ))}
-            {!rows.length ? <tr><td colSpan={10} className={styles.emptyTable}>暂无符合条件的任务</td></tr> : null}
+            {!rows.length ? <tr><td colSpan={8} className={styles.emptyTable}>暂无任务</td></tr> : null}
           </tbody>
         </table>
       </div>
@@ -603,10 +567,14 @@ function TaskListView({
 function TimelineView({
   rows,
   selectedTaskId,
+  definitionByRef,
+  definitionRefByTaskId,
   onSelect,
 }: {
   rows: TaskExecution[]
   selectedTaskId?: string
+  definitionByRef: Map<string, WorkflowTask>
+  definitionRefByTaskId: Map<string, string>
   onSelect: (task: TaskExecution) => void
 }) {
   const now = Date.now()
@@ -642,7 +610,7 @@ function TimelineView({
                 onClick={() => onSelect(task)}
               >
                 <span className={styles.timelineLabel}>
-                  <strong>{task.referenceTaskName || task.taskDefName || '-'}</strong>
+                  <strong>{task.taskDefName || definitionByRef.get(definitionRefByTaskId.get(task.taskId) || task.referenceTaskName)?.name || '-'}</strong>
                   <small>{task.taskType || '-'} · {statusText(task.status)}</small>
                 </span>
                 <span className={styles.timelineTrack}>
