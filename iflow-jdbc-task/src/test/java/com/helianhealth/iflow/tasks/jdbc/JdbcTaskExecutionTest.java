@@ -39,6 +39,9 @@ class JdbcTaskExecutionTest {
         assertEquals(List.of(Map.of("id", 42)), task.outputAsMap().get("rows"));
         assertEquals(1, task.outputAsMap().get("rowCount"));
         assertEquals(0, task.outputAsMap().get("updateCount"));
+        assertEquals("SELECT 42 AS id", task.getInputData().get("sql"));
+        assertEquals("SELECT $.id AS id", task.getInputData().get("sqlTemplate"));
+        assertEquals(Map.of("id", 42), task.getInputData().get("payload"));
         assertTrue(provider.opened.isClosed());
     }
 
@@ -109,6 +112,30 @@ class JdbcTaskExecutionTest {
         assertEquals(Map.of("retained", "previous output"), task.getOutputData());
         assertNotNull(provider.opened);
         assertTrue(provider.opened.isClosed());
+        assertEquals("SELECT * FROM missing_table", task.getInputData().get("sql"));
+    }
+
+    @Test
+    void recordsSqlForImmutableInputAndRecomputesItOnAnotherAttempt() {
+        RecordingProvider provider = new RecordingProvider();
+        TaskModel task = new TaskModel();
+        String value = "A'\\B";
+        task.setInputData(Map.of("url", provider.url, "vendor", "MYSQL", "sqlTemplate", "SELECT $.text AS result",
+                "payload", Map.of("text", value), "sql", "old display SQL"));
+        JdbcTask jdbcTask = new JdbcTask(provider, new ObjectMapper());
+
+        jdbcTask.start(workflow, task, null);
+
+        assertEquals(TaskModel.Status.COMPLETED, task.getStatus(), task.getReasonForInCompletion());
+        assertEquals("SELECT 'A''\\\\B' AS result", task.getInputData().get("sql"));
+        assertEquals(List.of(Map.of("result", value)), task.outputAsMap().get("rows"));
+        task.getInputData().put("payload", Map.of("text", "new value"));
+
+        jdbcTask.start(workflow, task, null);
+
+        assertEquals(TaskModel.Status.COMPLETED, task.getStatus(), task.getReasonForInCompletion());
+        assertEquals("SELECT 'new value' AS result", task.getInputData().get("sql"));
+        assertEquals(List.of(Map.of("result", "new value")), task.outputAsMap().get("rows"));
     }
 
     @ParameterizedTest

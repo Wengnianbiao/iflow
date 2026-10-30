@@ -1,23 +1,14 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { formatXml, xmlDocuments } from '../src/components/ui/jsonViewerContent.ts'
+import { formatXml, isXml } from '../src/components/ui/jsonViewerContent.ts'
 
-test('finds XML in workflow and task payloads without changing the original strings', () => {
+test('recognises XML bodies without treating full runtime objects or templates as the body', () => {
   const body = '  <soap:Envelope><soap:Body><result>成功</result></soap:Body></soap:Envelope>\n'
-  const value = { tasks: [{ inputData: { soapTemplate: '<request/>', body }, outputData: { body } }], count: 2, empty: null }
-  assert.deepEqual(xmlDocuments(value), [
-    { path: '$.tasks[0].inputData.soapTemplate', content: '<request/>' },
-    { path: '$.tasks[0].inputData.body', content: body },
-    { path: '$.tasks[0].outputData.body', content: body },
-  ])
-  assert.deepEqual(xmlDocuments(body), [{ path: '$', content: body }])
-  assert.deepEqual(xmlDocuments({ text: '普通文本', expression: 'a < b > c', incomplete: '<request', json: '{"ok":true}' }), [])
-})
-
-test('XML field paths distinguish dots, brackets and array indexes in keys', () => {
-  assert.deepEqual(xmlDocuments({ 'a.b': ['<result/>'], a: { b: '<request/>' } }).map(({ path }) => path), [
-    '$["a.b"][0]', '$.a.b',
-  ])
+  assert.equal(isXml(body), true)
+  assert.equal(isXml('<request/>'), true)
+  for (const value of [null, { soapTemplate: '<request/>', body }, '普通文本', 'a < b > c', '<request', '{"ok":true}']) {
+    assert.equal(isXml(value), false)
+  }
 })
 
 test('formats compact SOAP for folding while preserving namespaces, attributes and entities', () => {

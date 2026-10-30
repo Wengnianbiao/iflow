@@ -27,16 +27,17 @@ import { getWorkflowExecution, terminateWorkflow } from '@/api/workflowExecution
 import { ConductorFlowCanvas } from '@/components/flow/ConductorFlowCanvas'
 import { useMessageContext } from '@/components/providers/messageContext'
 import { JsonViewer, serializeJson } from '@/components/ui/JsonViewer'
-import { xmlDocuments } from '@/components/ui/jsonViewerContent'
+import { isXml } from '@/components/ui/jsonViewerContent'
 import type { OnMount } from '@monaco-editor/react'
 import type { WorkflowTask } from '@/types/workflow'
 import type { TaskExecution, WorkflowExecution } from '@/types/workflowExecution'
 import { formatDuration, formatTime, statusText } from './ExecutionExplorerPage'
 import { indexTaskExecutions } from './taskExecutionIndex'
+import { focusedTaskData } from './taskInputOutput'
 import styles from './ExecutionDetailPage.module.css'
 
 type MainTab = 'diagram' | 'tasks' | 'timeline' | 'summary' | 'io' | 'json'
-type TaskTab = 'summary' | 'input' | 'output' | 'logs' | 'json' | 'definition'
+type TaskTab = 'summary' | 'input' | 'output' | 'json'
 type JsonLayout = 'grid' | 'list'
 
 const MAIN_TABS: Array<[MainTab, string]> = [
@@ -45,16 +46,14 @@ const MAIN_TABS: Array<[MainTab, string]> = [
   ['timeline', '时间线'],
   ['summary', '摘要'],
   ['io', '工作流输入/输出'],
-  ['json', '运行时数据'],
+  ['json', '运行时JSON'],
 ]
 
 const TASK_TABS: Array<[TaskTab, string]> = [
   ['summary', '摘要'],
   ['input', '输入'],
   ['output', '输出'],
-  ['logs', '日志'],
-  ['json', 'JSON'],
-  ['definition', '定义'],
+  ['json', '运行时JSON'],
 ]
 
 const TERMINAL_WORKFLOW_STATUSES = new Set(['COMPLETED', 'FAILED', 'TIMED_OUT', 'TERMINATED', 'INTERRUPTED'])
@@ -412,7 +411,7 @@ export function ExecutionDetailPage() {
 
           {mainTab === 'json' ? (
             <div className={styles.jsonSinglePane}>
-              <JsonCard title="工作流运行时数据" value={execution} onCopy={copyText} />
+              <JsonCard title="工作流运行时JSON" value={execution} onCopy={copyText} />
             </div>
           ) : null}
         </section>
@@ -441,12 +440,7 @@ export function ExecutionDetailPage() {
                     </h2>
                     <StatusBadge status={selectedRuntime?.status || 'NOT_SCHEDULED'} />
                   </div>
-                  {selectedRuntime?.taskId ? (
-                    <div className={styles.taskIdLine}>
-                      <span title={selectedRuntime.taskId}>{selectedRuntime.taskId}</span>
-                      <CopyButton label="复制任务 ID" onClick={() => void copyText(selectedRuntime.taskId, '任务 ID')} />
-                    </div>
-                  ) : <span className={styles.notScheduled}>该任务尚未调度</span>}
+                  {!selectedRuntime ? <span className={styles.notScheduled}>该任务尚未调度</span> : null}
 
                   {taskAttempts.length > 1 || selectedIteration != null ? (
                     <label className={styles.attemptSelector}>
@@ -462,7 +456,7 @@ export function ExecutionDetailPage() {
                             : `#${task.retryCount ?? 0}`
                           return (
                             <option key={task.taskId} value={task.taskId}>
-                              {label} · {statusText(task.status)} · {shortId(task.taskId)}
+                              {label} · {statusText(task.status)}
                             </option>
                           )
                         })}
@@ -474,7 +468,7 @@ export function ExecutionDetailPage() {
 
               <nav className={`${styles.contextTabs} ${styles.taskTabs}`} aria-label="任务详情">
                 {TASK_TABS.map(([id, label]) => {
-                  const disabled = !selectedRuntime && !['summary', 'definition'].includes(id)
+                  const disabled = !selectedRuntime && id !== 'summary'
                   return (
                     <button
                       key={id}
@@ -493,11 +487,18 @@ export function ExecutionDetailPage() {
                 {taskTab === 'summary' ? (
                   <KeyValueTable rows={taskSummaryRows(selectedRuntime, selectedDefinition, activeTaskRef, selectedIteration)} compact />
                 ) : null}
-                {taskTab === 'input' ? <JsonCard title="任务输入" value={selectedRuntime?.inputData} onCopy={copyText} compact /> : null}
-                {taskTab === 'output' ? <JsonCard title="任务输出" value={selectedRuntime?.outputData} onCopy={copyText} compact /> : null}
-                {taskTab === 'logs' ? <EmptyPane text="当前 iFlow 执行接口未提供任务日志" compact /> : null}
-                {taskTab === 'json' ? <JsonCard title="任务执行 JSON" value={selectedRuntime} onCopy={copyText} compact /> : null}
-                {taskTab === 'definition' ? <JsonCard title="任务定义 / 运行配置" value={selectedDefinition} onCopy={copyText} compact /> : null}
+                {taskTab === 'input' || taskTab === 'output' ? (
+                  <JsonCard
+                    key={`${selectedRuntime?.taskId}-${taskTab}`}
+                    title={taskTab === 'input' ? '任务输入' : '任务输出'}
+                    value={taskTab === 'input' ? selectedRuntime?.inputData : selectedRuntime?.outputData}
+                    taskType={selectedRuntime?.taskType || selectedDefinition?.type}
+                    taskDirection={taskTab}
+                    onCopy={copyText}
+                    compact
+                  />
+                ) : null}
+                {taskTab === 'json' ? <JsonCard title="任务运行时JSON" value={selectedRuntime} onCopy={copyText} compact /> : null}
               </div>
             </aside>
           </>
@@ -689,6 +690,8 @@ function JsonCard({
   onToggleFullScreen,
   fullScreen = false,
   compact = false,
+  taskType,
+  taskDirection,
 }: {
   title: string
   value: unknown
@@ -696,12 +699,17 @@ function JsonCard({
   onToggleFullScreen?: () => void
   fullScreen?: boolean
   compact?: boolean
+  taskType?: string
+  taskDirection?: 'input' | 'output'
 }) {
-  const documents = useMemo(() => xmlDocuments(value), [value])
-  const [selectedPath, setSelectedPath] = useState('')
-  const xmlDocument = documents.find((item) => item.path === (selectedPath || '$'))
-  const content = xmlDocument?.content ?? serializeJson(value)
-  const language = xmlDocument ? 'xml' : 'json'
+  const [showFull, setShowFull] = useState(false)
+  const focused = taskDirection != null && !showFull
+  const displayed = focused ? focusedTaskData(taskType || '', taskDirection, value) ?? null : value
+  const missingSql = focused && taskType === 'JDBC' && taskDirection === 'input' && displayed == null
+  const language = focused && taskType === 'JDBC' && taskDirection === 'input' ? 'sql'
+    : !showFull && isXml(displayed) ? 'xml'
+    : focused && typeof displayed === 'string' ? 'plaintext' : 'json'
+  const content = language === 'json' ? serializeJson(displayed) : String(displayed ?? '')
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null)
   const [editorReady, setEditorReady] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -716,16 +724,12 @@ function JsonCard({
       <header>
         <h3>{title}</h3>
         <div>
-          {documents.length ? (
-            <select
-              className={styles.documentSelector}
-              aria-label={`${title}查看内容`}
-              value={xmlDocument?.path ?? 'json'}
-              onChange={(event) => setSelectedPath(event.target.value)}
-            >
-              <option value="json">完整 JSON</option>
-              {documents.map((item) => <option key={item.path} value={item.path}>{item.path === '$' ? 'XML' : `XML · ${item.path}`}</option>)}
-            </select>
+          {taskDirection ? (
+            <label className={styles.autoRefresh}>
+              <input type="checkbox" role="switch" aria-label={`${title}显示全量`} checked={showFull}
+                onChange={(event) => setShowFull(event.target.checked)} />
+              <span />显示全量
+            </label>
           ) : null}
           <button type="button" aria-label={`折叠全部${title}`} title="折叠全部" disabled={!editorReady} onClick={() => editorRef.current?.trigger('toolbar', 'editor.foldAll', undefined)}>
             <MinusSquareIcon size={16} />
@@ -733,7 +737,7 @@ function JsonCard({
           <button type="button" aria-label={`展开全部${title}`} title="展开全部" disabled={!editorReady} onClick={() => editorRef.current?.trigger('toolbar', 'editor.unfoldAll', undefined)}>
             <PlusSquareIcon size={16} />
           </button>
-          <button type="button" aria-label={`复制${title}`} title={`复制${title}`} onClick={() => void copy()}>
+          <button type="button" aria-label={`复制${title}`} title={`复制${title}`} disabled={missingSql} onClick={() => void copy()}>
             {copied ? <CheckIcon size={16} /> : <CopyIcon size={16} />}
           </button>
           {onToggleFullScreen ? (
@@ -743,16 +747,18 @@ function JsonCard({
           ) : null}
         </div>
       </header>
-      <JsonViewer key={`${title}-${xmlDocument?.path ?? 'json'}`} content={content} language={language} ariaLabel={`${title} ${language.toUpperCase()}`} onMount={(editor) => {
-        editorRef.current = editor
-        setEditorReady(true)
-        editor.onDidDispose(() => {
-          if (editorRef.current === editor) {
-            editorRef.current = null
-            setEditorReady(false)
-          }
-        })
-      }} />
+      {missingSql ? <EmptyPane text="该次执行未记录实际 SQL，可切换查看全量数据" compact /> : (
+        <JsonViewer key={`${title}-${showFull}-${language}`} content={content} language={language} ariaLabel={`${title} ${language.toUpperCase()}`} onMount={(editor) => {
+          editorRef.current = editor
+          setEditorReady(true)
+          editor.onDidDispose(() => {
+            if (editorRef.current === editor) {
+              editorRef.current = null
+              setEditorReady(false)
+            }
+          })
+        }} />
+      )}
     </section>
   )
 }
@@ -816,7 +822,6 @@ function taskSummaryRows(runtime: TaskExecution | undefined, definition: Workflo
     { label: '任务引用', value: ref, monospace: true },
   )
   if (!runtime) return rows
-  if (runtime.taskId) rows.push({ label: '任务执行 ID', value: runtime.taskId, monospace: true })
   if (iteration != null) rows.push({ label: '循环轮次', value: iteration })
   rows.push({ label: '重试次数', value: runtime.retryCount ?? 0 })
   if (runtime.scheduledTime) rows.push({ label: '调度时间', value: formatTime(runtime.scheduledTime) })
@@ -873,11 +878,6 @@ function taskDuration(task: TaskExecution) {
   const start = task.startTime || task.scheduledTime
   if (!start) return '-'
   return formatDuration(Math.max(0, ((task.endTime && task.endTime > 0) ? task.endTime : Date.now()) - start))
-}
-
-function shortId(value?: string) {
-  if (!value) return '-'
-  return value.length > 12 ? `${value.slice(0, 4)}…${value.slice(-4)}` : value
 }
 
 function formatTimelineTick(value: number) {

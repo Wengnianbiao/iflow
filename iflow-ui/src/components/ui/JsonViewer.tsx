@@ -14,7 +14,7 @@ export function serializeJson(value: unknown) {
 
 export function JsonViewer({ content, language, ariaLabel, onMount }: {
   content: string
-  language: 'json' | 'xml'
+  language: 'json' | 'xml' | 'sql' | 'plaintext'
   ariaLabel: string
   onMount: OnMount
 }) {

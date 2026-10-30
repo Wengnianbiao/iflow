@@ -21,6 +21,7 @@ import org.springframework.stereotype.Component;
 
 import java.sql.Connection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -34,6 +35,7 @@ import java.util.Map;
  * + {@link ParametersUtils} 在调度阶段解析，把上游业务数据搬进
  * {@code payload}（固定的 Key / Value 对象）；执行阶段由 {@link SqlTemplate} 解析
  * {@code sqlTemplate} 中的 {@code $.字段}，从 payload 取值并改写成绑定参数。
+ * 带实际参数值的展示 SQL 写入 {@code inputData.sql}，模板与 payload 原样保留。
  *
  * <p>支持 {@link Operation#QUERY} 与 {@link Operation#UPDATE}。
  * 执行结果写入 {@code outputData} 根级（{@code rows}/{@code rowCount}/{@code updateCount}）。
@@ -103,6 +105,10 @@ public class JdbcTask extends WorkflowSystemTask {
             task.setStatus(TaskModel.Status.FAILED);
             return;
         }
+
+        Map<String, Object> inputData = new LinkedHashMap<>(task.getInputData());
+        inputData.put("sql", bound.renderedSql());
+        task.setInputData(inputData);
 
         int queryTimeoutMs = jdbcConnectionProvider.resolveQueryTimeoutMs(input);
         int queryTimeoutSeconds = JdbcConnectionUtils.toQueryTimeoutSeconds(queryTimeoutMs);
@@ -178,6 +184,9 @@ public class JdbcTask extends WorkflowSystemTask {
         /** SQL 模板；{@code $.字段} 读取 payload，{@code IN $.codes} 自动补括号并展开数组。 */
         private String sqlTemplate;
 
+        /** 带实际参数值的 SQL，仅用于运行时展示；执行仍使用命名参数绑定。 */
+        private String sql;
+
         /** 操作类型，默认 QUERY */
         private Operation operation;
 
@@ -238,6 +247,14 @@ public class JdbcTask extends WorkflowSystemTask {
 
         public void setSqlTemplate(String sqlTemplate) {
             this.sqlTemplate = sqlTemplate;
+        }
+
+        public String getSql() {
+            return sql;
+        }
+
+        public void setSql(String sql) {
+            this.sql = sql;
         }
 
         public Operation getOperation() {

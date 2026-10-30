@@ -1,14 +1,6 @@
-export function xmlDocuments(value: unknown, path = '$'): Array<{ path: string; content: string }> {
-  if (typeof value === 'string') {
-    return /^\s*<(?:\?xml\b|!--|[\w:.-]+(?:\s|\/?>))/.test(value) && />\s*$/.test(value)
-      ? [{ path, content: value }]
-      : []
-  }
-  if (value == null || typeof value !== 'object') return []
-  return Object.entries(value).flatMap(([key, item]) => xmlDocuments(item,
-    Array.isArray(value) ? `${path}[${key}]`
-      : /^[A-Za-z_$][\w$]*$/.test(key) ? `${path}.${key}` : `${path}[${JSON.stringify(key)}]`,
-  ))
+export function isXml(value: unknown): value is string {
+  return typeof value === 'string'
+    && /^\s*<(?:\?xml\b|!--|[\w:.-]+(?:\s|\/?>))/.test(value) && />\s*$/.test(value)
 }
 
 type XmlElement = { open: string; close: string; children: Array<XmlElement | string> }

@@ -6,11 +6,12 @@ import com.jayway.jsonpath.DocumentContext;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.StringJoiner;
 
 /**
  * 从 payload 读取 SQL 中的确定路径（如 $.id、$.items[0].code），改写为命名绑定参数。
  * IN $.codes 自动补齐括号；IN ($.codes) 沿用模板括号。列表保留原始类型，交给
- * NamedParameterJdbcTemplate 展开，任何值都不会拼接进 SQL。
+ * NamedParameterJdbcTemplate 展开；执行 SQL 保持参数绑定，另生成带参数值的 SQL 供运行时展示。
  * SQL 字符串、引用标识符及注释原样保留，不解释其中的任务路径。
  */
 final class SqlTemplate {
@@ -19,10 +20,11 @@ final class SqlTemplate {
 
     private SqlTemplate() {}
 
-    record Bound(String sql, Map<String, Object> parameters) {}
+    record Bound(String sql, Map<String, Object> parameters, String renderedSql) {}
 
     static Bound bind(String sql, JdbcVendor vendor, Map<String, Object> payload) {
         StringBuilder rewritten = new StringBuilder(sql.length());
+        StringBuilder rendered = new StringBuilder(sql.length());
         Map<String, Object> bound = new LinkedHashMap<>();
         DocumentContext root = null;
         String previousToken = "";
@@ -31,18 +33,21 @@ final class SqlTemplate {
             char c = sql.charAt(i);
             if (Character.isWhitespace(c)) {
                 rewritten.append(c);
+                rendered.append(c);
                 i++;
                 continue;
             }
             int commentEnd = endOfComment(sql, i, vendor);
             if (commentEnd > i) {
                 rewritten.append(sql, i, commentEnd);
+                rendered.append(sql, i, commentEnd);
                 i = commentEnd;
                 continue;
             }
             int literalEnd = endOfLiteral(sql, i, vendor);
             if (literalEnd > i) {
                 rewritten.append(sql, i, literalEnd);
+                rendered.append(sql, i, literalEnd);
                 previousToken = "literal";
                 i = literalEnd;
                 continue;
@@ -63,6 +68,9 @@ final class SqlTemplate {
                 if (needsParentheses) rewritten.append('(');
                 rewritten.append(':').append(name);
                 if (needsParentheses) rewritten.append(')');
+                if (needsParentheses) rendered.append('(');
+                rendered.append(renderValue(value, vendor));
+                if (needsParentheses) rendered.append(')');
                 previousToken = "parameter";
                 i = end;
                 continue;
@@ -75,9 +83,26 @@ final class SqlTemplate {
             }
             previousToken = sql.substring(i, end);
             rewritten.append(previousToken);
+            rendered.append(previousToken);
             i = end;
         }
-        return new Bound(rewritten.toString(), bound);
+        return new Bound(rewritten.toString(), bound, rendered.toString());
+    }
+
+    private static String renderValue(Object value, JdbcVendor vendor) {
+        if (value == null) return "NULL";
+        if (value instanceof Collection<?> values) {
+            StringJoiner joined = new StringJoiner(", ");
+            for (Object element : values) joined.add(renderValue(element, vendor));
+            return joined.toString();
+        }
+        if (value instanceof Number) return value.toString();
+        if (value instanceof Boolean flag) {
+            return isPostgres(vendor) ? (flag ? "TRUE" : "FALSE") : (flag ? "1" : "0");
+        }
+        String text = value.toString();
+        if (vendor == JdbcVendor.MYSQL) text = text.replace("\\", "\\\\");
+        return "'" + text.replace("'", "''") + "'";
     }
 
     private static Object readValue(DocumentContext root, String path) {

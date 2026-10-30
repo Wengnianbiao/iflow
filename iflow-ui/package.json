@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "test:mapping": "node --experimental-strip-types --test tests/mappingConfig.test.mjs",
-    "test:executions": "node --experimental-strip-types --test tests/workflowSearch.test.mjs tests/taskExecutionIndex.test.mjs tests/jsonViewerContent.test.mjs",
+    "test:executions": "node --experimental-strip-types --test tests/workflowSearch.test.mjs tests/taskExecutionIndex.test.mjs tests/taskInputOutput.test.mjs tests/jsonViewerContent.test.mjs",
     "test:statistics": "node --experimental-strip-types --test tests/executionStatistics.test.mjs",
     "test:definition": "node --test tests/workflowDefinition.test.mjs",
     "build": "tsc --noEmit && vite build",

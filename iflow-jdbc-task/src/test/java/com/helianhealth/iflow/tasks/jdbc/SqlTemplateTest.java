@@ -22,6 +22,7 @@ class SqlTemplateTest {
                 JdbcVendor.MYSQL, Map.of("barcode", hostile, "minAge", 18, "active", true));
         assertEquals("SELECT * FROM t WHERE barcode=:_p0 AND age>:_p1 AND active=:_p2", bound.sql());
         assertEquals(Map.of("_p0", hostile, "_p1", 18, "_p2", true), bound.parameters());
+        assertEquals("SELECT * FROM t WHERE barcode='A001'' OR 1=1 --' AND age>18 AND active=1", bound.renderedSql());
     }
 
     @ParameterizedTest
@@ -40,6 +41,7 @@ class SqlTemplateTest {
                 : predicate.startsWith("in") ? "SELECT * FROM t WHERE code in (?, ?)"
                 : predicate.startsWith("IN(") ? "SELECT * FROM t WHERE code IN(?, ?)"
                 : "SELECT * FROM t WHERE code IN (?, ?)", expanded);
+        assertEquals(expanded.replace("?, ?", "'A001', 'A002'"), bound.renderedSql());
     }
 
     @Test
@@ -79,6 +81,7 @@ class SqlTemplateTest {
                 + " FROM t /* $.unused */ WHERE id=$.id -- $.unused\n# $.unused";
         SqlTemplate.Bound bound = SqlTemplate.bind(sql, JdbcVendor.MYSQL, Map.of("id", 7));
         assertEquals(sql.replace("id=$.id", "id=:_p0"), bound.sql());
+        assertEquals(sql.replace("id=$.id", "id=7"), bound.renderedSql());
         assertEquals(Map.of("_p0", 7), bound.parameters());
     }
 
@@ -89,6 +92,7 @@ class SqlTemplateTest {
                     + " doc #> '{a,b}', $.id::text /* outer /* nested */ $.raw */";
             SqlTemplate.Bound bound = SqlTemplate.bind(sql, vendor, Map.of("id", 7));
             assertEquals(sql.replace("$.id::", ":_p0::"), bound.sql());
+            assertEquals(sql.replace("$.id::", "7::"), bound.renderedSql());
             assertEquals(Map.of("_p0", 7), bound.parameters());
         }
     }
@@ -122,6 +126,20 @@ class SqlTemplateTest {
         assertEquals(2, bound.parameters().size());
         assertNull(bound.parameters().get("_p0"));
         assertNull(bound.parameters().get("_p1"));
+        assertEquals("SELECT NULL, NULL", bound.renderedSql());
+    }
+
+    @Test
+    void rendersTypedValuesAndEscapesStringValuesForDisplay() {
+        for (JdbcVendor vendor : JdbcVendor.values()) {
+            SqlTemplate.Bound bound = SqlTemplate.bind("SELECT $.text, $.values, $.enabled", vendor,
+                    Map.of("text", "O'Brien\\path", "values", Arrays.asList(1, "2", null, false), "enabled", true));
+            boolean postgres = List.of(JdbcVendor.POSTGRES, JdbcVendor.OPENGAUSS, JdbcVendor.KINGBASE).contains(vendor);
+            String text = vendor == JdbcVendor.MYSQL ? "'O''Brien\\\\path'" : "'O''Brien\\path'";
+            assertEquals("SELECT " + text + ", 1, '2', NULL, " + (postgres ? "FALSE, TRUE" : "0, 1"), bound.renderedSql());
+            assertEquals("SELECT :_p0, :_p1, :_p2", bound.sql());
+            assertEquals("O'Brien\\path", bound.parameters().get("_p0"));
+        }
     }
 
     @Test
