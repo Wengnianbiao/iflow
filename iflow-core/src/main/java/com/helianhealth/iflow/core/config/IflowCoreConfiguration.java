@@ -20,7 +20,7 @@ import static java.util.stream.Collectors.toMap;
 @Configuration
 @EnableConfigurationProperties(IflowProperties.class)
 @ComponentScan(basePackages = "com.helianhealth.iflow.core")
-public class AgentCoreConfiguration {
+public class IflowCoreConfiguration {
 
     public static final String TASK_MAPPERS_BY_TASK_TYPE = "taskMappersByTaskType";
     public static final String ASYNC_TASK_EXECUTOR = "asyncTaskExecutor";

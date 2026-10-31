@@ -1,6 +1,6 @@
 package com.helianhealth.iflow.console.config;
 
-import com.helianhealth.iflow.core.config.AgentCoreConfiguration;
+import com.helianhealth.iflow.core.config.IflowCoreConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.ComponentScan;
@@ -14,6 +14,6 @@ import org.springframework.context.annotation.Import;
 @ConditionalOnProperty(prefix = "agent.console", name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(ConsoleProperties.class)
 @ComponentScan(basePackages = "com.helianhealth.iflow.console")
-@Import(AgentCoreConfiguration.class)
+@Import(IflowCoreConfiguration.class)
 public class ConsoleAutoConfiguration {
 }

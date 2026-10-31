@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.helianhealth.iflow.common.domain.metadata.task.TaskType;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
-import com.helianhealth.iflow.core.config.AgentCoreConfiguration;
+import com.helianhealth.iflow.core.config.IflowCoreConfiguration;
 import com.helianhealth.iflow.core.config.IflowProperties;
 import com.helianhealth.iflow.core.config.InMemoryQueueConfiguration;
 import com.helianhealth.iflow.core.dal.ExecutionDAOFacade;
@@ -131,7 +131,7 @@ class DoWhileWiringTest {
             return mock(MetadataService.class);
         }
 
-        @Bean(name = AgentCoreConfiguration.ASYNC_TASK_EXECUTOR)
+        @Bean(name = IflowCoreConfiguration.ASYNC_TASK_EXECUTOR)
         Executor memoryExecutor() {
             return command -> {
                 throw new AssertionError("同步循环体不应提交异步任务");
@@ -149,7 +149,7 @@ class DoWhileWiringTest {
             return dao;
         }
 
-        @Bean(name = AgentCoreConfiguration.TASK_MAPPERS_BY_TASK_TYPE)
+        @Bean(name = IflowCoreConfiguration.TASK_MAPPERS_BY_TASK_TYPE)
         Map<String, TaskMapper> taskMappers(ParametersUtils parametersUtils) {
             return Map.of(TaskType.TASK_TYPE_DO_WHILE, new DoWhileTaskMapper(parametersUtils),
                     TaskType.TASK_TYPE_NOOP, new NoopTaskMapper());

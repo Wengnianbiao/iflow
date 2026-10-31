@@ -24,7 +24,7 @@ public class InMemoryQueueConfiguration {
     @Bean
     public ExecutionQueue inMemoryExecutionQueue(
             QueueDAO queueDAO,
-            @Qualifier(AgentCoreConfiguration.ASYNC_TASK_EXECUTOR) Executor taskExecutor) {
+            @Qualifier(IflowCoreConfiguration.ASYNC_TASK_EXECUTOR) Executor taskExecutor) {
         return new InMemoryExecutionQueue(queueDAO, taskExecutor);
     }
 }

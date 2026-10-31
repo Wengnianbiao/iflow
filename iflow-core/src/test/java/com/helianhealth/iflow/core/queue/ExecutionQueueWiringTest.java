@@ -1,6 +1,6 @@
 package com.helianhealth.iflow.core.queue;
 
-import com.helianhealth.iflow.core.config.AgentCoreConfiguration;
+import com.helianhealth.iflow.core.config.IflowCoreConfiguration;
 import com.helianhealth.iflow.core.config.InMemoryQueueConfiguration;
 import com.helianhealth.iflow.core.dao.QueueDAO;
 import org.junit.jupiter.api.Test;
@@ -78,7 +78,7 @@ class ExecutionQueueWiringTest {
             context.getEnvironment().getPropertySources().addFirst(
                     new MapPropertySource("queue-type", Map.of("iflow.queue.type", type)));
         }
-        context.registerBean(AgentCoreConfiguration.ASYNC_TASK_EXECUTOR, Executor.class,
+        context.registerBean(IflowCoreConfiguration.ASYNC_TASK_EXECUTOR, Executor.class,
                 () -> command -> { throw new AssertionError("wiring must not execute tasks"); });
         return context;
     }

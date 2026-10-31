@@ -3,7 +3,7 @@ package com.helianhealth.iflow.core.execution;
 import com.helianhealth.iflow.common.domain.metadata.task.TaskType;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
-import com.helianhealth.iflow.core.config.AgentCoreConfiguration;
+import com.helianhealth.iflow.core.config.IflowCoreConfiguration;
 import com.helianhealth.iflow.core.dao.ExecutionDAO;
 import com.helianhealth.iflow.core.exception.TerminateWorkflowException;
 import com.helianhealth.iflow.core.execution.mapper.TaskMapper;
@@ -60,7 +60,7 @@ public class DeciderService {
             IDGenerator idGenerator,
             ParametersUtils parametersUtils,
             SystemTaskRegistry systemTaskRegistry,
-            @Qualifier(AgentCoreConfiguration.TASK_MAPPERS_BY_TASK_TYPE)
+            @Qualifier(IflowCoreConfiguration.TASK_MAPPERS_BY_TASK_TYPE)
                     Map<String, TaskMapper> taskMappers) {
         this.idGenerator = idGenerator;
         this.parametersUtils = parametersUtils;

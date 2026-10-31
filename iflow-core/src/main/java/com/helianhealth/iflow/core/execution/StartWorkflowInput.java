@@ -21,7 +21,7 @@ public class StartWorkflowInput {
 
     public StartWorkflowInput(StartWorkflowRequest request) {
         if (request == null || !StringUtils.hasText(request.getRoute())) {
-            throw new IllegalArgumentException("工作流 route 不能为空");
+            throw new IllegalArgumentException("工作流路由(route)不能为空");
         }
         this.route = request.getRoute();
         this.version = request.getVersion();

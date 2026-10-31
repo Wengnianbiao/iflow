@@ -1,6 +1,5 @@
 package com.helianhealth.iflow.core.dal;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.helianhealth.iflow.core.dao.ExecutionDAO;
 import com.helianhealth.iflow.core.exception.TransientException;
 import com.helianhealth.iflow.core.model.TaskModel;
@@ -17,9 +16,6 @@ import java.util.Set;
 
 /**
  * 执行态数据访问门面。
- *
- * <p>执行引擎通过本门面访问主执行数据。查询使用独立 IndexDAO；MySQL 实现在主记录写入事务中
- * 原子维护本地索引。引擎推进及锁内读取不依赖查询索引。
  */
 @Component
 public class ExecutionDAOFacade {
@@ -28,10 +24,7 @@ public class ExecutionDAOFacade {
 
     private final ExecutionDAO executionDAO;
 
-    private final ObjectMapper objectMapper;
-
-    public ExecutionDAOFacade(ExecutionDAO executionDAO, ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
+    public ExecutionDAOFacade(ExecutionDAO executionDAO) {
         this.executionDAO = executionDAO;
     }
 
