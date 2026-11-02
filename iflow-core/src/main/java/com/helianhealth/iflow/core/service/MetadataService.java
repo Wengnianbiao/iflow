@@ -5,18 +5,7 @@ import com.helianhealth.iflow.core.dao.MetadataDAO;
 
 import java.util.List;
 
-/**
- * 元数据服务
- *
- * <p>对外暴露工作流定义的注册、查询与删除能力；内部通过 {@link MetadataDAO}
- * 访问持久化层。定义管理（Console / Bootstrap）应依赖本接口，而非直接注入 DAO。引擎启动时按
- * route/version 查询定义（version 为 null 取最新）；Gateway 等调用方请走 {@link WorkflowExecutionService}。
- *
- * <p>查询方法在未找到时抛出异常，不返回 {@link java.util.Optional}。
- */
 public interface MetadataService {
-
-    // ===== WorkflowDef =====
 
     void registerWorkflowDef(WorkflowDef def);
 

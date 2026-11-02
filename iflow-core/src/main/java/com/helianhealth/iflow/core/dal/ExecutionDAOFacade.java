@@ -1,6 +1,7 @@
 package com.helianhealth.iflow.core.dal;
 
 import com.helianhealth.iflow.core.dao.ExecutionDAO;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.helianhealth.iflow.core.exception.TransientException;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
@@ -24,7 +25,11 @@ public class ExecutionDAOFacade {
 
     private final ExecutionDAO executionDAO;
 
-    public ExecutionDAOFacade(ExecutionDAO executionDAO) {
+    private final ObjectMapper objectMapper;
+
+
+    public ExecutionDAOFacade(ExecutionDAO executionDAO, ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
         this.executionDAO = executionDAO;
     }
 
