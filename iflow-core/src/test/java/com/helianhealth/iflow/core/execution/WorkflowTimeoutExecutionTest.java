@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -44,7 +45,7 @@ class WorkflowTimeoutExecutionTest {
         WorkflowExecutor executor = executor(definition);
         when(dao.createWorkflow(any())).thenAnswer(invocation -> {
             WorkflowModel workflow = invocation.getArgument(0);
-            workflow.setTasks(List.of(task("remote", TaskModel.Status.IN_PROGRESS)));
+            workflow.setTasks(new ArrayList<>(List.of(task("remote", TaskModel.Status.IN_PROGRESS))));
             workflow.setStartTime(System.currentTimeMillis() - 120_000);
             created.set(workflow);
             return workflow.getWorkflowId();
@@ -70,7 +71,7 @@ class WorkflowTimeoutExecutionTest {
         WorkflowExecutor executor = executor(definition);
         when(dao.createWorkflow(any())).thenAnswer(invocation -> {
             WorkflowModel workflow = invocation.getArgument(0);
-            workflow.setTasks(List.of(task("remote", TaskModel.Status.IN_PROGRESS)));
+            workflow.setTasks(new ArrayList<>(List.of(task("remote", TaskModel.Status.IN_PROGRESS))));
             created.set(workflow);
             return workflow.getWorkflowId();
         });
@@ -97,7 +98,7 @@ class WorkflowTimeoutExecutionTest {
         when(dao.createWorkflow(any())).thenAnswer(invocation -> {
             WorkflowModel workflow = invocation.getArgument(0);
             workflow.setStartTime(System.currentTimeMillis() - 120_000);
-            workflow.setTasks(List.of(done, active, queued));
+            workflow.setTasks(new ArrayList<>(List.of(done, active, queued)));
             created.set(workflow);
             return workflow.getWorkflowId();
         });

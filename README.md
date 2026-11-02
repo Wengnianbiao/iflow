@@ -59,7 +59,7 @@ java -jar iflow-demo/target/iflow.jar
 http://localhost:8099
 ```
 
-在 IDEA 的 Maven 面板启用 `demo` profile 并重新加载项目后，即可运行或调试 `com.helianhealth.iflow.web.IflowApplication`。Maven `demo` profile 只控制模块是否加入构建，与 Spring 运行环境 profile 独立。
+在 IDEA 的 Maven 面板启用 `demo` profile 并重新加载项目后，即可运行或调试 `com.helianhealth.iflow.persistence.IflowApplication`。Maven `demo` profile 只控制模块是否加入构建，与 Spring 运行环境 profile 独立。
 
 ### 方式二：作为 Starter 集成
 

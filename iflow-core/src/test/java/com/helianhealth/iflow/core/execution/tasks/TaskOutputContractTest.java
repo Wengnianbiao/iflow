@@ -17,6 +17,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -180,7 +181,7 @@ class TaskOutputContractTest {
 
     private WorkflowModel workflow(TaskModel... tasks) {
         WorkflowModel workflow = new WorkflowModel();
-        workflow.setTasks(List.of(tasks));
+        workflow.setTasks(new ArrayList<>(List.of(tasks)));
         workflow.setWorkflowDefinition(WorkflowDef.builder().route("output-test").build());
         return workflow;
     }

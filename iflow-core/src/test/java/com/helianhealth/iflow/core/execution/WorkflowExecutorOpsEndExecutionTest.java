@@ -27,12 +27,14 @@ import com.helianhealth.iflow.core.utils.ParametersUtils;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -215,7 +217,8 @@ class WorkflowExecutorOpsEndExecutionTest {
                                 WorkflowExecutionMapper.toWorkflowHeader(source));
                         snapshot.setTasks(storedTasks.values().stream()
                                 .sorted(java.util.Comparator.comparingInt(TaskModel::getSeq))
-                                .map(task -> TaskModel.fromTask(task.toTask())).toList());
+                                .map(task -> TaskModel.fromTask(task.toTask()))
+                                .collect(Collectors.toCollection(ArrayList::new)));
                         return snapshot;
                     });
                     default -> defaultValue(method.getReturnType());

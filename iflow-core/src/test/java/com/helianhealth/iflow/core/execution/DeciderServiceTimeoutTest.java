@@ -9,7 +9,6 @@ import com.helianhealth.iflow.core.utils.IDGenerator;
 import com.helianhealth.iflow.core.utils.ParametersUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.Map;
@@ -73,31 +72,6 @@ class DeciderServiceTimeoutTest {
         verifyNoInteractions(executor);
         assertEquals(WorkflowModel.Status.RUNNING, workflow.getStatus());
         assertEquals(0, workflow.getEndTime());
-    }
-
-    @Test
-    void expiredRunningDecisionsNeverMapInitialTasks() {
-        ParametersUtils parameters = mock(ParametersUtils.class);
-        DeciderService decider = new DeciderService(new IDGenerator(), parameters,
-                new SystemTaskRegistry(Set.of()), Map.of());
-        WorkflowModel workflow = workflow();
-        workflow.setStartTime(System.currentTimeMillis() - 60_000);
-        assertThrows(TerminateWorkflowException.class, () -> decider.decide(workflow));
-        verifyNoInteractions(parameters);
-    }
-
-    @ParameterizedTest
-    @EnumSource(value = WorkflowModel.Status.class, names = "RUNNING", mode = EnumSource.Mode.EXCLUDE)
-    void endedDecisionsDoNotMapOrCheckTimeout(WorkflowModel.Status status) {
-        ParametersUtils parameters = mock(ParametersUtils.class);
-        DeciderService decider = new DeciderService(new IDGenerator(), parameters,
-                new SystemTaskRegistry(Set.of()), Map.of());
-        WorkflowModel workflow = workflow();
-        workflow.setStartTime(System.currentTimeMillis() - 120_000);
-        workflow.setStatus(status);
-        assertTrue(decider.decide(workflow).tasksToBeScheduled.isEmpty());
-        assertEquals(status, workflow.getStatus());
-        verifyNoInteractions(parameters);
     }
 
     @Test

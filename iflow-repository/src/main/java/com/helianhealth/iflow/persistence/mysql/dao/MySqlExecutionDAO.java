@@ -1,11 +1,11 @@
-package com.helianhealth.iflow.web.mysql.dao;
+package com.helianhealth.iflow.persistence.mysql.dao;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.helianhealth.iflow.core.dao.ExecutionDAO;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
-import com.helianhealth.iflow.web.mysql.config.ConditionalOnMySqlRepository;
-import com.helianhealth.iflow.web.mysql.util.Query;
+import com.helianhealth.iflow.persistence.mysql.config.ConditionalOnMySqlRepository;
+import com.helianhealth.iflow.persistence.mysql.util.Query;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 

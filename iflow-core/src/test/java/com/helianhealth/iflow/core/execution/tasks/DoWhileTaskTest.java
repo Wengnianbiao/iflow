@@ -46,6 +46,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -1101,7 +1102,8 @@ class DoWhileTaskTest {
                                 snapshot.setTasks(created.values().stream()
                                         .map(task -> updated.getOrDefault(task.getTaskId(), task))
                                         .sorted(java.util.Comparator.comparingInt(TaskModel::getSeq))
-                                        .map(task -> TaskModel.fromTask(task.toTask())).toList());
+                                        .map(task -> TaskModel.fromTask(task.toTask()))
+                                        .collect(Collectors.toCollection(ArrayList::new)));
                             }
                             return snapshot;
                         });
@@ -1261,7 +1263,7 @@ class DoWhileTaskTest {
     private static WorkflowModel workflow(TaskModel... tasks) {
         WorkflowModel workflow = new WorkflowModel();
         workflow.setWorkflowId("workflow-1");
-        workflow.setTasks(List.of(tasks));
+        workflow.setTasks(new ArrayList<>(List.of(tasks)));
         return workflow;
     }
 

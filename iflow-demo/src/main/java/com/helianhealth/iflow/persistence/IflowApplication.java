@@ -1,4 +1,4 @@
-package com.helianhealth.iflow.web;
+package com.helianhealth.iflow.persistence;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -7,7 +7,7 @@ import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 @SpringBootApplication(
         exclude = {DataSourceAutoConfiguration.class},
         scanBasePackages = {
-            "com.helianhealth.iflow.web",
+                "com.helianhealth.iflow.persistence",
             "com.helianhealth.iflow.tasks",
             "com.helianhealth.iflow.gateway"
         })

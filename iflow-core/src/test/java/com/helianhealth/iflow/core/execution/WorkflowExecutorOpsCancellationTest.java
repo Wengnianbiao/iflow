@@ -21,6 +21,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 import java.lang.reflect.Proxy;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +34,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
@@ -42,11 +44,12 @@ class WorkflowExecutorOpsCancellationTest {
 
     @ParameterizedTest
     @EnumSource(value = WorkflowModel.Status.class, names = {"TIMED_OUT", "TERMINATED", "INTERRUPTED"})
-    void observesExternalStatusWhileWaitingAndProtectsWorkerResults(WorkflowModel.Status terminalStatus)
+    void terminationDiscardsLateWorkerResultsWithoutSchedulingSuccessor(WorkflowModel.Status terminalStatus)
             throws Exception {
         WorkflowModel.Status expectedWorkflow = terminalStatus;
         CountDownLatch releaseWorker = new CountDownLatch(1);
         CountDownLatch executing = new CountDownLatch(1);
+        AtomicInteger executions = new AtomicInteger();
         AtomicInteger cancellations = new AtomicInteger();
         AtomicReference<WorkflowModel> workerWorkflow = new AtomicReference<>();
         WorkflowSystemTask remote = new WorkflowSystemTask(TaskType.TASK_TYPE_HTTP) {
@@ -57,6 +60,7 @@ class WorkflowExecutorOpsCancellationTest {
 
             @Override
             public void start(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor) {
+                executions.incrementAndGet();
                 workerWorkflow.set(workflow);
                 executing.countDown();
                 try {
@@ -158,7 +162,10 @@ class WorkflowExecutorOpsCancellationTest {
             assertEquals(expectedWorkflow, stored.getStatus());
             assertEquals(expectedTask, stored.getTaskByRefName("remote").getStatus());
             assertEquals(Map.of(), stored.getTaskByRefName("remote").getOutputData());
+            assertEquals(1, stored.getTasks().size(), "late completion must not schedule the successor");
+            assertEquals(1, executions.get(), "late completion must not execute the successor");
             executor.terminateWorkflow(stored, "already terminal");
+            assertEquals(1, cancellations.get(), "observing terminal state must not cancel tasks again");
             assertEquals(1, terminalNotifications.get(), "observing terminal state must not notify again");
         } finally {
             releaseWorker.countDown();
@@ -198,7 +205,8 @@ class WorkflowExecutorOpsCancellationTest {
                             if ((boolean) args[1]) {
                                 snapshot.setTasks(tasks.values().stream()
                                         .sorted(Comparator.comparingInt(TaskModel::getSeq))
-                                        .map(SnapshotStore::copyTask).toList());
+                                        .map(SnapshotStore::copyTask)
+                                        .collect(Collectors.toCollection(ArrayList::new)));
                             }
                             return snapshot;
                         });

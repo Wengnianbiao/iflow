@@ -1,4 +1,4 @@
-package com.helianhealth.iflow.web.mysql.util;
+package com.helianhealth.iflow.persistence.mysql.util;
 
 import java.sql.Connection;
 import java.sql.SQLException;

@@ -1,4 +1,4 @@
-package com.helianhealth.iflow.web.mysql.dao;
+package com.helianhealth.iflow.persistence.mysql.dao;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
@@ -6,7 +6,7 @@ import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 import com.helianhealth.iflow.common.exception.WorkFlowConfigException;
 import com.helianhealth.iflow.common.exception.WorkFlowErrorCode;
 import com.helianhealth.iflow.core.dao.MetadataDAO;
-import com.helianhealth.iflow.web.mysql.config.ConditionalOnMySqlRepository;
+import com.helianhealth.iflow.persistence.mysql.config.ConditionalOnMySqlRepository;
 import org.springframework.stereotype.Repository;
 
 import javax.sql.DataSource;

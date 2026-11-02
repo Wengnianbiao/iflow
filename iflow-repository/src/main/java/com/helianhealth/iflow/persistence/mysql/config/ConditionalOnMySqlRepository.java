@@ -1,4 +1,4 @@
-package com.helianhealth.iflow.web.mysql.config;
+package com.helianhealth.iflow.persistence.mysql.config;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 

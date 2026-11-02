@@ -34,6 +34,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.lang.reflect.Proxy;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +49,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -470,6 +472,7 @@ class WorkflowExecutorOpsAsyncTasksTest {
         queued.get().run();
 
         assertEquals(WorkflowModel.Status.TERMINATED, store.workflow.get().getStatus());
+        assertEquals(TaskModel.Status.CANCELED, store.tasks.get("http").getStatus());
         assertEquals(0, executions.get());
         assertFalse(executor.queue().containsMessage("HTTP", response.getTaskByRefName("http").getTaskId()));
     }
@@ -670,7 +673,8 @@ class WorkflowExecutorOpsAsyncTasksTest {
                             if ((boolean) args[1]) {
                                 snapshot.setTasks(tasks.values().stream()
                                         .sorted(java.util.Comparator.comparingInt(TaskModel::getSeq))
-                                        .map(MemoryStore::copyTask).toList());
+                                        .map(MemoryStore::copyTask)
+                                        .collect(Collectors.toCollection(ArrayList::new)));
                             }
                             return snapshot;
                         });
@@ -693,7 +697,8 @@ class WorkflowExecutorOpsAsyncTasksTest {
             WorkflowModel snapshot = WorkflowExecutionMapper.toModel(
                     WorkflowExecutionMapper.toWorkflowHeader(source));
             snapshot.setInput((Map<String, Object>) WorkflowExecutionMapper.copyOutput(source.getInput()));
-            snapshot.setTasks(source.getTasks().stream().map(MemoryStore::copyTask).toList());
+            snapshot.setTasks(source.getTasks().stream().map(MemoryStore::copyTask)
+                    .collect(Collectors.toCollection(ArrayList::new)));
             return snapshot;
         }
 

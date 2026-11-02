@@ -1,107 +1,107 @@
-# iFlow Agent Instructions
+# iFlow 智能体指南
 
-Instructions for AI coding agents working on this repository.
+本指南适用于在此仓库中工作的 AI 编程智能体。
 
-## Implementation Principles
+## 实现原则
 
-- **Keep the existing owner.** Extend the method or class that already owns the behavior. Prefer a local helper before a new class, interface, service, or execution layer. Sharing a check between two callers alone does not require a new abstraction.
-- **Implement the current requirement.** New extension points, dependencies, configuration switches, compatibility overloads, and fallback paths need a concrete requirement or an existing supported caller/data format. Future flexibility alone is insufficient.
-- **Follow the reference deliberately.** For Conductor-aligned changes, inspect the corresponding local Conductor implementation and the iFlow caller before editing. Preserve its responsibility boundaries and algorithm; apply iFlow's documented differences instead of importing unrelated upstream infrastructure.
-- **Keep contracts simple.** Use `void` for operations whose contract is validation, mutation, logging, or throwing. Return a value when a caller needs a meaningful result; do not invent generic `updated` flags or outcome objects just to pass control through layers.
-- **Keep control flow visible.** Prefer direct calls, explicit conditions, and named intermediate results in orchestration and persistence paths. Avoid callback plumbing or generic frameworks for a concrete sequence of operations.
-- **Match the surrounding style.** Follow nearby code for naming, formatting, constructors, dependency injection, logging, and exception handling. Do not convert unrelated code to another style.
-- **Use plain Java for data models.** Entities, runtime models, DTOs, and configuration holders use explicit constructors and accessors instead of Lombok. Do not add builders by default; use them only where a concrete construction path benefits from named fields, and preserve existing supported APIs.
-- **Test the production contract.** Do not add a production interface, injected dependency, or alternate execution path solely to simplify a test. Use existing seams and observable behavior first; a new abstraction must also fit the production design.
-- **Preserve module direction.** Core must not depend on starter/demo or protocol implementations. Put behavior and configuration in the module that owns them; starter wires those modules together.
+- **沿用现有职责归属。** 扩展已经负责该行为的方法或类。优先使用局部辅助方法，再考虑新增类、接口、服务或执行层。仅仅因为两个调用方需要共享一项检查，并不足以引入新的抽象。
+- **实现当前需求。** 新增扩展点、依赖、配置开关、兼容性重载和回退路径，必须有明确需求，或已有受支持的调用方、数据格式作为依据。仅为未来的灵活性不足以支持这些改动。
+- **有针对性地遵循参考实现。** 对于需要与 Conductor 对齐的改动，编辑前先查看本地 Conductor 的对应实现和 iFlow 调用方。保留其职责边界与算法，并应用 iFlow 文档中明确的差异，不要引入无关的上游基础设施。
+- **保持契约简单。** 对于职责为校验、修改状态、记录日志或抛出异常的操作，使用 `void`。调用方需要有实际意义的结果时才返回值；不要仅为了在层间传递控制而引入通用的 `updated` 标志或结果对象。
+- **让控制流程清晰可见。** 在编排和持久化路径中，优先使用直接调用、显式条件和具名中间结果。不要为一组具体操作引入回调链路或通用框架。
+- **遵循周边代码风格。** 命名、格式、构造方法、依赖注入、日志和异常处理均遵循附近代码的风格。不要顺带转换无关代码的风格。
+- **数据模型使用普通 Java。** 实体、运行时模型、DTO 和配置类使用显式构造方法及访问器，不使用 Lombok。默认不添加构建器；仅当具体构造流程确实受益于按字段名设置值时使用，并保留现有受支持的 API。
+- **测试生产契约。** 不要仅为了简化测试而新增生产接口、注入依赖或替代执行路径。优先利用现有测试切入点和可观察行为；新增抽象也必须符合生产设计。
+- **保持模块依赖方向。** Core 不得依赖 starter/demo 或协议实现。行为和配置放在其所属模块中，由 starter 负责组装这些模块。
 
-## Project Overview
+## 项目概览
 
-iFlow is a Spring Boot–based pluggable workflow engine (Conductor-inspired) with a React console for visual orchestration. It is integrated through a Spring Boot Starter and includes an optional local demo for debugging and demonstrations.
+iFlow 是基于 Spring Boot 的可插拔工作流引擎，设计参考 Conductor，并提供用于可视化编排的 React 控制台。项目通过 Spring Boot Starter 集成，同时提供可选的本地演示应用，用于调试和演示。
 
-Stack: Java 21, Maven multi-module, Spring Boot 3.4.x, React + Vite + TypeScript (`iflow-ui`).
+技术栈：Java 21、Maven 多模块、Spring Boot 3.4.x、React + Vite + TypeScript（`iflow-ui`）。
 
-## Agent Doc Layout
+## 智能体文档结构
 
-| File | Scope |
+| 文件 | 适用范围 |
 |------|--------|
-| `AGENTS.md` (this file) | Implementation principles, repo map, shared checks |
-| `iflow-ui/AGENTS.md` | Frontend / Conductor UI parity |
-| `iflow-core/AGENTS.md` | Workflow engine core |
+| `AGENTS.md`（本文件） | 实现原则、仓库结构、通用检查 |
+| `iflow-ui/AGENTS.md` | 前端及 Conductor UI 对齐 |
+| `iflow-core/AGENTS.md` | 工作流引擎核心 |
 
-Read the nearest module `AGENTS.md` before changing that module; do not assume a nested file was loaded automatically when starting at the repository root. Keep domain-specific rules there rather than duplicating them here. The user's current instructions take precedence over repository guidance.
+修改模块前，先阅读该模块就近的 `AGENTS.md`；不要假设从仓库根目录开始工作时，嵌套文件已自动加载。领域专属规则应保留在对应模块文档中，不要在此重复。用户当前的指令优先于仓库指南。
 
-## Module Map
+## 模块结构
 
 ```
-iflow-common              # Shared utils, enums, exceptions, metadata DTOs
-iflow-repository          # Persistence / DAO / domain storage
-iflow-core                # Executor, Decider, synchronous system-task abstractions, locks
-iflow-*-task              # Pluggable system tasks (HTTP, JDBC, WebService, ParamMap, SPI)
-iflow-gateway             # Inbound protocols (Open API / Jarvis / HL7)
-iflow-console             # Admin / console APIs
-iflow-ai                  # AI / MCP helpers
-iflow-spring-boot-starter # Auto-config and property binding
-iflow-demo                # Local debugging / demo app; opt in with Maven -Pdemo
-iflow-ui                  # React console (Vite); not a Maven module
-conductor-3.30.2/         # Upstream Conductor reference (UI + engine patterns)
+iflow-common              # 公共工具、枚举、异常、元数据 DTO
+iflow-repository          # 持久化 / DAO / 领域数据存储
+iflow-core                # Executor、Decider、同步系统任务抽象、锁
+iflow-*-task              # 可插拔系统任务（HTTP、JDBC、WebService、ParamMap、SPI）
+iflow-gateway             # 入站协议（Open API / Jarvis / HL7）
+iflow-console             # 管理 / 控制台 API
+iflow-ai                  # AI / MCP 辅助功能
+iflow-spring-boot-starter # 自动配置与属性绑定
+iflow-demo                # 本地调试 / 演示应用；通过 Maven -Pdemo 启用
+iflow-ui                  # React 控制台（Vite）；不属于 Maven 模块
+conductor-3.30.2/         # 上游 Conductor 参考实现（UI 与引擎模式）
 ```
 
-Dependency sketch: `common` → `repository` / `core` → task modules & services → `starter`. The optional `iflow-demo` assembles the runtime modules and is excluded from the default Maven reactor.
+依赖关系概览：`common` → `repository` / `core` → 任务模块及服务 → `starter`。可选的 `iflow-demo` 负责组装运行时模块，不包含在默认 Maven reactor 中。
 
-## Change Workflow
+## 修改流程
 
-1. Inspect the target code, its callers, applicable module instructions, and relevant tests. For parity work, also inspect the corresponding Conductor source. Read supporting docs for the behavior being changed, not every document in the repository.
-2. For a change spanning responsibilities, briefly state the intended behavior and which existing components own it before editing. Work in coherent steps; do not add adjacent cleanup, new product semantics, or speculative infrastructure to the task.
-3. Apply user corrections to the whole affected path: implementation, callers, tests, and docs. Remove the superseded approach instead of wrapping it in another layer or leaving both paths in place.
-4. Review the final diff against the rules below and run checks appropriate to the affected behavior. Report the result, relevant verification, and any remaining limitation. Passing tests do not establish that responsibility boundaries or project style were preserved.
+1. 查看目标代码、调用方、适用的模块指南及相关测试。对于对齐工作，还需查看对应的 Conductor 源码。按需阅读与本次行为变更相关的文档，不必通读仓库中的所有文档。
+2. 涉及多项职责的改动，在编辑前简要说明预期行为及负责这些行为的现有组件。按连贯步骤推进，不要附带无关清理、新的产品语义或推测性的基础设施。
+3. 将用户纠正应用于整个受影响路径，包括实现、调用方、测试和文档。删除已被取代的方案，不要再包一层或同时保留两条路径。
+4. 按下述规则审查最终差异，并运行适合受影响行为的检查。报告结果、相关验证及仍存在的限制。测试通过并不能证明职责边界或项目风格得到了遵守。
 
-## Code Review Rules
+## 代码审查规则
 
-- **Scope and abstraction:** Every new class, interface, dependency, configuration option, and public API must serve the requested behavior. Reuse the existing owner when it can express the change clearly; remove abstractions left over from an abandoned approach.
-- **One owner per rule:** Check that configuration resolution, validation, policy decisions, and state transitions each have a clear owner. Reuse that behavior from other callers instead of maintaining separate variants. Core-specific ownership is defined in `iflow-core/AGENTS.md`.
-- **Compatibility with evidence:** Preserve existing public contracts and supported persisted data. Do not introduce silent null/default handling, aliases, or compatibility branches for hypothetical callers; handle invalid data explicitly at the appropriate boundary.
-- **Behavior and verification:** Review both the requested path and relevant failure/boundary cases. Tests should assert observable contracts; avoid tests that merely restate the implementation or justify an unnecessary layer.
+- **范围与抽象：** 每个新增类、接口、依赖、配置项和公共 API 都必须服务于所需行为。现有职责承载方能够清晰表达改动时，优先复用；删除废弃方案遗留的抽象。
+- **每项规则有唯一的职责归属：** 确保配置解析、校验、策略决策和状态转换各自有明确的负责组件。其他调用方应复用这些行为，不要维护不同变体。Core 的具体职责划分见 `iflow-core/AGENTS.md`。
+- **兼容性须有依据：** 保留现有公共契约和受支持的持久化数据。不要为假想调用方引入静默的空值或默认值处理、别名或兼容分支；应在适当边界显式处理无效数据。
+- **行为与验证：** 同时审查所需路径及相关失败、边界场景。测试应断言可观察的契约，避免仅复述实现或为不必要的层次提供理由。
 
-## Common Commands
+## 常用命令
 
 ```bash
-# Backend
+# 后端
 mvn clean package -Dmaven.test.skip=true
 mvn -pl iflow-core -am test
 mvn -Pdemo -pl iflow-demo -am clean package -Dmaven.test.skip=true
 java -jar iflow-demo/target/iflow.jar
 
-# Frontend (iflow-ui)
+# 前端（iflow-ui）
 cd iflow-ui && pnpm install
-pnpm dev          # http://127.0.0.1:5174 (API proxy → IFLOW_API_TARGET or :8099)
+pnpm dev          # http://127.0.0.1:5174（API 代理 → IFLOW_API_TARGET 或 :8099）
 pnpm exec tsc --noEmit
-pnpm test:definition   # Workflow definition / validation changes
-pnpm test:executions   # Execution search / task index changes
+pnpm test:definition   # 工作流定义 / 校验变更
+pnpm test:executions   # 执行搜索 / 任务索引变更
 pnpm build
 ```
 
-DB init scripts live under `docs/init_mysql/`. Product docs under `docs/`.
-The demo source, configuration, and POM are version-controlled. Enable the Maven `demo` profile in IDEA and reload the project to run or debug its main class; this is independent of Spring profiles. Docker scripts are an explicit demo build entry point.
-Run the relevant module tests for backend behavior changes. UI changes also follow the browser verification and checks in `iflow-ui/AGENTS.md`. Documentation-only changes need diff and link checks, not a full application build.
+数据库初始化脚本位于 `docs/init_mysql/`，产品文档位于 `docs/`。
+演示应用的源码、配置和 POM 均纳入版本控制。在 IDEA 中启用 Maven 的 `demo` profile 并重新加载项目，即可运行或调试其主类；这与 Spring profile 相互独立。Docker 脚本也是显式启用演示应用构建的入口。
+后端行为变更需运行相关模块测试。UI 变更还需遵循 `iflow-ui/AGENTS.md` 中的浏览器验证和检查要求。仅修改文档时，检查差异和链接即可，无需完整构建应用。
 
-## Cross-Cutting Guardrails
+## 通用约束
 
-- Do not remove existing user changes in a dirty worktree; keep diffs scoped to the request.
-- Prefer matching existing module boundaries over inventing new layers.
-- When behavior should align with Netflix Conductor, treat `conductor-3.30.2/` as the reference (engine under its Java modules; UI under `conductor-3.30.2/ui-next`).
-- Keep visible product UI copy Chinese where the existing UI is Chinese; keep technical task-type labels (`INLINE`, `HTTP`, `SWITCH`, etc.) in English.
-- Do not commit secrets, local stores (`.pnpm-store`, `.m2`), or build artifacts unless explicitly asked.
-- Ask before creating git commits or PRs.
+- 工作区存在未提交改动时，不要删除用户已有的修改；差异应限定在本次需求范围内。
+- 优先遵循现有模块边界，不要另创新层次。
+- 行为需要与 Netflix Conductor 对齐时，以 `conductor-3.30.2/` 为参考（引擎代码位于其 Java 模块中，UI 位于 `conductor-3.30.2/ui-next`）。
+- 现有 UI 为中文时，面向用户的产品文案继续使用中文；技术任务类型标签（`INLINE`、`HTTP`、`SWITCH` 等）保留英文。
+- 除非用户明确要求，否则不要提交密钥、本地缓存目录（`.pnpm-store`、`.m2`）或构建产物。
+- 创建 Git 提交或 PR 前，先征求用户同意。
 
-## Maintaining These Instructions
+## 指南维护
 
-- Keep rules scoped, actionable, and durable: name the invariant and the preferred implementation path. Link detailed behavior docs or canonical source examples rather than copying them into every instruction file.
-- Update guidance when the user requests it or a requested behavior change makes a rule stale. Do not change instructions merely to excuse an implementation that violates them. Consolidate recurring lessons; avoid appending every one-off fix as a new global prohibition.
+- 规则应范围明确、可执行且长期有效：写明必须保持的约束和优先采用的实现路径。详细行为文档或规范源码示例应通过链接引用，不要复制到每份指南中。
+- 用户要求更新，或所需行为变更导致规则过时时，再更新指南。不要仅为违反规则的实现开脱而修改指南。归纳反复出现的经验，避免将每次偶发修复都追加为新的全局禁令。
 
-## Where To Look Next
+## 进一步查阅
 
-- UI / canvas / definition editor → `iflow-ui/AGENTS.md`
-- Executor, Decider, system tasks, fork execution → `iflow-core/AGENTS.md`
-- Synchronous execution behavior → `docs/synchronous-workflow-execution.md`
-- Workflow timeout and restart cleanup → `docs/workflow-timeout.md`
-- Runtime parameter resolution → `iflow-core/src/main/java/com/helianhealth/iflow/core/utils/ParametersUtils.java`
+- UI / 画布 / 定义编辑器 → `iflow-ui/AGENTS.md`
+- Executor、Decider、系统任务、分叉执行 → `iflow-core/AGENTS.md`
+- 同步执行行为 → `docs/synchronous-workflow-execution.md`
+- 工作流超时与重启清理 → `docs/workflow-timeout.md`
+- 运行时参数解析 → `iflow-core/src/main/java/com/helianhealth/iflow/core/utils/ParametersUtils.java`

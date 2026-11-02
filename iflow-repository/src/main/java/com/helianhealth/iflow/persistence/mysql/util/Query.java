@@ -1,4 +1,4 @@
-package com.helianhealth.iflow.web.mysql.util;
+package com.helianhealth.iflow.persistence.mysql.util;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;

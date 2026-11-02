@@ -32,6 +32,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.lang.reflect.Proxy;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -45,6 +46,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -781,7 +783,8 @@ class WorkflowExecutorOpsThreadPoolTest {
         WorkflowModel snapshot = copyWorkflow(source);
         snapshot.setTasks(tasks.values().stream()
                 .sorted(java.util.Comparator.comparingInt(TaskModel::getSeq))
-                .map(WorkflowExecutorOpsThreadPoolTest::copyTask).toList());
+                .map(WorkflowExecutorOpsThreadPoolTest::copyTask)
+                .collect(Collectors.toCollection(ArrayList::new)));
         return snapshot;
     }
 
