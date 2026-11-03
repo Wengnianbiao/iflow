@@ -37,8 +37,8 @@
 
 ## 决策与调度
 
-- 直接遵循 Conductor：`decide()` 调用 Decider，注册候选任务，调用 `scheduleTask()`，评估尚未终结的同步系统任务，持久化变更，并且只在同步工作取得进展时继续循环。有异步工作尚未完成时返回；禁止等待 I/O，也禁止保留每次调用专用的执行推进上下文。
-- 常规决策通过 `dedupAndAddTasks()`，按引用名和重试次数对候选任务去重并添加，然后将这一份列表传给 `scheduleTask(workflow, tasks)`。调度负责分配序号，将新任务持久化一次，立即启动同步任务，并将异步任务入队。禁止将调度拆成独立的创建列表和执行列表。
+- 直接遵循 Conductor：`decide()` 调用 Decider，注册候选任务，调用 `scheduleTask()`，评估尚未终结的同步系统任务，持久化变更，并且只在同步工作取得进展时继续循环。有异步或延迟重试工作尚未完成时返回；禁止等待 I/O，也禁止保留每次调用专用的执行推进上下文。
+- 常规决策通过 `dedupAndAddTasks()`，按引用名和重试次数对候选任务去重并添加，然后将这一份列表传给 `scheduleTask(workflow, tasks)`。调度负责分配序号，将新任务持久化一次，立即启动无需等待的同步任务，并将异步任务和延迟重试任务入队。禁止将调度拆成独立的创建列表和执行列表。
 - DO_WHILE 通过传入的 `WorkflowExecutor` 调用 `scheduleNextIteration()`，直接生成并调度本轮迭代入口任务，随后将其追加到工作流。入口任务完成后，由 Decider 调度后继任务。禁止重新引入只注册任务的循环回调、向 DO_WHILE 注入 Decider，或通过 `@Lazy` 掩盖循环依赖。
 - 系统任务的 `execute()` 只有在状态、迭代或执行图确实推进时才返回 true。JOIN 可以处于等待中而没有进展。必须区分这一表示实际进展的返回值与通用的工作流脏标记。
 
@@ -51,7 +51,7 @@
 
 ## 超时与中断
 
-- `WorkflowExecutorOps.resolveWorkflowDefinition()` 只复制一次定义，从 `IflowProperties.taskExecution` 为所有节点补齐缺失的启动延迟，并且只为内置控制流集合以外的节点补齐重试默认值（定义中的 `FORK_JOIN` 对应运行时的 `FORK`）；显式设置的零值覆盖默认值。`createWorkflowModel()` 使用这份隔离定义，并且只解析一次工作流的有效超时时间；定义中大于零的超时时间覆盖系统默认值。禁止修改共享元数据，也禁止在检查时重新解析全局默认值。详见[任务执行策略配置](../docs/task-execution-policy.md)。
+- `WorkflowExecutorOps.resolveWorkflowDefinition()` 只复制一次定义。节点策略默认值归属于 `WorkflowTask`：重试次数、重试间隔和启动延迟为 0，重试方式为 FIXED；不从配置类补齐。`createWorkflowModel()` 使用这份隔离定义，并且只解析一次工作流的有效超时时间；定义中大于零的超时时间覆盖系统默认值。禁止修改共享元数据，也禁止在检查时重新解析全局默认值。详见[任务执行策略配置](../docs/task-execution-policy.md)。
 - 禁止添加通用的节点超时元数据。协议任务负责 I/O 超时，GraalJS 负责脚本求值时限，SPI 扩展负责自身调用超时。`TaskType.isBuiltIn()` 判定的控制任务永不重试；其他任务是否可重试，由失败状态和剩余重试次数决定，与 `isAsync()` 或是否已在注册表中注册无关。INLINE 和 MAPPING 将执行错误报告为 `FAILED_WITH_TERMINAL_ERROR`。重试决策属于 Decider。取消、终止性错误和工作流终止都不触发重试。
 - 超时检查和策略处理归属于**返回 void 的 `DeciderService.checkWorkflowTimeout()`**。使用 `System.currentTimeMillis()` 和运行时定义中的超时时间。Sweeper 调用同一方法，但不推进执行；禁止抽取独立的检查器／策略服务，也禁止在这条路径中注入 `Clock`。
 - `WorkflowExecutorOps` 在调用 Decider 前拦截已终结的工作流。存在 `lastRetriedTime` 时从该时间计时，否则从 `startTime` 计时；到达截止时间即触发超时。`TIME_OUT_WF` 抛出携带 `TIMED_OUT` 状态的 `TerminateWorkflowException`；`ALERT_ONLY` 在每次检查发现超时时记录日志，不修改或保存实例状态，也不发出终态事件。

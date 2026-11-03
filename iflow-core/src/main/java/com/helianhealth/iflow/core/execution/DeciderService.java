@@ -29,6 +29,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -353,7 +354,7 @@ public class DeciderService {
 
         // 2、处理工作流运行时task->主要就是针对pending task的处理
         Map<String, TaskModel> tasksToBeScheduled = new LinkedHashMap<>();
-        // preScheduledTasks就是首批/外部传入的待调度的task视为直接scheduled的task
+        // preScheduledTasks就是首批/外部传入的待调度的task视为可直接scheduled的task
         preScheduledTasks.forEach(
                 t -> tasksToBeScheduled.put(t.getReferenceTaskName(), t));
 
@@ -364,9 +365,26 @@ public class DeciderService {
                 executedTaskRefNames.remove(pendingTask.getReferenceTaskName());
             }
 
-            // todo task的超时&重试处理
+            //
             if (pendingTask.getStatus().isTerminal() && !pendingTask.getStatus().isSuccessful()) {
-                handleFailedTask(workflow, pendingTask);
+                WorkflowTask workflowTask = pendingTask.getWorkflowTask();
+                if (workflowTask == null) {
+                    String reference = pendingTask.isLoopOverTask()
+                            ? TaskUtils.removeIterationFromTaskRefName(pendingTask.getReferenceTaskName())
+                            : pendingTask.getReferenceTaskName();
+                    workflowTask = workflow.getWorkflowDefinition().getTaskByRefName(reference);
+                    pendingTask.setWorkflowTask(workflowTask);
+                }
+                Optional<TaskModel> retryTask = retry(workflowTask, pendingTask, workflow);
+                if (retryTask.isPresent()) {
+                    TaskModel rescheduled = retryTask.get();
+                    tasksToBeScheduled.put(rescheduled.getReferenceTaskName(), rescheduled);
+                    executedTaskRefNames.remove(rescheduled.getReferenceTaskName());
+                    outcome.tasksToBeUpdated.add(pendingTask);
+                } else if (!(workflowTask != null && workflowTask.isPermissive()
+                        && !workflowTask.isOptional())) {
+                    pendingTask.setStatus(TaskModel.Status.COMPLETED_WITH_ERRORS);
+                }
             }
 
             // pendingTask终态处理并获取该task下一轮需要调度的tasks
@@ -414,10 +432,35 @@ public class DeciderService {
         if (hasSuccessfulTerminateTask
                 || (outcome.tasksToBeScheduled.isEmpty()
                         && checkForWorkflowCompletion(workflow))) {
+            checkForFailedPermissiveTasks(workflow);
             outcome.isComplete = true;
         }
 
         return outcome;
+    }
+
+    private void checkForFailedPermissiveTasks(WorkflowModel workflow) {
+        Map<String, TaskModel> latestAttempts = new LinkedHashMap<>();
+        for (TaskModel task : workflow.getTasks()) {
+            WorkflowTask definition = task.getWorkflowTask();
+            if (definition == null || !definition.isPermissive() || definition.isOptional()) {
+                continue;
+            }
+            TaskModel latest = latestAttempts.get(task.getReferenceTaskName());
+            if (latest == null || task.getRetryCount() >= latest.getRetryCount()) {
+                latestAttempts.put(task.getReferenceTaskName(), task);
+            }
+        }
+        List<TaskModel> failures = latestAttempts.values().stream()
+                .filter(task -> task.getStatus().isTerminal() && !task.getStatus().isSuccessful())
+                .toList();
+        if (!failures.isEmpty()) {
+            String reason = failures.stream()
+                    .map(task -> String.format("Task %s failed with status: %s and reason: '%s'",
+                            task.getTaskId(), task.getStatus(), task.getReasonForInCompletion()))
+                    .collect(Collectors.joining(". "));
+            throw new TerminateWorkflowException(reason);
+        }
     }
 
     List<TaskModel> filterNextLoopOverTasks(
@@ -487,29 +530,58 @@ public class DeciderService {
         return existing != null && SKIPPED.equals(existing.getStatus());
     }
 
-    /**
-     * 对齐 Conductor：必选任务失败且无法重试时终止工作流；
-     * optional 转为 COMPLETED_WITH_ERRORS 后继续；permissive 保留 FAILED 交由 JOIN 处理。
-     */
-    private void handleFailedTask(WorkflowModel workflow, TaskModel pendingTask) {
-        WorkflowTask def = pendingTask.getWorkflowTask();
-        if (def != null && def.isOptional()) {
-            pendingTask.setStatus(TaskModel.Status.COMPLETED_WITH_ERRORS);
-            return;
-        }
-        if (def != null && def.isPermissive()) {
-            // permissive 非 optional：保持 FAILED，由 JOIN 统一裁决
-            return;
+    /** 按节点快照决定重试；次数耗尽后再处理 optional、permissive 或终止工作流。 */
+    private Optional<TaskModel> retry(WorkflowTask workflowTask, TaskModel task, WorkflowModel workflow) {
+        int expectedRetryCount = workflowTask == null ? 0 : workflowTask.getRetryCount();
+        if (!task.getStatus().isRetriable() || TaskType.isBuiltIn(task.getTaskType())
+                || task.getRetryCount() >= expectedRetryCount) {
+            if (workflowTask != null && (workflowTask.isOptional() || workflowTask.isPermissive())) {
+                return Optional.empty();
+            }
+            WorkflowModel.Status status = switch (task.getStatus()) {
+                case CANCELED -> WorkflowModel.Status.TERMINATED;
+                case TIMED_OUT -> WorkflowModel.Status.TIMED_OUT;
+                default -> WorkflowModel.Status.FAILED;
+            };
+            updateWorkflowOutput(workflow, task);
+            String reason = String.format("Task %s failed with status: %s and reason: '%s'",
+                    task.getTaskId(), task.getStatus(), task.getReasonForInCompletion());
+            throw new TerminateWorkflowException(reason, status, task);
         }
 
-        updateWorkflowOutput(workflow, pendingTask);
-        String reason =
-                String.format(
-                        "Task %s failed with status: %s and reason: '%s'",
-                        pendingTask.getTaskId(),
-                        pendingTask.getStatus(),
-                        pendingTask.getReasonForInCompletion());
-        throw new TerminateWorkflowException(reason, WorkflowModel.Status.FAILED, pendingTask);
+        TaskModel rescheduled = TaskModel.fromTask(task.toTask());
+        rescheduled.setTaskId(idGenerator.generate());
+        rescheduled.setWorkflowTask(workflowTask);
+        rescheduled.setRetriedTaskId(task.getTaskId());
+        rescheduled.setRetryCount(task.getRetryCount() + 1);
+        rescheduled.setRetried(false);
+        rescheduled.setExecuted(false);
+        rescheduled.setStatus(TaskModel.Status.SCHEDULED);
+        rescheduled.setPreviousStatus(null);
+        rescheduled.setSeq(0);
+        rescheduled.setScheduledTime(0);
+        rescheduled.setStartTime(0);
+        rescheduled.setEndTime(0);
+        rescheduled.setUpdateTime(0);
+        rescheduled.setStartDelayInSeconds(retryDelaySeconds(workflowTask, task.getRetryCount()));
+        rescheduled.setOutputData(new HashMap<>());
+        rescheduled.setReasonForInCompletion(null);
+        rescheduled.setInputData(new HashMap<>(task.getInputData()));
+        rescheduled.getInputData().putAll(parametersUtils.getTaskInput(
+                workflowTask.getInputParameters(), workflow, rescheduled.getTaskId()));
+        task.setRetried(true);
+        return Optional.of(rescheduled);
+    }
+
+    private int retryDelaySeconds(WorkflowTask workflowTask, int retryCount) {
+        int delay = workflowTask.getRetryDelaySeconds();
+        long retryDelay = switch (workflowTask.getRetryLogic()) {
+            case FIXED -> delay;
+            case LINEAR_BACKOFF -> (long) delay * (retryCount + 1L);
+            case EXPONENTIAL_BACKOFF -> delay == 0 ? 0
+                    : retryCount >= 31 ? Integer.MAX_VALUE : (long) delay << retryCount;
+        };
+        return (int) Math.min(retryDelay, Integer.MAX_VALUE);
     }
 
     /**

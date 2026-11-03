@@ -10,7 +10,8 @@ import com.helianhealth.iflow.core.execution.mapper.TaskMapper;
 import com.helianhealth.iflow.core.execution.mapper.TaskMapperContext;
 import com.helianhealth.iflow.core.execution.tasks.SystemTaskRegistry;
 import com.helianhealth.iflow.core.execution.tasks.WorkflowSystemTask;
-import com.helianhealth.iflow.core.lock.InMemoryExecutionLockService;
+import com.helianhealth.iflow.core.lock.ExecutionLockService;
+import com.helianhealth.iflow.core.lock.InMemoryLock;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowExecutionMapper;
 import com.helianhealth.iflow.core.model.WorkflowModel;
@@ -105,7 +106,7 @@ class WorkflowExecutorOpsCancellationTest {
                         ? definition : null);
         SnapshotStore store = new SnapshotStore();
         ExecutionDAOFacade dao = store.facade();
-        InMemoryExecutionLockService locks = new InMemoryExecutionLockService();
+        ExecutionLockService locks = new ExecutionLockService(new InMemoryLock());
         AtomicInteger terminalNotifications = new AtomicInteger();
         DeciderService decider = new DeciderService(new IDGenerator(), parameters, registry,
                 Map.of(TaskType.TASK_TYPE_HTTP, mapper));

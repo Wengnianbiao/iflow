@@ -8,7 +8,8 @@ import com.helianhealth.iflow.core.dal.ExecutionDAOFacade;
 import com.helianhealth.iflow.core.execution.mapper.TaskMapper;
 import com.helianhealth.iflow.core.execution.tasks.SystemTaskRegistry;
 import com.helianhealth.iflow.core.listener.WorkflowStatusListener;
-import com.helianhealth.iflow.core.lock.InMemoryExecutionLockService;
+import com.helianhealth.iflow.core.lock.ExecutionLockService;
+import com.helianhealth.iflow.core.lock.InMemoryLock;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
 import com.helianhealth.iflow.core.service.MetadataService;
@@ -130,7 +131,7 @@ class WorkflowTimeoutExecutionTest {
         WorkflowCompletionRegistry completions = new WorkflowCompletionRegistry();
         return new WorkflowExecutorOps(new DeciderService(new IDGenerator(), parameters, registry,
                 Map.of("HTTP", taskMapper)), registry, dao, metadata, new IDGenerator(),
-                parameters, new InMemoryExecutionLockService(), null, completions,
+                parameters, new ExecutionLockService(new InMemoryLock()), null, completions,
                 List.of(listener, completions), properties, mapper);
     }
 

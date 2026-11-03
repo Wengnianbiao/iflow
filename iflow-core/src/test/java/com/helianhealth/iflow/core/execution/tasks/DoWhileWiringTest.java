@@ -6,6 +6,7 @@ import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 import com.helianhealth.iflow.core.config.IflowCoreConfiguration;
 import com.helianhealth.iflow.core.config.IflowProperties;
+import com.helianhealth.iflow.core.config.InMemoryLockConfiguration;
 import com.helianhealth.iflow.core.config.InMemoryQueueConfiguration;
 import com.helianhealth.iflow.core.dal.ExecutionDAOFacade;
 import com.helianhealth.iflow.core.dao.ExecutionDAO;
@@ -19,7 +20,7 @@ import com.helianhealth.iflow.core.execution.mapper.NoopTaskMapper;
 import com.helianhealth.iflow.core.execution.mapper.TaskMapper;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
-import com.helianhealth.iflow.core.lock.InMemoryExecutionLockService;
+import com.helianhealth.iflow.core.lock.ExecutionLockService;
 import com.helianhealth.iflow.core.service.MetadataService;
 import com.helianhealth.iflow.core.utils.IDGenerator;
 import com.helianhealth.iflow.core.utils.ParametersUtils;
@@ -53,7 +54,7 @@ class DoWhileWiringTest {
             context.getDefaultListableBeanFactory().setAllowCircularReferences(false);
             context.register(TaskConfiguration.class, ParametersUtils.class, ExecutionDAOFacade.class,
                     IflowProperties.class, IDGenerator.class, DoWhile.class, Noop.class, SystemTaskRegistry.class,
-                    DeciderService.class, InMemoryExecutionLockService.class,
+                    DeciderService.class, ExecutionLockService.class, InMemoryLockConfiguration.class,
                     InMemoryQueueConfiguration.class, WorkflowCompletionRegistry.class, WorkflowExecutorOps.class);
             context.refresh();
 

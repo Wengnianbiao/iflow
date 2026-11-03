@@ -1,7 +1,8 @@
 package com.helianhealth.iflow.core.config;
 
-import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+
+import java.time.Duration;
 
 /**
  * iFlow 配置属性
@@ -14,11 +15,31 @@ public class IflowProperties {
      */
     private boolean enabled = true;
 
-    private final WorkflowExecution workflowExecution = new WorkflowExecution();
-    private final TaskExecution taskExecution = new TaskExecution();
+    private Duration lockTimeToTry = Duration.ofMillis(500);
+    private Duration lockLeaseTime = Duration.ofSeconds(60);
 
-    public TaskExecution getTaskExecution() {
-        return taskExecution;
+    private final WorkflowExecution workflowExecution = new WorkflowExecution();
+
+    public Duration getLockTimeToTry() {
+        return lockTimeToTry;
+    }
+
+    public void setLockTimeToTry(Duration lockTimeToTry) {
+        if (lockTimeToTry == null || lockTimeToTry.isNegative()) {
+            throw new IllegalArgumentException("执行锁等待时间必须为非负时长");
+        }
+        this.lockTimeToTry = lockTimeToTry;
+    }
+
+    public Duration getLockLeaseTime() {
+        return lockLeaseTime;
+    }
+
+    public void setLockLeaseTime(Duration lockLeaseTime) {
+        if (lockLeaseTime == null || lockLeaseTime.toMillis() <= 0) {
+            throw new IllegalArgumentException("执行锁租约必须至少为 1ms");
+        }
+        this.lockLeaseTime = lockLeaseTime;
     }
 
     public WorkflowExecution getWorkflowExecution() {
@@ -42,58 +63,6 @@ public class IflowProperties {
 
         public Sweeper getSweeper() {
             return sweeper;
-        }
-    }
-
-    /** 节点未配置时使用的任务策略；在启动定义解析时写入实例快照。 */
-    public static class TaskExecution {
-        private int defaultRetryCount = 0;
-        private int defaultRetryDelaySeconds = 0;
-        private int defaultStartDelay = 0;
-        private WorkflowTask.RetryLogic defaultRetryLogic = WorkflowTask.RetryLogic.FIXED;
-
-        public int getDefaultRetryCount() {
-            return defaultRetryCount;
-        }
-
-        public void setDefaultRetryCount(int defaultRetryCount) {
-            if (defaultRetryCount < 0) {
-                throw new IllegalArgumentException("默认重试次数必须是非负整数");
-            }
-            this.defaultRetryCount = defaultRetryCount;
-        }
-
-        public int getDefaultRetryDelaySeconds() {
-            return defaultRetryDelaySeconds;
-        }
-
-        public void setDefaultRetryDelaySeconds(int defaultRetryDelaySeconds) {
-            if (defaultRetryDelaySeconds < 0) {
-                throw new IllegalArgumentException("默认重试间隔必须是非负整数");
-            }
-            this.defaultRetryDelaySeconds = defaultRetryDelaySeconds;
-        }
-
-        public int getDefaultStartDelay() {
-            return defaultStartDelay;
-        }
-
-        public void setDefaultStartDelay(int defaultStartDelay) {
-            if (defaultStartDelay < 0) {
-                throw new IllegalArgumentException("默认启动延迟必须是非负整数");
-            }
-            this.defaultStartDelay = defaultStartDelay;
-        }
-
-        public WorkflowTask.RetryLogic getDefaultRetryLogic() {
-            return defaultRetryLogic;
-        }
-
-        public void setDefaultRetryLogic(WorkflowTask.RetryLogic defaultRetryLogic) {
-            if (defaultRetryLogic == null) {
-                throw new IllegalArgumentException("默认重试方式不能为空");
-            }
-            this.defaultRetryLogic = defaultRetryLogic;
         }
     }
 

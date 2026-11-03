@@ -1373,7 +1373,7 @@ test('workflow timeouts default to termination and preserve explicit alert-only 
   }
 })
 
-test('task policies distinguish inheritance and explicit zero, and validate nested fields', () => {
+test('task policies accept defaults and explicit values, and validate nested fields', () => {
   for (const field of ['retryCount', 'retryDelaySeconds', 'startDelay']) {
     for (const value of [undefined, null, 0, 1, 30]) {
       assert.equal(lib.validateWorkflow(wf([{ ...task('a'), [field]: value }])).problems.length, 0)
@@ -1406,50 +1406,62 @@ test('task policy forms exclude built-in control flow from failure retries', asy
   const render = type => lib.renderToStaticMarkup(lib.createElement(lib.ValidationScope, {
     value: { actor, basePath: '/tasks/0', taskReferenceName: 'a' },
   }, lib.createElement(lib.TaskInspector, {
-    task: { ...task('a'), type }, variableOptions: [], onChange: () => {},
+    task: { ...task('a'), type, startDelay: 1, retryCount: 1 }, variableOptions: [], onChange: () => {},
   })))
   for (const type of ['HTTP', 'JDBC', 'WEBSERVICE', 'SPI', 'INLINE', 'MAPPING', 'CUSTOM',
     'DECISION', 'SWITCH', 'FORK', 'FORK_JOIN', 'JOIN', 'EXCLUSIVE_JOIN', 'DO_WHILE']) {
     const html = render(type)
     const canRetry = ['HTTP', 'JDBC', 'WEBSERVICE', 'SPI', 'INLINE', 'MAPPING', 'CUSTOM'].includes(type)
-    assert.equal(html.includes('aria-label="重试次数"'), canRetry, type)
-    assert.equal(html.includes('aria-label="重试间隔（秒）"'), canRetry, type)
-    assert.equal(html.includes('aria-label="重试方式"'), canRetry, type)
+    for (const label of ['失败重试', '重试次数', '重试间隔（秒）', '重试策略']) {
+      assert.equal(html.includes(`aria-label="${label}"`), canRetry, `${type}: ${label}`)
+    }
+    assert.ok(html.includes('aria-label="启动延迟"'), type)
     assert.ok(html.includes('aria-label="启动延迟（秒）"'), type)
     assert.ok(html.includes('aria-label="可选任务"'), type)
-    assert.ok(html.includes('role="switch"'), type)
     assert.equal(html.includes('任务超时'), false, type)
-    assert.ok(html.includes('暂未生效'), type)
+    assert.equal(html.includes('暂未生效'), false, type)
+    assert.equal(html.includes('继承框架配置'), false, type)
   }
   const unregister = lib.registerTaskPlugin({ type: 'SWITCH', label: '自定义分支表单' })
-  assert.equal(render('SWITCH').includes('aria-label="重试次数"'), false)
+  assert.equal(render('SWITCH').includes('aria-label="失败重试"'), false)
   unregister()
-  assert.ok(render('CUSTOM').includes('aria-label="重试次数"'))
+  assert.ok(render('CUSTOM').includes('aria-label="失败重试"'))
   actor.stop()
 })
 
-test('task policy switches expose required inputs only for configured values, including zero', async () => {
+test('task policy switches hide disabled parameters and retain unfinished required drafts', async () => {
   const actor = await actorFor()
   const render = (policies, readOnly = false) => lib.renderToStaticMarkup(lib.createElement(lib.ValidationScope, {
     value: { actor, basePath: '/tasks/0', taskReferenceName: 'a', readOnly },
   }, lib.createElement(lib.TaskInspector, {
     task: { ...task('a'), ...policies }, variableOptions: [], onChange: () => {},
   })))
-  for (const value of [undefined, null]) {
-    const html = render({ startDelay: value, retryCount: value, retryDelaySeconds: value, retryLogic: value })
-    assert.equal((html.match(/role="switch"/g) ?? []).length, 5)
-    assert.equal(html.includes('type="number"'), false)
-    assert.equal(html.includes('<select'), false)
+  for (const policies of [{}, { startDelay: null, retryCount: null, retryDelaySeconds: null, retryLogic: null },
+    { startDelay: 0, retryCount: 0, retryDelaySeconds: 3, retryLogic: 'EXPONENTIAL_BACKOFF' }]) {
+    const html = render(policies)
+    assert.equal((html.match(/role="switch"/g) ?? []).length, 3)
+    assert.equal(html.includes('inputMode="numeric"'), false)
+    assert.equal(html.includes('role="combobox"'), false)
     assert.equal(html.includes('checked=""'), false)
+    assert.equal(html.includes('<small>'), false)
   }
-  const policies = { startDelay: 0, retryCount: 0, retryDelaySeconds: 0, retryLogic: 'FIXED' }
+  const policies = { startDelay: 5, retryCount: 2, retryDelaySeconds: 0, retryLogic: 'FIXED' }
   const html = render(policies)
-  assert.equal((html.match(/checked=""/g) ?? []).length, 4)
-  assert.equal((html.match(/required=""/g) ?? []).length, 4)
-  assert.equal((html.match(/value="0"/g) ?? []).length, 3)
-  assert.ok(html.includes('value="FIXED" selected=""'))
-  const readOnly = render(policies, true)
-  assert.equal((readOnly.match(/disabled=""/g) ?? []).length, 10) // five switches, four fields, placeholder option
+  assert.equal((html.match(/checked=""/g) ?? []).length, 2)
+  assert.equal((html.match(/required=""|aria-required="true"/g) ?? []).length, 4)
+  assert.ok(html.includes('role="combobox"'))
+  assert.ok(html.includes('固定间隔'))
+  assert.equal(html.includes('type="number"'), false)
+  assert.equal((html.match(/inputMode="numeric"/g) ?? []).length, 3)
+  assert.equal((html.match(/role="spinbutton"/g) ?? []).length, 3)
+  for (const label of ['启动延迟（秒）', '重试次数', '重试间隔（秒）']) {
+    assert.ok(html.includes(`aria-label="增加${label}"`))
+    assert.ok(html.includes(`aria-label="减少${label}"`))
+  }
+  assert.ok(html.indexOf('aria-label="可选任务"') < html.indexOf('aria-label="启动延迟"'))
+  assert.ok(html.indexOf('aria-label="启动延迟"') < html.indexOf('aria-label="失败重试"'))
+  assert.equal((render({}, true).match(/disabled=""/g) ?? []).length, 3)
+  assert.equal((render(policies, true).match(/disabled=""/g) ?? []).length, 13)
   for (const field of ['startDelay', 'retryCount', 'retryDelaySeconds', 'retryLogic']) {
     const path = `/tasks/0/${field}`
     actor.send({ type: 'FIELD_DRAFT_CHANGED', path, draft: {
@@ -1458,7 +1470,7 @@ test('task policy switches expose required inputs only for configured values, in
     actor.send({ type: 'TASK_SELECTED', task: actor.state.context.workflow.tasks[0] })
     const pending = render({})
     assert.equal((pending.match(/checked=""/g) ?? []).length, 1, field)
-    assert.equal((pending.match(/required=""/g) ?? []).length, 1, field)
+    assert.equal((pending.match(/required=""|aria-required="true"/g) ?? []).length, field === 'startDelay' ? 1 : 3, field)
     assert.ok(pending.includes('请完成策略配置'), field)
     actor.send({ type: 'REQUEST_SAVE' })
     assert.ok(actor.state.matches('ready.lifecycle.editing'), field)
@@ -1514,6 +1526,7 @@ test('workflow execution policies hide inherited timeouts and retain existing ov
     assert.equal(html.includes('checked=""'), false)
     assert.equal(html.includes('aria-label="超时时间（秒）"'), false)
     assert.equal(html.includes('aria-label="超时策略"'), false)
+    assert.equal(html.includes('继承系统超时时间，超时后终止工作流'), false)
   }
   for (const timeout of [
     { timeoutSeconds: 60, timeoutPolicy: 'TIME_OUT_WF' },
@@ -1525,9 +1538,16 @@ test('workflow execution policies hide inherited timeouts and retain existing ov
     assert.ok(html.includes('aria-label="超时时间（秒）"'))
     assert.ok(html.includes('aria-label="超时策略"'))
     assert.ok(html.includes(`value="${timeout.timeoutSeconds}"`))
-    assert.ok(html.includes(`value="${timeout.timeoutPolicy}" selected=""`))
-    assert.equal((html.match(/required=""/g) ?? []).length, 5) // name, route, description, time, policy
-    assert.equal((render(timeout, true).match(/disabled=""/g) ?? []).length, 4) // switch, time, policy, placeholder
+    assert.ok(html.includes('role="combobox"'))
+    assert.ok(html.includes(timeout.timeoutPolicy === 'TIME_OUT_WF' ? '超时终止' : '仅告警'))
+    assert.ok(html.includes('inputMode="numeric"'))
+    assert.equal(html.includes('配置整个工作流的超时时间及处理策略'), false)
+    assert.equal(html.includes('0 表示继承系统配置'), false)
+    assert.equal(html.includes('同步调用继续等待'), false)
+    assert.equal((html.match(/required=""|aria-required="true"/g) ?? []).length, 5) // name, route, description, time, policy
+    assert.ok(html.includes('aria-label="增加超时时间（秒）"'))
+    assert.ok(html.includes('aria-label="减少超时时间（秒）"'))
+    assert.equal((render(timeout, true).match(/disabled=""/g) ?? []).length, 5) // switch, time, two step buttons, policy
   }
   for (const path of ['/timeoutSeconds', '/timeoutPolicy']) {
     actor.send({ type: 'FIELD_DRAFT_CHANGED', path, draft: { path, value: '', taskReferenceName: '', message: '请完成超时配置' } })
@@ -1535,7 +1555,7 @@ test('workflow execution policies hide inherited timeouts and retain existing ov
   const pending = render({ timeoutSeconds: 0, timeoutPolicy: 'TIME_OUT_WF' })
   assert.ok(pending.includes('checked=""'))
   assert.ok(pending.includes('请完成超时配置'))
-  assert.ok(pending.includes('value="" disabled="" selected=""'))
+  assert.ok(pending.includes('class="placeholder">请选择超时策略'))
   actor.stop()
   queryClient.clear()
 })

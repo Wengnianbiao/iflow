@@ -3,8 +3,8 @@ package com.helianhealth.iflow.core.config;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.boot.context.properties.source.MapConfigurationPropertySource;
-import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
@@ -12,43 +12,34 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class IflowPropertiesTest {
     @Test
-    void taskDefaultsDoNotRetryOrDelayTasks() {
-        var defaults = new IflowProperties().getTaskExecution();
-        assertEquals(0, defaults.getDefaultRetryCount());
-        assertEquals(0, defaults.getDefaultRetryDelaySeconds());
-        assertEquals(WorkflowTask.RetryLogic.FIXED, defaults.getDefaultRetryLogic());
-        assertEquals(0, defaults.getDefaultStartDelay());
+    void providesAndBindsExecutionLockDurations() {
+        IflowProperties defaults = new IflowProperties();
+        assertEquals(Duration.ofMillis(500), defaults.getLockTimeToTry());
+        assertEquals(Duration.ofSeconds(60), defaults.getLockLeaseTime());
+
+        IflowProperties configured = new Binder(new MapConfigurationPropertySource(Map.of(
+                "iflow.lock-time-to-try", "100ms",
+                "iflow.lock-lease-time", "2s")))
+                .bind("iflow", IflowProperties.class).get();
+        assertEquals(Duration.ofMillis(100), configured.getLockTimeToTry());
+        assertEquals(Duration.ofSeconds(2), configured.getLockLeaseTime());
     }
 
     @Test
-    void bindsAllTaskPolicyDefaults() {
-        var defaults = new Binder(new MapConfigurationPropertySource(Map.of(
-                "iflow.task-execution.default-retry-count", "3",
-                "iflow.task-execution.default-retry-delay-seconds", "1",
-                "iflow.task-execution.default-retry-logic", "EXPONENTIAL_BACKOFF",
-                "iflow.task-execution.default-start-delay", "2")))
-                .bind("iflow", IflowProperties.class).get().getTaskExecution();
-        assertEquals(3, defaults.getDefaultRetryCount());
-        assertEquals(1, defaults.getDefaultRetryDelaySeconds());
-        assertEquals(WorkflowTask.RetryLogic.EXPONENTIAL_BACKOFF, defaults.getDefaultRetryLogic());
-        assertEquals(2, defaults.getDefaultStartDelay());
-    }
-
-    @Test
-    void rejectsInvalidTaskPolicyConfigurationDuringBinding() {
-        for (String key : List.of("default-retry-count", "default-retry-delay-seconds",
-                "default-start-delay")) {
-            for (String value : List.of("-1", "0.5", "invalid")) {
-                var binder = new Binder(new MapConfigurationPropertySource(Map.of("iflow.task-execution." + key, value)));
-                assertThrows(org.springframework.boot.context.properties.bind.BindException.class,
-                        () -> binder.bind("iflow", IflowProperties.class));
-            }
-        }
-        for (String key : List.of("default-retry-logic")) {
-            var binder = new Binder(new MapConfigurationPropertySource(Map.of("iflow.task-execution." + key, "UNKNOWN")));
+    void rejectsInvalidExecutionLockDurationsDuringBinding() {
+        for (String value : List.of("-1ms", "invalid")) {
+            var binder = new Binder(new MapConfigurationPropertySource(Map.of("iflow.lock-time-to-try", value)));
             assertThrows(org.springframework.boot.context.properties.bind.BindException.class,
                     () -> binder.bind("iflow", IflowProperties.class));
         }
+        for (String value : List.of("0ms", "-1s", "PT0.000001S", "invalid")) {
+            var binder = new Binder(new MapConfigurationPropertySource(Map.of("iflow.lock-lease-time", value)));
+            assertThrows(org.springframework.boot.context.properties.bind.BindException.class,
+                    () -> binder.bind("iflow", IflowProperties.class));
+        }
+        var configured = new Binder(new MapConfigurationPropertySource(Map.of("iflow.lock-time-to-try", "0ms")))
+                .bind("iflow", IflowProperties.class).get();
+        assertEquals(Duration.ZERO, configured.getLockTimeToTry());
     }
 
     @Test

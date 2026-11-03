@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
-import { BracketsCurlyIcon, CaretDownIcon, CheckIcon, TrashIcon } from '@phosphor-icons/react'
+import { BracketsCurlyIcon, CaretDownIcon, CaretUpIcon, CheckIcon, TrashIcon } from '@phosphor-icons/react'
 import { useValidationFocus } from '../validation/ValidationScope'
 
 const VARIABLE_REGEX = /\$\{[^}]*$/
@@ -70,18 +70,77 @@ export function WorkflowCollapsibleSection({
   )
 }
 
+export function InspectorNumberInput({
+  value,
+  ariaLabel,
+  max = Number.MAX_SAFE_INTEGER,
+  placeholder,
+  required = false,
+  disabled = false,
+  onChange,
+}: {
+  value: string
+  ariaLabel: string
+  max?: number
+  placeholder?: string
+  required?: boolean
+  disabled?: boolean
+  onChange: (value: string) => void
+}) {
+  const number = /^\d+$/.test(value) ? Number(value) : NaN
+  const valid = Number.isSafeInteger(number) && number >= 0 && number <= max
+  const step = (direction: number) => {
+    if (disabled || (!valid && value !== '')) return
+    const next = (value === '' ? 0 : number) + direction
+    if (next >= 0 && next <= max) onChange(String(next))
+  }
+
+  return (
+    <div className="inspector-number-input">
+      <input type="text" inputMode="numeric" pattern="[0-9]*" role="spinbutton"
+        aria-label={ariaLabel} aria-valuemin={0} aria-valuemax={max}
+        aria-valuenow={valid ? number : undefined}
+        value={value} required={required} disabled={disabled} placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+            event.preventDefault()
+            step(event.key === 'ArrowUp' ? 1 : -1)
+          }
+        }} />
+      <div className="inspector-number-actions">
+        <button type="button" aria-label={`增加${ariaLabel}`}
+          disabled={disabled || (value !== '' && !valid) || number === max} onClick={() => step(1)}>
+          <CaretUpIcon size={14} aria-hidden="true" />
+        </button>
+        <button type="button" aria-label={`减少${ariaLabel}`}
+          disabled={disabled || !valid || number === 0} onClick={() => step(-1)}>
+          <CaretDownIcon size={14} aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function InspectorSelect({
   value,
   options,
   ariaLabel,
+  placeholder,
+  required = false,
+  disabled = false,
   onChange,
 }: {
   value: string
   options: ReadonlyArray<{ value: string; label: string }>
   ariaLabel: string
+  placeholder?: string
+  required?: boolean
+  disabled?: boolean
   onChange: (value: string) => void
 }) {
   const [open, setOpen] = useState(false)
+  const [openUpwards, setOpenUpwards] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([])
@@ -97,8 +156,20 @@ export function InspectorSelect({
     return () => document.removeEventListener('pointerdown', closeOnOutsidePointer)
   }, [open])
 
-  const openAndFocus = (index: number) => {
+  const showOptions = () => {
+    const root = rootRef.current
+    if (root) {
+      const bounds = root.getBoundingClientRect()
+      const scrollBounds = root.closest('.inspector-scroll')?.getBoundingClientRect()
+      const spaceBelow = Math.min(scrollBounds?.bottom ?? window.innerHeight, window.innerHeight) - bounds.bottom
+      const spaceAbove = bounds.top - Math.max(scrollBounds?.top ?? 0, 0)
+      setOpenUpwards(spaceBelow < options.length * 40 + 12 && spaceAbove > spaceBelow)
+    }
     setOpen(true)
+  }
+
+  const openAndFocus = (index: number) => {
+    showOptions()
     requestAnimationFrame(() => optionRefs.current[index]?.focus())
   }
 
@@ -109,7 +180,7 @@ export function InspectorSelect({
 
   return (
     <div
-      className={`inspector-select ${open ? 'open' : ''}`}
+      className={`inspector-select ${open ? 'open' : ''} ${openUpwards ? 'open-up' : ''}`}
       ref={rootRef}
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false)
@@ -121,10 +192,12 @@ export function InspectorSelect({
         ref={triggerRef}
         role="combobox"
         aria-label={ariaLabel}
+        aria-required={required || undefined}
+        disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={optionsId}
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => open ? setOpen(false) : showOptions()}
         onKeyDown={(event) => {
           if (event.key === 'ArrowDown') {
             event.preventDefault()
@@ -138,7 +211,7 @@ export function InspectorSelect({
           }
         }}
       >
-        <span>{selected?.label ?? value}</span>
+        <span className={value ? undefined : 'placeholder'}>{selected?.label ?? (value || placeholder)}</span>
         <CaretDownIcon size={18} weight="bold" aria-hidden="true" />
       </button>
       {open ? (

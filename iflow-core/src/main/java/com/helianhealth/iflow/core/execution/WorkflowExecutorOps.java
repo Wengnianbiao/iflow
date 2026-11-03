@@ -151,7 +151,7 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
         // 同步入口自行创建和推进实例，首次决策前登记通知，释放实例锁后再等待。
         try (WorkflowCompletionRegistry.Registration completion =
                 completionRegistry.register(workflowId)) {
-            lockWorkflow(workflowId);
+            executionLockService.waitForLock(workflowId);
             try {
                 executionDAOFacade.createWorkflow(workflow);
                 notifyWorkflowStatusListeners(workflow, WorkflowEventType.STARTED);
@@ -191,34 +191,13 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
             throw new WorkFlowException(
                     WorkFlowErrorCode.REPOSITORY_SAVE_ERROR, "工作流 route 不能为空");
         }
-        WorkflowDef definition = objectMapper.convertValue(
+        return objectMapper.convertValue(
                 metadataService.getWorkflowDef(input.getRoute(), input.getVersion()), WorkflowDef.class);
-        IflowProperties.TaskExecution defaults = properties.getTaskExecution();
-        for (WorkflowTask task : definition.collectTasks()) {
-            // FORK_JOIN 定义由 Mapper 展开为运行时 FORK，按同一控制任务分类解析。
-            String taskType = TaskType.TASK_TYPE_FORK_JOIN.equals(task.getType())
-                    ? TaskType.TASK_TYPE_FORK : task.getType();
-            if (!TaskType.isBuiltIn(taskType)) {
-                if (task.getRetryCount() == null) {
-                    task.setRetryCount(defaults.getDefaultRetryCount());
-                }
-                if (task.getRetryDelaySeconds() == null) {
-                    task.setRetryDelaySeconds(defaults.getDefaultRetryDelaySeconds());
-                }
-                if (task.getRetryLogic() == null) {
-                    task.setRetryLogic(defaults.getDefaultRetryLogic());
-                }
-            }
-            if (task.getStartDelay() == null) {
-                task.setStartDelay(defaults.getDefaultStartDelay());
-            }
-        }
-        return definition;
     }
 
     /** 决策由触发它的线程直接执行，持锁后重新加载，避免丢失并发完成通知。 */
     private void decideWithLock(String workflowId) {
-        lockWorkflow(workflowId);
+        executionLockService.waitForLock(workflowId);
         WorkflowModel workflow = null;
         try {
             workflow = executionDAOFacade.getWorkflowModel(workflowId);
@@ -317,8 +296,10 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
                 if (task.getSeq() == 0) { // Set only if the seq was not set
                     task.setSeq(++count);
                 }
-                // Stamp the very first time this task enters the queue. Retried tasks carry
-                // this value forward (via TaskModel.copy()), so it is never overwritten here.
+                if (task.getScheduledTime() == 0) {
+                    task.setScheduledTime(System.currentTimeMillis());
+                }
+                // 重试保留首次调度时间，每次尝试记录各自的调度时间。
                 if (task.getFirstScheduledTime() == 0) {
                     task.setFirstScheduledTime(System.currentTimeMillis());
                 }
@@ -344,7 +325,7 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
                 if (workflowSystemTask == null) {
                     throw new Exception();
                 }
-                if (!workflowSystemTask.isAsync()) {
+                if (!workflowSystemTask.isAsync() && task.getStartDelayInSeconds() == 0) {
                     if (task.getStatus() != null
                             && !task.getStatus().isTerminal()
                             && task.getStartTime() == 0) {
@@ -399,7 +380,7 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
         for (TaskModel task : tasks) {
             try {
                 executionQueue.submitTask(QueueUtils.getQueueName(task), task.getTaskId(),
-                        this::executeSystemTask);
+                        task.getStartDelayInSeconds(), this::executeSystemTask);
             } catch (RuntimeException error) {
                 String reason = "内存队列提交失败: " + rootCauseMessage(error);
                 failTask(task, reason);
@@ -424,7 +405,7 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
         WorkflowModel workflow = null;
         try {
             WorkflowModel execution;
-            lockWorkflow(workflowId);
+            executionLockService.waitForLock(workflowId);
             try {
                 workflow = executionDAOFacade.getWorkflowModel(workflowId);
                 if (workflow == null || workflow.getStatus().isTerminal()) {
@@ -432,6 +413,12 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
                 }
                 TaskModel task = findTask(workflow, taskId);
                 if (task == null || task.getStatus() != TaskModel.Status.SCHEDULED) {
+                    return;
+                }
+                try {
+                    deciderService.checkWorkflowTimeout(workflow);
+                } catch (TerminateWorkflowException error) {
+                    persistTerminatedWorkflow(workflow, error);
                     return;
                 }
                 markStarted(task);
@@ -444,7 +431,7 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
             TaskModel result = findTask(execution, taskId);
             startSystemTask(execution, result);
 
-            lockWorkflow(workflowId);
+            executionLockService.waitForLock(workflowId);
             try {
                 workflow = executionDAOFacade.getWorkflowModel(workflowId);
                 if (workflow == null || workflow.getStatus().isTerminal()) {
@@ -511,7 +498,7 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
 
     private void failWorkflow(WorkflowModel fallback, String reason, Throwable error) {
         String workflowId = fallback.getWorkflowId();
-        lockWorkflow(workflowId);
+        executionLockService.waitForLock(workflowId);
         try {
             WorkflowModel stored = executionDAOFacade.getWorkflowModel(workflowId);
             WorkflowModel workflow = stored != null ? stored : fallback;
@@ -522,23 +509,6 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
                     new TerminateWorkflowException(reason + ": " + rootCauseMessage(error), error));
         } finally {
             executionLockService.releaseLock(workflowId);
-        }
-    }
-
-    private void lockWorkflow(String workflowId) {
-        boolean interrupted = Thread.interrupted();
-        while (!executionLockService.acquireLock(workflowId)) {
-            if (Thread.interrupted()) {
-                interrupted = true;
-            }
-            try {
-                Thread.sleep(10);
-            } catch (InterruptedException error) {
-                interrupted = true;
-            }
-        }
-        if (interrupted) {
-            Thread.currentThread().interrupt();
         }
     }
 
@@ -606,7 +576,7 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
     @Override
     public void terminateWorkflow(WorkflowModel workflow, String reason) {
         String workflowId = workflow.getWorkflowId();
-        lockWorkflow(workflowId);
+        executionLockService.waitForLock(workflowId);
         try {
             WorkflowModel current = executionDAOFacade != null
                     ? executionDAOFacade.getWorkflowModel(workflowId) : null;

@@ -160,6 +160,9 @@ public class TaskModel {
      */
     private long firstScheduledTime;
 
+    /** 本次尝试入队后的等待秒数，由重试决策设置。 */
+    private int startDelayInSeconds;
+
     /**
      * 真正开始执行时间
      */
@@ -348,6 +351,10 @@ public class TaskModel {
         return this.firstScheduledTime;
     }
 
+    public int getStartDelayInSeconds() {
+        return this.startDelayInSeconds;
+    }
+
     public long getStartTime() {
         return this.startTime;
     }
@@ -446,6 +453,10 @@ public class TaskModel {
 
     public void setFirstScheduledTime(long firstScheduledTime) {
         this.firstScheduledTime = firstScheduledTime;
+    }
+
+    public void setStartDelayInSeconds(int startDelayInSeconds) {
+        this.startDelayInSeconds = startDelayInSeconds;
     }
 
     public void setStartTime(long startTime) {

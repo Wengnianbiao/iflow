@@ -10,7 +10,8 @@ import com.helianhealth.iflow.core.exception.TerminateWorkflowException;
 import com.helianhealth.iflow.core.execution.mapper.NoopTaskMapper;
 import com.helianhealth.iflow.core.execution.tasks.SystemTaskRegistry;
 import com.helianhealth.iflow.core.execution.tasks.WorkflowSystemTask;
-import com.helianhealth.iflow.core.lock.InMemoryExecutionLockService;
+import com.helianhealth.iflow.core.lock.ExecutionLockService;
+import com.helianhealth.iflow.core.lock.InMemoryLock;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
 import com.helianhealth.iflow.core.service.MetadataService;
@@ -116,7 +117,7 @@ class WorkflowExecutorOpsPersistenceTest {
                         metadataService,
                         new IDGenerator(),
                         parametersUtils,
-                        new InMemoryExecutionLockService(),
+                        new ExecutionLockService(new InMemoryLock()),
                         new TestWorkflowStatusListener((workflowId, status) -> {
                             assertEquals(status, persistedWorkflow.get().getStatus());
                             assertEquals(TaskModel.Status.FAILED, persistedTask.get().getStatus());

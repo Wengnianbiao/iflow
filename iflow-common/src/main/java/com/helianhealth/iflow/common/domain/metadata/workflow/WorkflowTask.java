@@ -2,14 +2,8 @@ package com.helianhealth.iflow.common.domain.metadata.workflow;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.helianhealth.iflow.common.domain.metadata.task.TaskType;
 
-import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -95,7 +89,7 @@ public class WorkflowTask {
     private boolean optional;
 
     /**
-     * 宽容任务：失败时若同批兄弟任务尚未全部终态则继续等待
+     * 宽容任务：失败后允许后继继续执行，工作流最终仍按失败收尾
      */
     private boolean permissive;
 
@@ -115,20 +109,17 @@ public class WorkflowTask {
     private String loopItems;
 
     /**
-     * 异步任务在首次执行之外允许的重试次数。四项策略为 null 时继承框架配置，显式 0 保留。
+     * 首次执行之外允许的重试次数，默认 0。控制流任务不重试。
      */
-    @JsonDeserialize(using = PolicyIntegerDeserializer.class)
-    private Integer retryCount;
+    private Integer retryCount = 0;
 
     /** 重试基础间隔（秒）。0 表示不等待。 */
-    @JsonDeserialize(using = PolicyIntegerDeserializer.class)
-    private Integer retryDelaySeconds;
+    private Integer retryDelaySeconds = 0;
 
-    private RetryLogic retryLogic;
+    private RetryLogic retryLogic = RetryLogic.FIXED;
 
     /** 节点满足调度条件后的启动延迟（秒）。0 表示无延迟。 */
-    @JsonDeserialize(using = PolicyIntegerDeserializer.class)
-    private Integer startDelay;
+    private Integer startDelay = 0;
 
     public enum RetryLogic {
         FIXED,
@@ -138,17 +129,6 @@ public class WorkflowTask {
         @JsonCreator
         public static RetryLogic fromValue(String value) {
             return valueOf(value);
-        }
-    }
-
-    /** 不将小数或字符串静默转换为整数；非负约束由定义保存入口检查。 */
-    public static class PolicyIntegerDeserializer extends JsonDeserializer<Integer> {
-        @Override
-        public Integer deserialize(JsonParser parser, DeserializationContext context) throws IOException {
-            if (!parser.hasToken(JsonToken.VALUE_NUMBER_INT)) {
-                return context.reportInputMismatch(Integer.class, "%s 必须是非负整数", parser.currentName());
-            }
-            return parser.getIntValue();
         }
     }
 
@@ -440,19 +420,19 @@ public class WorkflowTask {
     }
 
     public void setRetryCount(Integer retryCount) {
-        this.retryCount = retryCount;
+        this.retryCount = retryCount == null ? 0 : retryCount;
     }
 
     public void setRetryDelaySeconds(Integer retryDelaySeconds) {
-        this.retryDelaySeconds = retryDelaySeconds;
+        this.retryDelaySeconds = retryDelaySeconds == null ? 0 : retryDelaySeconds;
     }
 
     public void setRetryLogic(RetryLogic retryLogic) {
-        this.retryLogic = retryLogic;
+        this.retryLogic = retryLogic == null ? RetryLogic.FIXED : retryLogic;
     }
 
     public void setStartDelay(Integer startDelay) {
-        this.startDelay = startDelay;
+        this.startDelay = startDelay == null ? 0 : startDelay;
     }
 
     protected boolean canEqual(Object other) {
@@ -501,10 +481,10 @@ public class WorkflowTask {
         this.loopOver = loopOver;
         this.loopCondition = loopCondition;
         this.loopItems = loopItems;
-        this.retryCount = retryCount;
-        this.retryDelaySeconds = retryDelaySeconds;
-        this.retryLogic = retryLogic;
-        this.startDelay = startDelay;
+        setRetryCount(retryCount);
+        setRetryDelaySeconds(retryDelaySeconds);
+        setRetryLogic(retryLogic);
+        setStartDelay(startDelay);
     }
 
     @Override

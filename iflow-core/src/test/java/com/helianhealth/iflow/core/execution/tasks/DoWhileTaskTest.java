@@ -13,7 +13,8 @@ import com.helianhealth.iflow.core.execution.mapper.DoWhileTaskMapper;
 import com.helianhealth.iflow.core.execution.mapper.ForkJoinTaskMapper;
 import com.helianhealth.iflow.core.execution.mapper.JoinTaskMapper;
 import com.helianhealth.iflow.core.execution.mapper.NoopTaskMapper;
-import com.helianhealth.iflow.core.lock.InMemoryExecutionLockService;
+import com.helianhealth.iflow.core.lock.ExecutionLockService;
+import com.helianhealth.iflow.core.lock.InMemoryLock;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
 import com.helianhealth.iflow.core.model.WorkflowExecutionMapper;
@@ -1182,7 +1183,7 @@ class DoWhileTaskTest {
                             throw new UnsupportedOperationException(method.getName());
                         });
                 executor = new TestWorkflowExecutor(decider, registry, dao, metadata,
-                        new IDGenerator(), parameters, new InMemoryExecutionLockService());
+                        new IDGenerator(), parameters, new ExecutionLockService(new InMemoryLock()));
             }
 
             void useForkPool(Executor pool) {

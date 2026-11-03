@@ -1,19 +1,50 @@
 package com.helianhealth.iflow.core.lock;
 
+import com.helianhealth.iflow.core.config.IflowProperties;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.concurrent.TimeUnit;
+
 /**
- * 工作流执行锁边界。
+ * 工作流执行锁服务，通过组合 {@link Lock} 隔离底层锁实现。
  *
- * <p>锁 ID 通常使用工作流实例 ID。实现可以是进程内锁，也可以替换为 Redis 等分布式锁。
+ * <p>普通启动和 Sweeper 限时尝试取锁；必须完成的决策和状态更新等待取锁。
  */
-public interface ExecutionLockService {
+@Service
+public class ExecutionLockService {
+
+    private final Lock lock;
+    private final long lockTimeToTry;
+    private final long lockLeaseTime;
+
+    public ExecutionLockService(Lock lock) {
+        this(new IflowProperties(), lock);
+    }
+
+    @Autowired
+    public ExecutionLockService(IflowProperties properties, Lock lock) {
+        this.lock = lock;
+        this.lockTimeToTry = properties.getLockTimeToTry().toMillis();
+        this.lockLeaseTime = properties.getLockLeaseTime().toMillis();
+    }
 
     /**
-     * 在实现约定的等待时间内尝试获取锁。
+     * 在配置的等待时间内尝试获取带租约的锁。
      *
      * @return 获取成功时返回 {@code true}
      */
-    boolean acquireLock(String lockId);
+    public boolean acquireLock(String lockId) {
+        return lock.acquireLock(lockId, lockTimeToTry, lockLeaseTime, TimeUnit.MILLISECONDS);
+    }
+
+    /** 等待取得带租约的锁，保留线程的中断状态。 */
+    public void waitForLock(String lockId) {
+        lock.acquireLock(lockId, lockLeaseTime, TimeUnit.MILLISECONDS);
+    }
 
     /** 释放当前线程持有的锁。 */
-    void releaseLock(String lockId);
+    public void releaseLock(String lockId) {
+        lock.releaseLock(lockId);
+    }
 }

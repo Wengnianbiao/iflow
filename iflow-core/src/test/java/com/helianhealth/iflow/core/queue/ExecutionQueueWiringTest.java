@@ -39,7 +39,7 @@ class ExecutionQueueWiringTest {
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void selectsConfiguredCustomQueueRegardlessOfRegistrationOrder(boolean customFirst) {
-        ExecutionQueue customQueue = (queueName, taskId, executeTask) -> true;
+        ExecutionQueue customQueue = (queueName, taskId, delaySeconds, executeTask) -> true;
         QueueDAO customDAO = new InMemoryQueueDAO();
         try (AnnotationConfigApplicationContext context = context("custom")) {
             if (customFirst) {

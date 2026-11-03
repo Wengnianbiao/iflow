@@ -8,7 +8,9 @@ import com.helianhealth.iflow.core.dal.ExecutionDAOFacade;
 import com.helianhealth.iflow.core.queue.InMemoryQueueDAO;
 import com.helianhealth.iflow.core.dao.ExecutionDAO;
 import com.helianhealth.iflow.core.exception.TransientException;
+import com.helianhealth.iflow.core.exception.TerminateWorkflowException;
 import com.helianhealth.iflow.core.execution.mapper.ForkJoinTaskMapper;
+import com.helianhealth.iflow.core.execution.mapper.DoWhileTaskMapper;
 import com.helianhealth.iflow.core.execution.mapper.HttpTaskMapper;
 import com.helianhealth.iflow.core.execution.mapper.JdbcTaskMapper;
 import com.helianhealth.iflow.core.execution.mapper.JoinTaskMapper;
@@ -17,12 +19,14 @@ import com.helianhealth.iflow.core.execution.mapper.TaskMapper;
 import com.helianhealth.iflow.core.execution.mapper.TaskMapperContext;
 import com.helianhealth.iflow.core.execution.mapper.WebServiceTaskMapper;
 import com.helianhealth.iflow.core.execution.tasks.Fork;
+import com.helianhealth.iflow.core.execution.tasks.DoWhile;
 import com.helianhealth.iflow.core.execution.tasks.Join;
 import com.helianhealth.iflow.core.execution.tasks.SystemTaskRegistry;
 import com.helianhealth.iflow.core.execution.tasks.WorkflowSystemTask;
 import com.helianhealth.iflow.core.lock.ExecutionLockService;
 import com.helianhealth.iflow.core.listener.WorkflowStatusListener;
-import com.helianhealth.iflow.core.lock.InMemoryExecutionLockService;
+import com.helianhealth.iflow.core.lock.InMemoryLock;
+import com.helianhealth.iflow.core.lock.Lock;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowExecutionMapper;
 import com.helianhealth.iflow.core.model.WorkflowModel;
@@ -31,6 +35,7 @@ import com.helianhealth.iflow.core.utils.IDGenerator;
 import com.helianhealth.iflow.core.utils.ParametersUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.lang.reflect.Proxy;
@@ -43,6 +48,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -57,8 +63,241 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 class WorkflowExecutorOpsAsyncTasksTest {
+
+    @ParameterizedTest
+    @CsvSource({"false,false,false", "false,true,false", "true,false,false", "true,true,false",
+            "false,false,true", "false,true,true", "true,false,true", "true,true,true"})
+    void retriesFailedBusinessTasksAndAdvancesOnceForBothEntryPoints(boolean synchronous, boolean async, boolean permissive)
+            throws Exception {
+        AtomicInteger attempts = new AtomicInteger();
+        AtomicInteger successors = new AtomicInteger();
+        ParametersUtils parameters = new ParametersUtils(new ObjectMapper());
+        WorkflowTask http = task("http", TaskType.TASK_TYPE_HTTP);
+        http.setRetryCount(2);
+        http.setPermissive(permissive);
+        WorkflowDef definition = definition("retry-success", List.of(http, mappingTask("after", "${http.output}")));
+        MemoryStore store = new MemoryStore();
+        TestWorkflowExecutor executor = executor(definition,
+                new SystemTaskRegistry(Set.of(retryingHttp(attempts, 1, async), completedMapping(successors))),
+                Map.of(TaskType.TASK_TYPE_HTTP, new HttpTaskMapper(parameters),
+                        TaskType.TASK_TYPE_MAPPING, new ParamMappingTaskMapper(parameters)), parameters, store);
+        ExecutorService workers = Executors.newSingleThreadExecutor();
+        ExecutorService caller = Executors.newSingleThreadExecutor();
+        executor.useTaskExecutor(workers);
+        try {
+            var result = caller.submit(() -> {
+                if (synchronous) {
+                    return executor.startWorkflowSync(input(definition)).getWorkflowId();
+                }
+                return executor.startWorkflow(input(definition));
+            });
+            result.get(3, TimeUnit.SECONDS);
+            assertTrue(store.completed.await(3, TimeUnit.SECONDS));
+            WorkflowModel completed = store.facade().getWorkflowModel(store.workflow.get().getWorkflowId());
+            assertEquals(WorkflowModel.Status.COMPLETED, completed.getStatus());
+            assertEquals(2, attempts.get());
+            assertEquals(1, successors.get());
+            assertEquals(3, completed.getTasks().size());
+            TaskModel original = completed.getTasks().getFirst();
+            TaskModel retry = completed.getTaskByRefName("http");
+            assertEquals(TaskModel.Status.FAILED, original.getStatus());
+            assertTrue(original.isRetried());
+            assertEquals(original.getTaskId(), retry.getRetriedTaskId());
+            assertEquals(1, retry.getRetryCount());
+            assertEquals(original.getFirstScheduledTime(), retry.getFirstScheduledTime());
+            assertTrue(retry.getStartTime() >= retry.getScheduledTime());
+            assertEquals("success", completed.getOutput());
+        } finally {
+            caller.shutdownNow();
+            workers.shutdownNow();
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({"false,false,false", "true,false,false", "false,true,false", "true,true,false",
+            "false,false,true", "true,false,true", "false,true,true", "true,true,true"})
+    void exhaustedRetriesApplyFailurePolicyOnlyAfterAllAttempts(boolean optional, boolean permissive, boolean synchronous)
+            throws Exception {
+        AtomicInteger attempts = new AtomicInteger();
+        AtomicInteger successors = new AtomicInteger();
+        ParametersUtils parameters = new ParametersUtils(new ObjectMapper());
+        WorkflowTask http = task("http", TaskType.TASK_TYPE_HTTP);
+        http.setRetryCount(2);
+        http.setOptional(optional);
+        http.setPermissive(permissive);
+        WorkflowDef definition = definition("retry-exhausted", List.of(http, mappingTask("after", "continued")));
+        MemoryStore store = new MemoryStore();
+        TestWorkflowExecutor executor = executor(definition,
+                new SystemTaskRegistry(Set.of(retryingHttp(attempts, Integer.MAX_VALUE, true), completedMapping(successors))),
+                Map.of(TaskType.TASK_TYPE_HTTP, new HttpTaskMapper(parameters),
+                        TaskType.TASK_TYPE_MAPPING, new ParamMappingTaskMapper(parameters)), parameters, store);
+        ExecutorService workers = Executors.newSingleThreadExecutor();
+        ExecutorService caller = Executors.newSingleThreadExecutor();
+        try {
+            executor.useTaskExecutor(workers);
+            StartWorkflowInput start = input(definition);
+            start.setWorkflowId("retry-exhausted");
+            var result = caller.submit(() -> {
+                if (synchronous) {
+                    return executor.startWorkflowSync(start).getWorkflowId();
+                }
+                return executor.startWorkflow(start);
+            });
+            if (synchronous && !optional) {
+                ExecutionException error = assertThrows(ExecutionException.class,
+                        () -> result.get(3, TimeUnit.SECONDS));
+                assertTrue(error.getCause() instanceof TerminateWorkflowException);
+            } else {
+                assertEquals(start.getWorkflowId(), result.get(3, TimeUnit.SECONDS));
+            }
+            assertTrue(store.completed.await(3, TimeUnit.SECONDS));
+            WorkflowModel completed = store.facade().getWorkflowModel(start.getWorkflowId());
+            assertEquals(optional ? WorkflowModel.Status.COMPLETED : WorkflowModel.Status.FAILED, completed.getStatus());
+            assertEquals(3, attempts.get());
+            assertEquals(optional || permissive ? 1 : 0, successors.get());
+            assertEquals(2, completed.getTaskByRefName("http").getRetryCount());
+            assertEquals(optional ? TaskModel.Status.COMPLETED_WITH_ERRORS : TaskModel.Status.FAILED,
+                    completed.getTaskByRefName("http").getStatus());
+            if (!optional && permissive) {
+                assertTrue(completed.getReasonForInCompletion().contains(completed.getTaskByRefName("http").getTaskId()));
+                assertTrue(completed.getReasonForInCompletion().contains("temporary failure"));
+                assertEquals(TaskModel.Status.COMPLETED, completed.getTaskByRefName("after").getStatus());
+            }
+        } finally {
+            caller.shutdownNow();
+            workers.shutdownNow();
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({"complete,false", "complete,true", "cancel,true", "timeout,true"})
+    void delayedRetryWaitsWithoutHoldingWorkflowLockAndSkipsTerminalWorkflow(String mode, boolean async) throws Exception {
+        boolean cancel = "cancel".equals(mode);
+        boolean timeout = "timeout".equals(mode);
+        AtomicInteger attempts = new AtomicInteger();
+        ParametersUtils parameters = new ParametersUtils(new ObjectMapper());
+        WorkflowTask http = task("http", TaskType.TASK_TYPE_HTTP);
+        http.setRetryCount(1);
+        http.setRetryDelaySeconds(1);
+        WorkflowDef definition = definition("delayed-retry", List.of(http));
+        if (timeout) {
+            definition.setTimeoutSeconds(1);
+        }
+        MemoryStore store = new MemoryStore();
+        TestWorkflowExecutor executor = executor(definition,
+                new SystemTaskRegistry(Set.of(retryingHttp(attempts, 1, async))),
+                Map.of(TaskType.TASK_TYPE_HTTP, new HttpTaskMapper(parameters)), parameters, store);
+        CountDownLatch retryConsumed = new CountDownLatch(1);
+        AtomicInteger dispatches = new AtomicInteger();
+        try (ExecutorService workers = Executors.newSingleThreadExecutor()) {
+            executor.useTaskExecutor(command -> {
+                int dispatch = dispatches.incrementAndGet();
+                workers.execute(() -> {
+                    try {
+                        command.run();
+                    } finally {
+                        if (!async || dispatch >= 2) {
+                            retryConsumed.countDown();
+                        }
+                    }
+                });
+            });
+            String id = executor.startWorkflow(input(definition));
+            assertTrue(store.retryScheduled.await(2, TimeUnit.SECONDS));
+            TaskModel waiting = store.tasks.get("http");
+            assertEquals(TaskModel.Status.SCHEDULED, waiting.getStatus());
+            assertEquals(0, waiting.getStartTime());
+            assertEquals(1, waiting.getStartDelayInSeconds());
+            assertEquals(1, attempts.get());
+            // 单线程任务池仍能处理其他工作，工作流锁也已释放。
+            assertEquals("available", workers.submit(() -> "available").get(500, TimeUnit.MILLISECONDS));
+            if (cancel) {
+                executor.terminateWorkflow(store.facade().getWorkflowModel(id), "cancel during retry delay");
+            }
+            assertTrue(retryConsumed.await(3, TimeUnit.SECONDS));
+            WorkflowModel completed = store.facade().getWorkflowModel(id);
+            WorkflowModel.Status expected = cancel ? WorkflowModel.Status.TERMINATED
+                    : timeout ? WorkflowModel.Status.TIMED_OUT : WorkflowModel.Status.COMPLETED;
+            assertEquals(expected, completed.getStatus());
+            assertEquals(cancel || timeout ? 1 : 2, attempts.get());
+            if (!cancel && !timeout) {
+                TaskModel retry = completed.getTaskByRefName("http");
+                assertTrue(retry.getStartTime() - retry.getScheduledTime() >= 1_000);
+            }
+        }
+    }
+
+    private static WorkflowSystemTask retryingHttp(AtomicInteger attempts, int failures, boolean async) {
+        return new WorkflowSystemTask(TaskType.TASK_TYPE_HTTP) {
+            @Override
+            public boolean isAsync() {
+                return async;
+            }
+
+            @Override
+            public void start(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor) {
+                if (attempts.incrementAndGet() <= failures) {
+                    task.setOutputData("failed output");
+                    task.setReasonForInCompletion("temporary failure");
+                    task.setStatus(TaskModel.Status.FAILED);
+                } else {
+                    task.setOutputData("success");
+                    task.setStatus(TaskModel.Status.COMPLETED);
+                }
+            }
+        };
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void retryInsideForkedLoopDoesNotFailLoopOrJoinPrematurely(boolean async) throws Exception {
+        AtomicInteger attempts = new AtomicInteger();
+        AtomicInteger mappings = new AtomicInteger();
+        ParametersUtils parameters = new ParametersUtils(new ObjectMapper());
+        WorkflowTask http = task("http", TaskType.TASK_TYPE_HTTP);
+        http.setRetryCount(1);
+        WorkflowTask loop = task("loop", TaskType.TASK_TYPE_DO_WHILE);
+        loop.setLoopOver(List.of(http));
+        loop.setLoopCondition("false");
+        WorkflowTask fork = task("fork", TaskType.TASK_TYPE_FORK_JOIN);
+        fork.setForkTasks(List.of(List.of(loop), List.of(mappingTask("fast", "fast"))));
+        WorkflowTask join = task("join", TaskType.TASK_TYPE_JOIN);
+        join.setJoinOn(List.of("loop", "fast"));
+        WorkflowDef definition = definition("fork-loop-retry",
+                List.of(fork, join, mappingTask("after", "finished")));
+        MemoryStore store = new MemoryStore();
+        TestWorkflowExecutor executor = executor(definition,
+                new SystemTaskRegistry(Set.of(new Fork(), new Join(), new DoWhile(parameters, store.facade()),
+                        retryingHttp(attempts, 1, async), completedMapping(mappings))),
+                Map.of(TaskType.TASK_TYPE_FORK_JOIN, new ForkJoinTaskMapper(),
+                        TaskType.TASK_TYPE_JOIN, new JoinTaskMapper(),
+                        TaskType.TASK_TYPE_DO_WHILE, new DoWhileTaskMapper(parameters),
+                        TaskType.TASK_TYPE_HTTP, new HttpTaskMapper(parameters),
+                        TaskType.TASK_TYPE_MAPPING, new ParamMappingTaskMapper(parameters)), parameters, store);
+        try (ExecutorService workers = Executors.newSingleThreadExecutor()) {
+            executor.useTaskExecutor(workers);
+            String id = executor.startWorkflow(input(definition));
+            assertTrue(store.completed.await(3, TimeUnit.SECONDS));
+            WorkflowModel completed = store.facade().getWorkflowModel(id);
+            assertEquals(WorkflowModel.Status.COMPLETED, completed.getStatus());
+            assertEquals(2, attempts.get());
+            assertEquals(2, mappings.get());
+            assertEquals(TaskModel.Status.COMPLETED, completed.getTaskByRefName("loop").getStatus());
+            assertEquals(TaskModel.Status.COMPLETED, completed.getTaskByRefName("join").getStatus());
+            TaskModel retry = completed.getTaskByRefName("http__1");
+            assertEquals(1, retry.getRetryCount());
+            assertEquals(1, retry.getIteration());
+            assertEquals(completed.getTaskByRefName("fork").getTaskId(), retry.getForkTaskId());
+            assertEquals("finished", completed.getOutput());
+        }
+    }
 
     @ParameterizedTest
     @ValueSource(strings = {"HTTP", "JDBC", "SPI", "WEBSERVICE"})
@@ -479,19 +718,13 @@ class WorkflowExecutorOpsAsyncTasksTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    void handlesTransientlyBusyWorkflowLockAccordingToEntryPoint(boolean synchronous) {
+    void usesBlockingOrTimedLockAccordingToEntryPoint(boolean synchronous) {
         AtomicInteger executions = new AtomicInteger();
         ParametersUtils parameters = new ParametersUtils(new ObjectMapper());
         WorkflowDef definition = definition("temporarily-busy-lock", List.of(mappingTask("mapping", "value")));
         MemoryStore store = new MemoryStore();
-        AtomicInteger attempts = new AtomicInteger();
-        AtomicInteger releases = new AtomicInteger();
-        ExecutionLockService locks = new ExecutionLockService() {
-            @Override
-            public boolean acquireLock(String workflowId) { return attempts.incrementAndGet() > 2; }
-            @Override
-            public void releaseLock(String workflowId) { releases.incrementAndGet(); }
-        };
+        Lock lock = mock(Lock.class);
+        ExecutionLockService locks = new ExecutionLockService(lock);
         TestWorkflowExecutor executor = executor(definition,
                 new SystemTaskRegistry(Set.of(completedMapping(executions))),
                 Map.of(TaskType.TASK_TYPE_MAPPING, new ParamMappingTaskMapper(parameters)), parameters, store, locks);
@@ -499,14 +732,14 @@ class WorkflowExecutorOpsAsyncTasksTest {
         if (synchronous) {
             WorkflowModel result = executor.startWorkflowSync(input(definition));
             assertEquals(WorkflowModel.Status.COMPLETED, result.getStatus());
-            assertEquals(3, attempts.get());
-            assertEquals(1, releases.get());
+            verify(lock).acquireLock(anyString(), eq(60_000L), eq(TimeUnit.MILLISECONDS));
+            verify(lock).releaseLock(anyString());
             assertEquals(1, executions.get());
             assertEquals(Set.of(Thread.currentThread().getName()), store.taskWriteThreads);
         } else {
             assertThrows(TransientException.class, () -> executor.startWorkflow(input(definition)));
-            assertEquals(1, attempts.get());
-            assertEquals(0, releases.get());
+            verify(lock, never()).acquireLock(anyString(), eq(60_000L), eq(TimeUnit.MILLISECONDS));
+            verify(lock, never()).releaseLock(anyString());
             assertEquals(0, executions.get());
             assertNull(store.workflow.get());
         }
@@ -550,7 +783,7 @@ class WorkflowExecutorOpsAsyncTasksTest {
             Map<String, TaskMapper> mappers, ParametersUtils parameters, MemoryStore store,
             WorkflowStatusListener... listeners) {
         return executor(definition, registry, mappers, parameters, store,
-                new InMemoryExecutionLockService(), listeners);
+                new ExecutionLockService(new InMemoryLock()), listeners);
     }
 
     private static TestWorkflowExecutor executor(WorkflowDef definition, SystemTaskRegistry registry,
@@ -647,11 +880,13 @@ class WorkflowExecutorOpsAsyncTasksTest {
 
     private static final class MemoryStore {
         private final Map<String, TaskModel> tasks = new ConcurrentHashMap<>();
+        private final Map<String, TaskModel> attempts = new ConcurrentHashMap<>();
         private final Set<String> taskWriteThreads = ConcurrentHashMap.newKeySet();
         private final AtomicReference<WorkflowModel> workflow = new AtomicReference<>();
         private final CountDownLatch scheduled = new CountDownLatch(1);
         private final CountDownLatch inProgress = new CountDownLatch(1);
         private final CountDownLatch completed = new CountDownLatch(1);
+        private final CountDownLatch retryScheduled = new CountDownLatch(1);
 
         private ExecutionDAOFacade facade() {
             ExecutionDAO dao = (ExecutionDAO) Proxy.newProxyInstance(ExecutionDAO.class.getClassLoader(),
@@ -667,11 +902,11 @@ class WorkflowExecutorOpsAsyncTasksTest {
                             saveTask((TaskModel) args[0]);
                             yield null;
                         }
-                        case "getTask" -> tasks.values().stream().filter(task -> task.getTaskId().equals(args[0])).findFirst().map(MemoryStore::copyTask);
+                        case "getTask" -> Optional.ofNullable(attempts.get(args[0])).map(MemoryStore::copyTask);
                         case "getWorkflow" -> Optional.ofNullable(workflow.get()).map(source -> {
                             WorkflowModel snapshot = copyWorkflow(source);
                             if ((boolean) args[1]) {
-                                snapshot.setTasks(tasks.values().stream()
+                                snapshot.setTasks(attempts.values().stream()
                                         .sorted(java.util.Comparator.comparingInt(TaskModel::getSeq))
                                         .map(MemoryStore::copyTask)
                                         .collect(Collectors.toCollection(ArrayList::new)));
@@ -705,7 +940,12 @@ class WorkflowExecutorOpsAsyncTasksTest {
         private void saveTask(TaskModel source) {
             taskWriteThreads.add(Thread.currentThread().getName());
             TaskModel snapshot = copyTask(source);
-            tasks.put(snapshot.getReferenceTaskName(), snapshot);
+            tasks.compute(snapshot.getReferenceTaskName(), (reference, current) ->
+                    current != null && current.getRetryCount() > snapshot.getRetryCount() ? current : snapshot);
+            attempts.put(snapshot.getTaskId(), snapshot);
+            if (snapshot.getRetryCount() > 0 && snapshot.getStatus() == TaskModel.Status.SCHEDULED) {
+                retryScheduled.countDown();
+            }
             if (snapshot.getStatus() == TaskModel.Status.IN_PROGRESS) {
                 inProgress.countDown();
             }

@@ -71,6 +71,8 @@ public class Task {
 
     private long firstScheduledTime;
 
+    private int startDelayInSeconds;
+
     private long startTime;
 
     private long endTime;
@@ -152,6 +154,10 @@ public class Task {
 
     public long getFirstScheduledTime() {
         return this.firstScheduledTime;
+    }
+
+    public int getStartDelayInSeconds() {
+        return this.startDelayInSeconds;
     }
 
     public long getStartTime() {
@@ -264,6 +270,10 @@ public class Task {
 
     public void setFirstScheduledTime(long firstScheduledTime) {
         this.firstScheduledTime = firstScheduledTime;
+    }
+
+    public void setStartDelayInSeconds(int startDelayInSeconds) {
+        this.startDelayInSeconds = startDelayInSeconds;
     }
 
     public void setStartTime(long startTime) {
@@ -419,6 +429,7 @@ public class Task {
                 && Objects.equals(getTaskDefName(), other.getTaskDefName())
                 && getScheduledTime() == other.getScheduledTime()
                 && getFirstScheduledTime() == other.getFirstScheduledTime()
+                && getStartDelayInSeconds() == other.getStartDelayInSeconds()
                 && getStartTime() == other.getStartTime()
                 && getEndTime() == other.getEndTime()
                 && getUpdateTime() == other.getUpdateTime()
@@ -452,6 +463,7 @@ public class Task {
                 getTaskDefName(),
                 getScheduledTime(),
                 getFirstScheduledTime(),
+                getStartDelayInSeconds(),
                 getStartTime(),
                 getEndTime(),
                 getUpdateTime(),
@@ -484,6 +496,7 @@ public class Task {
                 + ", taskDefName=" + getTaskDefName()
                 + ", scheduledTime=" + getScheduledTime()
                 + ", firstScheduledTime=" + getFirstScheduledTime()
+                + ", startDelayInSeconds=" + getStartDelayInSeconds()
                 + ", startTime=" + getStartTime()
                 + ", endTime=" + getEndTime()
                 + ", updateTime=" + getUpdateTime()

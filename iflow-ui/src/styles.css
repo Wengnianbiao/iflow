@@ -2942,8 +2942,9 @@ textarea {
   gap: 10px;
 }
 
-.task-policy-optional {
-  margin-top: 16px;
+.task-policy-list {
+  display: grid;
+  gap: 16px;
 }
 
 .task-policy-toggle {
@@ -3006,41 +3007,6 @@ textarea {
   opacity: 0.6;
 }
 
-.task-policy-toggle small {
-  display: block;
-  margin-top: 4px;
-}
-
-.task-policy-toggle small,
-.task-policy-note {
-  color: #7b8797;
-  font-size: 11px;
-  line-height: 1.6;
-}
-
-.task-retry-settings {
-  display: grid;
-  gap: 12px;
-  margin-top: 18px;
-  padding-top: 16px;
-  border-top: 1px solid #e5e9f0;
-}
-
-.task-retry-settings h3 {
-  margin: 0;
-  color: #374151;
-  font-size: 13px;
-  font-weight: 650;
-}
-
-.task-retry-settings .field-help {
-  margin: 0;
-}
-
-.task-policy-note {
-  margin: 16px 0 0;
-}
-
 .workflow-tags-field {
   grid-column: 1 / -1;
   min-width: 0;
@@ -3078,6 +3044,52 @@ textarea {
 .workflow-form-panel .inspector-field textarea {
   min-height: 74px;
   padding-top: 12px;
+}
+
+.inspector-number-input {
+  position: relative;
+  min-width: 0;
+}
+
+.workflow-form-panel .inspector-number-input input {
+  padding-right: 44px;
+}
+
+.inspector-number-actions {
+  position: absolute;
+  top: 1px;
+  right: 3px;
+  bottom: 1px;
+  display: grid;
+  grid-template-rows: repeat(2, 1fr);
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+.inspector-number-actions button {
+  display: grid;
+  width: 32px;
+  padding: 0;
+  place-items: center;
+  color: #738196;
+  background: transparent;
+  border: 0;
+  border-radius: 3px;
+}
+
+.inspector-number-actions button:hover:not(:disabled) {
+  color: #1976d2;
+  background: #f0f5fa;
+}
+
+.inspector-number-actions button:focus-visible {
+  outline: 2px solid #1976d2;
+  outline-offset: -3px;
+}
+
+.inspector-number-actions button:disabled {
+  color: #c5ccd5;
+  cursor: default;
 }
 
 .inspector-field input:focus,
@@ -3264,9 +3276,22 @@ textarea {
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
 
-.inspector-select-trigger:hover {
+.inspector-select-trigger:hover:not(:disabled) {
   background: #fbfdff;
   border-color: #9cabbc;
+}
+
+.inspector-select-trigger:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.inspector-select-trigger .placeholder {
+  color: #8a94a2;
+}
+
+.validation-field.invalid .inspector-select-trigger {
+  border-color: #b42318;
 }
 
 .inspector-select.open .inspector-select-trigger,
@@ -3301,6 +3326,11 @@ textarea {
   border: 1px solid #cbd5e1;
   border-radius: 7px;
   box-shadow: 0 12px 28px rgba(31, 42, 55, 0.2);
+}
+
+.inspector-select.open-up .inspector-select-options {
+  top: auto;
+  bottom: calc(100% + 6px);
 }
 
 .inspector-select-options button {

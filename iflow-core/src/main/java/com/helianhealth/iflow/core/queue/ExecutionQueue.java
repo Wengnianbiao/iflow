@@ -12,5 +12,10 @@ public interface ExecutionQueue {
      *
      * @return true 表示接纳新任务，false 表示该任务已排队或正在执行
      */
-    boolean submitTask(String queueName, String taskId, Consumer<String> executeTask);
+    default boolean submitTask(String queueName, String taskId, Consumer<String> executeTask) {
+        return submitTask(queueName, taskId, 0, executeTask);
+    }
+
+    /** 接纳延迟任务；等待期间不占用任务工作线程，延迟到期后再安排消费。 */
+    boolean submitTask(String queueName, String taskId, long delaySeconds, Consumer<String> executeTask);
 }

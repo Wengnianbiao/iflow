@@ -4,13 +4,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.helianhealth.iflow.common.domain.metadata.task.TaskType;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
+import com.helianhealth.iflow.core.config.IflowProperties;
 import com.helianhealth.iflow.core.dal.ExecutionDAOFacade;
 import com.helianhealth.iflow.core.dao.ExecutionDAO;
 import com.helianhealth.iflow.core.exception.TerminateWorkflowException;
 import com.helianhealth.iflow.core.execution.mapper.NoopTaskMapper;
 import com.helianhealth.iflow.core.execution.tasks.SystemTaskRegistry;
 import com.helianhealth.iflow.core.execution.tasks.WorkflowSystemTask;
-import com.helianhealth.iflow.core.lock.InMemoryExecutionLockService;
+import com.helianhealth.iflow.core.lock.ExecutionLockService;
+import com.helianhealth.iflow.core.lock.InMemoryLock;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
 import com.helianhealth.iflow.core.service.MetadataService;
@@ -19,12 +21,15 @@ import com.helianhealth.iflow.core.utils.ParametersUtils;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -110,7 +115,7 @@ class WorkflowSweeperTest {
 
     @Test
     void sweepStoredSkipsWorkflowHeldByExecutionLock() throws Exception {
-        InMemoryExecutionLockService lock = new InMemoryExecutionLockService(0);
+        ExecutionLockService lock = new ExecutionLockService(new InMemoryLock());
         WorkflowModel workflow = runningWorkflow(1);
         workflow.setWorkflowId("wf-locked");
         workflow.setStartTime(System.currentTimeMillis() - 10_000);
@@ -144,6 +149,30 @@ class WorkflowSweeperTest {
         holder.join(5_000);
         assertTrue(sweeper.sweepStored(workflow.getWorkflowId(), executor));
         assertEquals(WorkflowModel.Status.TIMED_OUT, workflow.getStatus());
+    }
+
+    @Test
+    void sweepStoredTakesOverExpiredExecutionLeaseWithoutOwnerReleasingIt() throws Exception {
+        IflowProperties properties = new IflowProperties();
+        properties.setLockLeaseTime(Duration.ofMillis(100));
+        ExecutionLockService lock = new ExecutionLockService(properties, new InMemoryLock());
+        WorkflowModel workflow = runningWorkflow(1);
+        workflow.setWorkflowId("wf-expired-lease");
+        workflow.setStartTime(System.currentTimeMillis() - 10_000);
+        workflow.setTasks(List.of(inProgressTask("sync_lis_ref")));
+        ExecutionDAO dao = recordingDao(workflow, new ArrayList<>(), new AtomicReference<>());
+        WorkflowSweeper sweeper = sweeper(dao, lock);
+        WorkflowExecutor executor = recordingExecutor(dao);
+
+        lock.waitForLock(workflow.getWorkflowId());
+        try (ExecutorService recovery = Executors.newSingleThreadExecutor()) {
+            assertTrue(recovery.submit(() -> sweeper.sweepStored(workflow.getWorkflowId(), executor))
+                    .get(2, TimeUnit.SECONDS));
+            assertEquals(WorkflowModel.Status.TIMED_OUT, workflow.getStatus());
+            assertEquals(TaskModel.Status.TIMED_OUT, workflow.getTasks().getFirst().getStatus());
+        } finally {
+            lock.releaseLock(workflow.getWorkflowId());
+        }
     }
 
     @Test
@@ -217,7 +246,7 @@ class WorkflowSweeperTest {
                         metadataService,
                         new IDGenerator(),
                         parametersUtils,
-                        new InMemoryExecutionLockService());
+                        new ExecutionLockService(new InMemoryLock()));
 
         StartWorkflowInput startInput = new StartWorkflowInput();
         startInput.setRoute(workflowDefinition.getRoute());
@@ -246,7 +275,7 @@ class WorkflowSweeperTest {
     }
 
     private static WorkflowSweeper sweeper(
-            ExecutionDAO executionDAO, InMemoryExecutionLockService lock) {
+            ExecutionDAO executionDAO, ExecutionLockService lock) {
         ExecutionDAOFacade facade =
                 executionDAO == null
                         ? null

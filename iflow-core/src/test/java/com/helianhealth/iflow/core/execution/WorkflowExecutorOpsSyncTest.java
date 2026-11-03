@@ -3,7 +3,8 @@ package com.helianhealth.iflow.core.execution;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
 import com.helianhealth.iflow.common.domain.run.StartWorkflowRequest;
 import com.helianhealth.iflow.core.dal.ExecutionDAOFacade;
-import com.helianhealth.iflow.core.lock.InMemoryExecutionLockService;
+import com.helianhealth.iflow.core.lock.ExecutionLockService;
+import com.helianhealth.iflow.core.lock.InMemoryLock;
 import com.helianhealth.iflow.core.model.WorkflowModel;
 import com.helianhealth.iflow.core.queue.InMemoryExecutionQueue;
 import com.helianhealth.iflow.core.queue.InMemoryQueueDAO;
@@ -222,7 +223,7 @@ class WorkflowExecutorOpsSyncTest {
         private final AtomicInteger starts = new AtomicInteger();
         private Consumer<WorkflowModel> start = workflow -> { };
         private final WorkflowExecutorOps executor = new WorkflowExecutorOps(
-                decider, null, dao, metadata, new IDGenerator(), null, new InMemoryExecutionLockService(),
+                decider, null, dao, metadata, new IDGenerator(), null, new ExecutionLockService(new InMemoryLock()),
                 new InMemoryExecutionQueue(new InMemoryQueueDAO(), Runnable::run), completions,
                 List.of(completions));
 

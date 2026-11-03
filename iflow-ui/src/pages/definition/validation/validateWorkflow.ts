@@ -84,7 +84,7 @@ export function validateWorkflow(value: unknown): { workflow?: WorkflowDef; prob
         }
       }
       if (item.retryLogic != null && !['FIXED', 'LINEAR_BACKOFF', 'EXPONENTIAL_BACKOFF'].includes(item.retryLogic as string)) {
-        add(`${taskPath}/retryLogic`, 'TASK_RETRY_LOGIC', '重试方式必须是 FIXED、LINEAR_BACKOFF 或 EXPONENTIAL_BACKOFF', false, taskPath)
+        add(`${taskPath}/retryLogic`, 'TASK_RETRY_LOGIC', '重试策略必须是 FIXED、LINEAR_BACKOFF 或 EXPONENTIAL_BACKOFF', false, taskPath)
       }
       if (item.decisionCases != null) {
         if (!record(item.decisionCases)) add(`${taskPath}/decisionCases`, 'OBJECT', 'decisionCases 必须是分支对象', true, taskPath)

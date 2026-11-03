@@ -45,14 +45,20 @@ class DomainModelContractTest {
     }
 
     @Test
-    void taskPoliciesKeepInheritanceAndExplicitValuesAcrossJsonAndBuilder() throws Exception {
+    void taskPoliciesUseNodeDefaultsAndKeepExplicitValuesAcrossJsonAndBuilder() throws Exception {
         ObjectMapper mapper = new ObjectMapper();
-        WorkflowTask inherited = mapper.readValue("{}", WorkflowTask.class);
-        assertNull(inherited.getRetryCount());
-        assertNull(inherited.getRetryDelaySeconds());
-        assertNull(inherited.getRetryLogic());
-        assertNull(inherited.getStartDelay());
-        assertEquals(new WorkflowTask(), inherited);
+        WorkflowTask defaults = mapper.readValue("{}", WorkflowTask.class);
+        assertEquals(0, defaults.getRetryCount());
+        assertEquals(0, defaults.getRetryDelaySeconds());
+        assertEquals(WorkflowTask.RetryLogic.FIXED, defaults.getRetryLogic());
+        assertEquals(0, defaults.getStartDelay());
+        assertEquals(new WorkflowTask(), defaults);
+        assertEquals(defaults, WorkflowTask.builder().build());
+        assertEquals(defaults, mapper.readValue("""
+                {"retryCount":null,"retryDelaySeconds":null,"retryLogic":null,"startDelay":null}
+                """, WorkflowTask.class));
+        assertEquals(defaults, WorkflowTask.builder().retryCount(null).retryDelaySeconds(null)
+                .retryLogic(null).startDelay(null).build());
 
         WorkflowTask configured = WorkflowTask.builder().retryCount(0).retryDelaySeconds(2)
                 .retryLogic(WorkflowTask.RetryLogic.EXPONENTIAL_BACKOFF).startDelay(5).build();
@@ -63,14 +69,14 @@ class DomainModelContractTest {
         assertTrue(restored.toString().contains("startDelay=5"));
         restored.setStartDelay(0);
         assertNotEquals(configured, restored);
-        assertEquals(inherited, mapper.readValue(mapper.writeValueAsString(inherited), WorkflowTask.class));
+        assertEquals(defaults, mapper.readValue(mapper.writeValueAsString(defaults), WorkflowTask.class));
     }
 
     @Test
-    void taskPoliciesRejectCoercedNumbersAndInvalidEnumValues() {
+    void taskPoliciesRejectOutOfRangeNumbersAndInvalidEnumValues() {
         ObjectMapper mapper = new ObjectMapper();
         for (String field : List.of("retryCount", "retryDelaySeconds", "startDelay")) {
-            for (String value : List.of("1.5", "\"1\"", "true", "[]")) {
+            for (String value : List.of("true", "[]", "2147483648")) {
                 assertThrows(JsonMappingException.class,
                         () -> mapper.readValue("{\"" + field + "\":" + value + "}", WorkflowTask.class));
             }

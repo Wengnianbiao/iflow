@@ -7,11 +7,67 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class InMemoryExecutionQueueTest {
+
+    @Test
+    void delaysMessagesWithoutOccupyingWorkersAndDeduplicatesWhileWaiting() throws Exception {
+        InMemoryQueueDAO dao = new InMemoryQueueDAO();
+        CountDownLatch immediate = new CountDownLatch(1);
+        CountDownLatch delayed = new CountDownLatch(1);
+        long submitted = System.nanoTime();
+        try (ExecutorService worker = Executors.newSingleThreadExecutor();
+                InMemoryExecutionQueue queue = new InMemoryExecutionQueue(dao, worker)) {
+            assertTrue(queue.submitTask("HTTP", "later", 1, id -> delayed.countDown()));
+            assertFalse(queue.submitTask("HTTP", "later", 1, id -> fail("duplicate")));
+            assertTrue(queue.submitTask("HTTP", "now", id -> immediate.countDown()));
+            assertTrue(immediate.await(500, TimeUnit.MILLISECONDS));
+            assertFalse(delayed.await(100, TimeUnit.MILLISECONDS));
+            assertTrue(dao.containsMessage("HTTP", "later"));
+            assertTrue(delayed.await(3, TimeUnit.SECONDS));
+            assertTrue(System.nanoTime() - submitted >= TimeUnit.SECONDS.toNanos(1));
+        }
+        assertFalse(dao.containsMessage("HTTP", "later"));
+    }
+
+    @Test
+    void keepsAcceptedDelayedMessagesWhenWorkerPoolTemporarilyRejectsDispatch() throws Exception {
+        InMemoryQueueDAO dao = new InMemoryQueueDAO();
+        CountDownLatch completed = new CountDownLatch(1);
+        AtomicInteger submissions = new AtomicInteger();
+        try (ExecutorService worker = Executors.newSingleThreadExecutor();
+                InMemoryExecutionQueue queue = new InMemoryExecutionQueue(dao, command -> {
+                    if (submissions.incrementAndGet() == 1) {
+                        throw new RejectedExecutionException("temporarily full");
+                    }
+                    worker.execute(command);
+                })) {
+            assertTrue(queue.submitTask("HTTP", "later", 1, id -> completed.countDown()));
+            assertTrue(completed.await(3, TimeUnit.SECONDS));
+            assertEquals(2, submissions.get());
+        }
+        assertFalse(dao.containsMessage("HTTP", "later"));
+    }
+
+    @Test
+    void closedQueueRejectsAdmissionAndNegativeDelaysAreInvalid() {
+        InMemoryQueueDAO dao = new InMemoryQueueDAO();
+        InMemoryExecutionQueue queue = new InMemoryExecutionQueue(dao, Runnable::run);
+        assertThrows(IllegalArgumentException.class,
+                () -> queue.submitTask("HTTP", "task", -1, id -> fail("invalid delay")));
+        queue.close();
+        assertThrows(RejectedExecutionException.class,
+                () -> queue.submitTask("HTTP", "task", id -> fail("closed")));
+        assertFalse(dao.containsMessage("HTTP", "task"));
+    }
 
     @Test
     void deduplicatesQueuedAndRunningTasksAndAcknowledgesAfterExecution() {

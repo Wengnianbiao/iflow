@@ -95,6 +95,7 @@ public final class WorkflowExecutionMapper {
         task.setCorrelationId(model.getCorrelationId());
         task.setScheduledTime(model.getScheduledTime());
         task.setFirstScheduledTime(model.getFirstScheduledTime());
+        task.setStartDelayInSeconds(model.getStartDelayInSeconds());
         task.setStartTime(model.getStartTime());
         task.setEndTime(model.getEndTime());
         task.setUpdateTime(model.getUpdateTime());
@@ -129,6 +130,7 @@ public final class WorkflowExecutionMapper {
         model.setCorrelationId(task.getCorrelationId());
         model.setScheduledTime(task.getScheduledTime());
         model.setFirstScheduledTime(task.getFirstScheduledTime());
+        model.setStartDelayInSeconds(task.getStartDelayInSeconds());
         model.setStartTime(task.getStartTime());
         model.setEndTime(task.getEndTime());
         model.setUpdateTime(task.getUpdateTime());

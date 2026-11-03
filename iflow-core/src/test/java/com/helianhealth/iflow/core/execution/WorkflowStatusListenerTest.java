@@ -5,7 +5,8 @@ import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
 import com.helianhealth.iflow.core.dal.ExecutionDAOFacade;
 import com.helianhealth.iflow.core.listener.WorkflowStatusListener;
 import com.helianhealth.iflow.core.listener.WorkflowStatusListener.WorkflowEventType;
-import com.helianhealth.iflow.core.lock.InMemoryExecutionLockService;
+import com.helianhealth.iflow.core.lock.ExecutionLockService;
+import com.helianhealth.iflow.core.lock.InMemoryLock;
 import com.helianhealth.iflow.core.model.WorkflowModel;
 import com.helianhealth.iflow.core.queue.InMemoryExecutionQueue;
 import com.helianhealth.iflow.core.queue.InMemoryQueueDAO;
@@ -205,7 +206,7 @@ class WorkflowStatusListenerTest {
 
     private WorkflowExecutorOps executor(List<WorkflowStatusListener> listeners) {
         return new WorkflowExecutorOps(decider, null, dao, metadata, new IDGenerator(), null,
-                new InMemoryExecutionLockService(),
+                new ExecutionLockService(new InMemoryLock()),
                 new InMemoryExecutionQueue(new InMemoryQueueDAO(), Runnable::run),
                 completions, listeners);
     }

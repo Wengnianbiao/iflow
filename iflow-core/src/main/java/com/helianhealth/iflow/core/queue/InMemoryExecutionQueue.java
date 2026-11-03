@@ -1,22 +1,37 @@
 package com.helianhealth.iflow.core.queue;
 
 import com.helianhealth.iflow.core.dao.QueueDAO;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 /** 异步系统任务的内存队列消费者。工作流决策始终由当前触发线程执行。 */
-public class InMemoryExecutionQueue implements ExecutionQueue {
+public class InMemoryExecutionQueue implements ExecutionQueue, AutoCloseable {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(InMemoryExecutionQueue.class);
 
     private final QueueDAO queueDAO;
     private final Executor taskExecutor;
     private final Object admissionLock = new Object();
+    private final ScheduledThreadPoolExecutor delayedConsumers;
+    private boolean closed;
 
     public InMemoryExecutionQueue(QueueDAO queueDAO, Executor taskExecutor) {
         this.queueDAO = Objects.requireNonNull(queueDAO);
         this.taskExecutor = Objects.requireNonNull(taskExecutor);
+        this.delayedConsumers = new ScheduledThreadPoolExecutor(1, runnable -> {
+            Thread thread = new Thread(runnable, "iflow-task-delay");
+            thread.setDaemon(true);
+            return thread;
+        });
+        delayedConsumers.setRemoveOnCancelPolicy(true);
     }
 
     /**
@@ -28,19 +43,54 @@ public class InMemoryExecutionQueue implements ExecutionQueue {
      * @return false 表示该任务已经排队或正在执行
      */
     @Override
-    public boolean submitTask(String queueName, String taskId, Consumer<String> executeTask) {
+    public boolean submitTask(String queueName, String taskId, long delaySeconds, Consumer<String> executeTask) {
         Objects.requireNonNull(executeTask);
+        if (delaySeconds < 0) {
+            throw new IllegalArgumentException("delaySeconds must not be negative");
+        }
         synchronized (admissionLock) {
-            if (!queueDAO.pushIfNotExists(queueName, taskId, 0)) {
+            if (closed) {
+                throw new RejectedExecutionException("execution queue is closed");
+            }
+            if (!queueDAO.pushIfNotExists(queueName, taskId, delaySeconds)) {
                 return false;
             }
             try {
-                taskExecutor.execute(() -> consume(queueName, executeTask));
+                if (delaySeconds == 0) {
+                    taskExecutor.execute(() -> consume(queueName, executeTask));
+                } else {
+                    delayedConsumers.schedule(() -> dispatchDelayed(queueName, executeTask),
+                            delaySeconds, TimeUnit.SECONDS);
+                }
             } catch (RuntimeException | Error error) {
                 queueDAO.remove(queueName, taskId);
                 throw error;
             }
             return true;
+        }
+    }
+
+    private void dispatchDelayed(String queueName, Consumer<String> executeTask) {
+        synchronized (admissionLock) {
+            if (closed) {
+                return;
+            }
+            try {
+                taskExecutor.execute(() -> consume(queueName, executeTask));
+            } catch (RejectedExecutionException error) {
+                // 已接纳的延迟消息保留在队列中，任务池繁忙时稍后重新唤醒消费者。
+                LOGGER.debug("Task executor busy for delayed queue {}, retrying dispatch", queueName, error);
+                delayedConsumers.schedule(() -> dispatchDelayed(queueName, executeTask),
+                        100, TimeUnit.MILLISECONDS);
+            }
+        }
+    }
+
+    @Override
+    public void close() {
+        synchronized (admissionLock) {
+            closed = true;
+            delayedConsumers.shutdownNow();
         }
     }
 

@@ -271,20 +271,22 @@ class MySqlMetadataDAOTest {
         when(insertStatement.executeUpdate()).thenReturn(1);
         WorkflowDef definition = workflowDef();
         definition.setName("修改后的业务名称");
-        WorkflowTask inherited = WorkflowTask.builder().name("inherit").taskReferenceName("inherit").build();
+        WorkflowTask defaulted = WorkflowTask.builder().name("defaulted").taskReferenceName("defaulted").build();
         WorkflowTask explicit = WorkflowTask.builder().name("explicit").taskReferenceName("explicit")
                 .retryCount(0).retryDelaySeconds(0).retryLogic(WorkflowTask.RetryLogic.FIXED)
                 .startDelay(0).build();
         definition.setTasks(List.of(WorkflowTask.builder().name("fork").taskReferenceName("fork").type("FORK_JOIN")
-                .forkTasks(List.of(List.of(inherited), List.of(explicit))).build()));
+                .forkTasks(List.of(List.of(defaulted), List.of(explicit))).build()));
 
         dao.updateWorkflowDef(definition);
 
         verify(insertStatement).setString(1, OBJECT_MAPPER.writeValueAsString(definition));
         WorkflowDef restored = OBJECT_MAPPER.readValue(OBJECT_MAPPER.writeValueAsString(definition), WorkflowDef.class);
         assertEquals(definition.getTasks(), restored.getTasks());
-        assertNull(restored.getTaskByRefName("inherit").getRetryCount());
-        assertNull(restored.getTaskByRefName("inherit").getStartDelay());
+        assertEquals(0, restored.getTaskByRefName("defaulted").getRetryCount());
+        assertEquals(0, restored.getTaskByRefName("defaulted").getRetryDelaySeconds());
+        assertEquals(WorkflowTask.RetryLogic.FIXED, restored.getTaskByRefName("defaulted").getRetryLogic());
+        assertEquals(0, restored.getTaskByRefName("defaulted").getStartDelay());
         assertEquals(0, restored.getTaskByRefName("explicit").getStartDelay());
         verify(insertStatement).setString(2, "demo");
         verify(insertStatement).setInt(3, 1);

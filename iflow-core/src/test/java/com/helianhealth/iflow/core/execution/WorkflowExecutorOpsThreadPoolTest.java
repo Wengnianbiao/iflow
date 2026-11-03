@@ -19,7 +19,8 @@ import com.helianhealth.iflow.core.execution.tasks.Fork;
 import com.helianhealth.iflow.core.execution.tasks.Join;
 import com.helianhealth.iflow.core.execution.tasks.SystemTaskRegistry;
 import com.helianhealth.iflow.core.execution.tasks.WorkflowSystemTask;
-import com.helianhealth.iflow.core.lock.InMemoryExecutionLockService;
+import com.helianhealth.iflow.core.lock.ExecutionLockService;
+import com.helianhealth.iflow.core.lock.InMemoryLock;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
 import com.helianhealth.iflow.core.model.WorkflowExecutionMapper;
@@ -121,7 +122,7 @@ class WorkflowExecutorOpsThreadPoolTest {
                 .tasks(List.of(fork, join, task("after", TaskType.TASK_TYPE_NOOP))).build();
         TestWorkflowExecutor executor = new TestWorkflowExecutor(decider, registry,
                 dao, metadataService(definition),
-                new IDGenerator(), parameters, new InMemoryExecutionLockService());
+                new IDGenerator(), parameters, new ExecutionLockService(new InMemoryLock()));
         ExecutorService branches = Executors.newFixedThreadPool(2);
         ExecutorService caller = Executors.newSingleThreadExecutor();
         executor.useTaskExecutor(branches);
@@ -195,7 +196,7 @@ class WorkflowExecutorOpsThreadPoolTest {
                         metadataService,
                         new IDGenerator(),
                         new ParametersUtils(new ObjectMapper()),
-                        new InMemoryExecutionLockService());
+                        new ExecutionLockService(new InMemoryLock()));
         ExecutorService taskPool =
                 Executors.newFixedThreadPool(2, runnable -> new Thread(runnable, "test-task-pool"));
         executor.useTaskExecutor(taskPool);
@@ -256,7 +257,7 @@ class WorkflowExecutorOpsThreadPoolTest {
                 boundedDecider(parameters, registry, Map.of(type, simpleMapper(type),
                         TaskType.TASK_TYPE_MAPPING, simpleMapper(TaskType.TASK_TYPE_MAPPING))),
                 registry, executionDAOFacade(new AtomicReference<>()), metadataService(definition),
-                new IDGenerator(), parameters, new InMemoryExecutionLockService());
+                new IDGenerator(), parameters, new ExecutionLockService(new InMemoryLock()));
         ExecutorService workers = Executors.newSingleThreadExecutor(
                 runnable -> new Thread(runnable, "linear-async-worker"));
         executor.useTaskExecutor(workers);
@@ -375,7 +376,7 @@ class WorkflowExecutorOpsThreadPoolTest {
                         metadataService(definition),
                         new IDGenerator(),
                         new ParametersUtils(new ObjectMapper()),
-                        new InMemoryExecutionLockService(),
+                        new ExecutionLockService(new InMemoryLock()),
                         new TestWorkflowStatusListener((workflowId, status) -> {
                             assertEquals(WorkflowModel.Status.COMPLETED, status);
                             terminalNotifications.incrementAndGet();
@@ -522,7 +523,7 @@ class WorkflowExecutorOpsThreadPoolTest {
                         metadataService(definition),
                         new IDGenerator(),
                         new ParametersUtils(new ObjectMapper()),
-                        new InMemoryExecutionLockService());
+                        new ExecutionLockService(new InMemoryLock()));
         ExecutorService taskPool =
                 Executors.newFixedThreadPool(
                         6, runnable -> new Thread(runnable, "test-nested-fork-pool"));
@@ -620,7 +621,7 @@ class WorkflowExecutorOpsThreadPoolTest {
                         metadataService(definition),
                         new IDGenerator(),
                         new ParametersUtils(new ObjectMapper()),
-                        new InMemoryExecutionLockService());
+                        new ExecutionLockService(new InMemoryLock()));
         executor.useTaskExecutor(command -> { throw new RejectedExecutionException("full"); });
 
         StartWorkflowInput startInput = new StartWorkflowInput();
@@ -688,7 +689,7 @@ class WorkflowExecutorOpsThreadPoolTest {
                         metadataService(definition),
                         new IDGenerator(),
                         parametersUtils,
-                        new InMemoryExecutionLockService());
+                        new ExecutionLockService(new InMemoryLock()));
         String callerThread = Thread.currentThread().getName();
 
         StartWorkflowInput startInput = new StartWorkflowInput();

@@ -42,7 +42,7 @@ iFlow 按 Conductor 的编排顺序执行工作流：Decider 决策，当前线�
 
 1. 调用 `DeciderService.decide()` 获取待调度、待更新任务与完成标记。
 2. 流程完成时，先持久化最后任务的修改，再通过统一保存入口保存工作流终态并触发生命周期回调。
-3. 使用 `dedupAndAddTasks()` 去重并加入新任务，将同一列表交给 `scheduleTask(workflow, tasks)` 持久化与调度：同步任务立即 `start()`，异步任务进入任务队列。
+3. 使用 `dedupAndAddTasks()` 去重并加入新任务，将同一列表交给 `scheduleTask(workflow, tasks)` 持久化与调度：无重试等待的同步任务立即 `start()`，异步任务及需要等待退避间隔的重试任务进入任务队列。
 4. 对同步系统任务调用 `execute()`，推进 JOIN、DO_WHILE 等控制逻辑。
 5. 保存变化；同步任务有进展则在当前线程继续决策，没有进展则返回。
 
@@ -75,14 +75,16 @@ void cancel(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor);
 
 `QueueDAO` 负责异步任务消息存储，默认实现是 `InMemoryQueueDAO`。队列名为任务类型，消息 ID 为任务 ID。引擎通过 `ExecutionQueue` 接口提交异步任务，`InMemoryExecutionQueue` 是默认的准入与消费实现，只依赖一个异步任务 Executor：
 
-1. 使用 `pushIfNotExists()` 入队，同一任务在排队和未确认阶段保持唯一。
+1. 使用 `pushIfNotExists()` 入队，同一任务在延迟等待、排队和未确认阶段保持唯一。
 2. 新消息触发任务消费者，工作线程通过 `QueueDAO.pop()` 获取任务 ID，按 ID 加载执行状态。
 3. 处理完后 `ack()`；消费者继续处理队列中可见的消息，直到队列为空。
 4. 提交被拒绝时回滚该条消息准入，保存任务和工作流失败状态，不影响其他已接纳的消息。
 
+失败重试由 `DeciderService` 生成新尝试，沿用上述调度和消费路径。`ExecutionQueue.submitTask()` 接收本次尝试的延迟秒数；零值沿用立即消费，正值存为延迟消息。`InMemoryExecutionQueue` 的守护定时线程在间隔到期后向异步任务池提交消费者，定时线程不执行任务业务。已接纳的延迟消息到期时若任务池拒绝提交，保留消息并稍后再次唤醒消费者。队列关闭时取消尚未触发的延迟唤醒。重试次数和退避规则见[任务执行策略配置](task-execution-policy.md)。
+
 队列模式通过 `iflow.queue.type` 选择，未配置时默认 `memory`。`InMemoryQueueConfiguration` 使用 `@ConditionalOnProperty(havingValue = "memory", matchIfMissing = true)` 按条件注册 `QueueDAO` 和 `ExecutionQueue` 的内存实现。配置其他类型后，内存装配不生效，由对应扩展模块提供接口实现。引擎始终依赖 `ExecutionQueue` 接口；消息存储后端由 `QueueDAO` 接口隔离。
 
-线程池中的 Runnable 只负责唤醒消费者，不携带工作流和任务快照。消息的准入与 pop 互斥，避免尚未确认准入的消息抢占已有消息的消费者。当前运行时提交立即可见的任务消息，不提供额外的延迟消费定时器。
+线程池中的 Runnable 只负责唤醒消费者，不携带工作流和任务快照。消息的准入与 pop 互斥，避免尚未确认准入的消息抢占已有消息的消费者。延迟唤醒属于任务队列消费，不新增工作流决策消息或工作流定时调度层。
 
 内存消息不在进程退出后保留，也不从数据库恢复。DAO 保存执行状态，pending 查询用于查询、统计和超时处理，不用于拉取任务执行。
 
@@ -90,7 +92,7 @@ void cancel(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor);
 
 `executeSystemTask()` 的顺序为：
 
-1. 根据任务 ID 加载所属实例，取得实例锁并重新加载最新工作流与任务；已终止或已处理的任务跳过。
+1. 根据任务 ID 加载所属实例，取得实例锁并重新加载最新工作流与任务；已终止或已处理的任务跳过，开始业务调用前检查工作流超时。
 2. 保存任务 IN_PROGRESS 与开始时间，复制执行快照，释放实例锁。
 3. 在工作线程执行 I/O；部分输出和提前设置的终态不会发布到持久化任务。
 4. 再次取得实例锁并重新加载最新状态；工作流或任务已终止时丢弃迟到结果。
@@ -99,14 +101,26 @@ void cancel(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor);
 
 工作流决策、任务开始、结果提交、控制台终止和 sweeper 超时使用同一实例锁；I/O 与同步等待不持锁。快速分支完成后可推进其后继，无需等待其他分支。控制节点不占用 I/O 线程等待子任务，单线程任务池也能执行嵌套 FORK/JOIN。
 
+`ExecutionLockService` 通过组合 `Lock` 接口提供工作流执行锁。普通启动和 sweeper 调用 `acquireLock()`，按 `iflow.lock-time-to-try` 限时尝试，默认 500ms，失败后分别抛出启动异常或留待下一轮扫描；同步启动、异步任务状态保存和后续决策、主动终止调用 `waitForLock()`，等待取得锁并保留中断状态，避免丢失状态更新和完成通知。
+
+两种取锁方式均使用 `iflow.lock-lease-time` 指定的租约，默认 60s；租约从取得锁时计时，等待时间不计入租约，同线程重入不续租。等待时间允许为零，租约必须至少为 1ms。租约到期后，即使旧持有线程没有调用 `releaseLock()`，等待线程或后续调用者也可以取得同一实例的锁，让 sweeper 等路径继续处理；旧线程的迟到释放不会释放其他线程的新租约。
+
+默认由 `InMemoryLockConfiguration` 注册 `InMemoryLock`。内存实现记录持有线程、重入次数及租约截止时间，正常释放或到期时清理记录并唤醒等待者；JVM 共享的守护线程只负责租约记录到期清理，不执行工作流调度。租约只撤销持有权，不中断旧线程或阻止其继续运行、写入，不能视为任务取消或完整的过期写入隔离。
+
+通过 `iflow.workflow-execution-lock.type` 选择实现，未配置或设为 `memory` 时使用内存锁。替换时将类型设为扩展类型，并由扩展配置提供一个 `Lock` Bean；执行器、sweeper 和 `ExecutionLockService` 无需替换。配置其他类型后不会回退到内存锁，缺少实现会导致启动失败。手动组装时可使用 `new ExecutionLockService(new InMemoryLock())` 采用默认参数，或通过 `new ExecutionLockService(properties, lock)` 指定参数。替换锁本身不改变当前内存队列和进程重启清理的运行约束。
+
 输出保留对象、数组、标量和 null 的 JSON 语义。诊断写入 `reasonForInCompletion`，任务补充的实际请求输入也会保存。已经开始的外部 I/O 不保证被取消回调撤销。
 
 ## 线程池配置
 
 ```yaml
 iflow:
+  lock-time-to-try: 500ms
+  lock-lease-time: 60s
   queue:
     type: memory  # 默认值，可省略
+  workflow-execution-lock:
+    type: memory  # 默认值，可省略；扩展类型需提供 Lock Bean
   workflow-execution:
     default-timeout-seconds: 60
     sweeper:

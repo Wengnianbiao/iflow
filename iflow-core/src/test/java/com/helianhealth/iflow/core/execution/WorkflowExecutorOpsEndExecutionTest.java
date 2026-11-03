@@ -16,7 +16,8 @@ import com.helianhealth.iflow.core.execution.mapper.TerminateTaskMapper;
 import com.helianhealth.iflow.core.execution.tasks.SystemTaskRegistry;
 import com.helianhealth.iflow.core.execution.tasks.Terminate;
 import com.helianhealth.iflow.core.execution.tasks.WorkflowSystemTask;
-import com.helianhealth.iflow.core.lock.InMemoryExecutionLockService;
+import com.helianhealth.iflow.core.lock.ExecutionLockService;
+import com.helianhealth.iflow.core.lock.InMemoryLock;
 import com.helianhealth.iflow.core.listener.WorkflowStatusListener;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
@@ -244,7 +245,7 @@ class WorkflowExecutorOpsEndExecutionTest {
                 metadataService,
                 new IDGenerator(),
                 parametersUtils,
-                new InMemoryExecutionLockService(), listeners);
+                new ExecutionLockService(new InMemoryLock()), listeners);
     }
 
     private Object defaultValue(Class<?> returnType) {

@@ -5,7 +5,8 @@ import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
 import com.helianhealth.iflow.core.dal.ExecutionDAOFacade;
 import com.helianhealth.iflow.core.execution.tasks.SystemTaskRegistry;
 import com.helianhealth.iflow.core.listener.WorkflowStatusListener;
-import com.helianhealth.iflow.core.lock.InMemoryExecutionLockService;
+import com.helianhealth.iflow.core.lock.ExecutionLockService;
+import com.helianhealth.iflow.core.lock.InMemoryLock;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowExecutionMapper;
 import com.helianhealth.iflow.core.model.WorkflowModel;
@@ -34,10 +35,10 @@ class WorkflowSweeperRestartTest {
     private final DeciderService decider = new DeciderService(new IDGenerator(),
             new ParametersUtils(new ObjectMapper()), registry, Map.of());
     private final WorkflowExecutor executor = new WorkflowExecutorOps(null, registry, dao, null,
-            new IDGenerator(), null, new InMemoryExecutionLockService(), null, completions,
+            new IDGenerator(), null, new ExecutionLockService(new InMemoryLock()), null, completions,
             List.of(listener, completions));
     private final WorkflowSweeper sweeper = new WorkflowSweeper(registry, dao,
-            new InMemoryExecutionLockService(), decider, PROCESS_START);
+            new ExecutionLockService(new InMemoryLock()), decider, PROCESS_START);
 
     @Test
     void restartInterruptsEvenAlertOnlyUnexpiredInstancesAndOnlyCancelsOpenTasks() {
