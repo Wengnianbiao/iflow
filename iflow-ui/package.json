@@ -46,6 +46,9 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild"
-    ]
+    ],
+    "patchedDependencies": {
+      "monaco-editor@0.55.1": "patches/monaco-editor@0.55.1.patch"
+    }
   }
 }

@@ -1,16 +1,18 @@
 package com.helianhealth.iflow.ai.mcp;
 
+import com.helianhealth.iflow.ai.mcp.dispatcher.HealthCheckToolDispatcher;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 
-/**
- * MCP 模块自包含配置：注册 {@link McpServerProperties}。
- *
- * <p>放在 {@code iflow-ai} 内部而不是 starter，是为了让 {@code iflow-ai}
- * 模块在被任何方式装配时（iflow-demo 直依赖、外部业务方引 starter、单独引 iflow-ai）
- * 都能自洽，不依赖 starter 的 {@code @EnableConfigurationProperties}。</p>
- */
-@Configuration
+/** MCP 模块配置：属性绑定、健康检查 Tool 与 Streamable HTTP 入口。 */
+@Configuration(proxyBeanMethods = false)
+@ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
+@ConditionalOnProperty(prefix = "iflow.mcp", name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(McpServerProperties.class)
+@Import({McpServerEndpoint.class, McpSessionManager.class, McpRequestProcessor.class,
+        McpToolRegistry.class, HealthCheckToolDispatcher.class})
 public class McpServerConfiguration {
 }

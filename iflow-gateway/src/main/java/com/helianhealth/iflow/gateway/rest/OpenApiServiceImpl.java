@@ -1,10 +1,14 @@
 package com.helianhealth.iflow.gateway.rest;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.helianhealth.iflow.common.domain.run.StartWorkflowRequest;
 import com.helianhealth.iflow.common.exception.WorkFlowConfigException;
 import com.helianhealth.iflow.common.exception.WorkFlowErrorCode;
 import com.helianhealth.iflow.common.exception.WorkFlowException;
-import com.helianhealth.iflow.common.utils.JsonUtils;
 import com.helianhealth.iflow.core.model.WorkflowModel;
 import com.helianhealth.iflow.core.service.WorkflowExecutionService;
 import lombok.extern.slf4j.Slf4j;
@@ -21,9 +25,13 @@ public class OpenApiServiceImpl implements OpenApiService {
     private static final String RESPONSE_KEY = "response";
 
     private final WorkflowExecutionService workflowExecutionService;
+    private final ObjectWriter jsonWriter;
 
-    public OpenApiServiceImpl(WorkflowExecutionService workflowExecutionService) {
+    public OpenApiServiceImpl(WorkflowExecutionService workflowExecutionService, ObjectMapper objectMapper) {
         this.workflowExecutionService = workflowExecutionService;
+        this.jsonWriter = objectMapper.copy()
+                .setSerializationInclusion(JsonInclude.Include.ALWAYS)
+                .writer().without(SerializationFeature.INDENT_OUTPUT);
     }
 
     @Override
@@ -78,7 +86,7 @@ public class OpenApiServiceImpl implements OpenApiService {
         if (output instanceof Map<?, ?> map && map.get(RESPONSE_KEY) != null) {
             return String.valueOf(map.get(RESPONSE_KEY));
         }
-        return output instanceof String text ? text : JsonUtils.toJsonStringWithNulls(output);
+        return output instanceof String text ? text : toJsonString(output);
     }
 
     private String resolveFailureMessage(WorkflowModel workflow) {
@@ -91,8 +99,18 @@ public class OpenApiServiceImpl implements OpenApiService {
     private String buildErrorResponse(int code, String message) {
         Map<String, Object> error = new LinkedHashMap<>();
         error.put("code", code);
-        error.put("message", message);
-        return JsonUtils.toJsonString(error);
+        if (message != null) {
+            error.put("message", message);
+        }
+        return toJsonString(error);
+    }
+
+    private String toJsonString(Object value) {
+        try {
+            return jsonWriter.writeValueAsString(value);
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException("JSON序列化失败: " + e.getMessage(), e);
+        }
     }
 
     private String extractRootCauseMessage(Throwable e) {

@@ -73,7 +73,7 @@ class OpenApiControllerTest {
                 result.setOutput(Map.of("ok", true));
                 return result;
             }
-        });
+        }, new ObjectMapper());
         return MockMvcBuilders.standaloneSetup(new OpenApiController(service,
                 new OpenApiRequestReader(new ObjectMapper(), limit)))
                 .addFilters(filters).build();

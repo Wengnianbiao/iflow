@@ -1,9 +1,14 @@
 package com.helianhealth.iflow.gateway;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.helianhealth.iflow.common.exception.WorkFlowConfigException;
 import com.helianhealth.iflow.common.exception.WorkFlowErrorCode;
 import com.helianhealth.iflow.common.domain.run.StartWorkflowRequest;
-import com.helianhealth.iflow.common.utils.JsonUtils;
 import com.helianhealth.iflow.core.model.WorkflowModel;
 import com.helianhealth.iflow.core.service.WorkflowExecutionService;
 import com.helianhealth.iflow.gateway.jarvis.JarvisServiceImpl;
@@ -15,6 +20,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.math.BigDecimal;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -24,12 +31,15 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ObjectOutputGatewayTest {
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     static Stream<Arguments> responses() {
         return Stream.of(
                 Arguments.of(List.of(1, 2), "[1,2]"),
                 Arguments.of(Map.of("code", "OK"), "{\"code\":\"OK\"}"),
                 Arguments.of("<response>ok</response>", "<response>ok</response>"),
                 Arguments.of(42, "42"),
+                Arguments.of(new BigDecimal("1234567890.12345678901234567890"), "1234567890.12345678901234567890"),
                 Arguments.of(false, "false"),
                 Arguments.of(null, "null"),
                 Arguments.of(Map.of("response", "legacy response"), "legacy response"));
@@ -38,9 +48,30 @@ class ObjectOutputGatewayTest {
     @ParameterizedTest
     @MethodSource("responses")
     void openApiReturnsRawWorkflowValues(Object output, String expected) {
-        OpenApiServiceImpl gateway = new OpenApiServiceImpl(syncService(request -> completed(output)));
+        OpenApiServiceImpl gateway = new OpenApiServiceImpl(syncService(request -> completed(output)), objectMapper);
         assertEquals(expected, gateway.invoke(new OpenApiRequest(
                 "request", Map.of(), Map.of(), "POST", "/test", null)));
+    }
+
+    @Test
+    void openApiRetainsNullsAndUsesHostSerializersWithoutChangingMapper() throws Exception {
+        SimpleModule module = new SimpleModule();
+        module.addSerializer(BigDecimal.class, ToStringSerializer.instance);
+        ObjectMapper mapper = new ObjectMapper().registerModule(module)
+                .setSerializationInclusion(JsonInclude.Include.NON_NULL)
+                .enable(SerializationFeature.INDENT_OUTPUT);
+        Map<String, Object> output = new LinkedHashMap<>();
+        output.put("amount", new BigDecimal("123.450"));
+        output.put("missing", null);
+        Map<String, Object> nested = new LinkedHashMap<>();
+        nested.put("missing", null);
+        output.put("nested", nested);
+        OpenApiServiceImpl gateway = new OpenApiServiceImpl(syncService(request -> completed(output)), mapper);
+
+        assertEquals("{\"amount\":\"123.450\",\"missing\":null,\"nested\":{\"missing\":null}}",
+                gateway.invoke(new OpenApiRequest("request", Map.of(), Map.of(), "POST", "/test", null)));
+        assertTrue(mapper.isEnabled(SerializationFeature.INDENT_OUTPUT));
+        assertFalse(mapper.readTree(mapper.writeValueAsString(output)).has("missing"));
     }
 
     static Stream<Object> jarvisResponses() {
@@ -54,19 +85,19 @@ class ObjectOutputGatewayTest {
 
     @ParameterizedTest
     @MethodSource("jarvisResponses")
-    void jarvisReturnsRawWorkflowValues(Object output) {
+    void jarvisReturnsRawWorkflowValues(Object output) throws Exception {
         JarvisServiceImpl gateway = new JarvisServiceImpl(syncService(request -> completed(output)));
         assertEquals(output, gateway.invoke(jarvisRequest("test")));
     }
 
     @Test
-    void jarvisReturnsNullWorkflowOutput() {
+    void jarvisReturnsNullWorkflowOutput() throws Exception {
         JarvisServiceImpl gateway = new JarvisServiceImpl(syncService(request -> completed(null)));
         assertNull(gateway.invoke(jarvisRequest("test")));
     }
 
     @Test
-    void jarvisWrapsFailedWorkflowAsError() {
+    void jarvisWrapsFailedWorkflowAsError() throws Exception {
         WorkflowModel workflow = new WorkflowModel();
         workflow.setStatus(WorkflowModel.Status.FAILED);
         workflow.setReasonForInCompletion("task failed");
@@ -79,7 +110,7 @@ class ObjectOutputGatewayTest {
     }
 
     @Test
-    void jarvisWrapsInvocationExceptionAsError() {
+    void jarvisWrapsInvocationExceptionAsError() throws Exception {
         JarvisServiceImpl gateway = new JarvisServiceImpl(syncService(request -> {
             throw new WorkFlowConfigException(WorkFlowErrorCode.WORKFLOW_NOT_FOUND);
         }));
@@ -96,19 +127,19 @@ class ObjectOutputGatewayTest {
 
     @ParameterizedTest
     @MethodSource("invalidJarvisBodies")
-    void jarvisRejectsMissingOrInvalidBusinessMethodWithoutStarting(Map<String, Object> body) {
+    void jarvisRejectsMissingOrInvalidBusinessMethodWithoutStarting(Map<String, Object> body) throws Exception {
         JarvisServiceImpl gateway = new JarvisServiceImpl(syncService(request -> {
             throw new AssertionError("非法 Jarvis 路由不应启动工作流");
         }));
         JarvisResultData<?> response = assertInstanceOf(JarvisResultData.class,
-                gateway.invoke(Map.of("body", body, "rawBody", JsonUtils.toJsonString(body))));
+                gateway.invoke(Map.of("body", body, "rawBody", objectMapper.writeValueAsString(body))));
         assertEquals("-1", response.getCode());
         assertEquals("BusinessMethod 必须为非空字符串", response.getMessage());
     }
 
-    private Map<String, Object> jarvisRequest(String route) {
+    private Map<String, Object> jarvisRequest(String route) throws JsonProcessingException {
         Map<String, Object> body = Map.of("BusinessMethod", route);
-        return Map.of("body", body, "rawBody", JsonUtils.toJsonString(body));
+        return Map.of("body", body, "rawBody", objectMapper.writeValueAsString(body));
     }
 
     private WorkflowExecutionService syncService(Function<StartWorkflowRequest, WorkflowModel> execute) {

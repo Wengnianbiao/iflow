@@ -5,6 +5,7 @@ import com.helianhealth.iflow.core.queue.ExecutionQueue;
 import com.helianhealth.iflow.core.queue.InMemoryExecutionQueue;
 import com.helianhealth.iflow.core.queue.InMemoryQueueDAO;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -17,11 +18,13 @@ import java.util.concurrent.Executor;
 public class InMemoryQueueConfiguration {
 
     @Bean
+    @ConditionalOnMissingBean
     public QueueDAO inMemoryQueueDAO() {
         return new InMemoryQueueDAO();
     }
 
     @Bean
+    @ConditionalOnMissingBean
     public ExecutionQueue inMemoryExecutionQueue(
             QueueDAO queueDAO,
             @Qualifier(IflowCoreConfiguration.ASYNC_TASK_EXECUTOR) Executor taskExecutor) {

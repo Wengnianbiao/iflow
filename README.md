@@ -69,7 +69,7 @@ http://localhost:8099
 <dependency>
     <groupId>com.helianhealth</groupId>
     <artifactId>iflow-spring-boot-starter</artifactId>
-    <version>1.0.23</version>
+    <version>2.0.0</version>
 </dependency>
 ```
 
@@ -78,15 +78,20 @@ http://localhost:8099
 ```yaml
 spring:
   datasource:
-    agent:
-      url: jdbc:mysql://localhost:3306/iflow
-      username: root
-      password: your_password
+    url: jdbc:mysql://localhost:3306/iflow
+    username: ${IFLOW_DB_USERNAME}
+    password: ${IFLOW_DB_PASSWORD}
+
+agent:
+  repository:
+    vendor: mysql
 ```
 
 **3. 启动应用**
 
-启动你的 Spring Boot 应用，工作流引擎会自动初始化，访问 `http://localhost:8080` 即可使用配置页面。
+先执行 `docs/init_mysql/` 下的三个初始化脚本，再启动宿主 Spring Boot 应用。Starter 自动装配引擎、五类系统任务、入站网关、控制台和 MCP，无需额外包扫描或手动导入配置。控制台页面使用宿主应用的地址和 context path。
+
+默认构建和 Starter 依赖均不包含 demo。开关、宿主 Bean 替换及任务模块裁剪见 [Spring Boot Starter 接入](docs/spring-boot-starter.md)。
 
 ### Docker 演示
 
@@ -122,7 +127,7 @@ iflow-common (基础层)
 - **JDBC任务**：模块默认携带 MySQL、PostgreSQL、SQL Server、Oracle、openGauss、Kingbase 驱动，编辑器按厂商切换连接 URL 模板，详见 [JDBC 任务配置](docs/jdbc-task.md)
 - **配置化驱动**：工作流配置存储在数据库，支持动态修改无需重启，参数映射支持 SpEL 表达式
 - **AI智能协作**：内置MCP接口，支持AI Agent自动理解接口文档并生成配置
-- **可视化管理**：提供Vue.js前端控制台，支持工作流可视化编排和参数配置
+- **可视化管理**：提供 React 前端控制台，支持工作流可视化编排和参数配置
 - **内存异步 Worker**：支持以 Spring Bean 注册 Conductor 风格 Worker；任务仅在当前进程执行，停机终止且不恢复，详见 [接入说明](docs/in-memory-worker.md)
 
 ## 🤖 AI 协作配置
@@ -154,7 +159,7 @@ iflow-common (基础层)
 
 ### AI 对接方式
 
-AI Agent 通过 **MCP Streamable HTTP**（规范 `2025-11-25`，`POST /mcp`，JSON-RPC 2.0）统一操作配置；人工管理走控制台 API（`/v1/console/*`）。
+AI Agent 通过 **MCP Streamable HTTP**（规范 `2025-11-25`，`POST /mcp`，JSON-RPC 2.0）统一操作配置；人工管理走控制台 API（`/api/workflow/*`）。
 
 握手后 Server 会返回 `MCP-Session-Id` 与 `MCP-Protocol-Version` 响应头；notification（如 `notifications/initialized`）返回 `202 Accepted`。
 
@@ -172,9 +177,7 @@ iflow:
     server-version: 1.0.0
 ```
 
-8 个域级 Tool：`agent_health` / `agent_workflow` / `agent_workflow_node` / `agent_node_param_config` /
-`agent_mock_config` / `agent_mock_invoke` / `agent_invoke_log` / `agent_spi_extension`，
-每个 Tool 用 `action` 字段区分 CRUD 操作。
+当前 MCP 注册 `agent_health` Tool，通过 `action=ping` 检查进程，或通过 `action=check` 检查数据源。工作流定义、执行查询与统计使用控制台 `/api/workflow/*` API。
 
 ---
 

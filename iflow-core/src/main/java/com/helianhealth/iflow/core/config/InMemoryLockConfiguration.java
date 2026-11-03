@@ -2,6 +2,7 @@ package com.helianhealth.iflow.core.config;
 
 import com.helianhealth.iflow.core.lock.InMemoryLock;
 import com.helianhealth.iflow.core.lock.Lock;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -12,6 +13,7 @@ import org.springframework.context.annotation.Configuration;
 public class InMemoryLockConfiguration {
 
     @Bean
+    @ConditionalOnMissingBean
     public Lock inMemoryLock() {
         return new InMemoryLock();
     }

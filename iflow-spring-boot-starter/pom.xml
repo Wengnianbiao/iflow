@@ -11,9 +11,21 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>iflow-spring-boot-starter</artifactId>
-    <description>Spring Boot Starter模块：应用启动入口、自动配置</description>
+    <description>Spring Boot Starter：工作流引擎、系统任务与 Web 入口自动装配</description>
 
     <dependencies>
+        <dependency>
+            <groupId>com.helianhealth</groupId>
+            <artifactId>iflow-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.helianhealth</groupId>
+            <artifactId>iflow-repository</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <!-- 入站网关：Open API / Jarvis / HL7 等协议暴露 -->
         <dependency>
             <groupId>com.helianhealth</groupId>
@@ -35,6 +47,37 @@
             <version>${project.version}</version>
         </dependency>
 
+        <!-- 工作流协议与参数映射任务 -->
+        <dependency>
+            <groupId>com.helianhealth</groupId>
+            <artifactId>iflow-http-task</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.helianhealth</groupId>
+            <artifactId>iflow-jdbc-task</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.helianhealth</groupId>
+            <artifactId>iflow-webservice-task</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.helianhealth</groupId>
+            <artifactId>iflow-mapping-task</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.helianhealth</groupId>
+            <artifactId>iflow-spi-task</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <!-- Spring Boot Starter -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -52,6 +95,16 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-configuration-processor</artifactId>
             <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 

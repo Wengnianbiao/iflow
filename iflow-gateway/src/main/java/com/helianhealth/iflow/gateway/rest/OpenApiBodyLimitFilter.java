@@ -1,6 +1,6 @@
 package com.helianhealth.iflow.gateway.rest;
 
-import com.helianhealth.iflow.common.utils.JsonUtils;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ReadListener;
 import jakarta.servlet.ServletException;
@@ -29,15 +29,18 @@ public class OpenApiBodyLimitFilter extends OncePerRequestFilter {
 
     private final long maxBodyBytes;
     private final OpenApiPaths paths;
+    private final ObjectMapper objectMapper;
 
     public OpenApiBodyLimitFilter(
             @Value("${iflow.open-api.max-body-bytes:10485760}") long maxBodyBytes,
-            OpenApiPaths paths) {
+            OpenApiPaths paths,
+            ObjectMapper objectMapper) {
         if (maxBodyBytes <= 0) {
             throw new IllegalArgumentException("iflow.open-api.max-body-bytes must be positive");
         }
         this.maxBodyBytes = maxBodyBytes;
         this.paths = paths;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -76,12 +79,12 @@ public class OpenApiBodyLimitFilter extends OncePerRequestFilter {
         return false;
     }
 
-    private static void writeTooLarge(HttpServletResponse response) throws IOException {
+    private void writeTooLarge(HttpServletResponse response) throws IOException {
         response.reset();
         response.setStatus(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.getWriter().write(JsonUtils.toJsonString(
+        response.getWriter().write(objectMapper.writeValueAsString(
                 Map.of("code", HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE,
                         "message", "请求体超过大小限制")));
     }
