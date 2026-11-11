@@ -33,7 +33,10 @@ async function waitFor(condition: () => boolean) {
 async function checkSaveDialog() {
   const workflow = { route: 'lifecycle-test', name: '生命周期测试', description: '原始定义', version: 1, tasks: [] }
   const actor = interpret(workflowDefinitionMachine.withConfig({
-    services: { loadWorkflowDefinition: async () => ({ workflow, versions: [1] }) },
+    services: {
+      loadWorkflowDefinition: async () => ({ workflow, versions: [1] }),
+      loadVersionsForSave: async () => [1],
+    },
   })).start()
   actor.send({ type: 'INITIALIZE', workflowRoute: workflow.route, workflowVersion: 1, isNewWorkflow: false })
   await waitFor(() => actor.state.matches('ready'))

@@ -228,10 +228,10 @@ export function WorkflowMetaBar({ actor }: { actor: WorkflowDefinitionActor }) {
             sx={{ minHeight: 34, fontSize: 14, fontWeight: 500 }}
             onClick={() => {
               setSaveMenuAnchor(null)
-              actor.send({ type: 'REQUEST_SAVE', isNewVersion: true })
+              actor.send({ type: 'REQUEST_SAVE', saveCurrentVersion: true })
             }}
           >
-            保存为新版本
+            保存为当前版本
           </MenuItem>
         </Menu>
       </div>

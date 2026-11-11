@@ -380,7 +380,11 @@ const backendWorkflow = () => ({
 const tick = () => new Promise(resolve => setImmediate(resolve))
 async function actorFor(workflow = wf(), services = {}, actions = {}) {
   const actor = lib.interpret(lib.workflowDefinitionMachine.withConfig({
-    services: { loadWorkflowDefinition: async () => ({ workflow, versions: [1] }), ...services },
+    services: {
+      loadWorkflowDefinition: async () => ({ workflow, versions: [1] }),
+      loadVersionsForSave: async () => [workflow.version],
+      ...services,
+    },
     actions: { notifyWorkflowSaved: () => {}, notifyWorkflowReset: () => {}, navigateToSavedWorkflow: () => {}, ...actions },
   })).start()
   actor.send({ type: 'INITIALIZE', workflowRoute: workflow.route, workflowVersion: 1, isNewWorkflow: false })
@@ -577,10 +581,11 @@ test('DO_WHILE array configuration roundtrip through source and the reviewed sav
   actor.send({ type: 'SOURCE_CHANGED', source: actor.state.context.source })
   actor.send({ type: 'CHANGE_TAB', tab: 'workflow' })
   actor.send({ type: 'REQUEST_SAVE' })
+  await tick()
   assert.ok(actor.state.matches('ready.lifecycle.confirmSave'))
   actor.send({ type: 'CONFIRM_SAVE' })
   await tick()
-  assert.deepEqual(saved, { ...original, tasks: [collection] })
+  assert.deepEqual(saved, { ...original, version: 2, tasks: [collection] })
   assert.equal(Object.hasOwn(saved.tasks[0], 'loopCondition'), false)
   assert.equal(saved.tasks[0].loopItems, '${workflow.input.entries}')
   assert.equal(Object.hasOwn(saved.tasks[0], 'items'), false)
@@ -603,7 +608,7 @@ test('DO_WHILE empty body cannot reach save', async () => {
 test('backend nullable definition loads, switches tabs, edits, and saves through the actor', async () => {
   const original = backendWorkflow()
   let saved
-  const actor = await actorFor(original, { saveWorkflowDefinition: async ctx => { saved = structuredClone(ctx.workflow); return saved } })
+  const actor = await actorFor(original, { saveWorkflowDefinition: async ctx => { saved = structuredClone(lib.getWorkflowToSave(ctx)); return saved } })
   assert.equal(actor.state.context.sourceBlocked, false)
   assert.deepEqual(actor.state.context.problems, [])
   actor.send({ type: 'CHANGE_TAB', tab: 'code' })
@@ -616,10 +621,11 @@ test('backend nullable definition loads, switches tabs, edits, and saves through
   actor.send({ type: 'TASK_UPDATED', task: edited.tasks[1] })
   assert.deepEqual(JSON.parse(actor.state.context.source), edited)
   actor.send({ type: 'REQUEST_SAVE' })
+  await tick()
   assert.ok(actor.state.matches('ready.lifecycle.confirmSave'))
   actor.send({ type: 'CONFIRM_SAVE' })
   await tick()
-  assert.deepEqual(saved, edited)
+  assert.deepEqual(saved, { ...edited, version: 2 })
   assert.equal(lib.hasWorkflowChanges(actor.state.context), false)
   actor.stop()
 })
@@ -696,6 +702,7 @@ test('source syncs with canvas edits; duplicate refs never reach graph or save',
   assert.equal(actor.state.context.problemFocus.problem.path, '/tasks/0/taskReferenceName')
   actor.send({ type: 'SOURCE_CHANGED', source: JSON.stringify(wf([task('a'), task('b')])) })
   actor.send({ type: 'REQUEST_SAVE' })
+  await tick()
   assert.ok(actor.state.matches('ready.lifecycle.confirmSave'))
   actor.stop()
 })
@@ -725,6 +732,7 @@ test('save uses the reviewed snapshot, reports server failure in the persistent 
   actor.send({ type: 'REQUEST_SAVE' })
   actor.send({ type: 'WORKFLOW_CHANGED', workflow: { ...edited, description: '覆盖 diff' } })
   assert.equal(actor.state.context.workflow.description, '待保存')
+  await tick()
   actor.send({ type: 'CONFIRM_SAVE' })
   actor.send({ type: 'SOURCE_CHANGED', source: JSON.stringify(wf([])) })
   rejectSave(new Error('服务端拒绝当前定义'))
@@ -734,7 +742,7 @@ test('save uses the reviewed snapshot, reports server failure in the persistent 
   assert.equal(actor.state.context.workflow.description, '待保存')
   actor.send({ type: 'CONFIRM_SAVE' })
   assert.equal(actor.state.context.serverProblems.length, 0)
-  resolveSave(edited)
+  resolveSave({ ...edited, version: 2 })
   await tick()
   assert.equal(lib.hasWorkflowChanges(actor.state.context), false)
   actor.stop()
@@ -742,10 +750,12 @@ test('save uses the reviewed snapshot, reports server failure in the persistent 
 
 test('save before leaving freezes the draft and updates the baseline only after success', async () => {
   let resolveSave, saved, notifications = 0, editorNavigations = 0
-  const edited = { ...wf(), description: '退出前保存', route: 'renamed-route', version: 2 }
+  const edited = { ...wf(), description: '退出前保存' }
+  const expected = { ...edited, version: 4 }
   const actor = await actorFor(wf(), {
+    loadVersionsForSave: async () => [1, 3],
     saveWorkflowDefinition: context => {
-      saved = structuredClone(context.workflow)
+      saved = structuredClone(lib.getWorkflowToSave(context))
       return new Promise(resolve => { resolveSave = resolve })
     },
   }, {
@@ -755,26 +765,28 @@ test('save before leaving freezes the draft and updates the baseline only after 
   actor.send({ type: 'WORKFLOW_CHANGED', workflow: edited })
   actor.send({ type: 'SAVE_BEFORE_LEAVE' })
   assert.ok(actor.state.matches('ready.lifecycle.savingBeforeLeave'))
-  assert.deepEqual(saved, edited)
+  assert.equal(saved, undefined)
   assert.ok(lib.hasWorkflowChanges(actor.state.context))
   assert.deepEqual(actor.state.context.baseline, wf())
   actor.send({ type: 'WORKFLOW_CHANGED', workflow: wf([]) })
   actor.send({ type: 'SOURCE_CHANGED', source: '{unfinished' })
   actor.send({ type: 'SAVE_BEFORE_LEAVE' })
   assert.deepEqual(actor.state.context.workflow, edited)
-  resolveSave(edited)
+  await tick()
+  assert.deepEqual(saved, expected)
+  resolveSave(expected)
   await tick()
   assert.ok(actor.state.matches('ready.lifecycle.editing'))
-  assert.deepEqual(actor.state.context.baseline, edited)
+  assert.deepEqual(actor.state.context.baseline, expected)
   assert.equal(lib.hasWorkflowChanges(actor.state.context), false)
   assert.equal(notifications, 1)
   assert.equal(editorNavigations, 0)
   actor.stop()
 })
 
-test('saving an older version refreshes versions and creates latest plus one without updating the original', async () => {
+test('default save from an older version refreshes versions and creates latest plus one', async () => {
   const original = { ...wf(), tags: ['HIS'], outputParameters: { result: '${a.output}' } }
-  const edited = { ...original, description: '新版本内容' }
+  const edited = { ...original, version: 10, description: '新版本内容' }
   const requests = []
   let created, navigated
   lib.axios.defaults.adapter = async config => {
@@ -787,8 +799,11 @@ test('saving an older version refreshes versions and creates latest plus one wit
     loadVersionsForSave: context => lib.listWorkflowVersions(context.workflow.route),
     saveWorkflowDefinition: context => lib.saveWorkflowDefinition(lib.getWorkflowToSave(context), context.baseline),
   }, { navigateToSavedWorkflow: context => { navigated = context.workflow.version } })
+  actor.send({ type: 'REQUEST_SAVE' })
+  assert.ok(actor.state.matches('ready.lifecycle.editing'))
+  assert.deepEqual(requests, [])
   actor.send({ type: 'WORKFLOW_CHANGED', workflow: edited })
-  actor.send({ type: 'REQUEST_SAVE', isNewVersion: true })
+  actor.send({ type: 'REQUEST_SAVE' })
   await tick()
   assert.ok(actor.state.matches('ready.lifecycle.confirmSave'))
   assert.equal(actor.state.context.saveVersion, 5)
@@ -808,16 +823,22 @@ test('saving an older version refreshes versions and creates latest plus one wit
   actor.stop()
 })
 
-test('canceling new-version confirmation preserves the draft and ordinary save targets the original version', async () => {
-  let saved
+test('saving as the current version after canceling a new version updates the loaded version', async () => {
+  const requests = []
+  let saved, lookups = 0
+  lib.axios.defaults.adapter = async config => {
+    requests.push(config)
+    if (config.method === 'put') saved = JSON.parse(config.data)
+    return { data: { code: 200, data: saved }, status: 200, statusText: 'OK', headers: {}, config }
+  }
   const actor = await actorFor(wf(), {
-    loadVersionsForSave: async () => [1, 2],
-    saveWorkflowDefinition: async context => { saved = structuredClone(lib.getWorkflowToSave(context)); return saved },
+    loadVersionsForSave: async () => { lookups++; return [1, 2] },
+    saveWorkflowDefinition: context => lib.saveWorkflowDefinition(lib.getWorkflowToSave(context), context.baseline),
   })
-  const edited = { ...wf(), description: '未保存的修改' }
+  const edited = { ...wf(), version: 9, description: '未保存的修改' }
   actor.send({ type: 'SOURCE_CHANGED', source: JSON.stringify(edited) })
   const source = actor.state.context.source
-  actor.send({ type: 'REQUEST_SAVE', isNewVersion: true })
+  actor.send({ type: 'REQUEST_SAVE' })
   await tick()
   assert.equal(actor.state.context.saveVersion, 3)
   actor.send({ type: 'CANCEL_DIALOG' })
@@ -825,10 +846,14 @@ test('canceling new-version confirmation preserves the draft and ordinary save t
   assert.equal(actor.state.context.source, source)
   assert.deepEqual(actor.state.context.workflow, edited)
   assert.deepEqual(actor.state.context.baseline, wf())
-  actor.send({ type: 'REQUEST_SAVE' })
+  actor.send({ type: 'REQUEST_SAVE', saveCurrentVersion: true })
+  assert.ok(actor.state.matches('ready.lifecycle.confirmSave'))
   actor.send({ type: 'CONFIRM_SAVE' })
   await tick()
-  assert.deepEqual(saved, edited)
+  assert.equal(lookups, 1)
+  assert.deepEqual(requests.map(request => request.method), ['put', 'get'])
+  assert.deepEqual(requests[0].params, { route: 'review', version: 1 })
+  assert.deepEqual(saved, { ...edited, version: 1 })
   actor.stop()
 })
 
@@ -846,7 +871,7 @@ test('new-version failures keep the reviewed version for retry and preserve the 
   })
   const edited = { ...wf(), description: '新版本草稿' }
   actor.send({ type: 'WORKFLOW_CHANGED', workflow: edited })
-  actor.send({ type: 'REQUEST_SAVE', isNewVersion: true })
+  actor.send({ type: 'REQUEST_SAVE' })
   await tick()
   actor.send({ type: 'CONFIRM_SAVE' })
   await tick()
@@ -870,7 +895,7 @@ test('failed version lookup cannot fall back to overwriting the original version
   })
   const edited = { ...wf(), description: '保留草稿' }
   actor.send({ type: 'WORKFLOW_CHANGED', workflow: edited })
-  actor.send({ type: 'REQUEST_SAVE', isNewVersion: true })
+  actor.send({ type: 'REQUEST_SAVE' })
   await tick()
   actor.send({ type: 'CONFIRM_SAVE' })
   assert.ok(actor.state.matches('ready.lifecycle.editing'))
@@ -882,21 +907,20 @@ test('failed version lookup cannot fall back to overwriting the original version
   actor.stop()
 })
 
-test('new-version requests respect validation and are unavailable for unsaved workflows', async () => {
+test('default save respects validation and uses the initial version for unsaved workflows', async () => {
   let lookups = 0
   const actor = await actorFor(wf(), { loadVersionsForSave: async () => { lookups++; return [1] } })
   actor.send({ type: 'SOURCE_CHANGED', source: '{invalid' })
-  actor.send({ type: 'REQUEST_SAVE', isNewVersion: true })
+  actor.send({ type: 'REQUEST_SAVE' })
   assert.ok(actor.state.matches('ready.lifecycle.editing'))
   assert.equal(actor.state.context.activeTab, 'code')
   actor.send({ type: 'INITIALIZE', workflowRoute: 'review', workflowVersion: 1, isNewWorkflow: true })
   await tick()
   actor.send({ type: 'WORKFLOW_CHANGED', workflow: { ...wf(), description: '新工作流' } })
-  actor.send({ type: 'REQUEST_SAVE', isNewVersion: true })
-  assert.ok(actor.state.matches('ready.lifecycle.editing'))
-  assert.equal(lookups, 0)
   actor.send({ type: 'REQUEST_SAVE' })
   assert.ok(actor.state.matches('ready.lifecycle.confirmSave'))
+  assert.equal(lib.getWorkflowToSave(actor.state.context).version, 1)
+  assert.equal(lookups, 0)
   actor.stop()
 })
 
@@ -906,7 +930,7 @@ test('failed save before leaving preserves the draft and can retry without navig
   const actor = await actorFor(wf(), {
     saveWorkflowDefinition: async context => {
       if (++attempts === 1) throw new Error('连接失败')
-      return structuredClone(context.workflow)
+      return structuredClone(lib.getWorkflowToSave(context))
     },
   })
   actor.send({ type: 'WORKFLOW_CHANGED', workflow: edited })
@@ -1020,6 +1044,7 @@ test('applied raw parameter formatting survives remounts without blocking save; 
   actor.send({ type: 'CHANGE_TAB', tab: 'workflow' })
   assert.equal(actor.state.context.fieldDrafts[path].value, '{ "count" : 2 }')
   actor.send({ type: 'REQUEST_SAVE' })
+  await tick()
   assert.ok(actor.state.matches('ready.lifecycle.confirmSave'))
   actor.send({ type: 'CANCEL_DIALOG' })
   actor.send({ type: 'SOURCE_CHANGED', source: JSON.stringify(wf([])) })
@@ -1089,7 +1114,11 @@ test('saved route edits through forms and JSON create a new workflow and replace
 
 test('new drafts and saved definitions can keep changing routes and create versions', async () => {
   const actor = lib.interpret(lib.workflowDefinitionMachine.withConfig({
-    services: { loadWorkflowDefinition: async () => ({ workflow: wf(), versions: [1] }), saveWorkflowDefinition: async ctx => ctx.workflow },
+    services: {
+      loadWorkflowDefinition: async () => ({ workflow: wf(), versions: [1] }),
+      loadVersionsForSave: async () => [1],
+      saveWorkflowDefinition: async ctx => lib.getWorkflowToSave(ctx),
+    },
     actions: { notifyWorkflowSaved: () => {}, navigateToSavedWorkflow: () => {} },
   })).start()
   actor.send({ type: 'INITIALIZE', workflowRoute: 'review', workflowVersion: 1, isNewWorkflow: true })
@@ -1099,8 +1128,9 @@ test('new drafts and saved definitions can keep changing routes and create versi
   actor.send({ type: 'CONFIRM_SAVE' })
   await tick()
   assert.equal(actor.state.context.isNewWorkflow, false)
-  actor.send({ type: 'WORKFLOW_CHANGED', workflow: { ...actor.state.context.workflow, version: 2 } })
+  actor.send({ type: 'WORKFLOW_CHANGED', workflow: { ...actor.state.context.workflow, description: '第二个版本' } })
   actor.send({ type: 'REQUEST_SAVE' })
+  await tick()
   actor.send({ type: 'CONFIRM_SAVE' })
   await tick()
   assert.deepEqual(actor.state.context.versions, [1, 2])
@@ -1320,7 +1350,7 @@ test('tag options cover all definitions and keyword plus tag filtering compose',
 test('tags follow code edits, reset, and saves to another version', async () => {
   const definition = { ...wf(), tags: ['HIS'] }
   const actor = await actorFor(definition, {
-    saveWorkflowDefinition: async context => structuredClone(context.workflow),
+    saveWorkflowDefinition: async context => structuredClone(lib.getWorkflowToSave(context)),
   })
   const updated = { ...definition, tags: ['LIS', '门诊'], version: 2 }
   actor.send({ type: 'SOURCE_CHANGED', source: JSON.stringify(updated, null, 2) })
@@ -1330,6 +1360,7 @@ test('tags follow code edits, reset, and saves to another version', async () => 
   assert.deepEqual(actor.state.context.workflow.tags, ['HIS'])
   actor.send({ type: 'WORKFLOW_CHANGED', workflow: updated })
   actor.send({ type: 'REQUEST_SAVE' })
+  await tick()
   actor.send({ type: 'CONFIRM_SAVE' })
   await tick()
   assert.deepEqual(actor.state.context.baseline.tags, ['LIS', '门诊'])
@@ -1495,6 +1526,7 @@ test('task policies survive imports, source edits, unrelated form edits and save
   actor.send({ type: 'TASK_SELECTED', task: actor.state.context.workflow.tasks[0].loopOver[0] })
   actor.send({ type: 'TASK_UPDATED', task: { ...actor.state.context.workflow.tasks[0].loopOver[0], optional: true } })
   actor.send({ type: 'REQUEST_SAVE' })
+  await tick()
   actor.send({ type: 'CONFIRM_SAVE' })
   await tick()
   assert.ok(saved)
@@ -1585,6 +1617,7 @@ test('unfinished workflow timeouts survive tab changes and focus workflow fields
   actor.send({ type: 'WORKFLOW_CHANGED', workflow: { ...actor.state.context.workflow, timeoutSeconds: 90, timeoutPolicy: 'ALERT_ONLY' } })
   actor.send({ type: 'FIELD_DRAFT_CHANGED', path, draft: null })
   actor.send({ type: 'REQUEST_SAVE' })
+  await tick()
   assert.ok(actor.state.matches('ready.lifecycle.confirmSave'))
   actor.send({ type: 'CONFIRM_SAVE' })
   await tick()

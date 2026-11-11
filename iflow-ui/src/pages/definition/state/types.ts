@@ -61,7 +61,7 @@ export type WorkflowDefinitionMachineEvent =
   | { type: 'OPEN_PANEL' }
   | { type: 'CLOSE_PANEL' }
   | { type: 'RESIZE_PANEL'; width: number }
-  | { type: 'REQUEST_SAVE'; isNewVersion?: boolean }
+  | { type: 'REQUEST_SAVE'; saveCurrentVersion?: boolean }
   | { type: 'SAVE_BEFORE_LEAVE' }
   | { type: 'CONFIRM_SAVE' }
   | { type: 'REQUEST_RESET' }

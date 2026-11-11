@@ -31,6 +31,7 @@ function SaveWorkflowDialog({
     (state) => state.context,
   )
   const workflow = useMemo(() => getWorkflowToSave({ workflow: draft, saveVersion }), [draft, saveVersion])
+  const creatingVersion = saveVersion != null && saveVersion !== baseline?.version
   const [changeCount, setChangeCount] = useState(0)
   const editorRef = useRef<MonacoDiffEditor | null>(null)
   const editorCleanupRef = useRef<(() => void) | null>(null)
@@ -73,9 +74,11 @@ function SaveWorkflowDialog({
       >
         <header>
           <div>
-            <h2 id="workflow-save-diff-title">{saveVersion != null ? '确认保存为新版本' : '确认保存工作流'}</h2>
-            <p>{saveVersion != null
+            <h2 id="workflow-save-diff-title">{creatingVersion ? '确认保存为新版本' : '确认保存工作流'}</h2>
+            <p>{creatingVersion
               ? `确认后将创建版本 ${saveVersion}，原版本保留。`
+              : saveVersion != null
+              ? `确认后将更新当前版本 ${saveVersion}。`
               : !isNewWorkflow && baseline && workflow.route !== baseline.route
               ? '路由已修改，确认后将创建新工作流，原工作流保留。'
               : '请确认当前版本与待保存版本之间的差异。'}</p>
@@ -162,7 +165,7 @@ function SaveWorkflowDialog({
             onClick={() => actor.send({ type: 'CONFIRM_SAVE' })}
           >
             <FloppyDiskIcon size={17} />
-            {saving ? '保存中...' : saveVersion != null ? '确认保存为新版本' : '确认保存'}
+            {saving ? '保存中...' : creatingVersion ? '确认保存为新版本' : '确认保存'}
           </button>
         </footer>
       </section>

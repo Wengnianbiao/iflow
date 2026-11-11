@@ -25,6 +25,10 @@ function invokeData(event: unknown) {
   return (event as { data?: unknown }).data
 }
 
+function canRequestSave(context: WorkflowDefinitionMachineContext) {
+  return hasWorkflowChanges(context) && blockingProblems(context).length === 0
+}
+
 const initialContext: WorkflowDefinitionMachineContext = {
   workflowRoute: '',
   workflowVersion: undefined,
@@ -169,7 +173,7 @@ export const workflowDefinitionMachine = createMachine<
                     {
                       cond: 'canRequestSave',
                       target: 'confirmSave',
-                      actions: ['clearSaveVersion', 'clearErrors'],
+                      actions: ['assignCurrentSaveVersion', 'clearErrors'],
                     },
                     {
                       cond: 'hasBlockingProblems',
@@ -178,9 +182,12 @@ export const workflowDefinitionMachine = createMachine<
                   ],
                   SAVE_BEFORE_LEAVE: [
                     {
+                      cond: 'canRequestNewVersion',
+                      target: 'savingBeforeLeave.preparingNewVersion',
+                    },
+                    {
                       cond: 'canRequestSave',
-                      target: 'savingBeforeLeave',
-                      actions: ['clearSaveVersion', 'clearServerProblems', 'syncValidation'],
+                      target: 'savingBeforeLeave.saving',
                     },
                     {
                       cond: 'hasBlockingProblems',
@@ -250,16 +257,31 @@ export const workflowDefinitionMachine = createMachine<
                 },
               },
               savingBeforeLeave: {
-                invoke: {
-                  id: 'saveWorkflowBeforeLeave',
-                  src: 'saveWorkflowDefinition',
-                  onDone: {
-                    target: 'editing',
-                    actions: ['assignSavedWorkflow', 'syncDerivedActors', 'notifyWorkflowSaved'],
+                initial: 'preparingNewVersion',
+                entry: ['clearSaveVersion', 'clearServerProblems', 'syncValidation'],
+                states: {
+                  preparingNewVersion: {
+                    invoke: {
+                      src: 'loadVersionsForSave',
+                      onDone: { target: 'saving', actions: 'assignNewSaveVersion' },
+                      onError: {
+                        target: '#workflowDefinition.ready.lifecycle.editing',
+                        actions: ['assignSaveError', 'syncValidation', 'expandValidation'],
+                      },
+                    },
                   },
-                  onError: {
-                    target: 'editing',
-                    actions: ['assignSaveError', 'syncValidation', 'expandValidation'],
+                  saving: {
+                    invoke: {
+                      src: 'saveWorkflowDefinition',
+                      onDone: {
+                        target: '#workflowDefinition.ready.lifecycle.editing',
+                        actions: ['assignSavedWorkflow', 'syncDerivedActors', 'notifyWorkflowSaved'],
+                      },
+                      onError: {
+                        target: '#workflowDefinition.ready.lifecycle.editing',
+                        actions: ['clearSaveVersion', 'assignSaveError', 'syncValidation', 'expandValidation'],
+                      },
+                    },
                   },
                 },
               },
@@ -419,10 +441,14 @@ export const workflowDefinitionMachine = createMachine<
         deleteError: null,
       }),
       clearSaveVersion: assign({ saveVersion: null }),
+      assignCurrentSaveVersion: assign({
+        saveVersion: ({ isNewWorkflow, workflow, baseline }) =>
+          !isNewWorkflow && baseline && workflow?.route === baseline.route ? baseline.version : null,
+      }),
       assignNewSaveVersion: assign((context, event) => {
         const versions = invokeData(event) as number[]
         return {
-          saveVersion: Math.max(context.workflow?.version ?? 1, ...versions) + 1,
+          saveVersion: Math.max(context.baseline?.version ?? 1, ...versions) + 1,
           versions: context.baseline && context.workflow?.route === context.baseline.route
             ? [...new Set([...versions, context.baseline.version])].sort((a, b) => a - b)
             : context.versions,
@@ -520,14 +546,11 @@ export const workflowDefinitionMachine = createMachine<
       },
       canEditSource: (context, _event, meta) => draftProblems(context).length === 0 && meta.state.matches('ready.lifecycle.editing'),
       canRequestNewVersion: (context, event) => Boolean(
-        event.type === 'REQUEST_SAVE' && event.isNewVersion && !context.isNewWorkflow
-          && hasWorkflowChanges(context) && blockingProblems(context).length === 0,
+        !context.isNewWorkflow && context.workflow?.route === context.baseline?.route
+          && (event.type !== 'REQUEST_SAVE' || !event.saveCurrentVersion)
+          && canRequestSave(context),
       ),
-      canRequestSave: (context, event) => Boolean(
-        hasWorkflowChanges(context)
-          && (event.type !== 'REQUEST_SAVE' || !event.isNewVersion)
-          && blockingProblems(context).length === 0,
-      ),
+      canRequestSave,
       canDelete: ({ baseline, isNewWorkflow }) => Boolean(baseline && !isNewWorkflow),
       canConfirmDelete: ({ baseline, deleteConfirmationValue }) => Boolean(
         baseline && deleteConfirmationValue === baseline.route,
