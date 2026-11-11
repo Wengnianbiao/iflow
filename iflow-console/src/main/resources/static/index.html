@@ -5,10 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>IFlow - 接口工作流平台</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
-    <script type="module" crossorigin src="/assets/index-SdimMseK.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-NulFVjjH.css">
+    <style>
+      .iflow-startup-notice {
+        max-width: 560px;
+        margin: 48px auto;
+        padding: 0 24px;
+        font: 16px/1.6 system-ui, "Microsoft YaHei", sans-serif;
+        animation: iflow-show-startup-notice 0s 3s backwards;
+      }
+
+      @keyframes iflow-show-startup-notice {
+        from { visibility: hidden; }
+        to { visibility: visible; }
+      }
+    </style>
+    <script type="module" crossorigin src="/assets/index-CuNnq7_w.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-DqX6oFMu.css">
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <main class="iflow-startup-notice">
+        <h1>iFlow 控制台尚未启动</h1>
+        <p>如果页面一直停在这里，可能是浏览器版本过旧、启用了 IE 兼容模式，或页面资源加载失败。</p>
+        <p>请尝试刷新，或使用医院允许的较新版本 Chrome 或 Edge，并确认此站点未启用 IE 兼容模式。仍无法打开时，请联系医院信息科。</p>
+        <noscript><p>请在浏览器设置中启用 JavaScript，然后刷新页面。</p></noscript>
+      </main>
+    </div>
   </body>
 </html>

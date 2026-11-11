@@ -51,6 +51,7 @@ mvn -Pdemo -pl iflow-demo -am clean package -Dmaven.test.skip=true
 mysql -u root -p < docs/init_mysql/01_create_database.sql
 mysql -u root -p iflow < docs/init_mysql/02_schema.sql
 mysql -u root -p iflow < docs/init_mysql/03_execution_index.sql
+mysql -u root -p iflow < docs/init_mysql/04_workflow_schedule.sql
 
 # 运行 demo（默认使用 Spring local profile）
 java -jar iflow-demo/target/iflow.jar
@@ -89,7 +90,7 @@ agent:
 
 **3. 启动应用**
 
-先执行 `docs/init_mysql/` 下的三个初始化脚本，再启动宿主 Spring Boot 应用。Starter 自动装配引擎、五类系统任务、入站网关、控制台和 MCP，无需额外包扫描或手动导入配置。控制台页面使用宿主应用的地址和 context path。
+先执行上面的四条 MySQL 初始化命令，再启动宿主 Spring Boot 应用。Starter 自动装配引擎、五类系统任务、入站网关、控制台、定时调度和 MCP，无需额外包扫描或手动导入配置。控制台页面使用宿主应用的地址和 context path。
 
 默认构建和 Starter 依赖均不包含 demo。开关、宿主 Bean 替换及任务模块裁剪见 [Spring Boot Starter 接入](docs/spring-boot-starter.md)。
 

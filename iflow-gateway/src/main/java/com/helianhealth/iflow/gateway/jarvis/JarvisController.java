@@ -15,9 +15,9 @@ public class JarvisController {
         this.jarvisService = jarvisService;
         this.requestReader = requestReader;
     }
-
-    @PostMapping(value = "/HLOpenApi/Hjk", consumes = {MediaType.APPLICATION_JSON_VALUE, "application/*+json"})
-    public Object invokeJarvisApi(HttpServletRequest request) {
-        return jarvisService.invoke(requestReader.read(request));
-    }
+    
+        @PostMapping(value = "/HLOpenApi/Hjk", consumes = {MediaType.APPLICATION_JSON_VALUE, "application/*+json"})
+        public Object invokeJarvisApi(HttpServletRequest request) {
+            return jarvisService.invoke(requestReader.read(request));
+        }
 }

@@ -3,6 +3,7 @@ package com.helianhealth.iflow.console.config;
 import com.helianhealth.iflow.console.controller.ExecutionStatisticsController;
 import com.helianhealth.iflow.console.controller.WorkflowDefinitionController;
 import com.helianhealth.iflow.console.controller.WorkflowExecutionController;
+import com.helianhealth.iflow.console.controller.WorkflowScheduleController;
 import com.helianhealth.iflow.core.execution.WorkflowExecutor;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -18,6 +19,7 @@ import org.springframework.context.annotation.Import;
 @ConditionalOnProperty(name = {"iflow.enabled", "agent.console.enabled"}, havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(ConsoleProperties.class)
 @Import({WorkflowDefinitionController.class, WorkflowExecutionController.class,
-        ExecutionStatisticsController.class, ConsoleExceptionHandler.class})
+        WorkflowScheduleController.class, ExecutionStatisticsController.class,
+        ConsoleExceptionHandler.class})
 public class ConsoleAutoConfiguration {
 }

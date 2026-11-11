@@ -46,6 +46,9 @@ importers:
       axios:
         specifier: ^1.7.9
         version: 1.18.1
+      cronstrue:
+        specifier: 2.61.0
+        version: 2.61.0
       monaco-editor:
         specifier: ^0.55.1
         version: 0.55.1(patch_hash=f9ef8c28c3e9285597826f0a8f0c181fd87f9137c93a8781746c499aa0041205)
@@ -864,6 +867,11 @@ packages:
   cosmiconfig@7.1.0:
     resolution: {integrity: sha512-AdmX6xUzdNASswsFtmwSt7Vj8po9IuqXm0UXz7QKPuEUmPB4XyjGfaAr2PSuELMwkRMVH1EpIkX5bTZGRB3eCA==}
     engines: {node: '>=10'}
+
+  cronstrue@2.61.0:
+    resolution: {integrity: sha512-ootN5bvXbIQI9rW94+QsXN5eROtXWwew6NkdGxIRpS/UFWRggL0G5Al7a9GTBFEsuvVhJ2K3CntIIVt7L2ILhA==}
+    deprecated: Non-backwards compatible Breaking changes
+    hasBin: true
 
   csstype@3.2.3:
     resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
@@ -2563,6 +2571,8 @@ snapshots:
       parse-json: 5.2.0
       path-type: 4.0.0
       yaml: 1.10.3
+
+  cronstrue@2.61.0: {}
 
   csstype@3.2.3: {}
 

@@ -6266,6 +6266,7 @@ textarea {
 }
 
 .param-map-tree-toolbar button,
+.param-map-tree-modal-save,
 .param-map-tree-empty button {
   display: inline-flex;
   height: 29px;
@@ -6290,14 +6291,14 @@ textarea {
 }
 
 .param-map-tree-toolbar button.primary,
-.param-map-field-panel > footer button.primary {
+.param-map-tree-modal-save.primary {
   color: #fff;
   background: #1976d2;
   border-color: #1976d2;
 }
 
 .param-map-tree-toolbar button.primary:hover,
-.param-map-field-panel > footer button.primary:hover {
+.param-map-tree-modal-save.primary:hover:not(:disabled) {
   color: #fff;
   background: #1568ba;
   border-color: #1568ba;
@@ -6703,7 +6704,7 @@ textarea {
 }
 
 .param-map-tree-editor-actions button,
-.param-map-tree-modal > header button,
+.param-map-tree-modal-close,
 .param-map-field-panel > header > button {
   display: inline-flex;
   width: 28px;
@@ -6718,7 +6719,7 @@ textarea {
 }
 
 .param-map-tree-editor-actions button:hover,
-.param-map-tree-modal > header button:hover,
+.param-map-tree-modal-close:hover,
 .param-map-field-panel > header > button:hover {
   color: #1976d2;
   background: #eaf2fd;
@@ -7023,47 +7024,19 @@ textarea {
 }
 
 .param-map-field-panel > footer {
-  display: flex;
-  min-height: 57px;
-  align-items: center;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 7px;
   padding: 11px 15px;
   background: #f7f9fc;
   border-top: 1px solid #e2e7ed;
 }
 
 .param-map-field-panel > footer > small {
-  flex: 1 1 auto;
-  margin-right: auto;
   color: #8993a0;
   font-size: 10px;
   line-height: 1.5;
 }
 
-.param-map-field-panel > footer button {
-  display: inline-flex;
-  height: 32px;
-  min-width: 56px;
-  align-items: center;
-  justify-content: center;
-  padding: 0 12px;
-  color: #526070;
-  background: #fff;
-  border: 1px solid #ccd5df;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.param-map-field-panel > footer button:hover {
-  color: #1769aa;
-  background: #f1f7fc;
-  border-color: #a9cce7;
-}
-
 .param-map-field-panel button:disabled,
+.param-map-tree-modal-save:disabled,
 .param-map-tree-toolbar button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
@@ -7114,6 +7087,10 @@ textarea {
   min-width: 0;
   align-items: baseline;
   gap: 10px;
+}
+
+.param-map-tree-modal > header > .param-map-tree-modal-actions {
+  align-items: center;
 }
 
 .param-map-tree-modal > header h2 {

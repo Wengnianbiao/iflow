@@ -4,6 +4,8 @@ import { WorkflowDefinitions } from '@/pages/definitions'
 import { Workflow } from '@/pages/definition'
 import { ExecutionDetailPage, WorkflowSearch } from '@/pages/executions'
 import { RunWorkflow } from '@/pages/runWorkflow'
+import { ScheduleEditorPage } from '@/pages/scheduler/ScheduleEditorPage'
+import { Schedules } from '@/pages/scheduler/Schedules'
 import { ExecutionStatisticsPage } from '@/pages/statistics/ExecutionStatisticsPage'
 
 export const routes: RouteObject[] = [
@@ -14,6 +16,9 @@ export const routes: RouteObject[] = [
       { path: '/workflowDef', element: <WorkflowDefinitions /> },
       { path: '/workflowDef/edit', element: <Workflow /> },
       { path: '/workflowDef/:route/:version?', element: <Workflow /> },
+      { path: '/scheduleDef', element: <Schedules /> },
+      { path: '/scheduleDef/new', element: <ScheduleEditorPage /> },
+      { path: '/scheduleDef/:name', element: <ScheduleEditorPage /> },
       { path: '/runWorkflow', element: <RunWorkflow /> },
       { path: '/executions', element: <WorkflowSearch /> },
       { path: '/dashboard', element: <ExecutionStatisticsPage /> },

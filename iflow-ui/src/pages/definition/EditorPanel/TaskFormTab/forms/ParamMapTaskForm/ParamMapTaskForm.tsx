@@ -13,6 +13,7 @@ import {
   TrashIcon,
   XIcon,
 } from '@phosphor-icons/react'
+import { useSelector } from '@xstate/react'
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { WorkflowCollapsibleSection, ParameterRows, VariableExpressionInput, valueText } from '../../../InspectorFields'
@@ -25,11 +26,12 @@ import {
   PARAM_TYPES, configChildren, withConfigChildren, configAtPath,
   configNodeLabel, loopElementLabel, scopeAliases, normalizeConfig, normalizeForSave, emptyConfig, objectTemplate,
   updateAtPath, removeAtPath, insertAfterPath, flattenDisplayConfigs, countMappingTargetFields,
-  parseMappingConfigs, validateNode, sourcePathAfterTargetRename, aliasPathCorrection, mappingTypesForTargetType,
+  parseMappingConfigs, sourcePathAfterTargetRename, aliasPathCorrection, mappingTypesForTargetType,
   constantInputText, parseConstantInput,
   type ParamMappingConfig, type ParamType, type MappingType, type ConfigPath, type DisplayConfigRow,
 } from '@/tasks/mappingConfig'
 import type { WorkflowTask } from '@/types/workflow'
+import { hasWorkflowChanges, useWorkflowEditContext } from '../../../../state'
 import { ValidationField, useTaskFieldDraft } from '../../../../validation/ValidationScope'
 import { jsonErrorMessage } from '../../../../validation/jsonErrorMessage'
 
@@ -40,15 +42,12 @@ const PAYLOAD_KEY = 'payload'
 const DEFAULT_PAYLOAD_EXPRESSION = '${workflow.input}'
 
 type EditSession = {
+  id: number
   kind: 'root' | 'child' | 'edit' | 'copy'
   path?: ConfigPath
   value: ParamMappingConfig
-  initialValue: string
-}
-
-function createEditSession(kind: EditSession['kind'], value: ParamMappingConfig, path?: ConfigPath): EditSession {
-  const normalized = normalizeConfig(value)
-  return { kind, path, value: normalized, initialValue: JSON.stringify(normalized) }
+  initialValue: ParamMappingConfig
+  error: string
 }
 
 function configPathLabel(configs: ParamMappingConfig[], path: ConfigPath): string {
@@ -105,6 +104,8 @@ export function ParamMapTaskForm({ task, variableOptions, onChange }: TaskFormPr
   const jsonDraft = useTaskFieldDraft('/inputParameters/paramsConfig', JSON.stringify(inputParameters.paramsConfig ?? [], null, 2))
   const visibleJsonError = jsonDraft.error || storedConfigError
   const [editSession, setEditSession] = useState<EditSession | null>(null)
+  const nextSessionId = useRef(0)
+  const parentPath = (editSession?.kind === 'child' ? editSession.path : editSession?.path?.slice(0, -1)) ?? []
 
   useEffect(() => {
     setView('PARAMETERS')
@@ -137,9 +138,8 @@ export function ParamMapTaskForm({ task, variableOptions, onChange }: TaskFormPr
     }
   }
 
-  const canDiscardDraft = () => !editSession
-    || JSON.stringify(editSession.value) === editSession.initialValue
-    || window.confirm('当前字段有未应用的修改，是否放弃这些修改？')
+  const canDiscardDraft = () => !editSession?.error
+    || window.confirm('当前字段有未通过校验的修改，是否放弃这些修改？')
 
   const closeFieldEditor = () => {
     if (!canDiscardDraft()) return false
@@ -147,22 +147,61 @@ export function ParamMapTaskForm({ task, variableOptions, onChange }: TaskFormPr
     return true
   }
 
-  const openSession = (session: EditSession) => {
-    if (canDiscardDraft()) setEditSession(session)
+  const updateEditSession = (session: EditSession, value: ParamMappingConfig, error = '', opening = false) => {
+    if (error) {
+      setEditSession({ ...session, value, error })
+      return
+    }
+
+    const { kind, path } = session
+    const parent = path && configAtPath(configs, kind === 'child' ? path : path.slice(0, -1))
+    const element = parent?.mappingType === 'ARRAY_MAP' || parent?.mappingType === 'ARRAY_FIXED'
+    const next = normalizeForSave(element ? { ...value, targetParamKey: '' } : value)
+    let nextPath = path ?? [configs.length]
+    let nextConfigs: ParamMappingConfig[]
+    if (!path) {
+      nextConfigs = [...configs, next]
+    } else if (kind === 'child' && parent) {
+      nextPath = [...path, configChildren(parent).length]
+      nextConfigs = updateAtPath(configs, path, (config) => withConfigChildren(config, [...configChildren(config), next]))
+    } else if (kind === 'copy') {
+      nextPath = [...path.slice(0, -1), path[path.length - 1] + 1]
+      nextConfigs = insertAfterPath(configs, path, next)
+    } else {
+      nextConfigs = updateAtPath(configs, path, () => next)
+    }
+
+    try {
+      parseMappingConfigs(nextConfigs)
+    } catch (error) {
+      setEditSession({ ...session, value, error: opening ? '' : (error as Error).message })
+      return
+    }
+
+    commitConfigs(nextConfigs)
+    setEditSession({ ...session, kind: 'edit', path: nextPath, value, error: '' })
   }
-  const openRootEditor = () => openSession(createEditSession('root', emptyConfig()))
+
+  const openSession = (kind: EditSession['kind'], config: ParamMappingConfig, path?: ConfigPath) => {
+    if (!canDiscardDraft()) return
+    const value = normalizeConfig(config)
+    const session = { id: ++nextSessionId.current, kind, path, value, initialValue: value, error: '' }
+    if (kind === 'edit') setEditSession(session)
+    else updateEditSession(session, value, '', true)
+  }
+  const openRootEditor = () => openSession('root', emptyConfig())
   const openChildEditor = (path: ConfigPath) => {
     const parent = configAtPath(configs, path)
     const aliases = scopeAliases(configs, path)
     const sourceRoot = aliases[aliases.length - 1] ?? '$'
     const isArrayElement = parent?.mappingType === 'ARRAY_MAP' || parent?.mappingType === 'ARRAY_FIXED'
-    openSession(createEditSession('child', isArrayElement ? objectTemplate() : emptyConfig(sourceRoot), path))
+    openSession('child', isArrayElement ? objectTemplate() : emptyConfig(sourceRoot), path)
   }
   const openEditEditor = (path: ConfigPath, value: ParamMappingConfig) => {
     if (editSession?.kind === 'edit' && editSession.path && pathKey(editSession.path) === pathKey(path)) return
-    openSession(createEditSession('edit', value, path))
+    openSession('edit', value, path)
   }
-  const openCopyEditor = (path: ConfigPath, value: ParamMappingConfig) => openSession(createEditSession('copy', value, path))
+  const openCopyEditor = (path: ConfigPath, value: ParamMappingConfig) => openSession('copy', value, path)
 
   const setPayloadMode = (nextMode: PayloadMode) => {
     if (nextMode === payloadMode) return
@@ -195,26 +234,6 @@ export function ParamMapTaskForm({ task, variableOptions, onChange }: TaskFormPr
       Object.fromEntries(payloadParams.filter((_, itemIndex) => itemIndex !== index).map((item) => [item.key, item.value])),
       configs,
     )
-  }
-
-  const saveEditSession = (value: ParamMappingConfig) => {
-    if (!editSession) return
-    const nextValue = normalizeForSave(value)
-    let nextPath = editSession.path ?? [configs.length]
-    if (editSession.kind === 'root') {
-      commitConfigs([...configs, nextValue])
-    } else if (editSession.kind === 'child' && editSession.path) {
-      const parent = configAtPath(configs, editSession.path)
-      if (!parent) return
-      nextPath = [...editSession.path, configChildren(parent).length]
-      commitConfigs(updateAtPath(configs, editSession.path, (config) => withConfigChildren(config, [...configChildren(config), nextValue])))
-    } else if (editSession.kind === 'edit' && editSession.path) {
-      commitConfigs(updateAtPath(configs, editSession.path, () => nextValue))
-    } else if (editSession.kind === 'copy' && editSession.path) {
-      nextPath = [...editSession.path.slice(0, -1), editSession.path[editSession.path.length - 1] + 1]
-      commitConfigs(insertAfterPath(configs, editSession.path, nextValue))
-    }
-    setEditSession(createEditSession('edit', nextValue, nextPath))
   }
 
   const actions = {
@@ -335,16 +354,16 @@ export function ParamMapTaskForm({ task, variableOptions, onChange }: TaskFormPr
             onAddRoot={openRootEditor}
             selectedPath={editSession?.path}
             onCloseFieldEditor={closeFieldEditor}
+            fieldIncomplete={Boolean(editSession && (editSession.kind !== 'edit' || editSession.error))}
             fieldEditor={editSession ? (
               <ParamConfigPanel
-                key={`${editSession.kind}:${editSession.path ? pathKey(editSession.path) : 'root'}`}
+                key={editSession.id}
                 session={editSession}
-                parentPath={configPathLabel(configs, editSession.kind === 'child' ? editSession.path ?? [] : editSession.path?.slice(0, -1) ?? [])}
-                parentConfig={configAtPath(configs, editSession.kind === 'child' ? editSession.path ?? [] : editSession.path?.slice(0, -1) ?? [])}
-                aliases={scopeAliases(configs, editSession.kind === 'child' ? editSession.path ?? [] : editSession.path?.slice(0, -1) ?? [])}
-                onChange={(value) => setEditSession({ ...editSession, value })}
-                onCancel={closeFieldEditor}
-                onSave={saveEditSession}
+                parentPath={configPathLabel(configs, parentPath)}
+                parentConfig={configAtPath(configs, parentPath)}
+                aliases={scopeAliases(configs, parentPath)}
+                onChange={(value, error) => updateEditSession(editSession, value, error)}
+                onClose={closeFieldEditor}
               />
             ) : null}
             {...actions}
@@ -368,6 +387,7 @@ function ParamMappingTreeEditor({
   onAddRoot,
   selectedPath,
   fieldEditor,
+  fieldIncomplete,
   onCloseFieldEditor,
   addChild,
   edit,
@@ -378,8 +398,11 @@ function ParamMappingTreeEditor({
   onAddRoot: () => void
   selectedPath?: ConfigPath
   fieldEditor: ReactNode
+  fieldIncomplete: boolean
   onCloseFieldEditor: () => boolean
 } & ConfigActions) {
+  const actor = useWorkflowEditContext()
+  const canSave = useSelector(actor, (state) => state.matches('ready.lifecycle.editing') && hasWorkflowChanges(state.context))
   const allRows = useMemo(() => flattenDisplayConfigs(configs), [configs])
   const containerPaths = useMemo(
     () => allRows.filter((row, index) => allRows[index + 1]?.depth > row.depth).map(({ path }) => pathKey(path)),
@@ -464,7 +487,7 @@ function ParamMappingTreeEditor({
   useEffect(() => {
     if (editorExpanded) {
       if (!modalRef.current?.contains(document.activeElement)) {
-        modalRef.current?.querySelector<HTMLButtonElement>('header button')?.focus({ preventScroll: true })
+        modalRef.current?.querySelector<HTMLButtonElement>('.param-map-tree-modal-close')?.focus({ preventScroll: true })
       }
     } else if (wasExpandedRef.current) {
       hostRef.current?.querySelector<HTMLButtonElement>('.param-map-tree-editor-actions button')?.focus({ preventScroll: true })
@@ -546,7 +569,13 @@ function ParamMappingTreeEditor({
           >
             <header>
               <div><h2>参数映射编辑器</h2></div>
-              <button type="button" title="关闭" aria-label="关闭参数映射编辑器" onClick={closeEditor}><XIcon size={22} /></button>
+              <div className="param-map-tree-modal-actions">
+                <button type="button" className="param-map-tree-modal-save primary" disabled={!canSave || fieldIncomplete} onClick={() => {
+                  closeEditor()
+                  actor.send({ type: 'REQUEST_SAVE' })
+                }}>保存</button>
+                <button type="button" className="param-map-tree-modal-close" title="关闭" aria-label="关闭参数映射编辑器" onClick={closeEditor}><XIcon size={22} /></button>
+              </div>
             </header>
             <div className="param-map-tree-modal-content">{surface}</div>
           </section>
@@ -888,23 +917,18 @@ function MappingSelect<T extends string>({
   )
 }
 
-function ParamConfigPanel({ session, parentPath, parentConfig, aliases, onChange, onCancel, onSave }: {
+function ParamConfigPanel({ session, parentPath, parentConfig, aliases, onChange, onClose }: {
   session: EditSession
   parentPath: string
   parentConfig?: ParamMappingConfig
   aliases: string[]
-  onChange: (value: ParamMappingConfig) => void
-  onCancel: () => void
-  onSave: (value: ParamMappingConfig) => void
+  onChange: (value: ParamMappingConfig, error?: string) => void
+  onClose: () => void
 }) {
   const value = session.value
-  const [error, setError] = useState('')
-  const [saved, setSaved] = useState(false)
   const [constantDraft, setConstantDraft] = useState(() => constantInputText(value.mappingRule, value.targetParamType))
-  const [constantNull, setConstantNull] = useState(value.mappingRule == null)
-  const [constantEdited, setConstantEdited] = useState(false)
+  const constantNull = value.mappingRule == null
   const panelRef = useRef<HTMLElement>(null)
-  const dirty = JSON.stringify(value) !== session.initialValue
   const loopElement = parentConfig?.mappingType === 'ARRAY_MAP'
   const element = loopElement || parentConfig?.mappingType === 'ARRAY_FIXED'
   const sourceRoot = aliases[aliases.length - 1] ?? '$'
@@ -917,7 +941,7 @@ function ParamConfigPanel({ session, parentPath, parentConfig, aliases, onChange
   const modes = mappingTypesForTargetType(value.targetParamType)
   const modeFieldLabel = value.targetParamType === 'ARRAY' ? '数组生成方式'
     : value.targetParamType === 'OBJECT' ? '对象生成方式' : '取值方式'
-  const initialNode = normalizeConfig(JSON.parse(session.initialValue))
+  const initialNode = session.initialValue
   const clearsChildren = configChildren(initialNode).length > 0 && initialNode.mappingType !== value.mappingType
 
   useEffect(() => {
@@ -925,23 +949,22 @@ function ParamConfigPanel({ session, parentPath, parentConfig, aliases, onChange
     panelRef.current?.querySelector<HTMLInputElement>('input')?.focus({ preventScroll: true })
   }, [])
 
-  const setValue = (next: ParamMappingConfig) => {
-    setError('')
-    setSaved(false)
+  const setValue = (next: ParamMappingConfig, constantText?: string) => {
+    if (next.mappingType === 'CONSTANT' && next.mappingRule != null) {
+      try {
+        const parsed = parseConstantInput(constantText ?? constantInputText(next.mappingRule, next.targetParamType), next.targetParamType)
+        if (constantText !== undefined) next = { ...next, mappingRule: parsed }
+      } catch (error) {
+        onChange(next, (error as Error).message)
+        return
+      }
+    }
     onChange(next)
   }
 
   const updateConstant = (text: string, isNull = constantNull) => {
     setConstantDraft(text)
-    setConstantNull(isNull)
-    setConstantEdited(true)
-    try {
-      setValue({ ...value, mappingRule: isNull ? null : parseConstantInput(text, value.targetParamType) })
-    } catch (error) {
-      // Keep invalid numeric drafts in the edit session so closing it still warns about unsaved changes.
-      setValue({ ...value, mappingRule: text })
-      setError((error as Error).message)
-    }
+    setValue({ ...value, mappingRule: isNull ? null : text }, text)
   }
 
   const changeMode = (mode: MappingType, type = value.targetParamType) => {
@@ -953,17 +976,11 @@ function ParamConfigPanel({ session, parentPath, parentConfig, aliases, onChange
       : mode === 'EXPRESSION' ? (value.mappingType === 'EXPRESSION' ? value.mappingRule : sourceRoot) : undefined
     const nextDraft = constantInputText(mappingRule, type)
     setConstantDraft(nextDraft)
-    setConstantNull(mappingRule == null)
-    setConstantEdited(mode === 'CONSTANT' && (constantEdited || value.mappingType !== 'CONSTANT' || type !== value.targetParamType))
     setValue({ ...value, mappingType: mode, targetParamType: type, mappingRule,
       sourceParamKey: (mode === 'NAME' || mode === 'ARRAY_MAP') && !value.sourceParamKey ? sourceRoot : value.sourceParamKey,
       itemAlias: mode === 'ARRAY_MAP' ? value.itemAlias || alias : value.itemAlias,
       itemTemplate: mode === 'ARRAY_MAP' ? value.itemTemplate ?? objectTemplate() : value.itemTemplate,
-    })
-    if (mode === 'CONSTANT' && mappingRule != null) {
-      try { parseConstantInput(nextDraft, type) }
-      catch (error) { setError((error as Error).message) }
-    }
+    }, mode === 'CONSTANT' && (value.mappingType !== 'CONSTANT' || type !== value.targetParamType) ? nextDraft : undefined)
   }
 
   const changeTargetParamKey = (targetParamKey: string) => {
@@ -976,29 +993,11 @@ function ParamConfigPanel({ session, parentPath, parentConfig, aliases, onChange
     })
   }
 
-  const submit = () => {
-    try {
-      const constantValue = value.mappingType === 'CONSTANT' && !constantNull
-        ? parseConstantInput(constantDraft, value.targetParamType) : null
-      const next = normalizeForSave({ ...value, targetParamKey: element ? '' : value.targetParamKey,
-        mappingRule: value.mappingType === 'CONSTANT'
-          ? constantNull ? null : constantEdited ? constantValue : value.mappingRule : value.mappingRule })
-      validateNode(next, aliases, element)
-      setError('')
-      onSave(next)
-      setSaved(true)
-      setConstantEdited(false)
-      if (next.mappingType === 'CONSTANT') setConstantDraft(constantInputText(next.mappingRule, next.targetParamType))
-    } catch (error) {
-      setError((error as Error).message)
-    }
-  }
-
   return (
     <aside className="param-map-field-panel" aria-label={title} ref={panelRef}>
       <header>
         <div><small className="param-map-field-path">{pathLabel}</small><h3>{title}</h3></div>
-        <button type="button" title="关闭字段配置" aria-label="关闭字段配置" onClick={onCancel}><XIcon size={18} /></button>
+        <button type="button" title="关闭字段配置" aria-label="关闭字段配置" onClick={onClose}><XIcon size={18} /></button>
       </header>
       <div className="param-map-dialog-body">
         <div className="param-map-dialog-grid">
@@ -1074,12 +1073,13 @@ function ParamConfigPanel({ session, parentPath, parentConfig, aliases, onChange
           ) : null}
           <label className="full"><span>参数描述</span><textarea rows={2} value={value.paramDesc ?? ''} onChange={(event) => setValue({ ...value, paramDesc: event.target.value })} /></label>
         </div>
-        {clearsChildren ? <p className="param-map-field-notice" role="status">应用后将移除原来的子结构配置。</p> : null}
-        {error ? <p className="inline-error" role="alert">{error}</p> : null}
+        {clearsChildren ? <p className="param-map-field-notice" role="status">切换取值方式会移除原有子结构。关闭字段前可改回原方式恢复。</p> : null}
+        {session.error ? <p className="inline-error" role="alert">{session.error}</p> : null}
       </div>
       <footer>
-        <small role="status">{dirty ? '未应用的修改' : saved ? '已应用到工作流草稿' : ''}</small>
-        <button type="button" onClick={onCancel}>取消</button><button type="button" className="primary" onClick={submit}>应用到字段</button>
+        <small role="status">{session.error ? '请修正字段后保存'
+          : session.kind === 'copy' ? '输入新的参数名称后自动添加副本'
+            : '有效的修改会自动更新到工作流草稿'}</small>
       </footer>
     </aside>
   )

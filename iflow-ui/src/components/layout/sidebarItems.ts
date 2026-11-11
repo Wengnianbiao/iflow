@@ -31,6 +31,9 @@ export const sidebarNavItems: (SidebarNavItem | SidebarNavGroup)[] = [
     id: 'configuration',
     label: '配置管理',
     icon: TreeStructureIcon,
-    items: [{ label: '工作流配置', to: '/workflowDef', icon: FlowArrowIcon, end: true }],
+    items: [
+      { label: '工作流配置', to: '/workflowDef', icon: FlowArrowIcon, end: true },
+      { label: '定时计划', to: '/scheduleDef', icon: ClockCountdownIcon },
+    ],
   },
 ]

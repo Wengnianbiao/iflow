@@ -25,6 +25,7 @@
     "@xstate/react": "3.2.2",
     "acorn": "^8.19.0",
     "axios": "^1.7.9",
+    "cronstrue": "2.61.0",
     "monaco-editor": "^0.55.1",
     "prettier": "^3.9.9",
     "react": "^18.3.1",

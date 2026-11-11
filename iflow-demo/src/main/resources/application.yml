@@ -1,9 +1,6 @@
 spring:
   profiles:
     active: ${profiles.active:local}
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
   application:
     name: iflow
   main:

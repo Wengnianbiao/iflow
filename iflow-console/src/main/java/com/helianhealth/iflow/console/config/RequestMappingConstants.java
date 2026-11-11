@@ -9,4 +9,5 @@ public final class RequestMappingConstants {
 
     public static final String WORKFLOW_METADATA = API_PREFIX + "workflow/metadata";
     public static final String WORKFLOW_EXECUTION = API_PREFIX + "workflow/execution";
+    public static final String WORKFLOW_SCHEDULES = API_PREFIX + "workflow/schedules";
 }

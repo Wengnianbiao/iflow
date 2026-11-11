@@ -28,7 +28,7 @@ mvn -pl iflow-spring-boot-starter -am clean verify
 
 ## 初始化数据库与配置
 
-先执行 [MySQL 初始化脚本](init_mysql/01_create_database.sql)、[表结构脚本](init_mysql/02_schema.sql) 和 [执行索引脚本](init_mysql/03_execution_index.sql)，再配置宿主应用：
+先执行 [MySQL 初始化脚本](init_mysql/01_create_database.sql)、[表结构脚本](init_mysql/02_schema.sql)、[执行索引脚本](init_mysql/03_execution_index.sql)和[定时计划脚本](init_mysql/04_workflow_schedule.sql)，再配置宿主应用：
 
 ```yaml
 spring:
@@ -74,7 +74,8 @@ agent:
 - `iflow.enabled=false` 关闭 Starter 的引擎、任务、持久化 Bean 和 Web 入口装配。宿主 Spring Boot 自身的数据源配置仍由宿主管理。
 - `agent.console.enabled=false` 关闭控制台 API，保留引擎、入站网关与 MCP。控制台 JAR 中的静态资源仍按宿主 Spring MVC 的静态资源规则提供。
 - `iflow.mcp.enabled=false` 关闭 MCP 入口、会话和 Tool 注册等组件。
-- 非 Servlet 宿主只装配引擎、持久化与系统任务，不装配 Web 入口。
+- MySQL 工作流定时调度默认启用，Servlet 和非 Web 宿主均可触发已保存的计划。`iflow.scheduler.enabled=false` 可关闭调度，详见[工作流定时调度](workflow-schedule-design.md#启用)。
+- 非 Servlet 宿主按上述开关装配运行时组件。网关和控制台等 Web 入口仅在 Servlet 宿主装配。
 
 Servlet 宿主默认提供控制台 `/api/workflow/*` API、Open API 工作流路由、Jarvis 入口和 `/mcp`。控制台资源随 `iflow-console` 提供，由宿主的 Spring MVC 静态资源配置托管；页面入口为宿主 context path 下的 `/`。
 

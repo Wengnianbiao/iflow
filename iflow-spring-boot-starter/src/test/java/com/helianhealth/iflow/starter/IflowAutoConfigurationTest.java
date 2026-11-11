@@ -6,6 +6,7 @@ import com.helianhealth.iflow.ai.mcp.McpToolRegistry;
 import com.helianhealth.iflow.common.utils.SpringContextHolder;
 import com.helianhealth.iflow.console.controller.WorkflowDefinitionController;
 import com.helianhealth.iflow.console.controller.WorkflowExecutionController;
+import com.helianhealth.iflow.console.controller.WorkflowScheduleController;
 import com.helianhealth.iflow.core.config.IflowCoreConfiguration;
 import com.helianhealth.iflow.core.config.IflowProperties;
 import com.helianhealth.iflow.core.dao.ExecutionDAO;
@@ -19,9 +20,12 @@ import com.helianhealth.iflow.core.execution.tasks.WorkflowSystemTask;
 import com.helianhealth.iflow.core.lock.Lock;
 import com.helianhealth.iflow.core.queue.ExecutionQueue;
 import com.helianhealth.iflow.gateway.rest.OpenApiController;
+import com.helianhealth.iflow.gateway.schedule.WorkflowScheduleRunner;
+import com.helianhealth.iflow.gateway.schedule.WorkflowScheduleService;
 import com.helianhealth.iflow.persistence.mysql.dao.MySqlExecutionDAO;
 import com.helianhealth.iflow.persistence.mysql.dao.MySqlIndexDAO;
 import com.helianhealth.iflow.persistence.mysql.dao.MySqlMetadataDAO;
+import com.helianhealth.iflow.persistence.mysql.dao.MySqlWorkflowScheduleDAO;
 import com.helianhealth.iflow.tasks.http.HttpTask;
 import com.helianhealth.iflow.tasks.http.providers.DefaultRestTemplateProvider;
 import com.helianhealth.iflow.tasks.http.providers.RestTemplateProvider;
@@ -37,21 +41,33 @@ import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.boot.convert.ApplicationConversionService;
 import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Component;
 
 import javax.sql.DataSource;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class IflowAutoConfigurationTest {
 
@@ -78,9 +94,13 @@ class IflowAutoConfigurationTest {
                     .hasSingleBean(MySqlMetadataDAO.class)
                     .hasSingleBean(MySqlExecutionDAO.class)
                     .hasSingleBean(MySqlIndexDAO.class)
+                    .hasSingleBean(MySqlWorkflowScheduleDAO.class)
                     .hasSingleBean(OpenApiController.class)
                     .hasSingleBean(WorkflowDefinitionController.class)
                     .hasSingleBean(WorkflowExecutionController.class)
+                    .hasSingleBean(WorkflowScheduleController.class)
+                    .hasSingleBean(WorkflowScheduleService.class)
+                    .hasSingleBean(WorkflowScheduleRunner.class)
                     .hasSingleBean(McpServerEndpoint.class)
                     .hasSingleBean(SpringContextHolder.class)
                     .doesNotHaveBean(UnrelatedComponent.class);
@@ -99,7 +119,7 @@ class IflowAutoConfigurationTest {
 
     @Test
     void globalSwitchDisablesEngineTasksAndWebEndpoints() {
-        runner.withPropertyValues("iflow.enabled=false").run(context ->
+        runner.withPropertyValues("iflow.enabled=false", "iflow.scheduler.enabled=true").run(context ->
                 assertThat(context).hasNotFailed()
                         .doesNotHaveBean(WorkflowExecutor.class)
                         .doesNotHaveBean(WorkflowSystemTask.class)
@@ -108,18 +128,75 @@ class IflowAutoConfigurationTest {
                         .doesNotHaveBean(WorkflowDefinitionController.class)
                         .doesNotHaveBean(McpServerEndpoint.class)
                         .doesNotHaveBean(McpToolRegistry.class)
+                        .doesNotHaveBean(MySqlWorkflowScheduleDAO.class)
+                        .doesNotHaveBean(WorkflowScheduleService.class)
+                        .doesNotHaveBean(WorkflowScheduleRunner.class)
+                        .doesNotHaveBean(WorkflowScheduleController.class)
                         .doesNotHaveBean(SpringContextHolder.class));
     }
 
     @Test
-    void consoleSwitchKeepsEngineGatewayAndMcpAvailable() {
+    void scheduleSwitchDisablesOnlyScheduleRuntimeAndConsoleApi() {
+        runner.withPropertyValues("iflow.scheduler.enabled=false").run(context ->
+                assertThat(context).hasNotFailed()
+                        .hasSingleBean(WorkflowExecutor.class)
+                        .hasSingleBean(OpenApiController.class)
+                        .hasSingleBean(WorkflowDefinitionController.class)
+                        .hasSingleBean(WorkflowExecutionController.class)
+                        .doesNotHaveBean(MySqlWorkflowScheduleDAO.class)
+                        .doesNotHaveBean(WorkflowScheduleService.class)
+                        .doesNotHaveBean(WorkflowScheduleRunner.class)
+                        .doesNotHaveBean(WorkflowScheduleController.class));
+    }
+
+    @Test
+    void defaultSchedulerScansAfterApplicationReady() {
+        MySqlWorkflowScheduleDAO scheduleDAO = mock(MySqlWorkflowScheduleDAO.class);
+        CountDownLatch scanned = new CountDownLatch(1);
+        when(scheduleDAO.findDue(any(Instant.class), anyInt())).thenAnswer(invocation -> {
+            scanned.countDown();
+            return List.of();
+        });
+
+        runner
+                .withBean("observedScheduleDAO", MySqlWorkflowScheduleDAO.class, () -> scheduleDAO,
+                        definition -> definition.setPrimary(true))
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    verifyNoInteractions(scheduleDAO);
+                    ConfigurableApplicationContext applicationContext = context.getSourceApplicationContext();
+                    applicationContext.publishEvent(new ApplicationReadyEvent(
+                            new SpringApplication(HostApplication.class), new String[0],
+                            applicationContext, Duration.ZERO));
+                    assertThat(scanned.await(5, TimeUnit.SECONDS)).isTrue();
+                });
+    }
+
+    @Test
+    void scheduleSwitchLeavesCustomRepositoryHostWithoutScheduler() {
+        runner.withPropertyValues("agent.repository.vendor=custom", "iflow.scheduler.enabled=true")
+                .withBean(MetadataDAO.class, () -> mock(MetadataDAO.class))
+                .withBean(ExecutionDAO.class, () -> mock(ExecutionDAO.class))
+                .withBean(IndexDAO.class, () -> mock(IndexDAO.class))
+                .run(context -> assertThat(context).hasNotFailed()
+                        .hasSingleBean(WorkflowExecutor.class)
+                        .doesNotHaveBean(MySqlWorkflowScheduleDAO.class)
+                        .doesNotHaveBean(WorkflowScheduleService.class)
+                        .doesNotHaveBean(WorkflowScheduleRunner.class)
+                        .doesNotHaveBean(WorkflowScheduleController.class));
+    }
+
+    @Test
+    void consoleSwitchKeepsEngineGatewayMcpAndSchedulingAvailable() {
         runner.withPropertyValues("agent.console.enabled=false").run(context ->
                 assertThat(context).hasNotFailed()
                         .hasSingleBean(WorkflowExecutor.class)
                         .hasSingleBean(OpenApiController.class)
                         .hasSingleBean(McpServerEndpoint.class)
+                        .hasSingleBean(WorkflowScheduleRunner.class)
                         .doesNotHaveBean(WorkflowDefinitionController.class)
-                        .doesNotHaveBean(WorkflowExecutionController.class));
+                        .doesNotHaveBean(WorkflowExecutionController.class)
+                        .doesNotHaveBean(WorkflowScheduleController.class));
     }
 
     @Test
@@ -133,7 +210,7 @@ class IflowAutoConfigurationTest {
     }
 
     @Test
-    void nonWebHostOnlyStartsEngineAndTasks() {
+    void nonWebHostCanScheduleWorkflowsWithoutWebEndpoints() {
         new ApplicationContextRunner()
                 .withAllowBeanDefinitionOverriding(false)
                 .withAllowCircularReferences(false)
@@ -144,8 +221,10 @@ class IflowAutoConfigurationTest {
                         assertThat(context).hasNotFailed()
                                 .hasSingleBean(WorkflowExecutor.class)
                                 .hasSingleBean(HttpTask.class)
+                                .hasSingleBean(WorkflowScheduleRunner.class)
                                 .doesNotHaveBean(OpenApiController.class)
                                 .doesNotHaveBean(WorkflowDefinitionController.class)
+                                .doesNotHaveBean(WorkflowScheduleController.class)
                                 .doesNotHaveBean(McpToolRegistry.class));
     }
 

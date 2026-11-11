@@ -1,0 +1,10 @@
+{
+  "properties": [
+    {
+      "name": "iflow.scheduler.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Enable MySQL-backed workflow schedules.",
+      "defaultValue": true
+    }
+  ]
+}

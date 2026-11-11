@@ -7,6 +7,7 @@ import com.helianhealth.iflow.common.utils.SpringContextHolder;
 import com.helianhealth.iflow.core.config.IflowCoreConfiguration;
 import com.helianhealth.iflow.core.execution.evaluators.GraalJSEvaluator;
 import com.helianhealth.iflow.gateway.rest.GatewayConfiguration;
+import com.helianhealth.iflow.gateway.schedule.WorkflowScheduleConfiguration;
 import com.helianhealth.iflow.persistence.mysql.config.MySqlRepositoryConfiguration;
 import com.helianhealth.iflow.tasks.http.HttpTask;
 import com.helianhealth.iflow.tasks.http.providers.DefaultRestTemplateProvider;
@@ -39,7 +40,7 @@ import java.time.Duration;
 @AutoConfiguration(after = {DataSourceAutoConfiguration.class, JacksonAutoConfiguration.class})
 @ConditionalOnProperty(prefix = "iflow", name = "enabled", havingValue = "true", matchIfMissing = true)
 @Import({IflowCoreConfiguration.class, MySqlRepositoryConfiguration.class,
-        GatewayConfiguration.class, McpServerConfiguration.class})
+        GatewayConfiguration.class, WorkflowScheduleConfiguration.class, McpServerConfiguration.class})
 public class IflowAutoConfiguration {
 
     @Bean
