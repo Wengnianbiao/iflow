@@ -32,7 +32,7 @@ MySQL 实现与主执行记录同连接、同事务写入或删除索引；原�
 
 ## 安装与启用
 
-部署前执行 `docs/init_mysql/03_execution_index.sql`，新安装在 `02_schema.sql` 后执行。脚本仅创建 `workflow_index`、`task_index` 两张索引表，可重复执行。
+部署前在 iFlow 数据库执行[表结构脚本](init_mysql/02_schema.sql)。脚本包含 `workflow_index` 和 `task_index`，可重复执行。
 
 应用启动后，创建或更新的执行实例会同步进入索引。执行搜索、最近执行列表和调度看板直接查询索引。
 已有执行记录不自动扫描或回填；没有索引的旧记录不会出现在搜索及统计结果中。

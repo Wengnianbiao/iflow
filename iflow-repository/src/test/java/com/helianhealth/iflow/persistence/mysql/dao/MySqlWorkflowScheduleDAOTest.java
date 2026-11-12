@@ -6,9 +6,9 @@ import com.helianhealth.iflow.common.domain.run.StartWorkflowRequest;
 import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.jdbc.datasource.init.ScriptUtils;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -33,8 +33,8 @@ class MySqlWorkflowScheduleDAOTest {
         JdbcDataSource dataSource = new JdbcDataSource();
         dataSource.setURL("jdbc:h2:mem:" + UUID.randomUUID()
                 + ";MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE");
-        try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
-            statement.execute(Files.readString(Path.of("../docs/init_mysql/04_workflow_schedule.sql")));
+        try (var connection = dataSource.getConnection()) {
+            ScriptUtils.executeSqlScript(connection, new FileSystemResource("../docs/init_mysql/02_schema.sql"));
         }
         dao = new MySqlWorkflowScheduleDAO(dataSource, new ObjectMapper());
     }

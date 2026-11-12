@@ -50,8 +50,6 @@ mvn -Pdemo -pl iflow-demo -am clean package -Dmaven.test.skip=true
 # 初始化 MySQL 数据库
 mysql -u root -p < docs/init_mysql/01_create_database.sql
 mysql -u root -p iflow < docs/init_mysql/02_schema.sql
-mysql -u root -p iflow < docs/init_mysql/03_execution_index.sql
-mysql -u root -p iflow < docs/init_mysql/04_workflow_schedule.sql
 
 # 运行 demo（默认使用 Spring local profile）
 java -jar iflow-demo/target/iflow.jar

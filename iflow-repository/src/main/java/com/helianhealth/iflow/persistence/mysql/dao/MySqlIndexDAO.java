@@ -389,7 +389,7 @@ public class MySqlIndexDAO extends MySqlBaseDAO implements IndexDAO {
             bind(statement, java.util.Arrays.asList(params));
             statement.executeUpdate();
         } catch (SQLException error) {
-            throw new IllegalStateException("执行统计索引更新失败，请先执行 03_execution_index.sql", error);
+            throw new IllegalStateException("执行统计索引更新失败", error);
         }
     }
 

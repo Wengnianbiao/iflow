@@ -28,7 +28,7 @@ mvn -pl iflow-spring-boot-starter -am clean verify
 
 ## 初始化数据库与配置
 
-先执行 [MySQL 初始化脚本](init_mysql/01_create_database.sql)、[表结构脚本](init_mysql/02_schema.sql)、[执行索引脚本](init_mysql/03_execution_index.sql)和[定时计划脚本](init_mysql/04_workflow_schedule.sql)，再配置宿主应用：
+依次执行 [MySQL 建库脚本](init_mysql/01_create_database.sql)和[表结构脚本](init_mysql/02_schema.sql)，再配置宿主应用。
 
 ```yaml
 spring:

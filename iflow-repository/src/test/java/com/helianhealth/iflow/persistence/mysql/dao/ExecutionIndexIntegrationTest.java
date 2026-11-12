@@ -17,10 +17,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.core.env.MapPropertySource;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.jdbc.datasource.init.ScriptUtils;
 
 import javax.sql.DataSource;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.sql.Connection;
 import java.util.Map;
 import java.util.Set;
@@ -46,16 +46,8 @@ class ExecutionIndexIntegrationTest {
         }, new WorkflowSystemTask("INLINE") {}));
         statistics = new MySqlIndexDAO(dataSource, mapper, registry);
         executions = new MySqlExecutionDAO(dataSource, mapper, statistics);
-        try (var tx = dataSource.getConnection(); var sql = tx.createStatement()) {
-            sql.execute("CREATE TABLE workflow (id BIGINT AUTO_INCREMENT PRIMARY KEY, workflow_id VARCHAR(255) UNIQUE, correlation_id VARCHAR(255), json_data CLOB, modified_on TIMESTAMP)");
-            sql.execute("CREATE TABLE task (id BIGINT AUTO_INCREMENT PRIMARY KEY, task_id VARCHAR(255) UNIQUE, json_data CLOB, modified_on TIMESTAMP)");
-            sql.execute("CREATE TABLE task_scheduled (workflow_id VARCHAR(255), task_key VARCHAR(512), task_id VARCHAR(255), UNIQUE(workflow_id, task_key))");
-            sql.execute("CREATE TABLE workflow_to_task (workflow_id VARCHAR(255), task_id VARCHAR(255), UNIQUE(workflow_id, task_id))");
-            sql.execute("CREATE TABLE workflow_pending (workflow_type VARCHAR(255), workflow_id VARCHAR(255), UNIQUE(workflow_type, workflow_id))");
-            sql.execute("CREATE TABLE task_in_progress (task_def_name VARCHAR(255), task_id VARCHAR(255), workflow_id VARCHAR(255), UNIQUE(task_def_name, task_id))");
-            for (String statement : Files.readString(Path.of("../docs/init_mysql/03_execution_index.sql")).split(";")) {
-                if (!statement.isBlank()) sql.execute(statement);
-            }
+        try (var connection = dataSource.getConnection()) {
+            ScriptUtils.executeSqlScript(connection, new FileSystemResource("../docs/init_mysql/02_schema.sql"));
         }
     }
 

@@ -21,3 +21,43 @@ index a9b149568285c24ee534af2214f8b6a5a3e17638..401841147698e95f60f4477c6c08a1c7
          setBaseLayerHoverDelegate(hoverService);
          markdownRendererService.setDefaultCodeBlockRenderer(instantiationService.createInstance(EditorMarkdownCodeBlockRenderer));
      }
+diff --git a/esm/vs/editor/common/model/textModelTokens.js b/esm/vs/editor/common/model/textModelTokens.js
+--- a/esm/vs/editor/common/model/textModelTokens.js
++++ b/esm/vs/editor/common/model/textModelTokens.js
+@@ -102,7 +102,7 @@ class TokenizerWithStateStoreAndTextModel {
+      * The result is not cached.
+      */
+     tokenizeHeuristically(builder, startLineNumber, endLineNumber) {
+-        if (endLineNumber <= this.store.getFirstInvalidEndStateLineNumberOrMax()) {
++        if (endLineNumber < this.store.getFirstInvalidEndStateLineNumberOrMax()) {
+             // nothing to do
+             return { heuristicTokens: false };
+         }
+diff --git a/esm/vs/editor/common/viewModel/viewModelImpl.js b/esm/vs/editor/common/viewModel/viewModelImpl.js
+--- a/esm/vs/editor/common/viewModel/viewModelImpl.js
++++ b/esm/vs/editor/common/viewModel/viewModelImpl.js
+@@ -134,12 +134,11 @@ class ViewModel extends Disposable {
+         this._configuration.setViewLineCount(this._lines.getViewLineCount());
+     }
+-    getModelVisibleRanges() {
+-        const linesViewportData = this.viewLayout.getLinesViewportData();
++    getModelVisibleRanges(linesViewportData = this.viewLayout.getLinesViewportData()) {
+         const viewVisibleRange = new Range(linesViewportData.startLineNumber, this.getLineMinColumn(linesViewportData.startLineNumber), linesViewportData.endLineNumber, this.getLineMaxColumn(linesViewportData.endLineNumber));
+         const modelVisibleRanges = this._toModelVisibleRanges(viewVisibleRange);
+         return modelVisibleRanges;
+     }
+-    visibleLinesStabilized() {
+-        const modelVisibleRanges = this.getModelVisibleRanges();
++    visibleLinesStabilized(linesViewportData) {
++        const modelVisibleRanges = this.getModelVisibleRanges(linesViewportData);
+         this._attachedView.setVisibleLines(modelVisibleRanges, true);
+     }
+@@ -577,6 +576,8 @@ class ViewModel extends Disposable {
+      */
+     setViewport(startLineNumber, endLineNumber, centeredLineNumber) {
+         this._viewportStart.update(this, startLineNumber);
++        // The first render and layout changes can expose lines without scrolling.
++        this.visibleLinesStabilized({ startLineNumber, endLineNumber });
+     }
+     getActiveIndentGuide(lineNumber, minLineNumber, maxLineNumber) {
+         return this._lines.getActiveIndentGuide(lineNumber, minLineNumber, maxLineNumber);

@@ -6,7 +6,7 @@
 
 ## 启用
 
-配置 `agent.repository.vendor=mysql` 时，定时调度默认启用。已有环境升级时，先在 iFlow 数据库执行[定时计划建表脚本](init_mysql/04_workflow_schedule.sql)再启动应用。需要关闭时设置 `iflow.scheduler.enabled=false`。
+配置 `agent.repository.vendor=mysql` 时，定时调度默认启用。启动应用前，在 iFlow 数据库执行包含 `workflow_schedule` 的[表结构脚本](init_mysql/02_schema.sql)。需要关闭时设置 `iflow.scheduler.enabled=false`。
 
 在控制台侧栏打开「配置管理 → 定时计划」，可新建、编辑、启用、停用和删除计划，并查看下次触发时间。编辑时可以选用 Cron 模板，预览未来五次触发在计划时区和浏览器本地时区的时间。非 Web 宿主也可执行已保存的计划。
 
