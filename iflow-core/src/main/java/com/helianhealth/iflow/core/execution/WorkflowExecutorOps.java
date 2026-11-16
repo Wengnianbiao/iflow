@@ -544,6 +544,7 @@ public class WorkflowExecutorOps implements WorkflowExecutor {
 
     private void applyTerminalSnapshot(WorkflowModel workflow, WorkflowModel terminal) {
         workflow.setTasks(terminal.getTasks());
+        workflow.setCorrelationId(terminal.getCorrelationId());
         workflow.setOutput(WorkflowExecutionMapper.copyOutput(terminal.getOutput()));
         workflow.setReasonForInCompletion(terminal.getReasonForInCompletion());
         workflow.setFailedTaskId(terminal.getFailedTaskId());

@@ -18,6 +18,7 @@ public enum TaskType {
     DO_WHILE,
     INLINE,
     TERMINATE,
+    SET_KEYWORD,
     NOOP,
     HTTP,
     JDBC,
@@ -36,6 +37,7 @@ public enum TaskType {
     public static final String TASK_TYPE_DO_WHILE = "DO_WHILE";
     public static final String TASK_TYPE_INLINE = "INLINE";
     public static final String TASK_TYPE_TERMINATE = "TERMINATE";
+    public static final String TASK_TYPE_SET_KEYWORD = "SET_KEYWORD";
     public static final String TASK_TYPE_NOOP = "NOOP";
     public static final String TASK_TYPE_HTTP = "HTTP";
     public static final String TASK_TYPE_JDBC = "JDBC";

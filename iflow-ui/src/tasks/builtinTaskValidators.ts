@@ -20,6 +20,10 @@ export const validateBuiltinTask: TaskValidator = (task) => {
     if (text(input.method) && !expression(input.method) && !['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS', 'TRACE'].includes(String(input.method).toUpperCase())) add('/inputParameters/method', '请选择有效的 HTTP 方法，或使用 ${...} 表达式')
   }
   if (task.type === 'INLINE') required(input, 'expression')
+  if (task.type === 'SET_KEYWORD'
+      && !text(input.keyword) && typeof input.keyword !== 'number' && typeof input.keyword !== 'boolean') {
+    add('/inputParameters/keyword', '请填写关键字或引用上游任务的输出字段')
+  }
   if (task.type === 'DO_WHILE') {
     const hasItems = task.loopItems != null
     const hasCondition = task.loopCondition != null

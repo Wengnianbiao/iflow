@@ -67,8 +67,7 @@ public class WorkflowModel {
     private Status previousStatus;
 
     /**
-     * 关键字（启动时由定义 {@code correlationExpression} 表达式解析写入）
-     * 同时可由 SET_KEYWORD task 去设置correlationId。
+     * 关键字，启动时由定义的 {@code correlationExpression} 解析写入，运行时可由 {@code SET_KEYWORD} 覆盖。
      */
     private String correlationId;
 

@@ -17,6 +17,7 @@ import com.helianhealth.iflow.core.execution.mapper.JdbcTaskMapper;
 import com.helianhealth.iflow.core.execution.mapper.JoinTaskMapper;
 import com.helianhealth.iflow.core.execution.mapper.NoopTaskMapper;
 import com.helianhealth.iflow.core.execution.mapper.ParamMappingTaskMapper;
+import com.helianhealth.iflow.core.execution.mapper.SetKeywordTaskMapper;
 import com.helianhealth.iflow.core.execution.mapper.SwitchTaskMapper;
 import com.helianhealth.iflow.core.execution.mapper.TaskMapper;
 import com.helianhealth.iflow.core.execution.mapper.TerminateTaskMapper;
@@ -27,6 +28,7 @@ import com.helianhealth.iflow.core.execution.tasks.Fork;
 import com.helianhealth.iflow.core.execution.tasks.Inline;
 import com.helianhealth.iflow.core.execution.tasks.Join;
 import com.helianhealth.iflow.core.execution.tasks.Noop;
+import com.helianhealth.iflow.core.execution.tasks.SetKeyword;
 import com.helianhealth.iflow.core.execution.tasks.Switch;
 import com.helianhealth.iflow.core.execution.tasks.SystemTaskRegistry;
 import com.helianhealth.iflow.core.execution.tasks.Terminate;
@@ -72,6 +74,7 @@ import static java.util.stream.Collectors.toMap;
         JoinTaskMapper.class,
         NoopTaskMapper.class,
         ParamMappingTaskMapper.class,
+        SetKeywordTaskMapper.class,
         SwitchTaskMapper.class,
         TerminateTaskMapper.class,
         WebServiceTaskMapper.class,
@@ -81,6 +84,7 @@ import static java.util.stream.Collectors.toMap;
         Inline.class,
         Join.class,
         Noop.class,
+        SetKeyword.class,
         Switch.class,
         SystemTaskRegistry.class,
         Terminate.class,

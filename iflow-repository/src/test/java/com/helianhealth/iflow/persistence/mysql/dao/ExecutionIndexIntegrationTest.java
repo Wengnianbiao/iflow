@@ -5,16 +5,22 @@ import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowDef;
 import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 import com.helianhealth.iflow.common.domain.statistics.ExecutionStatistics;
 import com.helianhealth.iflow.common.domain.run.ExecutionSearch;
+import com.helianhealth.iflow.core.config.IflowCoreConfiguration;
 import com.helianhealth.iflow.core.dal.ExecutionDAOFacade;
+import com.helianhealth.iflow.core.execution.StartWorkflowInput;
+import com.helianhealth.iflow.core.execution.WorkflowExecutor;
 import com.helianhealth.iflow.core.execution.tasks.DoWhile;
 import com.helianhealth.iflow.core.execution.tasks.SystemTaskRegistry;
 import com.helianhealth.iflow.core.execution.tasks.WorkflowSystemTask;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
+import com.helianhealth.iflow.core.service.MetadataService;
 import com.helianhealth.iflow.core.utils.ParametersUtils;
 import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.io.FileSystemResource;
@@ -388,6 +394,56 @@ class ExecutionIndexIntegrationTest {
                 "updated", null, null, null, List.of(), true, null, null, 1, 20));
         assertEquals(2, updated.getTotal());
         assertTrue(updated.getRows().stream().allMatch(row -> "updated".equals(row.correlationId())));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"orderId,initial,4821,COMPLETED", "orderId,,4821,COMPLETED", "missing,initial,initial,FAILED"})
+    void setsWorkflowKeywordFromTaskOutputAndUpdatesSearch(
+            String field, String initialKeyword, String expectedKeyword, WorkflowModel.Status expectedStatus) {
+        try (var context = new AnnotationConfigApplicationContext()) {
+            context.getEnvironment().getPropertySources().addFirst(new MapPropertySource("test", Map.of(
+                    "agent.repository.vendor", "mysql", "iflow.workflow-execution.sweeper.enabled", false)));
+            context.registerBean(DataSource.class, () -> dataSource);
+            context.registerBean(ObjectMapper.class, () -> mapper);
+            context.register(IflowCoreConfiguration.class, MySqlExecutionDAO.class,
+                    MySqlIndexDAO.class, MySqlMetadataDAO.class);
+            context.refresh();
+
+            var lookup = WorkflowTask.builder().name("lookup").taskReferenceName("lookup").type("INLINE")
+                    .inputParameters(Map.of("evaluatorType", "graaljs", "expression", "({orderId: 4821})"))
+                    .build();
+            var setKeyword = WorkflowTask.builder().name("keyword").taskReferenceName("keyword").type("SET_KEYWORD")
+                    .inputParameters(Map.of("keyword", "${lookup.output." + field + "}"))
+                    .build();
+            var definition = WorkflowDef.builder().route("set-keyword").name("设置关键字").version(1)
+                    .correlationExpression(initialKeyword).tasks(List.of(lookup, setKeyword))
+                    .outputParameters(Map.of("keyword", "${workflow.correlationId}"))
+                    .build();
+            context.getBean(MetadataService.class).registerWorkflowDef(definition);
+            var input = new StartWorkflowInput();
+            input.setRoute(definition.getRoute());
+            input.setVersion(definition.getVersion());
+
+            String id = context.getBean(WorkflowExecutor.class).startWorkflow(input);
+
+            var stored = executions.getWorkflow(id, true).orElseThrow();
+            assertEquals(expectedStatus, stored.getStatus());
+            assertEquals(expectedKeyword, stored.getCorrelationId());
+            assertEquals(Map.of("keyword", expectedKeyword), stored.getOutput());
+            var view = statistics.searchWorkflows(new ExecutionSearch.WorkflowQuery(List.of(), null,
+                    List.of(), id, expectedKeyword, null, null, 1, 20));
+            assertEquals(1, view.getTotal());
+            var tasks = statistics.searchTasks(new ExecutionSearch.TaskQuery(List.of(), id, expectedKeyword,
+                    null, null, null, List.of(), false, null, null, 1, 20));
+            assertEquals(2, tasks.getTotal());
+            assertTrue(tasks.getRows().stream().allMatch(row -> expectedKeyword.equals(row.correlationId())));
+            if (expectedStatus == WorkflowModel.Status.FAILED) {
+                assertTrue(stored.getTaskByRefName("keyword").getReasonForInCompletion().contains("keyword"));
+            } else if (initialKeyword != null) {
+                assertEquals(0, statistics.searchWorkflows(new ExecutionSearch.WorkflowQuery(List.of(), null,
+                        List.of(), id, initialKeyword, null, null, 1, 20)).getTotal());
+            }
+        }
     }
 
     @Test

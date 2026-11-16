@@ -63,7 +63,7 @@ void cancel(WorkflowModel workflow, TaskModel task, WorkflowExecutor executor);
 | 任务 | 执行方式 |
 | --- | --- |
 | HTTP、JDBC、SPI、WEBSERVICE | 异步工作线程调用 `start()` 完成业务调用 |
-| MAPPING、INLINE、NOOP | 当前决策线程同步调用 `start()` |
+| MAPPING、INLINE、SET_KEYWORD、NOOP | 当前决策线程同步调用 `start()` |
 | FORK、SWITCH、TERMINATE | 当前决策线程同步调用 `start()` |
 | JOIN、EXCLUSIVE_JOIN、DO_WHILE | 当前决策线程通过 `execute()` 推进 |
 
