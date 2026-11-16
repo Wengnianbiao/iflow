@@ -52,16 +52,16 @@ export type DisplayConfigRow = {
   ancestors: ConfigPath[]
 }
 export interface ParamMappingConfig {
-  targetParamKey: string
+  targetParamKey?: string | null
   targetParamType: ParamType
   mappingType: MappingType
-  sourceParamKey?: string
+  sourceParamKey?: string | null
   mappingRule?: unknown
-  paramDesc?: string
-  childParams: ParamMappingConfig[]
-  itemAlias?: string
-  itemTemplate?: ParamMappingConfig
-  items: ParamMappingConfig[]
+  paramDesc?: string | null
+  childParams?: ParamMappingConfig[] | null
+  itemAlias?: string | null
+  itemTemplate?: ParamMappingConfig | null
+  items?: ParamMappingConfig[] | null
 }
 
 export function loopElementLabel(config?: Pick<ParamMappingConfig, 'targetParamType'>): string {
@@ -72,8 +72,8 @@ export function loopElementLabel(config?: Pick<ParamMappingConfig, 'targetParamT
 }
 
 export function configChildren(config: ParamMappingConfig): ParamMappingConfig[] {
-  if (config.mappingType === 'OBJECT') return config.childParams
-  if (config.mappingType === 'ARRAY_FIXED') return config.items
+  if (config.mappingType === 'OBJECT') return config.childParams ?? []
+  if (config.mappingType === 'ARRAY_FIXED') return config.items ?? []
   if (config.mappingType === 'ARRAY_MAP') return config.itemTemplate ? [config.itemTemplate] : []
   return []
 }
@@ -112,18 +112,32 @@ export function objectTemplate(): ParamMappingConfig {
 export function normalizeForSave(value: ParamMappingConfig): ParamMappingConfig {
   const mode = value.mappingType
   return {
-    targetParamKey: value.targetParamKey.trim(),
+    targetParamKey: value.targetParamKey?.trim() ?? '',
     targetParamType: mode === 'OBJECT' ? 'OBJECT' : mode === 'ARRAY_MAP' || mode === 'ARRAY_FIXED' ? 'ARRAY' : value.targetParamType,
     mappingType: mode,
     paramDesc: value.paramDesc?.trim(),
     sourceParamKey: mode === 'NAME' || mode === 'ARRAY_MAP' ? value.sourceParamKey?.trim() : undefined,
     mappingRule: mode === 'CONSTANT' ? value.mappingRule ?? null
       : mode === 'EXPRESSION' && typeof value.mappingRule === 'string' ? value.mappingRule.trim() : undefined,
-    childParams: mode === 'OBJECT' ? value.childParams.map(normalizeForSave) : [],
+    childParams: mode === 'OBJECT' ? configChildren(value).map(normalizeForSave) : [],
     itemAlias: mode === 'ARRAY_MAP' ? value.itemAlias?.trim() : undefined,
     itemTemplate: mode === 'ARRAY_MAP' && value.itemTemplate ? normalizeForSave(value.itemTemplate) : undefined,
-    items: mode === 'ARRAY_FIXED' ? value.items.map(normalizeForSave) : [],
+    items: mode === 'ARRAY_FIXED' ? configChildren(value).map(normalizeForSave) : [],
   }
+}
+
+export function applyMappingConfigEdit(original: ParamMappingConfig, value: ParamMappingConfig): ParamMappingConfig {
+  // Compare editor values, then apply changes to the original JSON to preserve omitted fields and key order.
+  const before = normalizeConfig(original)
+  const previous = normalizeForSave(before)
+  const after = normalizeForSave(value)
+  const updated = { ...original }
+  for (const key of Object.keys(after) as Array<keyof ParamMappingConfig>) {
+    if (JSON.stringify(value[key]) !== JSON.stringify(before[key]) || JSON.stringify(after[key]) !== JSON.stringify(previous[key])) {
+      Object.assign(updated, { [key]: after[key] })
+    }
+  }
+  return updated
 }
 
 export function configAtPath(configs: ParamMappingConfig[], path: ConfigPath): ParamMappingConfig | undefined {
@@ -229,7 +243,7 @@ export function countMappingTargetFields(value: unknown): number {
 const RESERVED = new Set('$ XML Crypto arguments eval undefined NaN Infinity globalThis Object Function Boolean Symbol Number BigInt Math Date String RegExp Array JSON Map Set WeakMap WeakSet Promise Reflect Proxy Intl Atomics WebAssembly console Error TypeError RangeError SyntaxError ReferenceError URIError ArrayBuffer SharedArrayBuffer DataView Int8Array Uint8Array Uint8ClampedArray Int16Array Uint16Array Int32Array Uint32Array Float32Array Float64Array BigInt64Array BigUint64Array parseInt parseFloat isNaN isFinite encodeURI decodeURI encodeURIComponent decodeURIComponent escape unescape break case catch class const continue debugger default delete do else export extends finally for function if import in instanceof new return super switch this throw try typeof var void while with yield let static enum await implements package protected interface private public null true false'.split(' '))
 
 export function validateNode(config: ParamMappingConfig, aliases: string[], element: boolean): void {
-  if (!element && !config.targetParamKey.trim()) throw new Error('目标参数名不能为空')
+  if (!element && !config.targetParamKey?.trim()) throw new Error('目标参数名不能为空')
   if (element && config.targetParamKey) throw new Error('数组元素模板不填写目标参数名')
   if (config.targetParamType === 'ARRAY' && !mappingTypesForTargetType('ARRAY').includes(config.mappingType)) {
     throw new Error('数组仅支持循环映射、固定长度或 JS 表达式')
@@ -257,10 +271,10 @@ export function validateNode(config: ParamMappingConfig, aliases: string[], elem
 }
 
 export function parseMappingConfigs(raw: unknown): ParamMappingConfig[] {
-  const read = (values: unknown, aliases: string[], element: boolean, path: string): ParamMappingConfig[] => {
+  const validate = (values: unknown, aliases: string[], element: boolean, path: string): void => {
     if (!Array.isArray(values)) throw new Error(`${path} 必须是数组`)
     const keys = new Set<string>()
-    return values.map((value, i) => {
+    values.forEach((value, i) => {
       const location = `${path}[${i}]`
       if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${location} 必须是配置对象`)
       const node = value as Record<string, unknown>
@@ -276,18 +290,20 @@ export function parseMappingConfigs(raw: unknown): ParamMappingConfig[] {
       }
       const config = normalizeConfig(node)
       try { validateNode(config, aliases, element) } catch (error) { throw new Error(`${location}：${(error as Error).message}`) }
-      if (!element && keys.has(config.targetParamKey)) throw new Error(`${location}：目标字段重复`)
-      keys.add(config.targetParamKey)
+      if (!element && config.targetParamKey) {
+        if (keys.has(config.targetParamKey)) throw new Error(`${location}：目标字段重复`)
+        keys.add(config.targetParamKey)
+      }
       const mode = config.mappingType
       if (mode === 'OBJECT' && config.targetParamType !== 'OBJECT'
         || (mode === 'ARRAY_MAP' || mode === 'ARRAY_FIXED') && config.targetParamType !== 'ARRAY') throw new Error(`${location}：结构节点目标类型不匹配`)
-      if (mode !== 'OBJECT' && config.childParams.length || mode !== 'ARRAY_FIXED' && config.items.length
+      if (mode !== 'OBJECT' && config.childParams?.length || mode !== 'ARRAY_FIXED' && config.items?.length
         || mode !== 'ARRAY_MAP' && (config.itemTemplate || config.itemAlias != null)) throw new Error(`${location}：节点包含不适用的结构配置`)
-      if (mode === 'OBJECT') config.childParams = read(node.childParams ?? [], aliases, false, `${location}.childParams`)
-      if (mode === 'ARRAY_FIXED') config.items = read(node.items ?? [], aliases, true, `${location}.items`)
-      if (mode === 'ARRAY_MAP') config.itemTemplate = read([node.itemTemplate], [...aliases, config.itemAlias!], true, `${location}.itemTemplate`)[0]
-      return config
+      if (mode === 'OBJECT') validate(node.childParams ?? [], aliases, false, `${location}.childParams`)
+      if (mode === 'ARRAY_FIXED') validate(node.items ?? [], aliases, true, `${location}.items`)
+      if (mode === 'ARRAY_MAP') validate([node.itemTemplate], [...aliases, config.itemAlias!], true, `${location}.itemTemplate`)
     })
   }
-  return read(raw, [], false, 'paramsConfig')
+  validate(raw, [], false, 'paramsConfig')
+  return raw as ParamMappingConfig[]
 }

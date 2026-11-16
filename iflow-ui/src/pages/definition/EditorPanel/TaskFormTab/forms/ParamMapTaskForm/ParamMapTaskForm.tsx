@@ -24,7 +24,7 @@ import { TaskPanelHeader } from '../TaskPanelHeader'
 import type { TaskFormProps } from '../types'
 import {
   PARAM_TYPES, configChildren, withConfigChildren, configAtPath,
-  configNodeLabel, loopElementLabel, scopeAliases, normalizeConfig, normalizeForSave, emptyConfig, objectTemplate,
+  configNodeLabel, loopElementLabel, scopeAliases, normalizeConfig, normalizeForSave, applyMappingConfigEdit, emptyConfig, objectTemplate,
   updateAtPath, removeAtPath, insertAfterPath, flattenDisplayConfigs, countMappingTargetFields,
   parseMappingConfigs, sourcePathAfterTargetRename, aliasPathCorrection, mappingTypesForTargetType,
   constantInputText, parseConstantInput,
@@ -46,7 +46,7 @@ type EditSession = {
   kind: 'root' | 'child' | 'edit' | 'copy'
   path?: ConfigPath
   value: ParamMappingConfig
-  initialValue: ParamMappingConfig
+  initialConfig: ParamMappingConfig
   error: string
 }
 
@@ -112,26 +112,28 @@ export function ParamMapTaskForm({ task, variableOptions, onChange }: TaskFormPr
     setEditSession(null)
   }, [task.taskReferenceName])
 
-  const commit = (nextPayload: unknown, nextConfigs: ParamMappingConfig[]) => {
+  const commit = (changes: Record<string, unknown>) => {
     onChange({
       ...task,
       inputParameters: {
-        [PAYLOAD_KEY]: nextPayload,
-        paramsConfig: nextConfigs,
+        ...inputParameters,
+        ...changes,
       },
     })
   }
 
+  const payloadForConfigs = Object.prototype.hasOwnProperty.call(inputParameters, PAYLOAD_KEY) ? payload : DEFAULT_PAYLOAD_EXPRESSION
+
   const commitConfigs = (nextConfigs: ParamMappingConfig[]) => {
     jsonDraft.clear()
-    commit(Object.prototype.hasOwnProperty.call(inputParameters, PAYLOAD_KEY) ? payload : DEFAULT_PAYLOAD_EXPRESSION, nextConfigs)
+    commit({ [PAYLOAD_KEY]: payloadForConfigs, paramsConfig: nextConfigs })
   }
 
   const updateJson = (nextValue: string) => {
     try {
       const parsed = JSON.parse(nextValue)
       const nextConfigs = parseMappingConfigs(parsed)
-      commit(Object.prototype.hasOwnProperty.call(inputParameters, PAYLOAD_KEY) ? payload : DEFAULT_PAYLOAD_EXPRESSION, nextConfigs)
+      commit({ [PAYLOAD_KEY]: payloadForConfigs, paramsConfig: nextConfigs })
       jsonDraft.applied(nextValue)
     } catch (error) {
       jsonDraft.invalid(nextValue, jsonErrorMessage(error, 'paramsConfig'))
@@ -156,7 +158,8 @@ export function ParamMapTaskForm({ task, variableOptions, onChange }: TaskFormPr
     const { kind, path } = session
     const parent = path && configAtPath(configs, kind === 'child' ? path : path.slice(0, -1))
     const element = parent?.mappingType === 'ARRAY_MAP' || parent?.mappingType === 'ARRAY_FIXED'
-    const next = normalizeForSave(element ? { ...value, targetParamKey: '' } : value)
+    const draft = element ? { ...value, targetParamKey: '' } : value
+    const next = kind === 'edit' ? applyMappingConfigEdit(session.initialConfig, draft) : normalizeForSave(draft)
     let nextPath = path ?? [configs.length]
     let nextConfigs: ParamMappingConfig[]
     if (!path) {
@@ -179,13 +182,20 @@ export function ParamMapTaskForm({ task, variableOptions, onChange }: TaskFormPr
     }
 
     commitConfigs(nextConfigs)
-    setEditSession({ ...session, kind: 'edit', path: nextPath, value, error: '' })
+    setEditSession({
+      ...session,
+      kind: 'edit',
+      path: nextPath,
+      value,
+      initialConfig: kind === 'edit' ? session.initialConfig : next,
+      error: '',
+    })
   }
 
   const openSession = (kind: EditSession['kind'], config: ParamMappingConfig, path?: ConfigPath) => {
     if (!canDiscardDraft()) return
     const value = normalizeConfig(config)
-    const session = { id: ++nextSessionId.current, kind, path, value, initialValue: value, error: '' }
+    const session = { id: ++nextSessionId.current, kind, path, value, initialConfig: config, error: '' }
     if (kind === 'edit') setEditSession(session)
     else updateEditSession(session, value, '', true)
   }
@@ -206,16 +216,16 @@ export function ParamMapTaskForm({ task, variableOptions, onChange }: TaskFormPr
   const setPayloadMode = (nextMode: PayloadMode) => {
     if (nextMode === payloadMode) return
     if (nextMode === 'parameters') {
-      commit(isRecord(payload) ? payload : {}, configs)
+      commit({ [PAYLOAD_KEY]: isRecord(payload) ? payload : {} })
       return
     }
-    commit(typeof payload === 'string' ? payload : DEFAULT_PAYLOAD_EXPRESSION, configs)
+    commit({ [PAYLOAD_KEY]: typeof payload === 'string' ? payload : DEFAULT_PAYLOAD_EXPRESSION })
   }
 
   const updatePayloadParam = (index: number, next: { key: string; value: string }) => {
     const rows = [...payloadParams]
     rows[index] = next
-    commit(Object.fromEntries(rows.map((item) => [item.key, item.value])), configs)
+    commit({ [PAYLOAD_KEY]: Object.fromEntries(rows.map((item) => [item.key, item.value])) })
   }
 
   const addPayloadParam = () => {
@@ -226,14 +236,12 @@ export function ParamMapTaskForm({ task, variableOptions, onChange }: TaskFormPr
       index += 1
       key = `parameter_${index}`
     }
-    commit({ ...(isRecord(payload) ? payload : {}), [key]: '' }, configs)
+    commit({ [PAYLOAD_KEY]: { ...(isRecord(payload) ? payload : {}), [key]: '' } })
   }
 
   const deletePayloadParam = (index: number) => {
-    commit(
-      Object.fromEntries(payloadParams.filter((_, itemIndex) => itemIndex !== index).map((item) => [item.key, item.value])),
-      configs,
-    )
+    const rows = payloadParams.filter((_, itemIndex) => itemIndex !== index)
+    commit({ [PAYLOAD_KEY]: Object.fromEntries(rows.map((item) => [item.key, item.value])) })
   }
 
   const actions = {
@@ -283,7 +291,7 @@ export function ParamMapTaskForm({ task, variableOptions, onChange }: TaskFormPr
             <VariableExpressionInput
               value={typeof payload === 'string' ? payload : ''}
               options={variableOptions}
-              onChange={(value) => commit(value, configs)}
+              onChange={(value) => commit({ [PAYLOAD_KEY]: value })}
             />
           </label>
         ) : (
@@ -777,8 +785,8 @@ function MappingSummary({ config, onEdit }: { config: ParamMappingConfig; onEdit
     ? config.mappingRule : JSON.stringify(config.mappingRule ?? null)
     : mode === 'EXPRESSION' ? String(config.mappingRule ?? '')
       : mode === 'ARRAY_MAP' ? `${config.sourceParamKey || '未配置循环源'} → ${config.itemAlias || '未命名变量'}`
-        : mode === 'ARRAY_FIXED' ? `${config.items.length} 个元素`
-          : mode === 'OBJECT' ? `${config.childParams.length} 个子字段` : config.sourceParamKey || '未配置路径'
+        : mode === 'ARRAY_FIXED' ? `${configChildren(config).length} 个元素`
+          : mode === 'OBJECT' ? `${configChildren(config).length} 个子字段` : config.sourceParamKey || '未配置路径'
   const style = mode === 'CONSTANT' ? 'constant' : mode === 'EXPRESSION' ? 'expression'
     : mode === 'NAME' || mode === 'ARRAY_MAP' ? 'source' : 'structure'
   return (
@@ -941,7 +949,7 @@ function ParamConfigPanel({ session, parentPath, parentConfig, aliases, onChange
   const modes = mappingTypesForTargetType(value.targetParamType)
   const modeFieldLabel = value.targetParamType === 'ARRAY' ? '数组生成方式'
     : value.targetParamType === 'OBJECT' ? '对象生成方式' : '取值方式'
-  const initialNode = session.initialValue
+  const initialNode = session.initialConfig
   const clearsChildren = configChildren(initialNode).length > 0 && initialNode.mappingType !== value.mappingType
 
   useEffect(() => {
@@ -988,7 +996,7 @@ function ParamConfigPanel({ session, parentPath, parentConfig, aliases, onChange
       ...value,
       targetParamKey,
       sourceParamKey: value.mappingType === 'NAME' || value.mappingType === 'ARRAY_MAP'
-        ? sourcePathAfterTargetRename(value.sourceParamKey, sourceRoot, value.targetParamKey, targetParamKey)
+        ? sourcePathAfterTargetRename(value.sourceParamKey ?? undefined, sourceRoot, value.targetParamKey ?? '', targetParamKey)
         : value.sourceParamKey,
     })
   }
@@ -1001,7 +1009,7 @@ function ParamConfigPanel({ session, parentPath, parentConfig, aliases, onChange
       </header>
       <div className="param-map-dialog-body">
         <div className="param-map-dialog-grid">
-          {!element ? <label><span>参数名称 <strong>*</strong></span><input aria-required="true" value={value.targetParamKey} onChange={(event) => changeTargetParamKey(event.target.value)} /></label> : null}
+          {!element ? <label><span>参数名称 <strong>*</strong></span><input aria-required="true" value={value.targetParamKey ?? ''} onChange={(event) => changeTargetParamKey(event.target.value)} /></label> : null}
           <div className="param-map-dialog-field">
             <span>{element ? '元素类型' : '参数类型'}</span>
             <MappingSelect value={value.targetParamType}

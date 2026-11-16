@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  aliasPathCorrection, configAtPath, configChildren, configNodeLabel, countMappingTargetFields, constantInputText, parseConstantInput,
+  aliasPathCorrection, applyMappingConfigEdit, configAtPath, configChildren, configNodeLabel, countMappingTargetFields, constantInputText, parseConstantInput,
   flattenConfigs, flattenDisplayConfigs,
   insertAfterPath, loopElementLabel, mappingTypesForTargetType, normalizeConfig, normalizeForSave, objectTemplate, parseMappingConfigs, removeAtPath,
   scopeAliases, sourcePathAfterTargetRename, sourcePathForKey, updateAtPath, validateNode, withConfigChildren,
@@ -60,6 +60,22 @@ test('editing, adding, copying and removing fixed elements and nested fields pre
   edited = updateAtPath(edited, [0, 0, 2], node => withConfigChildren(node, [...configChildren(node), objectTemplate()]))
   assert.equal(configAtPath(edited, [0, 0, 2, 2]).mappingType, 'OBJECT')
   assert.equal(configAtPath(edited, [0, 0, 0]).targetParamKey, 'id')
+})
+
+test('editing a nested mapping changes only the edited property in saved JSON', () => {
+  const original = [...raw, { ...leaf('status'), paramDesc: null, childParams: null }]
+  const configs = parseMappingConfigs(original)
+  const edited = updateAtPath(configs, [0, 0, 1, 0, 0], node =>
+    applyMappingConfigEdit(node, { ...normalizeConfig(node), sourceParamKey: 'line.newCode' }))
+
+  const expected = structuredClone(original)
+  expected[0].itemTemplate.childParams[1].itemTemplate.childParams[0].sourceParamKey = 'line.newCode'
+  assert.equal(JSON.stringify(edited), JSON.stringify(expected))
+  assert.equal(original[0].itemTemplate.childParams[1].itemTemplate.childParams[0].sourceParamKey, 'line.code')
+
+  const renamed = updateAtPath(configs, [0], node =>
+    applyMappingConfigEdit(node, { ...normalizeConfig(node), targetParamKey: 'results' }))
+  assert.equal(JSON.stringify(renamed), JSON.stringify([{ ...original[0], targetParamKey: 'results' }, original[1]]))
 })
 
 test('a loop keeps exactly one element template', () => {
@@ -179,11 +195,9 @@ test('legacy constants display without JSON quoting and null stays distinct from
 
 test('changing node behavior removes inactive structural configuration', () => {
   const loop = parseMappingConfigs(raw)[0]
-  const value = normalizeForSave({ ...loop, mappingType: 'EXPRESSION', mappingRule: '$.orders' })
+  const value = applyMappingConfigEdit(loop, { ...normalizeConfig(loop), mappingType: 'EXPRESSION', mappingRule: '$.orders' })
   assert.equal(value.itemTemplate, undefined)
   assert.equal(value.itemAlias, undefined)
-  assert.deepEqual(value.childParams, [])
-  assert.deepEqual(value.items, [])
   assert.doesNotThrow(() => parseMappingConfigs([value]))
 })
 
