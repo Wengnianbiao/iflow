@@ -4,6 +4,8 @@ import com.helianhealth.iflow.core.execution.evaluators.Evaluator;
 import com.helianhealth.iflow.core.execution.evaluators.GraalJSEvaluator;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
+import com.helianhealth.iflow.core.execution.script.ScriptEvaluator;
+import org.junit.jupiter.api.AutoClose;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -19,6 +21,9 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.*;
 
 class InlineUnitTest {
+
+    @AutoClose
+    private final ScriptEvaluator scriptEvaluator = new ScriptEvaluator(List.of());
 
     @Test
     void usesScalarAsOutput() {
@@ -41,7 +46,7 @@ class InlineUnitTest {
     @ParameterizedTest
     @MethodSource("scriptResults")
     void graalScriptResultsRetainTheirJsonShape(String expression, Object expected) {
-        Inline inline = new Inline(Map.of(GraalJSEvaluator.NAME, new GraalJSEvaluator()));
+        Inline inline = new Inline(Map.of(GraalJSEvaluator.NAME, new GraalJSEvaluator(scriptEvaluator)));
         TaskModel task = new TaskModel();
         task.setInputData(Map.of(Inline.INPUT_EXPRESSION, expression));
 

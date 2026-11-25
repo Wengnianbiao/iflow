@@ -22,7 +22,9 @@ import com.helianhealth.iflow.core.service.MetadataService;
 import com.helianhealth.iflow.core.utils.IDGenerator;
 import com.helianhealth.iflow.core.utils.ParametersUtils;
 
+import com.helianhealth.iflow.core.execution.script.ScriptEvaluator;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.AutoClose;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -59,10 +61,13 @@ import static org.mockito.Mockito.*;
  */
 class DoWhileTaskTest {
 
+    @AutoClose
+    private final ScriptEvaluator scriptEvaluator = new ScriptEvaluator(List.of());
+
     private final ParametersUtils parameters = new ParametersUtils(new ObjectMapper());
     private final WorkflowExecutor workflowExecutor = mock(WorkflowExecutor.class);
     private final ExecutionDAOFacade dao = mock(ExecutionDAOFacade.class);
-    private final DoWhile doWhile = new DoWhile(parameters, dao);
+    private final DoWhile doWhile = new DoWhile(parameters, dao, scriptEvaluator);
 
     @Nested
     class IterationLifecycle {
@@ -592,7 +597,7 @@ class DoWhileTaskTest {
                     workflow, loop.getTaskId())).thenThrow(
                     new IllegalArgumentException("wrapper", new IllegalStateException("items failure")));
 
-            new DoWhile(failingParameters, dao).execute(workflow, loop, workflowExecutor);
+            new DoWhile(failingParameters, dao, scriptEvaluator).execute(workflow, loop, workflowExecutor);
 
             assertEquals(TaskModel.Status.FAILED_WITH_TERMINAL_ERROR, loop.getStatus());
             assertEquals(0, loop.getIteration());
@@ -1056,7 +1061,7 @@ class DoWhileTaskTest {
             return definition(fork, join, task("after", TaskType.TASK_TYPE_NOOP));
         }
 
-        private static class Fixture {
+        private class Fixture {
             final WorkflowDef definition;
             final Map<String, TaskModel> created = new ConcurrentHashMap<>();
             final Map<String, TaskModel> updated = new ConcurrentHashMap<>();
@@ -1154,7 +1159,7 @@ class DoWhileTaskTest {
                         task.setStatus(TaskModel.Status.COMPLETED);
                     }
                 };
-                doWhileTask = new DoWhile(parameters, dao);
+                doWhileTask = new DoWhile(parameters, dao, scriptEvaluator);
                 registry = new SystemTaskRegistry(java.util.Set.of(noop, doWhileTask, new Fork(), new Join()));
                 decider = new DeciderService(new IDGenerator(), parameters, registry, Map.of(
                         TaskType.TASK_TYPE_NOOP, new NoopTaskMapper(),

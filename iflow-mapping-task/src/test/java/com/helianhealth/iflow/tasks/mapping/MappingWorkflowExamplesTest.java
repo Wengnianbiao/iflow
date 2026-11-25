@@ -8,14 +8,11 @@ import com.helianhealth.iflow.core.execution.tasks.Inline;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
 import com.helianhealth.iflow.core.utils.ParametersUtils;
+import com.helianhealth.iflow.core.execution.script.ScriptEvaluator;
+import org.junit.jupiter.api.AutoClose;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,9 +20,12 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MappingWorkflowExamplesTest {
+
+    @AutoClose
+    private final ScriptEvaluator scriptEvaluator = new ScriptEvaluator(List.of());
     private final ObjectMapper mapper = new ObjectMapper();
-    private final GraalJSEvaluator evaluator = new GraalJSEvaluator();
-    private final MappingTask mappingTask = new MappingTask(new ParamMapTransformer(evaluator), mapper);
+    private final GraalJSEvaluator evaluator = new GraalJSEvaluator(scriptEvaluator);
+    private final MappingTask mappingTask = new MappingTask(new ParamMapTransformer(scriptEvaluator), mapper);
     private final ParametersUtils parameters = new ParametersUtils(new ObjectMapper());
 
     @Test
@@ -168,8 +168,6 @@ class MappingWorkflowExamplesTest {
         JsonNode definition = readExample("sync_pacs_lis_new_apply_workflow.json");
         JsonNode splitDef = definition.path("tasks").get(0);
         assertEquals("MAPPING", splitDef.path("type").asText());
-        assertEquals(List.of("pacs_loop_ref", "sync_ecg_ref"),
-                mapper.convertValue(definition.path("tasks").get(2).path("joinOn"), new TypeReference<List<String>>() {}));
 
         Map<String, Object> lis = new LinkedHashMap<>();
         lis.put("applyId", "L1");
@@ -215,9 +213,9 @@ class MappingWorkflowExamplesTest {
     @Test
     void ecgApplyMappingBuildsHelianCheckRequest() throws Exception {
         JsonNode definition = readExample("sync_pacs_lis_new_apply_workflow.json");
-        JsonNode mappingDef = definition.path("tasks").get(1).path("forkTasks").get(1).get(0);
+        JsonNode mappingDef = definition.path("tasks").get(1);
         assertEquals("MAPPING", mappingDef.path("type").asText());
-        assertEquals("HTTP", definition.path("tasks").get(1).path("forkTasks").get(1).get(1).path("type").asText());
+        assertEquals("HTTP", definition.path("tasks").get(2).path("type").asText());
 
         Map<String, Object> item = new LinkedHashMap<>();
         item.put("applyId", "80000025001");
@@ -275,59 +273,6 @@ class MappingWorkflowExamplesTest {
         expectedApply.put("applyUserName", "张三");
         expectedApply.put("applyDate", "2026-01-23 09:30:00");
         assertEquals(List.of(expectedApply), output.get("applyList"));
-    }
-
-    @Test
-    void pacsSoapBuilderSignsPwdAndWrapsExamineregisterData() throws Exception {
-        JsonNode definition = readExample("sync_pacs_lis_new_apply_workflow.json");
-        JsonNode buildDef = definition.path("tasks").get(1).path("forkTasks").get(0).get(0).path("loopOver").get(0);
-        String expression = buildDef.path("inputParameters").path("expression").asText();
-        assertTrue(expression.contains("Crypto.md5"));
-        assertTrue(expression.contains("examineregister"));
-
-        Map<String, Object> item = new LinkedHashMap<>();
-        item.put("applyId", "SQ20260920001");
-        item.put("feeItemName", "胸部CT平扫");
-        item.put("interfaceCode", "CT001");
-        item.put("departName", "放射科");
-        item.put("ddInterfaceCode1", "0201");
-        item.put("priceYuan", "120.00");
-        item.put("number", "YS0011");
-        item.put("userName", "申请医生A");
-        item.put("idPatientFeeItem", "158314");
-
-        Map<String, Object> patient = new LinkedHashMap<>();
-        patient.put("patientName", "张三");
-        patient.put("sex", "1");
-        patient.put("age", 35);
-        patient.put("birthday", "1990-01-01");
-        patient.put("identitycard", "330100199001011234");
-        patient.put("patientCode", "P20260920001");
-        patient.put("phone", "13800138000");
-
-        Map<String, Object> input = new LinkedHashMap<>();
-        input.put("appID", "demoApp");
-        input.put("serviceUri", "http://example/Service.asmx");
-        input.put("item", item);
-        input.put("patientInfo", patient);
-        input.put("doctorInfo", Map.of());
-
-        @SuppressWarnings("unchecked")
-        Map<String, Object> result = (Map<String, Object>) evaluator.evaluate(expression, input);
-        String ymd = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
-        String expectedPwd = HexFormat.of().formatHex(
-                MessageDigest.getInstance("MD5").digest(("demoAppexamineregister" + ymd).getBytes(StandardCharsets.UTF_8)));
-        assertEquals(expectedPwd, result.get("pwd"));
-        assertEquals("http://example/Service.asmx", result.get("serviceUri"));
-        String soap = String.valueOf(result.get("soapXml"));
-        assertTrue(soap.contains("<tem:method>examineregister</tem:method>"));
-        assertTrue(soap.contains("<tem:pwd>" + expectedPwd + "</tem:pwd>"));
-        assertTrue(soap.contains("<![CDATA["));
-        assertTrue(soap.contains("<SQDBH>SQ20260920001</SQDBH>"));
-        assertTrue(soap.contains("<YLXMMC>胸部CT平扫</YLXMMC>"));
-        assertTrue(soap.contains("<YLXMLX>CT</YLXMLX>"));
-        assertTrue(soap.contains("<BRXB>M</BRXB>"));
-        assertEquals("SQ20260920001", result.get("applyId"));
     }
 
     private JsonNode readExample(String file) throws Exception {

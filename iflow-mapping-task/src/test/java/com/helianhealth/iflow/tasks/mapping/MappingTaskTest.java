@@ -2,12 +2,13 @@ package com.helianhealth.iflow.tasks.mapping;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.helianhealth.iflow.core.execution.evaluators.GraalJSEvaluator;
+import com.helianhealth.iflow.core.execution.script.ScriptEvaluator;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
 import com.helianhealth.iflow.tasks.mapping.enums.MappingType;
 import com.helianhealth.iflow.tasks.mapping.enums.ParamType;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AutoClose;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -27,11 +28,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MappingTaskTest {
 
+    @AutoClose
+    private final ScriptEvaluator scriptEvaluator = new ScriptEvaluator(List.of());
+
     private MappingTask mappingTask;
 
     @BeforeEach
     void setup() {
-        mappingTask = new MappingTask(new ParamMapTransformer(new GraalJSEvaluator()), new ObjectMapper());
+        mappingTask = new MappingTask(new ParamMapTransformer(scriptEvaluator), new ObjectMapper());
     }
 
     @Test
@@ -560,7 +564,7 @@ class MappingTaskTest {
         ObjectMapper sharedMapper = new ObjectMapper()
                 .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
         MappingTask strictTask = new MappingTask(
-                new ParamMapTransformer(new GraalJSEvaluator()), sharedMapper);
+                new ParamMapTransformer(scriptEvaluator), sharedMapper);
         TaskModel task = new TaskModel();
         task.setInputData(Map.of(
                 MappingTask.INPUT_PAYLOAD, Map.of(),

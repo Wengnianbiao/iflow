@@ -41,13 +41,16 @@ public class DoWhile extends WorkflowSystemTask {
     public static final String OUTPUT_ITERATION = "iteration";
     private final ParametersUtils parametersUtils;
     private final ExecutionDAOFacade executionDAOFacade;
+    private final ScriptEvaluator scriptEvaluator;
 
     public DoWhile(
             ParametersUtils parametersUtils,
-            ExecutionDAOFacade executionDAOFacade) {
+            ExecutionDAOFacade executionDAOFacade,
+            ScriptEvaluator scriptEvaluator) {
         super(TaskType.TASK_TYPE_DO_WHILE);
         this.parametersUtils = parametersUtils;
         this.executionDAOFacade = executionDAOFacade;
+        this.scriptEvaluator = scriptEvaluator;
     }
 
     @Override
@@ -373,7 +376,7 @@ public class DoWhile extends WorkflowSystemTask {
         }
         ctx.put("workflow", workflowContext(workflow));
 
-        return ScriptEvaluator.evalBool(def.getLoopCondition(), ctx);
+        return scriptEvaluator.evalBool(def.getLoopCondition(), ctx);
     }
 
     private Map<String, Object> workflowContext(WorkflowModel workflow) {

@@ -3,6 +3,7 @@ package com.helianhealth.iflow.starter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.helianhealth.iflow.ai.mcp.McpServerEndpoint;
 import com.helianhealth.iflow.ai.mcp.McpToolRegistry;
+import com.helianhealth.iflow.common.domain.metadata.workflow.WorkflowTask;
 import com.helianhealth.iflow.common.utils.SpringContextHolder;
 import com.helianhealth.iflow.console.controller.WorkflowDefinitionController;
 import com.helianhealth.iflow.console.controller.WorkflowExecutionController;
@@ -14,10 +15,15 @@ import com.helianhealth.iflow.core.dao.IndexDAO;
 import com.helianhealth.iflow.core.dao.MetadataDAO;
 import com.helianhealth.iflow.core.dao.QueueDAO;
 import com.helianhealth.iflow.core.execution.WorkflowExecutor;
+import com.helianhealth.iflow.core.execution.mapper.SwitchTaskMapper;
 import com.helianhealth.iflow.core.execution.mapper.TaskMapper;
+import com.helianhealth.iflow.core.execution.mapper.TaskMapperContext;
+import com.helianhealth.iflow.core.execution.script.ScriptBindingProvider;
 import com.helianhealth.iflow.core.execution.tasks.SystemTaskRegistry;
 import com.helianhealth.iflow.core.execution.tasks.WorkflowSystemTask;
 import com.helianhealth.iflow.core.lock.Lock;
+import com.helianhealth.iflow.core.model.TaskModel;
+import com.helianhealth.iflow.core.model.WorkflowModel;
 import com.helianhealth.iflow.core.queue.ExecutionQueue;
 import com.helianhealth.iflow.gateway.rest.OpenApiController;
 import com.helianhealth.iflow.gateway.schedule.WorkflowScheduleRunner;
@@ -37,6 +43,7 @@ import com.helianhealth.iflow.tasks.spi.SpiTask;
 import com.helianhealth.iflow.tasks.webservice.WebServiceTask;
 import com.helianhealth.iflow.tasks.webservice.providers.DefaultSoapClientProvider;
 import com.helianhealth.iflow.tasks.webservice.providers.SoapClientProvider;
+import org.graalvm.polyglot.proxy.ProxyExecutable;
 import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -49,7 +56,9 @@ import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.stereotype.Component;
 
 import javax.sql.DataSource;
@@ -115,6 +124,73 @@ class IflowAutoConfigurationTest {
             assertThat(mappers.get("SPI")).isInstanceOf(TaskMapper.class);
             assertThat(context.getBean(McpToolRegistry.class).listTools()).hasSize(1);
         });
+    }
+
+    @Test
+    void scannedBusinessFunctionsAreAvailableFromAllGraalJsTaskEntrypoints() {
+        runner.withUserConfiguration(BusinessJsConfiguration.class).run(context -> {
+            assertThat(context).hasNotFailed().hasSingleBean(BusinessJsBindings.class);
+            SystemTaskRegistry registry = context.getBean(SystemTaskRegistry.class);
+            WorkflowModel workflow = new WorkflowModel();
+            workflow.setWorkflowId("script-workflow");
+
+            TaskModel inline = new TaskModel();
+            inline.setInputData(Map.of("code", " A ", "expression", "normalizeCode($.code)"));
+            registry.get("INLINE").start(workflow, inline, null);
+            assertThat(inline.getOutputData()).isEqualTo("A");
+
+            WorkflowTask switchDefinition = WorkflowTask.builder().name("decision").type("SWITCH")
+                    .taskReferenceName("decision").evaluatorType("graaljs")
+                    .expression("normalizeCode($.code)").build();
+            TaskMapperContext switchContext = TaskMapperContext.builder().workflowModel(workflow)
+                    .workflowTask(switchDefinition).taskId("switch").taskInput(Map.of("code", " B ")).build();
+            TaskModel decision = context.getBean(SwitchTaskMapper.class).getMappedTasks(switchContext).getFirst();
+            assertThat(decision.outputAsMap().get("selectedCase")).isEqualTo("B");
+
+            WorkflowTask bodyDefinition = WorkflowTask.builder().name("body").type("NOOP")
+                    .taskReferenceName("body").build();
+            WorkflowTask loopDefinition = WorkflowTask.builder().name("loop").type("DO_WHILE")
+                    .taskReferenceName("loop").loopOver(List.of(bodyDefinition))
+                    .loopCondition("normalizeCode($.code) !== 'C'").build();
+            TaskModel loop = new TaskModel();
+            loop.setReferenceTaskName("loop");
+            loop.setWorkflowTask(loopDefinition);
+            loop.setStatus(TaskModel.Status.IN_PROGRESS);
+            loop.setIteration(1);
+            loop.setInputData(Map.of("code", " C "));
+            TaskModel body = new TaskModel();
+            body.setReferenceTaskName("body__1");
+            body.setWorkflowTask(bodyDefinition);
+            body.setIteration(1);
+            body.setStatus(TaskModel.Status.COMPLETED);
+            workflow.setTasks(List.of(loop, body));
+            registry.get("DO_WHILE").execute(workflow, loop, null);
+            assertThat(loop.getStatus()).isEqualTo(TaskModel.Status.COMPLETED);
+
+            Map<String, Object> element = Map.of(
+                    "targetParamType", "STRING", "mappingType", "EXPRESSION",
+                    "mappingRule", "normalizeCode(item.code) + ':' + Billing.total(item.quantity, $.unitPrice)");
+            TaskModel mapping = new TaskModel();
+            mapping.setInputData(Map.of(
+                    "payload", Map.of("rows", List.of(Map.of("code", " D ", "quantity", 3)), "unitPrice", 42),
+                    "paramsConfig", List.of(Map.of("targetParamKey", "codes", "targetParamType", "ARRAY",
+                            "mappingType", "ARRAY_MAP", "sourceParamKey", "$.rows",
+                            "itemAlias", "item", "itemTemplate", element))));
+            registry.get("MAPPING").start(workflow, mapping, null);
+            assertThat(mapping.getOutputData()).isEqualTo(Map.of("codes", List.of("D:126")));
+        });
+    }
+
+    @Test
+    void rejectsDuplicateScriptBindingsDuringStartup() {
+        runner.withUserConfiguration(BusinessJsConfiguration.class)
+                .withBean("duplicateJsBindings", ScriptBindingProvider.class,
+                        () -> () -> Map.of("normalizeCode", "duplicate"))
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure())
+                            .hasRootCauseMessage("重复注册的 JS 绑定名称: normalizeCode");
+                });
     }
 
     @Test
@@ -330,6 +406,27 @@ class IflowAutoConfigurationTest {
     @Configuration(proxyBeanMethods = false)
     @EnableAutoConfiguration
     static class HostApplication {
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @ComponentScan(basePackageClasses = BusinessJsBindings.class, useDefaultFilters = false,
+            includeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = BusinessJsBindings.class))
+    static class BusinessJsConfiguration {
+    }
+
+    @Component
+    static class BusinessJsBindings implements ScriptBindingProvider {
+        @Override
+        public Map<String, Object> bindings() {
+            return Map.of("normalizeCode", (ProxyExecutable) args -> args[0].asString().trim(),
+                    "Billing", new BillingFunctions());
+        }
+    }
+
+    public static class BillingFunctions {
+        public int total(int quantity, int unitPrice) {
+            return quantity * unitPrice;
+        }
     }
 
     @Component

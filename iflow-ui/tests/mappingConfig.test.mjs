@@ -48,6 +48,17 @@ test('loop element labels follow the element target type', () => {
   assert.equal(loopElementLabel(objectTemplate()), '对象元素')
 })
 
+test('only current built-in names are reserved for loop aliases', () => {
+  const loop = {
+    targetParamKey: 'rows', targetParamType: 'ARRAY', mappingType: 'ARRAY_MAP', sourceParamKey: '$.rows',
+    itemTemplate: { targetParamType: 'STRING', mappingType: 'CONSTANT', mappingRule: 'value' },
+  }
+  assert.equal(parseMappingConfigs([{ ...loop, itemAlias: 'Crypto' }])[0].itemAlias, 'Crypto')
+  for (const itemAlias of ['$', 'XML']) {
+    assert.throws(() => parseMappingConfigs([{ ...loop, itemAlias }]), /保留名称/)
+  }
+})
+
 test('editing, adding, copying and removing fixed elements and nested fields preserves siblings', () => {
   const configs = parseMappingConfigs(raw)
   let edited = updateAtPath(configs, [0, 0, 1, 0, 0], node => ({ ...node, targetParamKey: 'itemCode' }))

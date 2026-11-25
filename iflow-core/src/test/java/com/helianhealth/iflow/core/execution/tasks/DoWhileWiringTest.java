@@ -18,6 +18,7 @@ import com.helianhealth.iflow.core.listener.WorkflowStatusListener;
 import com.helianhealth.iflow.core.execution.mapper.DoWhileTaskMapper;
 import com.helianhealth.iflow.core.execution.mapper.NoopTaskMapper;
 import com.helianhealth.iflow.core.execution.mapper.TaskMapper;
+import com.helianhealth.iflow.core.execution.script.ScriptEvaluator;
 import com.helianhealth.iflow.core.model.TaskModel;
 import com.helianhealth.iflow.core.model.WorkflowModel;
 import com.helianhealth.iflow.core.lock.ExecutionLockService;
@@ -116,6 +117,11 @@ class DoWhileWiringTest {
 
     @Configuration(proxyBeanMethods = false)
     static class TaskConfiguration {
+
+        @Bean
+        ScriptEvaluator scriptEvaluator() {
+            return new ScriptEvaluator(List.of());
+        }
 
         @Bean
         WorkflowStatusListener statusObserver() {

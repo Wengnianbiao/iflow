@@ -2,7 +2,6 @@ import { Chip } from '@mui/material'
 import type { TaskExecutionStatus, WorkflowExecutionStatus } from '@/types/workflowExecution'
 import { TASK_STATUS_OPTIONS, WORKFLOW_STATUS_OPTIONS } from './searchState'
 
-// Conductor StatusBadge / TagChip colors and typography.
 const backgrounds: Record<WorkflowExecutionStatus | TaskExecutionStatus, string> = {
   RUNNING: '#8DE0F9',
   COMPLETED: '#9FDCAA',

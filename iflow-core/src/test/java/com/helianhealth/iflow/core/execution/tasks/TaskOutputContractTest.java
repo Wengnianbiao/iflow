@@ -15,6 +15,8 @@ import com.helianhealth.iflow.core.utils.ParametersUtils;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import com.helianhealth.iflow.core.execution.script.ScriptEvaluator;
+import org.junit.jupiter.api.AutoClose;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -29,6 +31,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 
 class TaskOutputContractTest {
+
+    @AutoClose
+    private final ScriptEvaluator scriptEvaluator = new ScriptEvaluator(List.of());
 
     private final ParametersUtils parameters = new ParametersUtils(new ObjectMapper());
     private final DeciderService decider = new DeciderService(
@@ -117,7 +122,7 @@ class TaskOutputContractTest {
         workflow.setInput(Map.of("items", List.of(1, 2)));
         loop.getInputData().put("loopItems", List.of(1, 2));
 
-        new DoWhile(parameters, mock(ExecutionDAOFacade.class)).execute(workflow, loop, null);
+        new DoWhile(parameters, mock(ExecutionDAOFacade.class), scriptEvaluator).execute(workflow, loop, null);
 
         assertEquals(TaskModel.Status.COMPLETED, loop.getStatus());
         assertFalse(loop.outputAsMap().containsKey("1"));

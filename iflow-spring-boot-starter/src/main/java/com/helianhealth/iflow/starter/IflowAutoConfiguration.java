@@ -5,7 +5,7 @@ import com.helianhealth.iflow.ai.mcp.McpServerConfiguration;
 import com.helianhealth.iflow.common.domain.metadata.task.TaskType;
 import com.helianhealth.iflow.common.utils.SpringContextHolder;
 import com.helianhealth.iflow.core.config.IflowCoreConfiguration;
-import com.helianhealth.iflow.core.execution.evaluators.GraalJSEvaluator;
+import com.helianhealth.iflow.core.execution.script.ScriptEvaluator;
 import com.helianhealth.iflow.gateway.rest.GatewayConfiguration;
 import com.helianhealth.iflow.gateway.schedule.WorkflowScheduleConfiguration;
 import com.helianhealth.iflow.persistence.mysql.config.MySqlRepositoryConfiguration;
@@ -109,8 +109,8 @@ public class IflowAutoConfiguration {
 
         @Bean
         @ConditionalOnMissingBean
-        public ParamMapTransformer paramMapTransformer(GraalJSEvaluator evaluator) {
-            return new ParamMapTransformer(evaluator);
+        public ParamMapTransformer paramMapTransformer(ScriptEvaluator scriptEvaluator) {
+            return new ParamMapTransformer(scriptEvaluator);
         }
 
         @Bean(name = TaskType.TASK_TYPE_MAPPING)

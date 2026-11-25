@@ -1,6 +1,5 @@
 package com.helianhealth.iflow.tasks.mapping;
 
-import com.helianhealth.iflow.core.execution.evaluators.GraalJSEvaluator;
 import com.helianhealth.iflow.core.execution.script.ScriptEvaluator;
 import com.helianhealth.iflow.tasks.mapping.enums.MappingType;
 import com.helianhealth.iflow.tasks.mapping.enums.ParamType;
@@ -18,10 +17,10 @@ public class ParamMapTransformer {
 
     private static final String ROOT_PATH = "$";
 
-    private final GraalJSEvaluator expressionEvaluator;
+    private final ScriptEvaluator scriptEvaluator;
 
-    public ParamMapTransformer(GraalJSEvaluator expressionEvaluator) {
-        this.expressionEvaluator = expressionEvaluator;
+    public ParamMapTransformer(ScriptEvaluator scriptEvaluator) {
+        this.scriptEvaluator = scriptEvaluator;
     }
 
     public Map<String, Object> transform(List<ParamMappingConfig> configs, Object payload) {
@@ -86,8 +85,7 @@ public class ParamMapTransformer {
             case NAME -> ScriptEvaluator.deepCopy(
                     ParamSourceReader.read(payload, aliases, config.getSourceParamKey()));
             case CONSTANT -> ScriptEvaluator.deepCopy(config.getMappingRule());
-            case EXPRESSION -> expressionEvaluator.evaluateWithBindings(
-                    (String) config.getMappingRule(), payload, aliases);
+            case EXPRESSION -> scriptEvaluator.eval((String) config.getMappingRule(), payload, () -> aliases);
             default -> throw new IllegalArgumentException("结构节点不能按字段取值");
         };
     }
@@ -150,10 +148,15 @@ public class ParamMapTransformer {
                 case ARRAY_MAP -> {
                     requireType(type, ParamType.ARRAY);
                     ParamSourceReader.validate(config.getSourceParamKey(), aliases);
-                    ScriptEvaluator.validateBindingName(config.getItemAlias());
+                    String alias = config.getItemAlias();
+                    try {
+                        scriptEvaluator.validateBindingName(alias);
+                    } catch (IllegalArgumentException e) {
+                        throw error(path, "无效或保留的循环变量名: " + e.getMessage());
+                    }
                     Set<String> scope = new HashSet<>(aliases);
-                    if (!scope.add(config.getItemAlias())) {
-                        throw new IllegalArgumentException("循环变量与外层重名: " + config.getItemAlias());
+                    if (!scope.add(alias)) {
+                        throw new IllegalArgumentException("循环变量与外层重名: " + alias);
                     }
                     validateNode(config.getItemTemplate(), scope, path + "[]", true);
                 }

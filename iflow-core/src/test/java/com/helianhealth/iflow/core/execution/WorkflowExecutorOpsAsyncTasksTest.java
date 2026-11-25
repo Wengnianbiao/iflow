@@ -33,6 +33,8 @@ import com.helianhealth.iflow.core.model.WorkflowModel;
 import com.helianhealth.iflow.core.service.MetadataService;
 import com.helianhealth.iflow.core.utils.IDGenerator;
 import com.helianhealth.iflow.core.utils.ParametersUtils;
+import com.helianhealth.iflow.core.execution.script.ScriptEvaluator;
+import org.junit.jupiter.api.AutoClose;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -70,6 +72,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 class WorkflowExecutorOpsAsyncTasksTest {
+
+    @AutoClose
+    private final ScriptEvaluator scriptEvaluator = new ScriptEvaluator(List.of());
 
     @ParameterizedTest
     @CsvSource({"false,false,false", "false,true,false", "true,false,false", "true,true,false",
@@ -274,7 +279,7 @@ class WorkflowExecutorOpsAsyncTasksTest {
                 List.of(fork, join, mappingTask("after", "finished")));
         MemoryStore store = new MemoryStore();
         TestWorkflowExecutor executor = executor(definition,
-                new SystemTaskRegistry(Set.of(new Fork(), new Join(), new DoWhile(parameters, store.facade()),
+                new SystemTaskRegistry(Set.of(new Fork(), new Join(), new DoWhile(parameters, store.facade(), scriptEvaluator),
                         retryingHttp(attempts, 1, async), completedMapping(mappings))),
                 Map.of(TaskType.TASK_TYPE_FORK_JOIN, new ForkJoinTaskMapper(),
                         TaskType.TASK_TYPE_JOIN, new JoinTaskMapper(),

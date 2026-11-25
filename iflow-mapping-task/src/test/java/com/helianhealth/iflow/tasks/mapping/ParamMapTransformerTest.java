@@ -1,8 +1,9 @@
 package com.helianhealth.iflow.tasks.mapping;
 
-import com.helianhealth.iflow.core.execution.evaluators.GraalJSEvaluator;
+import com.helianhealth.iflow.core.execution.script.ScriptEvaluator;
 import com.helianhealth.iflow.tasks.mapping.enums.MappingType;
 import com.helianhealth.iflow.tasks.mapping.enums.ParamType;
+import org.junit.jupiter.api.AutoClose;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -21,7 +22,10 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ParamMapTransformerTest {
-    private final ParamMapTransformer transformer = new ParamMapTransformer(new GraalJSEvaluator());
+
+    @AutoClose
+    private final ScriptEvaluator scriptEvaluator = new ScriptEvaluator(List.of());
+    private final ParamMapTransformer transformer = new ParamMapTransformer(scriptEvaluator);
 
     @Test
     void objectAndExpressionAlwaysReadOriginalPayloadRegardlessOfFieldOrder() {
@@ -149,7 +153,7 @@ class ParamMapTransformerTest {
 
     @Test
     void invalidTemplatesAndAliasesAreRejectedEvenForEmptySources() {
-        for (String alias : List.of("$", "XML", "Crypto", "JSON", "for", "bad-name")) {
+        for (String alias : List.of("$", "XML", "JSON", "for", "bad-name")) {
             assertThrows(IllegalArgumentException.class, () -> map(loop("rows", "$", alias,
                     constant(null, ParamType.STRING, "a")), List.of()));
         }
@@ -160,6 +164,18 @@ class ParamMapTransformerTest {
                 name("unexpectedKey", ParamType.STRING, "item")), List.of()));
         assertThrows(IllegalArgumentException.class, () -> map(loop("rows", "$", "item",
                 name(null, ParamType.STRING, "other.code")), List.of()));
+    }
+
+    @Test
+    void aliasCollisionWithAnApplicationBindingReportsTheMappingPath() {
+        try (ScriptEvaluator evaluator = new ScriptEvaluator(List.of(() -> Map.of("Business", "app")))) {
+            var transformer = new ParamMapTransformer(evaluator);
+            var config = loop("rows", "$", "Business", constant(null, ParamType.STRING, "a"));
+            var failure = assertThrows(IllegalArgumentException.class,
+                    () -> transformer.transform(List.of(config), List.of()));
+            assertTrue(failure.getMessage().contains("$.rows"), failure.getMessage());
+            assertTrue(failure.getMessage().contains("与已注册的 JS 绑定重名: Business"), failure.getMessage());
+        }
     }
 
     @Test

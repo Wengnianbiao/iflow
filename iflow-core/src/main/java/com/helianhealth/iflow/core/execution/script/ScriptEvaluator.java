@@ -17,55 +17,41 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.time.Duration;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Deque;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /**
  * GraalJS 脚本求值器。
  *
- * <p>脚本内通过全局 {@code $} 访问任务 input；{@code XML} 提供 XML 解析/序列化；
- * {@code Crypto.md5} 按 UTF-8 计算小写 32 位十六进制摘要。
+ * <p>脚本通过 {@code $} 访问当前输入，{@code XML} 提供 XML 解析和序列化。
  */
-public final class ScriptEvaluator {
+public final class ScriptEvaluator implements AutoCloseable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ScriptEvaluator.class);
-    private static final XmlBridge XML_BRIDGE = new XmlBridge();
-    private static final CryptoBridge CRYPTO_BRIDGE = new CryptoBridge();
-
-    private static final int DEFAULT_MAX_EXECUTION_SECONDS = 4;
-    private static final int DEFAULT_CONTEXT_POOL_SIZE = 10;
-    private static final boolean DEFAULT_CONTEXT_POOL_ENABLED = false;
-    private static final int DEFAULT_SOURCE_CACHE_SIZE = 1024;
-
-    private static Duration maxExecutionTimeSeconds;
-    private static ExecutorService executorService;
-    private static BlockingQueue<ScriptExecutionContext> contextPool;
-    private static boolean contextPoolEnabled;
-    private static boolean initialized;
-    private static int sourceCacheMaxSize = DEFAULT_SOURCE_CACHE_SIZE;
+    private static final int SOURCE_CACHE_MAX_SIZE =
+            Integer.parseInt(getEnv("IFLOW_SCRIPT_SOURCE_CACHE_SIZE", "1024"));
 
     private static final Engine ENGINE = buildEngine();
     private static final ConcurrentMap<String, Source> SOURCE_CACHE = new ConcurrentHashMap<>();
 
     private static final Set<String> RESERVED_BINDINGS = Set.of(
-            "$", "XML", "Crypto", "arguments", "eval", "undefined", "NaN", "Infinity", "globalThis",
+            "$", "XML", "arguments", "eval", "undefined", "NaN", "Infinity", "globalThis",
             "Object", "Function", "Boolean", "Symbol", "Number", "BigInt", "Math", "Date",
             "String", "RegExp", "Array", "JSON", "Map", "Set", "WeakMap", "WeakSet",
             "Promise", "Reflect", "Proxy", "Intl", "Atomics", "WebAssembly", "console",
@@ -82,13 +68,63 @@ public final class ScriptEvaluator {
             "await", "implements", "package", "protected", "interface", "private", "public",
             "null", "true", "false");
 
-    public static void validateBindingName(String name) {
-        if (name == null || !name.matches("[A-Za-z_$][A-Za-z0-9_$]*") || RESERVED_BINDINGS.contains(name)) {
-            throw new IllegalArgumentException("无效或保留的循环变量名: " + name);
+    private final Map<String, Object> applicationBindings;
+    private final int maxExecutionSeconds;
+    private final ExecutorService executorService;
+    private final Deque<Context> contextPool;
+    private boolean closed;
+
+    public ScriptEvaluator(List<ScriptBindingProvider> providers) {
+        applicationBindings = readApplicationBindings(providers);
+        maxExecutionSeconds = Integer.parseInt(getEnv("IFLOW_SCRIPT_MAX_EXECUTION_SECONDS", "4"));
+        if (Boolean.parseBoolean(getEnv("IFLOW_SCRIPT_CONTEXT_POOL_ENABLED", "false"))) {
+            int poolSize = Integer.parseInt(getEnv("IFLOW_SCRIPT_CONTEXT_POOL_SIZE", "10"));
+            if (poolSize <= 0) {
+                throw new IllegalArgumentException("Script context pool size must be positive");
+            }
+            contextPool = new ArrayDeque<>(poolSize);
+            for (int i = 0; i < poolSize; i++) {
+                contextPool.addLast(createNewContext());
+            }
+        } else {
+            contextPool = null;
+        }
+        executorService = Executors.newCachedThreadPool();
+    }
+
+    public void validateBindingName(String name) {
+        validateIdentifier(name);
+        if (applicationBindings.containsKey(name)) {
+            throw new IllegalArgumentException("与已注册的 JS 绑定重名: " + name);
         }
     }
 
-    private ScriptEvaluator() {}
+    private static void validateIdentifier(String name) {
+        if (name == null || !name.matches("[A-Za-z_$][A-Za-z0-9_$]*") || RESERVED_BINDINGS.contains(name)) {
+            throw new IllegalArgumentException("无效或保留的 JS 绑定名称: " + name);
+        }
+    }
+
+    private static Map<String, Object> readApplicationBindings(List<ScriptBindingProvider> providers) {
+        Map<String, Object> registered = new LinkedHashMap<>();
+        for (ScriptBindingProvider provider : providers) {
+            for (Map.Entry<String, Object> binding : provider.bindings().entrySet()) {
+                String name = binding.getKey();
+                validateIdentifier(name);
+                if (registered.containsKey(name)) {
+                    throw new IllegalArgumentException("重复注册的 JS 绑定名称: " + name);
+                }
+                registered.put(name, binding.getValue());
+            }
+        }
+        if (!registered.isEmpty()) {
+            try (Context context = createNewContext()) {
+                validateAvailableNames(context.getBindings("js"), registered.keySet());
+            }
+        }
+        registered.put("XML", new XmlBridge());
+        return Collections.unmodifiableMap(registered);
+    }
 
     private static Engine buildEngine() {
         Engine engine =
@@ -106,61 +142,9 @@ public final class ScriptEvaluator {
         return engine;
     }
 
-    public static synchronized void initializeWithDefaults() {
-        if (initialized) {
-            return;
-        }
-        int maxSeconds =
-                Integer.parseInt(
-                        getEnv(
-                                "IFLOW_SCRIPT_MAX_EXECUTION_SECONDS",
-                                String.valueOf(DEFAULT_MAX_EXECUTION_SECONDS)));
-        int poolSize =
-                Integer.parseInt(
-                        getEnv(
-                                "IFLOW_SCRIPT_CONTEXT_POOL_SIZE",
-                                String.valueOf(DEFAULT_CONTEXT_POOL_SIZE)));
-        boolean poolEnabled =
-                Boolean.parseBoolean(
-                        getEnv(
-                                "IFLOW_SCRIPT_CONTEXT_POOL_ENABLED",
-                                String.valueOf(DEFAULT_CONTEXT_POOL_ENABLED)));
-        sourceCacheMaxSize =
-                Integer.parseInt(
-                        getEnv(
-                                "IFLOW_SCRIPT_SOURCE_CACHE_SIZE",
-                                String.valueOf(DEFAULT_SOURCE_CACHE_SIZE)));
-        initialize(maxSeconds, poolSize, poolEnabled, null);
-    }
-
-    public static synchronized void initialize(
-            int maxSeconds, int contextPoolSize, boolean poolEnabled, ExecutorService executor) {
-        if (initialized) {
-            return;
-        }
-        maxExecutionTimeSeconds = Duration.ofSeconds(maxSeconds);
-        executorService = executor != null ? executor : Executors.newCachedThreadPool();
-        contextPoolEnabled = poolEnabled;
-        if (!contextPoolEnabled) {
-            contextPool = null;
-        } else {
-            contextPool = new LinkedBlockingQueue<>(contextPoolSize);
-            for (int i = 0; i < contextPoolSize; i++) {
-                contextPool.offer(new ScriptExecutionContext(createNewContext()));
-            }
-        }
-        initialized = true;
-    }
-
     private static String getEnv(String name, String defaultValue) {
         String value = System.getenv(name);
         return value != null ? value : defaultValue;
-    }
-
-    private static void ensureInitialized() {
-        if (!initialized) {
-            initializeWithDefaults();
-        }
     }
 
     private static Context createNewContext() {
@@ -233,7 +217,7 @@ public final class ScriptEvaluator {
         if (cached != null) {
             return cached;
         }
-        if (SOURCE_CACHE.size() >= sourceCacheMaxSize) {
+        if (SOURCE_CACHE.size() >= SOURCE_CACHE_MAX_SIZE) {
             SOURCE_CACHE.clear();
         }
         Source source = Source.newBuilder("js", script, "inline").cached(true).buildLiteral();
@@ -241,82 +225,117 @@ public final class ScriptEvaluator {
         return existing != null ? existing : source;
     }
 
-    public static Boolean evalBool(String script, Object input) {
+    public Boolean evalBool(String script, Object input) {
         return toBoolean(eval(script, input));
     }
 
-    public static Object eval(String script, Object input) {
-        return eval(script, input, Map.of());
+    public Object eval(String script, Object input) {
+        return eval(script, input, Map::of);
     }
 
-    public static Object eval(String script, Object input, Map<String, Object> localBindings) {
-        localBindings.keySet().forEach(ScriptEvaluator::validateBindingName);
-        ensureInitialized();
-        final Source source = getSource(script);
-
-        if (contextPoolEnabled) {
-            ScriptExecutionContext scriptContext = null;
-            try {
-                scriptContext = contextPool.take();
-                final ScriptExecutionContext finalScriptContext = scriptContext;
-                finalScriptContext.prepareBindings(input, localBindings);
-                Future<Value> futureResult =
-                        executorService.submit(() -> finalScriptContext.getContext().eval(source));
-                Value value =
-                        futureResult.get(maxExecutionTimeSeconds.getSeconds(), TimeUnit.SECONDS);
-                return getObject(value);
-            } catch (TimeoutException e) {
-                interrupt(scriptContext.getContext());
-                throw new IllegalStateException(
-                        String.format(
-                                "Script not evaluated within %d seconds, interrupted.",
-                                maxExecutionTimeSeconds.getSeconds()));
-            } catch (ExecutionException ee) {
-                handlePolyglotException(ee);
-                return null;
-            } catch (InterruptedException ie) {
-                Thread.currentThread().interrupt();
-                throw new IllegalStateException("Script execution interrupted: " + ie.getMessage());
-            } finally {
-                if (scriptContext != null) {
-                    scriptContext.clearBindings();
-                    if (!contextPool.offer(scriptContext)) {
-                        scriptContext.getContext().close();
-                    }
-                }
-            }
+    public Object eval(String script, Object input, ScriptBindingProvider provider) {
+        Map<String, Object> bindings = new LinkedHashMap<>(applicationBindings);
+        bindings.put("$", input);
+        for (Map.Entry<String, Object> binding : provider.bindings().entrySet()) {
+            validateBindingName(binding.getKey());
+            bindings.put(binding.getKey(), binding.getValue());
         }
 
-        try (Context context = createNewContext()) {
-            final Value jsBindings = context.getBindings("js");
-            jsBindings.putMember("$", toScriptValue(input));
-            jsBindings.putMember("XML", XML_BRIDGE);
-            jsBindings.putMember("Crypto", CRYPTO_BRIDGE);
-            bindLocals(jsBindings, localBindings);
-            final Future<Value> futureResult = executorService.submit(() -> context.eval(source));
-            Value value = futureResult.get(maxExecutionTimeSeconds.getSeconds(), TimeUnit.SECONDS);
-            return getObject(value);
+        Source source = getSource(script);
+        Context context = acquireContext();
+        boolean finished = false;
+        Future<Object> evaluation = null;
+        try {
+            Value jsBindings = context.getBindings("js");
+            validateAvailableNames(jsBindings, bindings.keySet());
+            bindings.forEach((name, value) -> jsBindings.putMember(name, toScriptValue(deepCopy(value))));
+            evaluation = executorService.submit(() -> getObject(context.eval(source)));
+            Object result = evaluation.get(maxExecutionSeconds, TimeUnit.SECONDS);
+            finished = true;
+            return result;
         } catch (TimeoutException e) {
             throw new IllegalStateException(
-                    String.format(
-                            "Script not evaluated within %d seconds, interrupted.",
-                            maxExecutionTimeSeconds.getSeconds()));
-        } catch (ExecutionException ee) {
-            handlePolyglotException(ee);
-            return null;
-        } catch (InterruptedException ie) {
+                    "Script not evaluated within %d seconds, interrupted.".formatted(maxExecutionSeconds));
+        } catch (ExecutionException e) {
+            finished = true;
+            throw scriptFailure(e);
+        } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException("Script execution interrupted: " + ie.getMessage());
+            throw new IllegalStateException("Script execution interrupted", e);
+        } finally {
+            if (!finished && evaluation != null) {
+                evaluation.cancel(true);
+            }
+            releaseContext(context, bindings.keySet(), finished);
         }
     }
 
-    private static void bindLocals(Value bindings, Map<String, Object> locals) {
-        for (String name : locals.keySet()) {
+    private static void validateAvailableNames(Value bindings, Set<String> names) {
+        for (String name : names) {
             if (bindings.hasMember(name)) {
-                throw new IllegalArgumentException("循环变量与 JS 全局变量冲突: " + name);
+                throw new IllegalArgumentException("与现有 JS 全局变量重名: " + name);
             }
         }
-        locals.forEach((name, value) -> bindings.putMember(name, toScriptValue(value)));
+    }
+
+    private synchronized Context acquireContext() {
+        try {
+            while (!closed && contextPool != null && contextPool.isEmpty()) {
+                wait();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Script execution interrupted", e);
+        }
+        if (closed) {
+            throw new IllegalStateException("Script evaluator is closed");
+        }
+        return contextPool == null ? createNewContext() : contextPool.removeFirst();
+    }
+
+    private void releaseContext(Context context, Set<String> names, boolean finished) {
+        if (contextPool == null) {
+            context.close(!finished);
+        } else if (finished && clearBindings(context, names)) {
+            returnPooledContext(context);
+        } else {
+            try {
+                context.close(!finished);
+            } finally {
+                replacePooledContext();
+            }
+        }
+    }
+
+    private static boolean clearBindings(Context context, Set<String> names) {
+        try {
+            Value bindings = context.getBindings("js");
+            for (String name : names) {
+                bindings.removeMember(name);
+                if (bindings.hasMember(name)) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (RuntimeException e) {
+            LOGGER.warn("Could not clear script bindings; discarding JS context", e);
+            return false;
+        }
+    }
+
+    private synchronized void replacePooledContext() {
+        if (!closed) {
+            returnPooledContext(createNewContext());
+        }
+    }
+
+    private synchronized void returnPooledContext(Context context) {
+        if (closed) {
+            context.close();
+        } else {
+            contextPool.addLast(context);
+            notifyAll();
+        }
     }
 
     /** 显式暴露 JSON 成员，避免 Java Map 在 Object.keys / JSON.stringify 中表现为空对象。 */
@@ -374,19 +393,19 @@ public final class ScriptEvaluator {
         return stripped.doubleValue();
     }
 
-    private static void handlePolyglotException(ExecutionException ee) {
+    private static IllegalStateException scriptFailure(ExecutionException ee) {
         if (ee.getCause() instanceof PolyglotException pe) {
             SourceSection sourceSection = pe.getSourceLocation();
             if (sourceSection == null) {
-                throw new IllegalStateException("Error evaluating script: " + pe.getMessage());
+                return new IllegalStateException("Error evaluating script: " + pe.getMessage());
             }
-            throw new IllegalStateException(
+            return new IllegalStateException(
                     "Error evaluating script: "
                             + pe.getMessage()
                             + " at line "
                             + sourceSection.getStartLine());
         }
-        throw new IllegalStateException("Error evaluating script: " + ee.getMessage());
+        return new IllegalStateException("Error evaluating script: " + ee.getMessage());
     }
 
     private static Object getObject(Value value) {
@@ -436,42 +455,16 @@ public final class ScriptEvaluator {
         return output;
     }
 
-    private static void interrupt(Context context) {
-        try {
-            context.interrupt(Duration.ZERO);
-        } catch (TimeoutException ignored) {
-            // expected
-        }
-    }
-
-    private static final class ScriptExecutionContext {
-        private final Context context;
-        private final Value bindings;
-        private Set<String> localNames = Set.of();
-
-        ScriptExecutionContext(Context context) {
-            this.context = context;
-            this.bindings = context.getBindings("js");
-        }
-
-        Context getContext() {
-            return context;
-        }
-
-        void prepareBindings(Object input, Map<String, Object> locals) {
-            bindings.putMember("$", toScriptValue(input));
-            bindings.putMember("XML", XML_BRIDGE);
-            bindings.putMember("Crypto", CRYPTO_BRIDGE);
-            bindLocals(bindings, locals);
-            localNames = new HashSet<>(locals.keySet());
-        }
-
-        void clearBindings() {
-            localNames.forEach(bindings::removeMember);
-            localNames = Set.of();
-            bindings.removeMember("$");
-            bindings.removeMember("XML");
-            bindings.removeMember("Crypto");
+    @Override
+    public synchronized void close() {
+        closed = true;
+        notifyAll();
+        executorService.shutdownNow();
+        if (contextPool != null) {
+            Context context;
+            while ((context = contextPool.pollFirst()) != null) {
+                context.close();
+            }
         }
     }
 }

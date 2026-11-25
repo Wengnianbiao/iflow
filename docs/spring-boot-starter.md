@@ -97,3 +97,27 @@ public WorkflowSystemTask customHttpTask() {
 自定义 `MetadataDAO` 或 `ExecutionDAO` 时，默认对应 DAO 会退让。默认 MySQL 执行 DAO 通过 `MySqlIndexDAO` 在同一数据库事务内更新索引；替换整套执行存储时，需要同时提供匹配的 `ExecutionDAO` 与 `IndexDAO`。
 
 MySQL 持久化驱动由 `iflow-repository` 独立提供。Starter 默认依赖五个任务模块。若通过 Maven `exclusions` 排除某个 `iflow-*-task` 模块，Starter 会跳过该模块的装配；工作流定义应只使用已注册的任务类型。JDBC 模块携带的数据库驱动见 [JDBC 任务配置](jdbc-task.md)。
+
+## 注册 GraalJS 函数
+
+在宿主应用的组件扫描范围内实现 `ScriptBindingProvider` 并标注 `@Component`。引擎在应用启动时读取所有实现，`bindings()` 的键就是脚本中使用的名字。
+
+```java
+import com.helianhealth.iflow.core.execution.script.ScriptBindingProvider;
+import org.graalvm.polyglot.proxy.ProxyExecutable;
+import org.springframework.stereotype.Component;
+import java.util.Map;
+
+@Component
+public class BusinessJsBindings implements ScriptBindingProvider {
+    @Override
+    public Map<String, Object> bindings() {
+        return Map.of("normalizeCode",
+                (ProxyExecutable) args -> args[0].asString().trim());
+    }
+}
+```
+
+`INLINE`、使用 GraalJS 的 `SWITCH`、`DO_WHILE` 条件和 `MAPPING` 表达式都可以调用 `normalizeCode($.code)`。函数参数按脚本调用顺序传入。也可以绑定一个专用 Java 桥接对象，让脚本通过该对象的公开方法调用具有不同参数签名的函数。
+
+`$` 提供当前输入，`XML` 提供默认的 XML 桥接。绑定名称在同一个应用中必须唯一，并且不能覆盖内置名称。应用级绑定会被并发求值使用，桥接对象和函数应当支持并发调用。在 `MAPPING` 循环中，业务函数也能接收当前元素，例如 `normalizeCode(item.code)`。

@@ -28,6 +28,8 @@ import com.helianhealth.iflow.core.service.MetadataService;
 import com.helianhealth.iflow.core.utils.IDGenerator;
 import com.helianhealth.iflow.core.utils.ParametersUtils;
 import com.helianhealth.iflow.core.utils.TaskUtils;
+import com.helianhealth.iflow.core.execution.script.ScriptEvaluator;
+import org.junit.jupiter.api.AutoClose;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -56,6 +58,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WorkflowExecutorOpsThreadPoolTest {
+
+    @AutoClose
+    private final ScriptEvaluator scriptEvaluator = new ScriptEvaluator(List.of());
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
@@ -98,7 +103,7 @@ class WorkflowExecutorOpsThreadPoolTest {
         ParametersUtils parameters = new ParametersUtils(new ObjectMapper());
         AtomicReference<WorkflowModel> persistedWorkflow = new AtomicReference<>();
         ExecutionDAOFacade dao = executionDAOFacade(new AtomicReference<>(), persistedWorkflow);
-        DoWhile doWhile = new DoWhile(parameters, dao);
+        DoWhile doWhile = new DoWhile(parameters, dao, scriptEvaluator);
         SystemTaskRegistry registry = new SystemTaskRegistry(Set.of(
                 noop, new Fork(), new Join(), doWhile));
         DeciderService decider = boundedDecider(parameters, registry, Map.of(
@@ -660,7 +665,7 @@ class WorkflowExecutorOpsThreadPoolTest {
                 };
         ParametersUtils parametersUtils = new ParametersUtils(new ObjectMapper());
         DoWhile doWhile =
-                new DoWhile(parametersUtils, executionDAOFacade(new AtomicReference<>()));
+                new DoWhile(parametersUtils, executionDAOFacade(new AtomicReference<>()), scriptEvaluator);
         SystemTaskRegistry registry = new SystemTaskRegistry(Set.of(noop, doWhile));
         Map<String, TaskMapper> mappers =
                 Map.of(

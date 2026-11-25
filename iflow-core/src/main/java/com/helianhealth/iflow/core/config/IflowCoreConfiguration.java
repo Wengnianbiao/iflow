@@ -22,6 +22,8 @@ import com.helianhealth.iflow.core.execution.mapper.SwitchTaskMapper;
 import com.helianhealth.iflow.core.execution.mapper.TaskMapper;
 import com.helianhealth.iflow.core.execution.mapper.TerminateTaskMapper;
 import com.helianhealth.iflow.core.execution.mapper.WebServiceTaskMapper;
+import com.helianhealth.iflow.core.execution.script.ScriptBindingProvider;
+import com.helianhealth.iflow.core.execution.script.ScriptEvaluator;
 import com.helianhealth.iflow.core.execution.tasks.DoWhile;
 import com.helianhealth.iflow.core.execution.tasks.ExclusiveJoin;
 import com.helianhealth.iflow.core.execution.tasks.Fork;
@@ -100,6 +102,11 @@ public class IflowCoreConfiguration {
 
     public static final String TASK_MAPPERS_BY_TASK_TYPE = "taskMappersByTaskType";
     public static final String ASYNC_TASK_EXECUTOR = "asyncTaskExecutor";
+
+    @Bean
+    public ScriptEvaluator scriptEvaluator(List<ScriptBindingProvider> providers) {
+        return new ScriptEvaluator(providers);
+    }
 
     @Bean
     @ConditionalOnMissingBean(name = TASK_MAPPERS_BY_TASK_TYPE)

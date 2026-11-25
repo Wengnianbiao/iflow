@@ -9,6 +9,7 @@ import com.helianhealth.iflow.core.config.IflowCoreConfiguration;
 import com.helianhealth.iflow.core.dal.ExecutionDAOFacade;
 import com.helianhealth.iflow.core.execution.StartWorkflowInput;
 import com.helianhealth.iflow.core.execution.WorkflowExecutor;
+import com.helianhealth.iflow.core.execution.script.ScriptEvaluator;
 import com.helianhealth.iflow.core.execution.tasks.DoWhile;
 import com.helianhealth.iflow.core.execution.tasks.SystemTaskRegistry;
 import com.helianhealth.iflow.core.execution.tasks.WorkflowSystemTask;
@@ -190,6 +191,7 @@ class ExecutionIndexIntegrationTest {
                     new MapPropertySource("test", Map.of("agent.repository.vendor", "mysql")));
             context.registerBean(DataSource.class, () -> dataSource);
             context.registerBean(ObjectMapper.class, () -> mapper);
+            context.registerBean(ScriptEvaluator.class, () -> new ScriptEvaluator(List.of()));
             context.register(MySqlExecutionDAO.class, MySqlIndexDAO.class,
                     ExecutionDAOFacade.class, ParametersUtils.class, DoWhile.class, SystemTaskRegistry.class);
             context.registerBean("customAsyncTask", WorkflowSystemTask.class,

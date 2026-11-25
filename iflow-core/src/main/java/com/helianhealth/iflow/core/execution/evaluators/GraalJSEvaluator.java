@@ -17,16 +17,16 @@ public class GraalJSEvaluator implements Evaluator {
 
     public static final String NAME = "graaljs";
 
-    @Override
-    public Object evaluate(String expression, Map<String, Object> input) {
-        return evaluateWithBindings(expression, input, Map.of());
+    private final ScriptEvaluator scriptEvaluator;
+
+    public GraalJSEvaluator(ScriptEvaluator scriptEvaluator) {
+        this.scriptEvaluator = scriptEvaluator;
     }
 
-    public Object evaluateWithBindings(String expression, Object input, Map<String, Object> bindings) {
+    @Override
+    public Object evaluate(String expression, Map<String, Object> input) {
         log.debug("GraalJS evaluator -- expression: {}", expression);
-        Object inputCopy = ScriptEvaluator.deepCopy(input);
-        Object result = ScriptEvaluator.eval(expression, inputCopy,
-                (Map<String, Object>) ScriptEvaluator.deepCopy(bindings));
+        Object result = scriptEvaluator.eval(expression, input);
         log.debug("GraalJS evaluator -- result: {}", result);
         return result;
     }

@@ -1,6 +1,6 @@
 package com.helianhealth.iflow.core.execution.script;
 
-import com.helianhealth.iflow.core.execution.evaluators.GraalJSEvaluator;
+import org.junit.jupiter.api.AutoClose;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -11,47 +11,49 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ScriptEvaluatorBindingsTest {
-    private final GraalJSEvaluator evaluator = new GraalJSEvaluator();
+    @AutoClose
+    private final ScriptEvaluator evaluator = new ScriptEvaluator(List.of());
 
     @Test
     void bindingsAreAvailableAndDoNotLeakAfterSuccessOrFailure() {
-        assertEquals("P1:A", evaluator.evaluateWithBindings("$.id + ':' + item.code",
-                Map.of("id", "P1"), Map.of("item", Map.of("code", "A"))));
-        assertEquals("undefined", evaluator.evaluate("typeof item", Map.of()));
-        assertThrows(RuntimeException.class, () -> evaluator.evaluateWithBindings("throw new Error('test')",
-                Map.of(), Map.of("item", "A")));
-        assertEquals("undefined", evaluator.evaluate("typeof item", Map.of()));
-        assertEquals("B", evaluator.evaluateWithBindings("item", Map.of(), Map.of("item", "B")));
+        assertEquals("P1:A", evaluator.eval("$.id + ':' + item.code",
+                Map.of("id", "P1"), () -> Map.of("item", Map.of("code", "A"))));
+        assertEquals("undefined", evaluator.eval("typeof item", Map.of()));
+        assertThrows(RuntimeException.class, () -> evaluator.eval("throw new Error('test')",
+                Map.of(), () -> Map.of("item", "A")));
+        assertEquals("undefined", evaluator.eval("typeof item", Map.of()));
+        assertEquals("B", evaluator.eval("item", Map.of(), () -> Map.of("item", "B")));
     }
 
     @Test
     void reservedBindingsCannotReplaceExistingScriptGlobals() {
-        assertThrows(IllegalArgumentException.class, () -> evaluator.evaluateWithBindings("$", "root", Map.of("$", "other")));
-        assertThrows(IllegalArgumentException.class, () -> evaluator.evaluateWithBindings("JSON", Map.of(), Map.of("JSON", "other")));
-        assertEquals("{}", evaluator.evaluate("JSON.stringify({})", Map.of()));
+        assertThrows(IllegalArgumentException.class, () -> evaluator.eval("$", "root", () -> Map.of("$", "other")));
+        assertThrows(IllegalArgumentException.class, () -> evaluator.eval("JSON", Map.of(), () -> Map.of("JSON", "other")));
+        assertEquals("{}", evaluator.eval("JSON.stringify({})", Map.of()));
     }
 
     @Test
     void jsonInputsAndLoopVariablesExposeEnumerableMembersAndArrayMethods() {
         Map<String, Object> input = Map.of("items", List.of(Map.of("id", 1), Map.of("id", 2)));
-        assertEquals("[{\"id\":1},{\"id\":2}]", evaluator.evaluate("JSON.stringify($.items)", input));
-        assertEquals(List.of("id"), evaluator.evaluate("Object.keys($.items[0])", input));
-        assertEquals(List.of(2, 3), evaluator.evaluate("$.items.map(item => item.id + 1)", input));
-        assertEquals(true, evaluator.evaluate("Array.isArray($.items)", input));
-        assertEquals("{\"id\":1}", evaluator.evaluateWithBindings("JSON.stringify(item)", input, Map.of("item", Map.of("id", 1))));
-        assertEquals(input, evaluator.evaluate("$", input));
+        assertEquals("[{\"id\":1},{\"id\":2}]", evaluator.eval("JSON.stringify($.items)", input));
+        assertEquals(List.of("id"), evaluator.eval("Object.keys($.items[0])", input));
+        assertEquals(List.of(2, 3), evaluator.eval("$.items.map(item => item.id + 1)", input));
+        assertEquals(true, evaluator.eval("Array.isArray($.items)", input));
+        assertEquals("{\"id\":1}", evaluator.eval("JSON.stringify(item)", input, () -> Map.of("item", Map.of("id", 1))));
+        assertEquals(input, evaluator.eval("$", input));
     }
 
     @Test
-    void cryptoMd5ReturnsLowercaseUtf8Hex() {
-        assertEquals("900150983cd24fb0d6963f7d28e17f72", evaluator.evaluate("Crypto.md5('abc')", Map.of()));
-        assertEquals(
-                "e2467edd4a29bf5f621125683d83b1c1",
-                evaluator.evaluate(
-                        "Crypto.md5(($.appID || '') + 'examineregister' + '20260920')",
-                        Map.of("appID", "test")));
-        assertThrows(IllegalArgumentException.class,
-                () -> evaluator.evaluateWithBindings("Crypto", Map.of(), Map.of("Crypto", "other")));
+    void formerCryptoNameCanBeProvidedByTheCaller() {
+        assertEquals("undefined", evaluator.eval("typeof Crypto", Map.of()));
+        assertEquals("custom", evaluator.eval("Crypto", Map.of(), () -> Map.of("Crypto", "custom")));
+    }
+
+    @Test
+    void discardsContextWhenTheScriptPreventsBindingRemoval() {
+        evaluator.eval("Object.defineProperty(globalThis, 'item', { configurable: false }); void 0",
+                Map.of(), () -> Map.of("item", "first"));
+        assertEquals("second", evaluator.eval("item", Map.of(), () -> Map.of("item", "second")));
     }
 
     @Test
@@ -61,7 +63,7 @@ class ScriptEvaluatorBindingsTest {
         patient.put("tag", List.of("urgent", "lab"));
         assertEquals(
                 "<his><patient><code>82601230009</code><tag>urgent</tag><tag>lab</tag></patient></his>",
-                evaluator.evaluate("XML.stringify('his', $.payload)", Map.of("payload", Map.of("patient", patient))));
+                evaluator.eval("XML.stringify('his', $.payload)", Map.of("payload", Map.of("patient", patient))));
     }
 
     @Test
@@ -76,7 +78,7 @@ class ScriptEvaluatorBindingsTest {
         other.put("serviceProviderType", "OTHER");
         other.put("price", new BigDecimal("500"));
 
-        Object result = evaluator.evaluate(
+        Object result = evaluator.eval(
                 "($.items || []).filter(item => String(item?.serviceProviderType ?? '') === 'LIS')",
                 Map.of("items", List.of(lis, other)));
 
