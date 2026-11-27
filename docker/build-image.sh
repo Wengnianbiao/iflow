@@ -13,7 +13,6 @@ OUT_GZ="$OUT_DIR/iflow-2.0.0-linux-amd64.tar.gz"
 
 cd "$ROOT_DIR"
 
-echo "==> iflow-ui production build"
 if ! command -v pnpm >/dev/null 2>&1; then
   echo "pnpm not found; install pnpm before packaging the console UI" >&2
   exit 1
@@ -23,11 +22,14 @@ fi
   if [ ! -d node_modules ]; then
     pnpm install
   fi
+  echo "==> iflow-ui tests"
+  pnpm test
+  echo "==> iflow-ui production build"
   pnpm build
 )
 
-echo "==> maven package"
-mvn -Pdemo -pl iflow-demo -am clean package -Dmaven.test.skip=true
+echo "==> maven tests and package"
+mvn -Pdemo -pl iflow-demo -am clean package
 
 if [ ! -f "$ROOT_DIR/iflow-demo/target/iflow.jar" ]; then
   echo "missing iflow-demo/target/iflow.jar" >&2

@@ -11,7 +11,7 @@ const root = fileURLToPath(new URL('..', import.meta.url))
 const requireApp = createRequire(`${root}/package.json`)
 const esbuild = createRequire(requireApp.resolve('vite'))('esbuild')
 const uiExports = {
-  forms: ['DoWhileTaskForm', 'ForkJoinTaskForm', 'HTTPTaskForm', 'INLINETaskForm', 'JDBCTaskForm', 'JoinTaskForm', 'ParamMapTaskForm', 'SPITaskForm', 'SwitchTaskForm', 'WebServiceTaskForm'],
+  forms: ['DoWhileTaskForm', 'ForkJoinTaskForm', 'HTTPTaskForm', 'INLINETaskForm', 'JDBCTaskForm', 'JoinTaskForm', 'ParamMapTaskForm', 'SetKeywordTaskForm', 'SPITaskForm', 'SwitchTaskForm', 'WebServiceTaskForm'],
   cards: ['HTTPTaskCard', 'INLINETaskCard', 'JDBCTaskCard', 'MAPPINGTaskCard', 'SPITaskCard', 'WebServiceTaskCard'],
 }
 const built = await esbuild.build({

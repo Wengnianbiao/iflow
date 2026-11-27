@@ -94,13 +94,13 @@ agent:
 
 ### Docker 演示
 
-手动执行以下命令，按需构建 demo 镜像和导出包：
+安装 Node.js 22 LTS、pnpm 和 Docker 后，执行以下命令构建 demo 镜像和导出包：
 
 ```bash
 ./docker/build-image.sh
 ```
 
-该脚本显式启用 Maven `demo` profile，普通 Maven 构建不会构建 demo 镜像。
+脚本先运行前端全量测试并构建前端，再启用 Maven `demo` profile 执行后端测试和打包。测试失败时，脚本会在构建镜像前退出。
 
 ## 🏗️ 架构设计
 
